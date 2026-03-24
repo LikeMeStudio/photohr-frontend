@@ -554,11 +554,13 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="field-row">
     <div class="field" style="margin-bottom:12px">
       <div class="fl">Город</div>
-      <input class="fin" id="nv-city" placeholder="Москва" autocomplete="off"/>
+      <input class="fin" id="nv-city" placeholder="Москва" autocomplete="off" list="nv-cities"/>
+      <datalist id="nv-cities"></datalist>
     </div>
     <div class="field" style="margin-bottom:12px">
       <div class="fl">Категория</div>
-      <input class="fin" id="nv-category" placeholder="Океанариумы" autocomplete="off"/>
+      <input class="fin" id="nv-category" placeholder="Океанариумы" autocomplete="off" list="nv-cats"/>
+      <datalist id="nv-cats"></datalist>
     </div>
   </div>
   <div class="modal-footer">
@@ -1770,7 +1772,7 @@ function renderInfoTab(ph){
   }).join('');
 
   const addVenueBtn = can('admin') ? `
-    <button class="btn btn-ghost" style="width:100%;margin-top:4px;font-size:13px" onclick="document.getElementById('new-venue-modal').classList.add('open')">+ Добавить площадку в справочник</button>` : '';
+    <button class="btn btn-ghost" style="width:100%;margin-top:4px;font-size:13px" onclick="openNewVenueModal()">+ Добавить площадку в справочник</button>` : '';
 
   if(!isEditor) return `
     ${photoBlock}
@@ -2225,6 +2227,18 @@ async function createPhotographer(){
 }
 
 // ── VENUE ──
+function openNewVenueModal(){
+  // Очищаем поля
+  ['nv-name','nv-city','nv-category'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  // Заполняем datalist городов и категорий из существующих площадок
+  const cities = [...new Set(venues.map(v=>v.city).filter(Boolean))].sort();
+  const cats = [...new Set(venues.map(v=>v.category).filter(Boolean))].sort();
+  document.getElementById('nv-cities').innerHTML = cities.map(c=>`<option value="${c}">`).join('');
+  document.getElementById('nv-cats').innerHTML = cats.map(c=>`<option value="${c}">`).join('');
+  document.getElementById('new-venue-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('nv-name').focus(), 100);
+}
+
 async function createVenue(){
   const name = document.getElementById('nv-name').value.trim();
   if(!name) return alert('Введите название');
@@ -2573,7 +2587,7 @@ function renderAdminVenues(){
     </div>`;
 
   content.innerHTML = `
-    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="document.getElementById('new-venue-modal').classList.add('open')">+ Добавить площадку</button>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewVenueModal()">+ Добавить площадку</button>
     ${sortedCats.map(cat => `
       <div style="margin-bottom:16px">
         <div style="font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
