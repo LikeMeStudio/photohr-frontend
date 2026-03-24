@@ -2687,8 +2687,11 @@ function openEditVenue(vid){
         <label for="ev-active" style="font-size:14px;cursor:pointer">Активна (видна в системе)</label>
       </div>
       <div class="modal-footer" style="justify-content:space-between">
-        <button class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Отмена</button>
-        <button class="btn btn-primary" onclick="saveEditVenue('${v.id}')">Сохранить</button>
+        <button class="btn btn-danger" style="font-size:12px" onclick="deleteVenue('${v.id}','${v.name.replace(/'/g,"\\'")}')">Удалить площадку</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Отмена</button>
+          <button class="btn btn-primary" onclick="saveEditVenue('${v.id}')">Сохранить</button>
+        </div>
       </div>
     </div>
   `;
@@ -2707,6 +2710,17 @@ async function saveEditVenue(vid){
     await loadVenues();
     renderAdminVenues();
     showToast('Площадка обновлена');
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function deleteVenue(vid, name){
+  if(!confirm(`Удалить площадку «${name}»?\n\nЕсли площадка привязана к фотографам — удаление невозможно. Сначала скройте её.`)) return;
+  try {
+    await api('DELETE', `/venues/${vid}`);
+    document.getElementById('archived-user-modal').classList.remove('open');
+    await loadVenues();
+    renderAdminVenues();
+    showToast('Площадка удалена');
   } catch(e){ showToast(e.message, true); }
 }
 
