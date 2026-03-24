@@ -640,10 +640,10 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </div>
 </div>
 
-<!-- Модалка архивного пользователя -->
-<div class="modal-overlay" id="archived-user-modal">
+<!-- Модалка архивного пользователя / редактирования площадки -->
+<div class="overlay" id="archived-user-modal" onclick="if(event.target===this)this.classList.remove('open')">
 <div class="modal" style="max-height:90vh;display:flex;flex-direction:column">
-  <div class="modal-title"><span>Архивный пользователь</span><button class="dr-close" onclick="document.getElementById('archived-user-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span id="aux-modal-title">Архивный пользователь</span><button class="dr-close" onclick="document.getElementById('archived-user-modal').classList.remove('open')">×</button></div>
   <div id="archived-user-content" style="flex:1;overflow-y:auto;padding-right:4px"></div>
 </div>
 </div>
@@ -2500,6 +2500,7 @@ function openArchivedUser(id){
       <button class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Закрыть</button>
     </div>
   `;
+  document.getElementById('aux-modal-title').textContent = 'Архивный пользователь';
   document.getElementById('archived-user-modal').classList.add('open');
   loadArchivedUserAudit(id);
 }
@@ -2601,8 +2602,7 @@ function openEditVenue(vid){
   const catOptions = cats.map(c=>`<option value="${c}">`).join('');
 
   const modal = document.getElementById('archived-user-modal');
-  const titleEl = modal.querySelector('.modal-title span');
-  if(titleEl) titleEl.textContent = 'Редактировать площадку';
+  document.getElementById('aux-modal-title').textContent = 'Редактировать площадку';
 
   document.getElementById('archived-user-content').innerHTML = `
     <div style="padding:4px 0">
