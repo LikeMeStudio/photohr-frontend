@@ -2321,7 +2321,7 @@ async function loadAdminHistory(){
 function renderAdminUsers(){
   const content = document.getElementById('tab-content');
   const active = allUsers.filter(u => u.is_active);
-  const pending = allUsers.filter(u => !u.is_active && !u.email?.includes('@archived.local'));
+  const pending = allUsers.filter(u => !u.is_active && u.role !== 'archived');
 
   content.innerHTML = `
     ${pending.length ? `
@@ -2402,7 +2402,7 @@ async function saveEditUser(){
 async function deleteUserConfirm(){
   const id = document.getElementById('eu-id').value;
   const u = allUsers.find(x=>x.id===id);
-  if(!confirm(`Переместить «${u?.name}» в архив?\n\nПользователь потеряет доступ, email освободится для повторной регистрации.\nКомментарии и история изменений сохранятся.`)) return;
+  if(!confirm(`Переместить «${u?.name}» в архив?\n\nПользователь потеряет доступ. Email останется заблокирован.\nМожно будет восстановить из архива.\n\nДля полного удаления и освобождения email — используйте «Удалить навсегда» в разделе Архив.`)) return;
   try {
     await api('DELETE', `/users/${id}/hard`);
     document.getElementById('edit-user-modal').classList.remove('open');
@@ -2423,26 +2423,23 @@ async function renderAdminArchive(){
     }
     content.innerHTML = `
       <div style="font-size:13px;color:var(--text3);margin-bottom:12px">
-        Архивные пользователи (${archived.length}). Email освобождён для повторной регистрации.
+        Архивные пользователи (${archived.length}). Email заблокирован для повторной регистрации.
       </div>
       ${archived.map(u=>{
-        const displayName = u.name.replace(/ \(архив\)$/,'');
         const d = u.last_login
           ? new Date(u.last_login).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'})
           : new Date(u.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});
         return `<div class="user-row" style="opacity:0.7;cursor:pointer" onclick="openArchivedUser('${u.id}')">
           <div style="flex:1">
             <div class="user-row-name" style="display:flex;align-items:center;gap:8px">
-              ${displayName}
+              ${u.name}
               <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(90,90,114,.15);color:var(--text3)">архив</span>
             </div>
-            <div class="user-row-email">${d}</div>
+            <div class="user-row-email">${u.email} · ${d}</div>
           </div>
-          <button class="btn btn-danger" style="padding:6px 12px;font-size:12px" onclick="event.stopPropagation();permanentDeleteUser('${u.id}','${displayName.replace(/'/g,"\\'")}')">Удалить навсегда</button>
         </div>`;
       }).join('')}
     `;
-    // Сохраняем архивных для открытия карточки
     window._archivedUsers = archived;
   } catch(e){
     content.innerHTML = `<div style="color:var(--rank3);padding:12px">${e.message}</div>`;
@@ -2452,24 +2449,17 @@ async function renderAdminArchive(){
 function openArchivedUser(id){
   const u = (window._archivedUsers || []).find(x=>x.id===id);
   if(!u) return;
-  const displayName = u.name.replace(/ \(архив\)$/,'');
   const created = new Date(u.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   const lastLogin = u.last_login ? new Date(u.last_login).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'нет данных';
 
-  // Загружаем историю действий этого пользователя
   const modal = document.getElementById('edit-user-modal');
-  modal.querySelector('.drawer-header span').textContent = 'Архивный пользователь';
   modal.innerHTML = `
     <div class="drawer-header"><span>Архивный пользователь</span><button class="dr-close" onclick="document.getElementById('edit-user-modal').classList.remove('open')">×</button></div>
     <div style="padding:4px 0">
       <div style="text-align:center;margin-bottom:16px">
         <div style="width:56px;height:56px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px;color:var(--text3)">📦</div>
-        <div style="font-size:17px;font-weight:600">${displayName}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">В архиве</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Роль до архивации</div>
-        <div style="font-size:14px">${u.role === 'archived' ? '—' : (ROLE_LABELS[u.role] || u.role)}</div>
+        <div style="font-size:17px;font-weight:600">${u.name}</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">${u.email}</div>
       </div>
       <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Дата регистрации</div>
@@ -2479,20 +2469,44 @@ function openArchivedUser(id){
         <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Последний вход</div>
         <div style="font-size:14px">${lastLogin}</div>
       </div>
+      <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Восстановить с ролью</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="fselect" id="restore-role-${u.id}" style="flex:1;font-size:13px">
+            <option value="viewer">viewer</option>
+            <option value="manager">manager</option>
+            <option value="editor">editor</option>
+            <option value="hr_director">hr_director</option>
+            <option value="admin">admin</option>
+          </select>
+          <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="restoreUser('${u.id}')">♻️ Восстановить</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Пользователю нужно будет сбросить пароль через «Забыли пароль»</div>
+      </div>
       <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:16px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">История действий</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">История</div>
         <div id="archived-user-audit" style="font-size:13px;color:var(--text2)">Загрузка...</div>
       </div>
       <div class="modal-footer" style="justify-content:space-between">
-        <button class="btn btn-danger" onclick="document.getElementById('edit-user-modal').classList.remove('open');permanentDeleteUser('${u.id}','${displayName.replace(/'/g,"\\'")}')">Удалить навсегда</button>
+        <button class="btn btn-danger" onclick="document.getElementById('edit-user-modal').classList.remove('open');permanentDeleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">Удалить навсегда</button>
         <button class="btn btn-ghost" onclick="document.getElementById('edit-user-modal').classList.remove('open')">Закрыть</button>
       </div>
     </div>
   `;
   modal.classList.add('open');
-
-  // Подгружаем аудит
   loadArchivedUserAudit(id);
+}
+
+async function restoreUser(id){
+  const role = document.getElementById('restore-role-'+id)?.value || 'viewer';
+  if(!confirm('Восстановить пользователя с ролью «' + role + '»?')) return;
+  try {
+    await api('POST', `/users/${id}/restore`, { role });
+    document.getElementById('edit-user-modal').classList.remove('open');
+    await loadUsers();
+    renderAdminArchive();
+    showToast('Пользователь восстановлен');
+  } catch(e){ showToast(e.message, true); }
 }
 
 async function loadArchivedUserAudit(userId){
@@ -2501,7 +2515,7 @@ async function loadArchivedUserAudit(userId){
   try {
     const rows = await api('GET', `/audit?entity=user&entity_id=${userId}&limit=20`);
     if(!rows.length){ el.textContent = 'Нет записей'; return; }
-    const ACTION_LABEL = { create:'создан', update:'изменён', deactivate:'деактивирован', anonymize:'архивирован', archive:'архивирован', login:'вошёл', approve:'одобрен', reject:'отклонён' };
+    const ACTION_LABEL = { create:'создан', update:'изменён', deactivate:'деактивирован', anonymize:'архивирован', login:'вошёл', approve:'одобрен', reject:'отклонён' };
     el.innerHTML = rows.map(r=>{
       const d = new Date(r.created_at).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
       const action = ACTION_LABEL[r.action]||r.action;
