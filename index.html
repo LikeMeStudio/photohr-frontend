@@ -2286,16 +2286,17 @@ function switchAdminTab(i){
 
 async function renderAdminHistory(){
   const content = document.getElementById('tab-content');
+  window._historyPage = 0;
   content.innerHTML = `
     <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select id="hist-entity" class="fselect" style="width:160px" onchange="loadAdminHistory()">
+      <select id="hist-entity" class="fselect" style="width:160px" onchange="window._historyPage=0;loadAdminHistory()">
         <option value="">Все изменения</option>
         <option value="photographer">Фотографы</option>
         <option value="user">Пользователи</option>
         <option value="venue">Площадки</option>
         <option value="comment">Комментарии</option>
       </select>
-      <select id="hist-limit" class="fselect" style="width:100px" onchange="loadAdminHistory()">
+      <select id="hist-limit" class="fselect" style="width:100px" onchange="window._historyPage=0;loadAdminHistory()">
         <option value="50">50 записей</option>
         <option value="100">100 записей</option>
         <option value="200">200 записей</option>
@@ -2305,18 +2306,23 @@ async function renderAdminHistory(){
     <div id="admin-audit-list" style="font-size:13px">
       <div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>
     </div>
+    <div id="hist-pagination" style="display:flex;justify-content:center;gap:12px;padding:16px 0"></div>
   `;
   loadAdminHistory();
 }
 
 async function loadAdminHistory(){
   const entity = document.getElementById('hist-entity')?.value || '';
-  const limit  = document.getElementById('hist-limit')?.value  || '50';
+  const limit  = parseInt(document.getElementById('hist-limit')?.value || '50');
+  const page   = window._historyPage || 0;
+  const offset  = page * limit;
   const list   = document.getElementById('admin-audit-list');
+  const pag    = document.getElementById('hist-pagination');
   if(!list) return;
   try {
-    const rows = await api('GET', `/audit?${entity?'entity='+entity+'&':''}limit=${limit}`);
-    if(!rows.length){ list.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">Нет записей</div>'; return; }
+    const rows = await api('GET', `/audit?${entity?'entity='+entity+'&':''}limit=${limit}&offset=${offset}`);
+    if(!rows.length && page === 0){ list.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">Нет записей</div>'; if(pag) pag.innerHTML=''; return; }
+    if(!rows.length && page > 0){ window._historyPage = Math.max(0, page-1); loadAdminHistory(); return; }
 
     const ACTION_LABEL = { create:'создан', update:'изменён', deactivate:'деактивирован', anonymize:'архивирован', login:'вошёл', hard_delete:'удалён полностью', soft_delete:'комментарий скрыт', approve:'одобрен', reject:'отклонён' };
     const ENTITY_LABEL = { photographer:'👤', user:'🔑', venue:'📍', comment:'💬' };
@@ -2339,6 +2345,16 @@ async function loadAdminHistory(){
         </div>
       </div>`;
     }).join('');
+
+    // Пагинация
+    if(pag) {
+      const hasNext = rows.length === limit;
+      pag.innerHTML = `
+        ${page > 0 ? `<button class="btn btn-ghost" style="font-size:13px;padding:6px 16px" onclick="window._historyPage--;loadAdminHistory()">← Назад</button>` : ''}
+        <span style="color:var(--text3);font-size:13px;display:flex;align-items:center">Стр. ${page+1}</span>
+        ${hasNext ? `<button class="btn btn-ghost" style="font-size:13px;padding:6px 16px" onclick="window._historyPage++;loadAdminHistory()">Вперёд →</button>` : ''}
+      `;
+    }
   } catch(e){ list.innerHTML=`<div style="color:var(--rank3);padding:12px">${e.message}</div>`; }
 }
 
