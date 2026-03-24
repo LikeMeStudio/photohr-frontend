@@ -2549,20 +2549,107 @@ async function permanentDeleteUser(id, name){
 
 function renderAdminVenues(){
   const content = document.getElementById('tab-content');
+
+  // Группируем по категории
+  const grouped = {};
+  const noCategory = [];
+  venues.forEach(v => {
+    const cat = v.category || '';
+    if (!cat) { noCategory.push(v); return; }
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(v);
+  });
+
+  const sortedCats = Object.keys(grouped).sort();
+
+  const renderVenue = (v) => `
+    <div class="user-row ${!v.is_active?'inactive-row':''}" style="cursor:pointer" onclick="openEditVenue('${v.id}')">
+      <div style="flex:1">
+        <div class="user-row-name">${v.name}</div>
+        <div class="user-row-email">${v.city||''} ${!v.is_active?'· <span style="color:var(--rank3)">скрыта</span>':''}</div>
+      </div>
+      <span style="font-size:18px;color:var(--text3)">›</span>
+    </div>`;
+
   content.innerHTML = `
     <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="document.getElementById('new-venue-modal').classList.add('open')">+ Добавить площадку</button>
-    ${venues.map(v=>`
-      <div class="user-row ${!v.is_active?'inactive-row':''}">
-        <div>
-          <div class="user-row-name">${v.name}</div>
-          <div class="user-row-email">${v.city||'&nbsp;'} ${!v.is_active?'· неактивна':''}</div>
+    ${sortedCats.map(cat => `
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          📁 ${cat} <span style="color:var(--text3);font-weight:400">(${grouped[cat].length})</span>
         </div>
-        <button class="btn ${v.is_active?'btn-danger':'btn-ghost'}" style="padding:6px 10px;font-size:12px" onclick="toggleVenue('${v.id}',${!v.is_active})">
-          ${v.is_active?'Скрыть':'Показать'}
-        </button>
+        ${grouped[cat].map(renderVenue).join('')}
       </div>
     `).join('')}
+    ${noCategory.length ? `
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text3);margin-bottom:8px">
+          Без категории (${noCategory.length})
+        </div>
+        ${noCategory.map(renderVenue).join('')}
+      </div>
+    ` : ''}
   `;
+}
+
+function openEditVenue(vid){
+  const v = venues.find(x=>x.id===vid);
+  if(!v) return;
+
+  // Собираем уникальные категории для подсказок
+  const cats = [...new Set(venues.map(x=>x.category).filter(Boolean))].sort();
+  const catOptions = cats.map(c=>`<option value="${c}">`).join('');
+
+  const modal = document.getElementById('archived-user-modal');
+  const titleEl = modal.querySelector('.modal-title span');
+  if(titleEl) titleEl.textContent = 'Редактировать площадку';
+
+  document.getElementById('archived-user-content').innerHTML = `
+    <div style="padding:4px 0">
+      <div class="field" style="margin-bottom:14px">
+        <div class="fl">Название *</div>
+        <input class="fin" id="ev-name" value="${v.name}" placeholder="Название площадки"/>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px">
+        <div class="field" style="flex:1">
+          <div class="fl">Город</div>
+          <input class="fin" id="ev-city" value="${v.city||''}" placeholder="Москва" list="ev-cities"/>
+          <datalist id="ev-cities">
+            <option value="Москва"><option value="Санкт-Петербург">
+          </datalist>
+        </div>
+        <div class="field" style="flex:1">
+          <div class="fl">Категория</div>
+          <input class="fin" id="ev-category" value="${v.category||''}" placeholder="Океанариумы" list="ev-cats"/>
+          <datalist id="ev-cats">${catOptions}</datalist>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+        <input type="checkbox" id="ev-active" ${v.is_active?'checked':''} style="cursor:pointer"/>
+        <label for="ev-active" style="font-size:14px;cursor:pointer">Активна (видна в системе)</label>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Отмена</button>
+        <button class="btn btn-primary" onclick="saveEditVenue('${v.id}')">Сохранить</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+async function saveEditVenue(vid){
+  const name = document.getElementById('ev-name').value.trim();
+  const city = document.getElementById('ev-city').value.trim();
+  const category = document.getElementById('ev-category').value.trim();
+  const is_active = document.getElementById('ev-active').checked;
+  if(!name) return showToast('Название обязательно', true);
+  try {
+    await api('PATCH', `/venues/${vid}`, { name, city, category, is_active });
+    document.getElementById('archived-user-modal').classList.remove('open');
+    await loadVenues();
+    renderAdminVenues();
+    showToast('Площадка обновлена');
+  } catch(e){ showToast(e.message, true); }
 }
 
 async function changeUserRole(uid, role){
