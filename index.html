@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PhotoHR</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
 :root{
   --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;
@@ -328,8 +328,6 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
         Зарегистрироваться через Google
       </button>
     </div>
-    <!-- Скрытая Google-кнопка (fallback при FedCM cooldown) -->
-    <div id="google-hidden-btn" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none"></div>
     <!-- ОЖИДАНИЕ -->
     <div id="auth-pending" style="display:none">
       <div class="pending-screen">
@@ -805,74 +803,67 @@ function showPendingScreen(html, verified) {
     : '<span class="pending-badge unverified">📧 Подтвердите email</span>';
 }
 
-// Google Sign-In
+// Google Sign-In (OAuth 2.0 popup — не зависит от FedCM)
 const GOOGLE_CLIENT_ID = '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com';
-let gsiInitialized = false;
-let gsiCooldown = false;
-
-function initGoogleSignIn() {
-  if (gsiInitialized || !GOOGLE_CLIENT_ID || typeof google === 'undefined') return;
-  try {
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleResponse,
-      cancel_on_tap_outside: true,
-    });
-    const hiddenDiv = document.getElementById('google-hidden-btn');
-    if (hiddenDiv) {
-      google.accounts.id.renderButton(hiddenDiv, {
-        type: 'standard', theme: 'filled_black', size: 'large', width: 360, text: 'signin_with',
-      });
-    }
-    gsiInitialized = true;
-  } catch (e) { console.warn('GSI init failed:', e); }
-}
 
 function googleSignIn() {
   if (!GOOGLE_CLIENT_ID) { showLoginErr('Google авторизация ещё не настроена.'); return; }
-  if (typeof google === 'undefined' || !google.accounts) { showLoginErr('Google SDK не загружен. Проверьте интернет.'); return; }
-  initGoogleSignIn();
 
-  // Если FedCM в кулдауне — сразу используем fallback кнопку
-  if (gsiCooldown) {
-    const fb = document.querySelector('#google-hidden-btn div[role="button"]');
-    if (fb) fb.click(); else showLoginErr('Google временно недоступен. Подождите и попробуйте снова.');
+  const redirectUri = window.location.origin + window.location.pathname;
+  const state = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  sessionStorage.setItem('google_oauth_state', state);
+
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'id_token',
+    scope: 'openid email profile',
+    nonce: state,
+    prompt: 'select_account',
+  });
+
+  // Открываем popup по центру экрана
+  const w = 500, h = 600;
+  const left = (screen.width - w) / 2;
+  const top = (screen.height - h) / 2;
+  const popup = window.open(
+    'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString(),
+    'google_signin',
+    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
+  );
+
+  if (!popup) {
+    showLoginErr('Разрешите всплывающие окна для входа через Google.');
     return;
   }
 
-  google.accounts.id.prompt((n) => {
-    if (n.isNotDisplayed()) {
-      const reason = n.getNotDisplayedReason();
-      console.warn('GSI not displayed:', reason);
-      if (reason === 'suppressed_by_user' || reason === 'cool_down') {
-        gsiCooldown = true;
-        setTimeout(() => { gsiCooldown = false; }, 5 * 60 * 1000);
+  // Слушаем возврат из popup
+  const checkPopup = setInterval(() => {
+    try {
+      if (popup.closed) { clearInterval(checkPopup); return; }
+      const popupUrl = popup.location.href;
+      if (popupUrl && popupUrl.startsWith(redirectUri)) {
+        clearInterval(checkPopup);
+        const hash = popup.location.hash.substring(1);
+        popup.close();
+        const params = new URLSearchParams(hash);
+        const idToken = params.get('id_token');
+        if (idToken) {
+          handleGoogleToken(idToken);
+        } else {
+          const error = params.get('error');
+          if (error && error !== 'access_denied') showLoginErr('Ошибка Google: ' + error);
+        }
       }
-      // Любая причина — fallback на скрытую кнопку
-      const fb = document.querySelector('#google-hidden-btn div[role="button"]');
-      if (fb) fb.click();
-      else showLoginErr('Для входа через Google войдите в аккаунт Google в браузере.');
-    }
-    if (n.isSkippedMoment()) {
-      console.warn('GSI skipped:', n.getSkippedReason());
-      gsiCooldown = true;
-      setTimeout(() => { gsiCooldown = false; }, 5 * 60 * 1000);
-    }
-    if (n.isDismissedMoment()) {
-      const reason = n.getDismissedReason();
-      console.warn('GSI dismissed:', reason);
-      if (reason === 'credential_returned') return;
-      gsiCooldown = true;
-      setTimeout(() => { gsiCooldown = false; }, 5 * 60 * 1000);
-    }
-  });
+    } catch (e) { /* cross-origin — ждём */ }
+  }, 200);
 }
 
-async function handleGoogleResponse(response) {
+async function handleGoogleToken(credential) {
   try {
     const res = await fetch(API + '/auth/google', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ credential: response.credential }),
+      body: JSON.stringify({ credential }),
     });
     const data = await res.json();
     if (res.status === 403 && data.pending) {
@@ -886,6 +877,19 @@ async function handleGoogleResponse(response) {
     currentUser = data.user;
     startApp();
   } catch (e) { showLoginErr(e.message); }
+}
+
+// Проверяем, не вернулся ли Google OAuth в главное окно (если popup не сработал)
+function checkGoogleOAuthReturn() {
+  const hash = window.location.hash;
+  if (hash && hash.includes('id_token=')) {
+    window.history.replaceState({}, '', window.location.pathname);
+    const params = new URLSearchParams(hash.substring(1));
+    const idToken = params.get('id_token');
+    if (idToken) handleGoogleToken(idToken);
+    return true;
+  }
+  return false;
 }
 
 // Проверяем URL на ?verify=token при загрузке
@@ -2546,12 +2550,11 @@ document.addEventListener('keydown', e=>{
 
 // ── BOOT ──
 (async()=>{
+  // Проверяем возврат Google OAuth (если пришёл id_token в hash)
+  if (checkGoogleOAuthReturn()) return;
   await checkEmailVerification();
   const ok = await tryAutoLogin();
   if(ok) startApp();
-  // Инициализируем Google Sign-In один раз
-  if (typeof google !== 'undefined') initGoogleSignIn();
-  else window.addEventListener('load', () => { setTimeout(initGoogleSignIn, 500); });
 })();
 </script>
 </body>
