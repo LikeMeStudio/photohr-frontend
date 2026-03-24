@@ -631,7 +631,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     <label for="eu-active" style="font-size:14px;cursor:pointer">Активен</label>
   </div>
   <div class="modal-footer" style="justify-content:space-between">
-    <button id="eu-delete-btn" class="btn btn-danger" onclick="deleteUserConfirm()">Удалить пользователя</button>
+    <button id="eu-delete-btn" class="btn btn-danger" onclick="deleteUserConfirm()">В архив</button>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" onclick="document.getElementById('edit-user-modal').classList.remove('open')">Отмена</button>
       <button class="btn btn-primary" onclick="saveEditUser()">Сохранить</button>
@@ -821,9 +821,6 @@ function googleSignIn() {
     prompt: 'select_account',
   });
 
-  // Помечаем что это popup-возврат (чтобы при загрузке страницы в popup — сразу передать токен и закрыться)
-  sessionStorage.setItem('google_oauth_popup', '1');
-
   const w = 500, h = 620;
   const left = Math.round((screen.width - w) / 2);
   const top = Math.round((screen.height - h) / 2);
@@ -870,21 +867,14 @@ function checkGoogleOAuthReturn() {
     const params = new URLSearchParams(hash.substring(1));
     const idToken = params.get('id_token');
     if (idToken) {
-      // Записываем токен в localStorage — основное окно поймает через storage event
       localStorage.setItem('google_id_token', idToken);
-      // Если это popup — закрываемся
-      if (window.opener) {
-        window.close();
-        return true;
-      }
-      // Если не popup (например popup был заблокирован и Google открылся в том же окне)
+      if (window.opener) { window.close(); return true; }
       window.history.replaceState({}, '', window.location.pathname);
       localStorage.removeItem('google_id_token');
       handleGoogleToken(idToken);
       return true;
     }
   }
-  // Проверяем ошибку
   if (hash && hash.includes('error=')) {
     window.history.replaceState({}, '', window.location.pathname);
     if (window.opener) { window.close(); return true; }
@@ -2255,7 +2245,8 @@ async function openAdmin(){
   document.getElementById('tabs').innerHTML = `
     <button class="tab active" onclick="switchAdminTab(0)">Пользователи</button>
     <button class="tab" onclick="switchAdminTab(1)">Площадки</button>
-    <button class="tab" onclick="switchAdminTab(2)">История</button>
+    <button class="tab" onclick="switchAdminTab(2)">Архив</button>
+    <button class="tab" onclick="switchAdminTab(3)">История</button>
   `;
   switchAdminTab(0);
   document.getElementById('drawer-bg').classList.add('open');
@@ -2267,7 +2258,8 @@ function switchAdminTab(i){
   document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',j===i));
   if(i===0) renderAdminUsers();
   else if(i===1) renderAdminVenues();
-  else if(i===2) renderAdminHistory();
+  else if(i===2) renderAdminArchive();
+  else if(i===3) renderAdminHistory();
 }
 
 async function renderAdminHistory(){
@@ -2329,7 +2321,7 @@ async function loadAdminHistory(){
 function renderAdminUsers(){
   const content = document.getElementById('tab-content');
   const active = allUsers.filter(u => u.is_active);
-  const pending = allUsers.filter(u => !u.is_active);
+  const pending = allUsers.filter(u => !u.is_active && !u.email?.includes('@archived.local'));
 
   content.innerHTML = `
     ${pending.length ? `
@@ -2410,12 +2402,58 @@ async function saveEditUser(){
 async function deleteUserConfirm(){
   const id = document.getElementById('eu-id').value;
   const u = allUsers.find(x=>x.id===id);
-  if(!confirm(`Удалить профиль «${u?.name}»?\n\nПользователь потеряет доступ, но все его комментарии и история изменений сохранятся.`)) return;
+  if(!confirm(`Переместить «${u?.name}» в архив?\n\nПользователь потеряет доступ, email освободится для повторной регистрации.\nКомментарии и история изменений сохранятся.`)) return;
   try {
     await api('DELETE', `/users/${id}/hard`);
     document.getElementById('edit-user-modal').classList.remove('open');
     await loadUsers(); renderAdminUsers();
-    showToast('Профиль удалён, данные сохранены');
+    showToast('Пользователь перемещён в архив');
+  } catch(e){ showToast(e.message, true); }
+}
+
+
+async function renderAdminArchive(){
+  const content = document.getElementById('tab-content');
+  content.innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px">Загрузка архива...</div>';
+  try {
+    const archived = await api('GET', '/users/archived');
+    if(!archived.length){
+      content.innerHTML = '<div style="color:var(--text3);text-align:center;padding:40px">📦 Архив пуст</div>';
+      return;
+    }
+    content.innerHTML = `
+      <div style="font-size:13px;color:var(--text3);margin-bottom:12px">
+        Архивные пользователи (${archived.length}). Email освобождён для повторной регистрации.
+      </div>
+      ${archived.map(u=>{
+        const displayName = u.name.replace(' (архив)','');
+        const d = u.last_login
+          ? new Date(u.last_login).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'})
+          : new Date(u.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});
+        return `<div class="user-row" style="opacity:0.7">
+          <div style="flex:1">
+            <div class="user-row-name" style="display:flex;align-items:center;gap:8px">
+              ${displayName}
+              <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(90,90,114,.15);color:var(--text3)">архив</span>
+            </div>
+            <div class="user-row-email">${d}</div>
+          </div>
+          <button class="btn btn-danger" style="padding:6px 12px;font-size:12px" onclick="permanentDeleteUser('${u.id}','${displayName.replace(/'/g,"\\'")}')">Удалить навсегда</button>
+        </div>`;
+      }).join('')}
+    `;
+  } catch(e){
+    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${e.message}</div>`;
+  }
+}
+
+async function permanentDeleteUser(id, name){
+  if(!confirm(`Удалить «${name}» навсегда?\n\n⚠️ Это действие НЕОБРАТИМО. Пользователь будет полностью удалён из базы данных.`)) return;
+  if(!confirm(`Вы уверены? Подтвердите полное удаление «${name}».`)) return;
+  try {
+    await api('DELETE', `/users/${id}/permanent`);
+    renderAdminArchive();
+    showToast('Пользователь удалён навсегда');
   } catch(e){ showToast(e.message, true); }
 }
 
@@ -2554,7 +2592,6 @@ document.addEventListener('keydown', e=>{
 
 // ── BOOT ──
 (async()=>{
-  // Если это popup-возврат от Google OAuth — передать токен и закрыться
   if (checkGoogleOAuthReturn()) return;
   await checkEmailVerification();
   const ok = await tryAutoLogin();
