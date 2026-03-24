@@ -554,13 +554,13 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="field-row">
     <div class="field" style="margin-bottom:12px">
       <div class="fl">Город</div>
-      <input class="fin" id="nv-city" placeholder="Москва" autocomplete="off" list="nv-cities"/>
-      <datalist id="nv-cities"></datalist>
+      <select class="fselect" id="nv-city" onchange="toggleCustomField(this,'nv-city-custom')" style="width:100%"></select>
+      <input class="fin" id="nv-city-custom" placeholder="Введите название города" style="display:none;margin-top:6px"/>
     </div>
     <div class="field" style="margin-bottom:12px">
       <div class="fl">Категория</div>
-      <input class="fin" id="nv-category" placeholder="Океанариумы" autocomplete="off" list="nv-cats"/>
-      <datalist id="nv-cats"></datalist>
+      <select class="fselect" id="nv-category" onchange="toggleCustomField(this,'nv-cat-custom')" style="width:100%"></select>
+      <input class="fin" id="nv-cat-custom" placeholder="Введите название категории" style="display:none;margin-top:6px"/>
     </div>
   </div>
   <div class="modal-footer">
@@ -2227,14 +2227,41 @@ async function createPhotographer(){
 }
 
 // ── VENUE ──
+function toggleCustomField(select, customId){
+  const custom = document.getElementById(customId);
+  if(!custom) return;
+  if(select.value === '__new__') { custom.style.display = 'block'; custom.focus(); }
+  else { custom.style.display = 'none'; custom.value = ''; }
+}
+
+function fillVenueSelect(selectId, values, selected){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— не выбрано —</option>'
+    + values.map(v=>`<option value="${v}" ${v===selected?'selected':''}>${v}</option>`).join('')
+    + '<option value="__new__">+ Добавить новый</option>';
+}
+
+function getSelectOrCustom(selectId, customId){
+  const sel = document.getElementById(selectId);
+  if(sel && sel.value === '__new__') {
+    return document.getElementById(customId)?.value.trim() || '';
+  }
+  return sel?.value || '';
+}
+
 function openNewVenueModal(){
-  // Очищаем поля
-  ['nv-name','nv-city','nv-category'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  // Заполняем datalist городов и категорий из существующих площадок
+  document.getElementById('nv-name').value = '';
+  document.getElementById('nv-city-custom').value = '';
+  document.getElementById('nv-city-custom').style.display = 'none';
+  document.getElementById('nv-cat-custom').value = '';
+  document.getElementById('nv-cat-custom').style.display = 'none';
+
   const cities = [...new Set(venues.map(v=>v.city).filter(Boolean))].sort();
   const cats = [...new Set(venues.map(v=>v.category).filter(Boolean))].sort();
-  document.getElementById('nv-cities').innerHTML = cities.map(c=>`<option value="${c}">`).join('');
-  document.getElementById('nv-cats').innerHTML = cats.map(c=>`<option value="${c}">`).join('');
+  fillVenueSelect('nv-city', cities, '');
+  fillVenueSelect('nv-category', cats, '');
+
   document.getElementById('new-venue-modal').classList.add('open');
   setTimeout(()=>document.getElementById('nv-name').focus(), 100);
 }
@@ -2242,14 +2269,11 @@ function openNewVenueModal(){
 async function createVenue(){
   const name = document.getElementById('nv-name').value.trim();
   if(!name) return alert('Введите название');
+  const city = getSelectOrCustom('nv-city', 'nv-city-custom');
+  const category = getSelectOrCustom('nv-category', 'nv-cat-custom');
   try {
-    await api('POST', '/venues', {
-      name,
-      city: document.getElementById('nv-city').value.trim()||null,
-      category: document.getElementById('nv-category').value.trim()||null,
-    });
+    await api('POST', '/venues', { name, city: city||null, category: category||null });
     document.getElementById('new-venue-modal').classList.remove('open');
-    ['nv-name','nv-city','nv-category'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     await loadVenues();
     if(currentDrawerId) renderTab(editState._ph);
     showToast('Площадка добавлена');
@@ -2627,12 +2651,18 @@ function openEditVenue(vid){
   const v = venues.find(x=>x.id===vid);
   if(!v) return;
 
-  // Собираем уникальные категории для подсказок
+  const cities = [...new Set(venues.map(x=>x.city).filter(Boolean))].sort();
   const cats = [...new Set(venues.map(x=>x.category).filter(Boolean))].sort();
-  const catOptions = cats.map(c=>`<option value="${c}">`).join('');
 
   const modal = document.getElementById('archived-user-modal');
   document.getElementById('aux-modal-title').textContent = 'Редактировать площадку';
+
+  const cityOpts = '<option value="">— не выбрано —</option>'
+    + cities.map(c=>`<option value="${c}" ${c===v.city?'selected':''}>${c}</option>`).join('')
+    + '<option value="__new__">+ Добавить новый</option>';
+  const catOpts = '<option value="">— не выбрано —</option>'
+    + cats.map(c=>`<option value="${c}" ${c===v.category?'selected':''}>${c}</option>`).join('')
+    + '<option value="__new__">+ Добавить новый</option>';
 
   document.getElementById('archived-user-content').innerHTML = `
     <div style="padding:4px 0">
@@ -2643,15 +2673,13 @@ function openEditVenue(vid){
       <div style="display:flex;gap:12px;margin-bottom:14px">
         <div class="field" style="flex:1">
           <div class="fl">Город</div>
-          <input class="fin" id="ev-city" value="${v.city||''}" placeholder="Москва" list="ev-cities"/>
-          <datalist id="ev-cities">
-            <option value="Москва"><option value="Санкт-Петербург">
-          </datalist>
+          <select class="fselect" id="ev-city" onchange="toggleCustomField(this,'ev-city-custom')" style="width:100%">${cityOpts}</select>
+          <input class="fin" id="ev-city-custom" placeholder="Введите название города" style="display:none;margin-top:6px"/>
         </div>
         <div class="field" style="flex:1">
           <div class="fl">Категория</div>
-          <input class="fin" id="ev-category" value="${v.category||''}" placeholder="Океанариумы" list="ev-cats"/>
-          <datalist id="ev-cats">${catOptions}</datalist>
+          <select class="fselect" id="ev-category" onchange="toggleCustomField(this,'ev-cat-custom')" style="width:100%">${catOpts}</select>
+          <input class="fin" id="ev-cat-custom" placeholder="Введите название категории" style="display:none;margin-top:6px"/>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
@@ -2669,8 +2697,8 @@ function openEditVenue(vid){
 
 async function saveEditVenue(vid){
   const name = document.getElementById('ev-name').value.trim();
-  const city = document.getElementById('ev-city').value.trim();
-  const category = document.getElementById('ev-category').value.trim();
+  const city = getSelectOrCustom('ev-city', 'ev-city-custom');
+  const category = getSelectOrCustom('ev-category', 'ev-cat-custom');
   const is_active = document.getElementById('ev-active').checked;
   if(!name) return showToast('Название обязательно', true);
   try {
