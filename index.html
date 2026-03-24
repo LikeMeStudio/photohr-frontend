@@ -328,6 +328,8 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
         Зарегистрироваться через Google
       </button>
     </div>
+    <!-- Скрытая Google-кнопка (fallback при FedCM cooldown) -->
+    <div id="google-hidden-btn" style="position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none"></div>
     <!-- ОЖИДАНИЕ -->
     <div id="auth-pending" style="display:none">
       <div class="pending-screen">
@@ -804,18 +806,66 @@ function showPendingScreen(html, verified) {
 }
 
 // Google Sign-In
-const GOOGLE_CLIENT_ID = '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com'; // Нужно заполнить после создания OAuth credentials
+const GOOGLE_CLIENT_ID = '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com';
+let gsiInitialized = false;
+let gsiCooldown = false;
+
+function initGoogleSignIn() {
+  if (gsiInitialized || !GOOGLE_CLIENT_ID || typeof google === 'undefined') return;
+  try {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleResponse,
+      cancel_on_tap_outside: true,
+    });
+    const hiddenDiv = document.getElementById('google-hidden-btn');
+    if (hiddenDiv) {
+      google.accounts.id.renderButton(hiddenDiv, {
+        type: 'standard', theme: 'filled_black', size: 'large', width: 360, text: 'signin_with',
+      });
+    }
+    gsiInitialized = true;
+  } catch (e) { console.warn('GSI init failed:', e); }
+}
 
 function googleSignIn() {
-  if (!GOOGLE_CLIENT_ID) {
-    showLoginErr('Google авторизация ещё не настроена. Обратитесь к администратору.');
+  if (!GOOGLE_CLIENT_ID) { showLoginErr('Google авторизация ещё не настроена.'); return; }
+  if (typeof google === 'undefined' || !google.accounts) { showLoginErr('Google SDK не загружен. Проверьте интернет.'); return; }
+  initGoogleSignIn();
+
+  // Если FedCM в кулдауне — сразу используем fallback кнопку
+  if (gsiCooldown) {
+    const fb = document.querySelector('#google-hidden-btn div[role="button"]');
+    if (fb) fb.click(); else showLoginErr('Google временно недоступен. Подождите и попробуйте снова.');
     return;
   }
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleGoogleResponse,
+
+  google.accounts.id.prompt((n) => {
+    if (n.isNotDisplayed()) {
+      const reason = n.getNotDisplayedReason();
+      console.warn('GSI not displayed:', reason);
+      if (reason === 'suppressed_by_user' || reason === 'cool_down') {
+        gsiCooldown = true;
+        setTimeout(() => { gsiCooldown = false; }, 5 * 60 * 1000);
+      }
+      // Любая причина — fallback на скрытую кнопку
+      const fb = document.querySelector('#google-hidden-btn div[role="button"]');
+      if (fb) fb.click();
+      else showLoginErr('Для входа через Google войдите в аккаунт Google в браузере.');
+    }
+    if (n.isSkippedMoment()) {
+      console.warn('GSI skipped:', n.getSkippedReason());
+      gsiCooldown = true;
+      setTimeout(() => { gsiCooldown = false; }, 5 * 60 * 1000);
+    }
+    if (n.isDismissedMoment()) {
+      const reason = n.getDismissedReason();
+      console.warn('GSI dismissed:', reason);
+      if (reason === 'credential_returned') return;
+      gsiCooldown = true;
+      setTimeout(() => { gsiCooldown = false; }, 5 * 60 * 1000);
+    }
   });
-  google.accounts.id.prompt();
 }
 
 async function handleGoogleResponse(response) {
@@ -2499,6 +2549,9 @@ document.addEventListener('keydown', e=>{
   await checkEmailVerification();
   const ok = await tryAutoLogin();
   if(ok) startApp();
+  // Инициализируем Google Sign-In один раз
+  if (typeof google !== 'undefined') initGoogleSignIn();
+  else window.addEventListener('load', () => { setTimeout(initGoogleSignIn, 500); });
 })();
 </script>
 </body>
