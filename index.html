@@ -640,6 +640,14 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </div>
 </div>
 
+<!-- Модалка архивного пользователя -->
+<div class="modal-overlay" id="archived-user-modal">
+<div class="modal" style="max-height:90vh;display:flex;flex-direction:column">
+  <div class="modal-title"><span>Архивный пользователь</span><button class="dr-close" onclick="document.getElementById('archived-user-modal').classList.remove('open')">×</button></div>
+  <div id="archived-user-content" style="flex:1;overflow-y:auto;padding-right:4px"></div>
+</div>
+</div>
+
 <script>
 // ── CONFIG ──
 // Замените на URL вашего сервера после деплоя
@@ -2296,19 +2304,21 @@ async function loadAdminHistory(){
     const rows = await api('GET', `/audit?${entity?'entity='+entity+'&':''}limit=${limit}`);
     if(!rows.length){ list.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">Нет записей</div>'; return; }
 
-    const ACTION_LABEL = { create:'создан', update:'изменён', deactivate:'деактивирован', anonymize:'удалён', login:'вошёл', hard_delete:'удалён полностью', soft_delete:'комментарий скрыт' };
+    const ACTION_LABEL = { create:'создан', update:'изменён', deactivate:'деактивирован', anonymize:'архивирован', login:'вошёл', hard_delete:'удалён полностью', soft_delete:'комментарий скрыт', approve:'одобрен', reject:'отклонён' };
     const ENTITY_LABEL = { photographer:'👤', user:'🔑', venue:'📍', comment:'💬' };
 
     list.innerHTML = rows.map(r=>{
       const d = new Date(r.created_at).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
       const ico = ENTITY_LABEL[r.entity]||'📝';
       const action = ACTION_LABEL[r.action]||r.action;
+      const target = r.entity_name && r.entity_name !== r.actor_name ? ` → ${r.entity_name}` : '';
       return `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
         <span style="font-size:16px;flex-shrink:0">${ico}</span>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
             <span style="font-weight:500">${r.actor_name||'—'}</span>
             <span style="color:var(--accent2);font-size:12px">${action}</span>
+            ${target ? `<span style="color:var(--text2);font-size:12px">${target}</span>` : ''}
             <span style="color:var(--text3);font-size:11px">${d}</span>
           </div>
           ${r.field ? `<div style="font-size:12px;color:var(--text2)">${r.field}: <span style="color:var(--rank3)">${r.old_value||'—'}</span> → <span style="color:var(--rank1)">${r.new_value||'—'}</span></div>` : ''}
@@ -2452,48 +2462,45 @@ function openArchivedUser(id){
   const created = new Date(u.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   const lastLogin = u.last_login ? new Date(u.last_login).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'нет данных';
 
-  const modal = document.getElementById('edit-user-modal');
-  modal.innerHTML = `
-    <div class="drawer-header"><span>Архивный пользователь</span><button class="dr-close" onclick="document.getElementById('edit-user-modal').classList.remove('open')">×</button></div>
-    <div style="padding:4px 0">
-      <div style="text-align:center;margin-bottom:16px">
-        <div style="width:56px;height:56px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px;color:var(--text3)">📦</div>
-        <div style="font-size:17px;font-weight:600">${u.name}</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:2px">${u.email}</div>
+  const content = document.getElementById('archived-user-content');
+  content.innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px;color:var(--text3)">📦</div>
+      <div style="font-size:17px;font-weight:600">${u.name}</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px">${u.email}</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Дата регистрации</div>
+      <div style="font-size:14px">${created}</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Последний вход</div>
+      <div style="font-size:14px">${lastLogin}</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Восстановить с ролью</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="fselect" id="restore-role-${u.id}" style="flex:1;font-size:13px">
+          <option value="viewer">viewer</option>
+          <option value="manager">manager</option>
+          <option value="editor">editor</option>
+          <option value="hr_director">hr_director</option>
+          <option value="admin">admin</option>
+        </select>
+        <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="restoreUser('${u.id}')">♻️ Восстановить</button>
       </div>
-      <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Дата регистрации</div>
-        <div style="font-size:14px">${created}</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Последний вход</div>
-        <div style="font-size:14px">${lastLogin}</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Восстановить с ролью</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select class="fselect" id="restore-role-${u.id}" style="flex:1;font-size:13px">
-            <option value="viewer">viewer</option>
-            <option value="manager">manager</option>
-            <option value="editor">editor</option>
-            <option value="hr_director">hr_director</option>
-            <option value="admin">admin</option>
-          </select>
-          <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="restoreUser('${u.id}')">♻️ Восстановить</button>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px">Пользователю нужно будет сбросить пароль через «Забыли пароль»</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:16px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">История</div>
-        <div id="archived-user-audit" style="font-size:13px;color:var(--text2)">Загрузка...</div>
-      </div>
-      <div class="modal-footer" style="justify-content:space-between">
-        <button class="btn btn-danger" onclick="document.getElementById('edit-user-modal').classList.remove('open');permanentDeleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">Удалить навсегда</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('edit-user-modal').classList.remove('open')">Закрыть</button>
-      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Пользователю нужно будет сбросить пароль через «Забыли пароль»</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">История</div>
+      <div id="archived-user-audit" style="font-size:13px;color:var(--text2);max-height:200px;overflow-y:auto">Загрузка...</div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;position:sticky;bottom:0;background:var(--card);padding-top:12px">
+      <button class="btn btn-danger" onclick="document.getElementById('archived-user-modal').classList.remove('open');permanentDeleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">Удалить навсегда</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Закрыть</button>
     </div>
   `;
-  modal.classList.add('open');
+  document.getElementById('archived-user-modal').classList.add('open');
   loadArchivedUserAudit(id);
 }
 
@@ -2502,7 +2509,7 @@ async function restoreUser(id){
   if(!confirm('Восстановить пользователя с ролью «' + role + '»?')) return;
   try {
     await api('POST', `/users/${id}/restore`, { role });
-    document.getElementById('edit-user-modal').classList.remove('open');
+    document.getElementById('archived-user-modal').classList.remove('open');
     await loadUsers();
     renderAdminArchive();
     showToast('Пользователь восстановлен');
