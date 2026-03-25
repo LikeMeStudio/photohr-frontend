@@ -2114,6 +2114,33 @@ function renderInfoTab(ph){
       </div>
     </div>
     ${isEditor ? `
+    <div class="field-row" style="margin-bottom:14px">
+      <div class="field">
+        <div class="fl">Дата устройства</div>
+        <input class="fin" type="date" id="edit-ph-start-date" value="${ph.start_date ? ph.start_date.slice(0, 10) : ''}"/>
+      </div>
+      <div class="field">
+        <div class="fl">Статус найма</div>
+        <select class="fselect" id="edit-ph-hire-status">
+          <option value="active" ${(ph.hire_status || 'active') === 'active' ? 'selected' : ''}>Активен</option>
+          <option value="probation" ${ph.hire_status === 'probation' ? 'selected' : ''}>Испытательный</option>
+          <option value="suspended" ${ph.hire_status === 'suspended' ? 'selected' : ''}>Приостановлен</option>
+          <option value="terminated" ${ph.hire_status === 'terminated' ? 'selected' : ''}>Уволен</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row" style="margin-bottom:14px">
+      <div class="field">
+        <div class="fl">Источник</div>
+        <select class="fselect" id="edit-ph-source">
+          <option value="manual" ${(ph.source || 'manual') === 'manual' ? 'selected' : ''}>Ручной</option>
+          <option value="recruiting" ${ph.source === 'recruiting' ? 'selected' : ''}>Рекрутинг</option>
+          <option value="referral" ${ph.source === 'referral' ? 'selected' : ''}>Реферал</option>
+          <option value="other" ${ph.source === 'other' ? 'selected' : ''}>Другое</option>
+        </select>
+      </div>
+      <div class="field"></div>
+    </div>
     <div style="margin-bottom:14px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)">
       <div class="fl" style="margin-bottom:8px">Роли и настройки сотрудника</div>
       <div class="field-row" style="margin-bottom:10px">
@@ -2166,6 +2193,10 @@ function renderInfoTab(ph){
           <input type="number" class="fin" id="edit-ph-mentor-max" min="1" max="99" value="${ph.mentor_max_mentees!=null?ph.mentor_max_mentees:3}" style="width:56px;padding:6px 8px;font-size:13px"/>
         </div>
       </div>` : ''}
+      <div style="margin-top:10px">
+        <div class="fl">Заметки к следующей смене</div>
+        <textarea class="fin" id="edit-ph-notes-next-shift" rows="2" style="width:100%;resize:vertical" placeholder="Видно менеджеру площадки при назначении...">${esc(ph.notes_for_next_shift || '')}</textarea>
+      </div>
     </div>` : `
     <div style="margin-bottom:14px">
       <div class="fl" style="margin-bottom:4px">Роль</div>
@@ -2929,6 +2960,10 @@ async function saveCard(){
       is_curator: isCuratorEl?.checked ?? undefined,
       ...(canMentorshipHR() && canBeMentorEl ? { can_be_mentor: !!canBeMentorEl.checked } : {}),
       ...(canMentorshipHR() && mentorMaxEl ? { mentor_max_mentees: parseInt(mentorMaxEl.value, 10) || 3 } : {}),
+      start_date: document.getElementById('edit-ph-start-date')?.value || null,
+      hire_status: document.getElementById('edit-ph-hire-status')?.value || null,
+      source: document.getElementById('edit-ph-source')?.value || null,
+      notes_for_next_shift: document.getElementById('edit-ph-notes-next-shift')?.value.trim() || null,
     };
     console.log('SAVE_CARD_BODY', JSON.stringify(_body));
     console.log('SAVE_CARD_KEYS', Object.keys(_body).filter(k => _body[k] !== undefined));
