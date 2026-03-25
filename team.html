@@ -794,7 +794,16 @@ function render() {
     const deptTrim = m.department && String(m.department).trim();
     const posTrim = m.position_title && String(m.position_title).trim();
     const deptPosRow = (deptTrim || posTrim)
-      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;width:100%">${deptTrim ? `<span style="padding:2px 10px;border-radius:6px;font-size:10px;font-weight:500;background:rgba(62,207,180,.12);color:#3ecfb4;border:1px solid rgba(62,207,180,.25)">${esc(deptTrim)}</span>` : ''}${posTrim ? `<span style="padding:2px 10px;border-radius:6px;font-size:10px;font-weight:500;background:rgba(144,144,168,.12);color:#9090a8;border:1px solid rgba(144,144,168,.25)">${esc(posTrim)}</span>` : ''}</div>`
+      ? `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-top:8px">
+  ${posTrim ? `<div>
+    <div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Должность</div>
+    <span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:600;white-space:nowrap;background:rgba(124,108,255,.12);color:#9b8dff;border:1px solid rgba(124,108,255,.25)">${esc(posTrim)}</span>
+  </div>` : '<div></div>'}
+  ${deptTrim ? `<div style="text-align:right">
+    <div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Отдел</div>
+    <span style="padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500;white-space:nowrap;background:rgba(62,207,180,.12);color:#3ecfb4;border:1px solid rgba(62,207,180,.25)">${esc(deptTrim)}</span>
+  </div>` : '<div></div>'}
+</div>`
       : '';
     const achStrip = ach.length
       ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
