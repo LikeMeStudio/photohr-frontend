@@ -502,7 +502,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <!-- ── NEW PHOTOGRAPHER MODAL ── -->
 <div class="overlay" id="new-ph-modal" onclick="if(event.target===this)this.classList.remove('open')">
 <div class="modal">
-  <div class="modal-title"><span>Новый фотограф</span><button class="dr-close" onclick="document.getElementById('new-ph-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span>Новый сотрудник</span><button class="dr-close" onclick="document.getElementById('new-ph-modal').classList.remove('open')">×</button></div>
   <div class="field" style="margin-bottom:12px">
     <div class="fl">Имя и фамилия *</div>
     <input class="fin" id="np-name" placeholder="Иван Петров" autocomplete="off"/>
@@ -517,9 +517,50 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <input class="fin" id="np-email" placeholder="ivan@mail.ru" autocomplete="off"/>
     </div>
   </div>
+  <div class="field-row">
+    <div class="field">
+      <div class="fl">Дата начала</div>
+      <input class="fin" type="date" id="np-date" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <div class="fl">Грейд</div>
+      <select class="fselect" id="np-grade">
+        <option value="">—</option>
+        <option value="trainee">Стажёр</option>
+        <option value="junior">Джуниор</option>
+        <option value="middle">Мидл</option>
+        <option value="senior">Сеньор</option>
+        <option value="lead">Лид</option>
+      </select>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <div class="fl">Схема оплаты</div>
+      <select class="fselect" id="np-pay-scheme">
+        <option value="standard">Стандартная (свободный)</option>
+        <option value="premium">Постоянная (25%)</option>
+      </select>
+    </div>
+    <div class="field">
+      <div class="fl">Основная роль</div>
+      <select class="fselect" id="np-role">
+        <option value="photographer">Фотограф</option>
+        <option value="aquagrim">Аквагримёр</option>
+        <option value="admin_venue">Админ площадки</option>
+        <option value="print_operator">Оператор печати</option>
+        <option value="manager_venue">Менеджер площадки</option>
+      </select>
+    </div>
+  </div>
   <div class="field" style="margin-bottom:12px">
-    <div class="fl">Дата начала</div>
-    <input class="fin" type="date" id="np-date" autocomplete="off"/>
+    <div class="fl">Дополнительные роли</div>
+    <div id="np-roles-checkboxes" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0">
+      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="trainer"/> 🎓 Тренер</label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="mentor"/> 👨‍🏫 Наставник</label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="photographer"/> 📷 Фотограф</label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="print_operator"/> 🖨 Оператор</label>
+    </div>
   </div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('new-ph-modal').classList.remove('open')">Отмена</button>
@@ -1908,6 +1949,58 @@ function renderInfoTab(ph){
         <input class="fin" type="date" id="edit-ph-birth" value="${ph.birth_date?ph.birth_date.split('T')[0]:''}"/>
       </div>
     </div>
+    ${isEditor ? `
+    <div style="margin-bottom:14px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)">
+      <div class="fl" style="margin-bottom:8px">Роли и настройки сотрудника</div>
+      <div class="field-row" style="margin-bottom:10px">
+        <div class="field">
+          <div class="fl">Грейд</div>
+          <select class="fselect" id="edit-ph-grade">
+            <option value="" ${!ph.grade?'selected':''}>—</option>
+            <option value="trainee" ${ph.grade==='trainee'?'selected':''}>Стажёр</option>
+            <option value="junior" ${ph.grade==='junior'?'selected':''}>Джуниор</option>
+            <option value="middle" ${ph.grade==='middle'?'selected':''}>Мидл</option>
+            <option value="senior" ${ph.grade==='senior'?'selected':''}>Сеньор</option>
+            <option value="lead" ${ph.grade==='lead'?'selected':''}>Лид</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="fl">Схема оплаты</div>
+          <select class="fselect" id="edit-ph-pay-scheme">
+            <option value="standard" ${ph.pay_scheme==='standard'?'selected':''}>Стандартная</option>
+            <option value="premium" ${ph.pay_scheme==='premium'?'selected':''}>Постоянная (25%)</option>
+          </select>
+        </div>
+      </div>
+      <div class="fl" style="margin-bottom:6px">Дополнительные роли</div>
+      <div id="edit-ph-roles" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        ${[
+          {val:'photographer', label:'📷 Фотограф'},
+          {val:'trainer', label:'🎓 Тренер'},
+          {val:'mentor', label:'👨‍🏫 Наставник'},
+          {val:'print_operator', label:'🖨 Оператор'},
+          {val:'aquagrim', label:'🎨 Аквагримёр'},
+          {val:'admin_venue', label:'🏢 Админ'},
+        ].map(r => {
+          const checked = (ph.employee_roles || []).includes(r.val) ? 'checked' : '';
+          return '<label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ph-role-cb" value="' + r.val + '" ' + checked + '/> ' + r.label + '</label>';
+        }).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="edit-ph-mentor" ${ph.can_be_mentor?'checked':''} style="cursor:pointer"/>
+        <label for="edit-ph-mentor" style="font-size:12px;cursor:pointer">Может быть наставником</label>
+      </div>
+    </div>` : `
+    ${(ph.employee_roles||[]).length ? `<div style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:4px">Роли</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${(ph.employee_roles||[]).map(r => {
+          const labels = {photographer:'📷 Фотограф', trainer:'🎓 Тренер', mentor:'👨‍🏫 Наставник', print_operator:'🖨 Оператор', aquagrim:'🎨 Аквагримёр', admin_venue:'🏢 Админ'};
+          return '<span style="padding:2px 8px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">' + (labels[r]||r) + '</span>';
+        }).join('')}
+      </div>
+    </div>` : ''}
+    ${ph.grade ? '<div style="margin-bottom:14px"><div class="fl" style="margin-bottom:4px">Грейд</div><div style="font-size:14px">' + ph.grade + '</div></div>' : ''}`}
     ${canPassport() ? `
     <div style="margin-bottom:14px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border2)">
       <div class="fl" style="margin-bottom:10px;color:var(--rank2)">🔒 Паспортные данные (только HR-директор и Администратор)</div>
@@ -2212,6 +2305,14 @@ async function saveCard(){
     const genderEl  = document.getElementById('edit-ph-gender');
     const birthEl   = document.getElementById('edit-ph-birth');
     const passportEl = document.getElementById('edit-ph-passport');
+    const gradeEl   = document.getElementById('edit-ph-grade');
+    const payEl     = document.getElementById('edit-ph-pay-scheme');
+    const mentorEl  = document.getElementById('edit-ph-mentor');
+
+    // Собираем employee_roles из чекбоксов
+    const roleCbs = document.querySelectorAll('.ph-role-cb:checked');
+    const employeeRoles = roleCbs.length ? Array.from(roleCbs).map(cb => cb.value) : undefined;
+
     await api('PATCH', `/photographers/${currentDrawerId}`, {
       name:         nameEl?.value.trim()    || undefined,
       phone:        phoneEl?.value.trim()   || null,
@@ -2226,6 +2327,10 @@ async function saveCard(){
       score_social: editState.score_social || null,
       summary:      summaryEl?.value.trim() || null,
       venues:       editState.venues,
+      grade:        gradeEl?.value          || null,
+      pay_scheme:   payEl?.value            || null,
+      employee_roles: employeeRoles,
+      can_be_mentor: mentorEl?.checked ?? undefined,
     });
     await loadPhotographers();
     render();
@@ -2271,17 +2376,29 @@ function openNewPh(){
 async function createPhotographer(){
   const name = document.getElementById('np-name').value.trim();
   if(!name) return alert('Введите имя');
+
+  // Собираем дополнительные роли из чекбоксов
+  const roleCheckboxes = document.querySelectorAll('#np-roles-checkboxes input[type=checkbox]:checked');
+  const mainRole = document.getElementById('np-role').value;
+  const extraRoles = Array.from(roleCheckboxes).map(cb => cb.value);
+  const allRoles = [mainRole, ...extraRoles.filter(r => r !== mainRole)];
+
   try {
     await api('POST', '/photographers', {
       name,
       phone: document.getElementById('np-phone').value.trim() || null,
       email: document.getElementById('np-email').value.trim() || null,
       start_date: document.getElementById('np-date').value || null,
+      employee_role: mainRole,
+      employee_roles: allRoles,
+      grade: document.getElementById('np-grade').value || null,
+      pay_scheme: document.getElementById('np-pay-scheme').value || 'standard',
+      can_be_mentor: extraRoles.includes('mentor'),
     });
     document.getElementById('new-ph-modal').classList.remove('open');
     ['np-name','np-phone','np-email'].forEach(id=>document.getElementById(id).value='');
     await loadPhotographers(); render();
-    showToast('Фотограф добавлен');
+    showToast('Сотрудник добавлен');
   } catch(e){ showToast(e.message, true); }
 }
 
