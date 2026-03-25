@@ -311,19 +311,13 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </head>
 <body>
 <div class="header">
-  <a class="logo" href="index.html">Photo<span>HR</span></a>
-  <div style="display:flex;gap:6px;margin-left:12px;flex-wrap:wrap;flex:1" id="nav-links-team">
-    <a class="f-btn" href="index.html">Фотографы</a>
-    <a class="f-btn active" href="team.html" id="nav-team">Команда</a>
-    <a class="f-btn" href="recruiting.html" id="nav-recruiting" style="display:none">Рекрутинг</a>
-    <a class="f-btn" href="venue.html">Площадка</a>
-    <a class="f-btn" href="stock.html">Склад</a>
-    <a class="f-btn" href="calendar.html">Календарь</a>
-    <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
-    <a class="f-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
+  <div class="logo">Photo<span>HR</span></div>
+  <div style="display:flex;gap:6px;margin-left:12px" id="nav-links"></div>
+  <div class="header-stats" id="hstats"></div>
+  <div class="header-right">
+    <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
+    <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
-  <div class="user-pill" id="user-pill"></div>
-  <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
 </div>
 <div style="border-bottom:1px solid var(--border);background:var(--bg)">
   <div style="padding:10px 28px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -429,6 +423,106 @@ const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (a) => a.includes(roleNow());
 const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
 
+const ROLE_LABELS = {
+  admin: 'Администратор',
+  exec_director: 'Исполнительный директор',
+  hr_director: 'HR-директор',
+  hr_manager: 'HR-менеджер',
+  recruiter: 'Рекрутер',
+  tech_director: 'Тех-директор',
+  site_specialist: 'Специалист по сайту',
+  cashier: 'Инкассация',
+  photographer_user: 'Сотрудник',
+  aq_user: 'Аквагримёр',
+  aq_manager: 'Менеджер аквагрима',
+  archived: 'Архив',
+};
+const ROLE_COLORS = {
+  admin: '#ffd700',
+  exec_director: '#f5a623',
+  hr_director: '#3ecf8e',
+  hr_manager: '#4ecb8a',
+  recruiter: '#e86aa6',
+  tech_director: '#8a7aee',
+  site_specialist: '#6aa6e8',
+  cashier: '#e87a6a',
+  photographer_user: '#9090a8',
+  aq_user: '#3ecfb4',
+  aq_manager: '#5ee8d0',
+  archived: '#5a5a72',
+};
+
+function openProfile() { location.href = 'index.html'; }
+
+function setupUserPill() {
+  const color = ROLE_COLORS[currentUser.role] || '#9090a8';
+  document.getElementById('user-pill').innerHTML =
+    `<div class="role-dot" style="background:${color}"></div>
+     <span>${esc(currentUser.name)}</span>
+     <span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role] || currentUser.role}</span>`;
+}
+
+function setupTeamNav() {
+  const nav = document.getElementById('nav-links');
+  const navBtns = ['<a class="f-btn" href="index.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Фотографы</a>'];
+  if (currentUser.role !== 'photographer_user' && currentUser.role !== 'aq_user') {
+    navBtns.push('<a class="f-btn active" href="team.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Команда</a>');
+  }
+  if (hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin'])) {
+    navBtns.push('<a class="f-btn" href="recruiting.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Рекрутинг</a>');
+  }
+  if (hasAnyRole(['photographer_user', 'hr_manager', 'cashier', 'hr_director', 'tech_director', 'site_specialist', 'exec_director', 'admin'])) {
+    navBtns.push('<a class="f-btn" href="venue.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Площадка</a>');
+  }
+  if (hasAnyRole(['tech_director', 'hr_director', 'exec_director', 'admin'])) {
+    navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
+  }
+  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin', 'photographer_user'])) {
+    navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
+  }
+  if (hasAnyRole(['aq_manager', 'hr_director', 'exec_director', 'admin', 'cashier'])) {
+    navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
+    navBtns.push('<a class="f-btn" href="aquagrim.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Аквагрим</a>');
+  }
+  if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
+    navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📷 Мой профиль</a>');
+  }
+  nav.innerHTML = navBtns.join('');
+}
+
+function parseAchievements(m) {
+  let ach = m.achievements;
+  if (ach == null) ach = [];
+  else if (typeof ach === 'string') { try { ach = JSON.parse(ach); } catch { ach = []; } }
+  return Array.isArray(ach) ? ach : [];
+}
+
+function updateTeamHeaderStats() {
+  const q = (document.getElementById('q').value || '').trim().toLowerCase();
+  const dep = document.getElementById('dep-filter')?.value || '';
+  let rows = teamList.filter((r) => r.is_active !== false);
+  const totalAll = rows.length;
+  if (q) rows = rows.filter((r) => (r.name || '').toLowerCase().includes(q));
+  if (dep) rows = rows.filter((r) => (r.department || '') === dep);
+  const hasFilter = !!(q || dep);
+  const tops = rows.filter((m) => parseAchievements(m).length >= 3).length;
+  let avgSum = 0;
+  let avgN = 0;
+  rows.forEach((m) => {
+    const a = parseAchievements(m);
+    avgSum += a.length;
+    avgN++;
+  });
+  const avg = avgN ? (avgSum / avgN).toFixed(1) : '—';
+  const hs = document.getElementById('hstats');
+  if (!hs) return;
+  hs.innerHTML = `
+    <div class="stat"><div class="stat-num" style="color:var(--accent2)">${hasFilter ? rows.length : totalAll}</div><div class="stat-lbl">${hasFilter ? 'Найдено' : 'Всего'}</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank1)">${tops}</div><div class="stat-lbl">Топ</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank2)">${avg}</div><div class="stat-lbl">Средний балл</div></div>
+  `;
+}
+
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -504,6 +598,7 @@ function render() {
     if (ab !== bb) return ab - bb;
     return (a.name || '').localeCompare(b.name || '', 'ru');
   });
+  updateTeamHeaderStats();
   const g = document.getElementById('grid');
   if (!rows.length) { g.innerHTML = '<div class="empty">Никого не найдено</div>'; return; }
   const cardHtml = (m) => {
@@ -1463,14 +1558,8 @@ function openGrantAch() {
   try {
     currentUser = await api('GET', '/auth/me');
     if (currentUser.role === 'photographer_user' || currentUser.role === 'aq_user') { location.href = 'index.html'; return; }
-    document.getElementById('user-pill').innerHTML = '<span>' + esc(currentUser.name) + '</span>';
-    const aqAllowed = ['aq_manager', 'hr_director', 'exec_director', 'admin', 'cashier'].includes(currentUser.role);
-    const aqBtn = document.getElementById('nav-aquagrim');
-    const aqSep = document.getElementById('nav-aquagrim-sep');
-    if (aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
-    if (aqSep) aqSep.style.display = aqAllowed ? '' : 'none';
-    const rec = document.getElementById('nav-recruiting');
-    if (rec) rec.style.display = hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin']) ? '' : 'none';
+    setupUserPill();
+    setupTeamNav();
 
     if (hasAnyRole(['exec_director', 'admin'])) document.getElementById('btn-add').style.display = 'inline-block';
     if (currentUser.role === 'admin') document.getElementById('btn-sync').style.display = 'inline-block';

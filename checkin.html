@@ -9,12 +9,18 @@
 <style>
 :root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--border:#2e2e3d;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
-.top{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
-.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap;overflow-x:auto}
-.nav-btn{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s;white-space:nowrap}
-.nav-btn:hover{color:var(--text)}.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.user-name{font-size:12px;color:var(--text2);margin-left:auto}
+.header{padding:18px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}.logo span{color:var(--accent2)}
+.header-stats{display:flex;gap:16px;flex:1}
+.stat{text-align:center}
+.stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.role-dot{width:7px;height:7px;border-radius:50%}
+.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.f-btn:hover{color:var(--text)}
+.f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .content{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center}
 .title{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;margin-bottom:8px}
 .sub{font-size:13px;color:var(--text2);margin-bottom:20px;max-width:320px}
@@ -36,19 +42,14 @@
 </style>
 </head>
 <body>
-<div class="top">
-  <a class="logo" href="my.html">Photo<span>HR</span></a>
-  <div class="nav-links">
-    <a class="nav-btn" href="index.html">Фотографы</a>
-    <a class="nav-btn" href="team.html" id="nav-team">Команда</a>
-    <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
-    <a class="nav-btn" href="venue.html">Площадка</a>
-    <a class="nav-btn" href="stock.html">Склад</a>
-    <a class="nav-btn" href="calendar.html">Календарь</a>
-    <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
-    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
+<div class="header">
+  <div class="logo">Photo<span>HR</span></div>
+  <div style="display:flex;gap:6px;margin-left:12px" id="nav-links"></div>
+  <div class="header-stats" id="hstats"></div>
+  <div class="header-right">
+    <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
+    <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
-  <span class="user-name" id="user-name"></span>
 </div>
 <div class="content" id="content">
   <div style="color:var(--text3)">Загрузка...</div>
@@ -56,7 +57,16 @@
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
-let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,myShifts=[],scanner=null;
+let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,myShifts=[],scanner=null;
+const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
+const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
+const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4};
+const roleNow=()=>currentUser?.role||'photographer_user';
+const hasAnyRole=(roles)=>roles.includes(roleNow());
+function openProfile(){location.href='index.html';}
+function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
+function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
+function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 let refreshLock=null;
 
 async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){try{if(!refreshLock){refreshLock=(async()=>{const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(!x.ok)throw new Error('refresh_failed');const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);})();}await refreshLock;o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
@@ -72,14 +82,10 @@ function esc(s) {
   if(!AT&&!RT){location.href='index.html';return;}
   try{
     U=await api('GET','/auth/me');
-    const aqAllowed=['aq_manager','hr_director','exec_director','admin','cashier'].includes(U.role);
-    const aqBtn=document.getElementById('nav-aquagrim');
-    const aqSep=document.getElementById('nav-aquagrim-sep');
-    if(aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
-    if(aqSep) aqSep.style.display = aqAllowed ? '' : 'none';
-    const nt=document.getElementById('nav-team');
-    if(nt) nt.style.display=(U.role==='photographer_user'||U.role==='aq_user')?'none':'';
-    document.getElementById('user-name').textContent=U.name;
+    currentUser=U;
+    setupUserPill();
+    setupNav('checkin');
+    fillPlaceholderStats();
     if(!U.photographer_id){
       document.getElementById('content').innerHTML=`<div class="title">Нет карточки</div><div class="sub">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div><a href="index.html" class="btn btn-ghost">← Назад</a>`;
       return;

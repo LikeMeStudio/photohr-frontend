@@ -16,25 +16,24 @@
 body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 a{color:inherit;text-decoration:none}
 
-/* Header */
-.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}
+/* Header (как index.html) */
+.header{padding:18px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}
 .logo span{color:var(--accent2)}
-.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
-.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
-.nav-btn:hover{color:var(--text);border-color:var(--border2)}
-.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.header-stats{display:flex;gap:16px;flex:1}
+.stat{text-align:center}
+.stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
 .role-dot{width:7px;height:7px;border-radius:50%}
-.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
-.logout-btn:hover{color:var(--rank3)}
 
 /* Toolbar */
 .toolbar{padding:10px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .search-in{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none;width:220px}
 .search-in::placeholder{color:var(--text3)}
 .search-in:focus{border-color:var(--accent)}
-.f-btn{padding:4px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:11px;cursor:pointer;transition:all .15s}
+.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
 .f-btn:hover{color:var(--text)}
 .f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .spacer{flex:1}
@@ -123,8 +122,7 @@ textarea.fin{resize:vertical;min-height:50px}
 @media(max-width:768px){
   .kanban{padding:10px}
   .kanban-col{min-width:220px;width:220px}
-  .header{padding:10px 14px}
-  .toolbar{padding:8px 14px}
+  .header,.toolbar{padding-left:16px;padding-right:16px}
   .drawer{width:100vw;max-width:100vw}
 }
 </style>
@@ -132,19 +130,13 @@ textarea.fin{resize:vertical;min-height:50px}
 <body>
 
 <div class="header">
-  <a class="logo" href="index.html">Photo<span>HR</span></a>
-  <div class="nav-links">
-    <a class="nav-btn" href="index.html">Фотографы</a>
-    <a class="nav-btn" href="team.html" id="nav-team">Команда</a>
-    <a class="nav-btn active" href="recruiting.html">Рекрутинг</a>
-    <a class="nav-btn" href="venue.html">Площадка</a>
-    <a class="nav-btn" href="stock.html">Склад</a>
-    <a class="nav-btn" href="calendar.html">Календарь</a>
-    <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
-    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
+  <div class="logo">Photo<span>HR</span></div>
+  <div style="display:flex;gap:6px;margin-left:12px" id="nav-links"></div>
+  <div class="header-stats" id="hstats"></div>
+  <div class="header-right">
+    <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
+    <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
-  <div class="user-pill" id="user-pill"></div>
-  <button class="logout-btn" onclick="doLogout()">Выйти</button>
 </div>
 
 <div class="toolbar">
@@ -347,6 +339,8 @@ const ROLE_LABELS = {
   site_specialist: 'Специалист по сайту',
   cashier: 'Инкассация',
   photographer_user: 'Сотрудник',
+  aq_user: 'Аквагримёр',
+  aq_manager: 'Менеджер аквагрима',
   archived: 'Архив'
 };
 const ROLE_COLORS = {
@@ -359,8 +353,78 @@ const ROLE_COLORS = {
   site_specialist: '#6aa6e8',
   cashier: '#e87a6a',
   photographer_user: '#9090a8',
+  aq_user: '#3ecfb4',
+  aq_manager: '#5ee8d0',
   archived: '#5a5a72'
 };
+const ROLES = {
+  photographer_user: 0,
+  aq_user: 0,
+  recruiter: 1,
+  hr_manager: 1,
+  tech_director: 1,
+  site_specialist: 1,
+  aq_manager: 1,
+  cashier: 2,
+  hr_director: 2,
+  exec_director: 3,
+  admin: 4
+};
+const roleNow = () => currentUser?.role || 'photographer_user';
+const hasAnyRole = (roles) => roles.includes(roleNow());
+
+function openProfile() { window.location.href = 'index.html'; }
+
+function fillPlaceholderStats() {
+  const hs = document.getElementById('hstats');
+  if (!hs) return;
+  hs.innerHTML = `
+    <div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>
+  `;
+}
+
+function setupUserPill() {
+  const color = ROLE_COLORS[currentUser.role] || '#9090a8';
+  document.getElementById('user-pill').innerHTML =
+    `<div class="role-dot" style="background:${color}"></div>
+     <span>${esc(currentUser.name)}</span>
+     <span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role] || currentUser.role}</span>`;
+}
+
+function setupNav(activeKey) {
+  const navBtns = [];
+  const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
+  const a = (key, href, label) => {
+    const cls = activeKey === key ? 'f-btn active' : 'f-btn';
+    return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
+  };
+  navBtns.push(a('index', 'index.html', 'Фотографы'));
+  if (currentUser.role !== 'photographer_user' && currentUser.role !== 'aq_user') {
+    navBtns.push(a('team', 'team.html', 'Команда'));
+  }
+  if (hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin'])) {
+    navBtns.push(a('recruiting', 'recruiting.html', 'Рекрутинг'));
+  }
+  if (hasAnyRole(['photographer_user', 'hr_manager', 'cashier', 'hr_director', 'tech_director', 'site_specialist', 'exec_director', 'admin'])) {
+    navBtns.push(a('venue', 'venue.html', 'Площадка'));
+  }
+  if (hasAnyRole(['tech_director', 'hr_director', 'exec_director', 'admin'])) {
+    navBtns.push(a('stock', 'stock.html', 'Склад'));
+  }
+  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin', 'photographer_user'])) {
+    navBtns.push(a('calendar', 'calendar.html', 'Календарь'));
+  }
+  if (hasAnyRole(['aq_manager', 'hr_director', 'exec_director', 'admin', 'cashier'])) {
+    navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
+    navBtns.push(a('aquagrim', 'aquagrim.html', 'Аквагрим'));
+  }
+  if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
+    navBtns.push(a('my', 'my.html', '📷 Мой профиль'));
+  }
+  document.getElementById('nav-links').innerHTML = navBtns.join('');
+}
 const SRC_LABELS = { hh:'HH', avito:'Avito', referral:'Реферал', telegram:'TG', manual:'Вручную', website:'Сайт', other:'Другое' };
 
 // ── API ──
@@ -410,25 +474,14 @@ function esc(s) {
   try {
     // Пробуем с текущим accessToken
     currentUser = await api('GET', '/auth/me');
-    // Аквагрим — видим только для разрешённых ролей
-    const aqAllowed = ['aq_manager','hr_director','exec_director','admin','cashier'].includes(currentUser.role);
-    const aqBtn = document.getElementById('nav-aquagrim');
-    const aqSep = document.getElementById('nav-aquagrim-sep');
-    if (aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
-    if (aqSep) aqSep.style.display = aqAllowed ? '' : 'none';
-    const nt = document.getElementById('nav-team');
-    if (nt) nt.style.display = (currentUser.role === 'photographer_user' || currentUser.role === 'aq_user') ? 'none' : '';
-    setupHeader();
+    setupUserPill();
+    setupNav('recruiting');
+    fillPlaceholderStats();
     await loadKanban();
   } catch {
     doLogout();
   }
 })();
-
-function setupHeader() {
-  const c = ROLE_COLORS[currentUser.role] || '#9090a8';
-  document.getElementById('user-pill').innerHTML = `<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span>`;
-}
 
 // ── LOAD ──
 let allStages = [];
