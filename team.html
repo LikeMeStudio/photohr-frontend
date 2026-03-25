@@ -109,7 +109,8 @@ a{color:inherit;text-decoration:none}
   <select class="fselect" id="dept" onchange="render()"><option value="">Все отделы</option></select>
   <span style="flex:1"></span>
   <button class="btn btn-ghost" id="btn-add" style="display:none" onclick="openNewMember()">+ Член команды</button>
-  <button class="btn btn-ghost" onclick="openAchPanel()">🏆 Достижения</button>
+  <button class="btn btn-ghost" id="btn-sync" style="display:none" onclick="syncFromUsers()" title="Создать карточки из существующих пользователей-управленцев">🔄 Синхронизировать</button>
+  <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
   <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
   <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
 </div>
@@ -132,7 +133,7 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="dr-body" id="dr-body"></div>
   <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-primary" id="btn-like" onclick="sendLikeDrawer()">❤️ Лайк</button>
+    <button class="btn btn-primary" id="btn-like" onclick="openSendLikeModalForDrawer()">❤️ Лайк</button>
     <button class="btn btn-ghost" id="btn-save" style="display:none" onclick="saveDrawer()">Сохранить</button>
   </div>
 </div>
@@ -160,15 +161,6 @@ a{color:inherit;text-decoration:none}
   </div>
 </div></div>
 
-<div class="overlay" id="ov-like"><div class="modal" onclick="event.stopPropagation()"><div class="modal-h">❤️ Отправить лайк</div>
-  <div class="field"><div class="fl">Количество (1–5)</div><input class="fin" type="number" id="lk-amt" min="1" max="5" value="1"/></div>
-  <div class="field"><div class="fl">Категория</div><select class="fselect" id="lk-cat" style="width:100%"></select></div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-    <button class="btn btn-ghost" onclick="document.getElementById('ov-like').classList.remove('open')">Отмена</button>
-    <button class="btn btn-primary" onclick="confirmSendLike()">Отправить</button>
-  </div>
-</div></div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -182,10 +174,10 @@ let drawerData = null;
 let editMode = false;
 let tabIdx = 0;
 let refreshLock = null;
-let likeTargetId = null;
 
 const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-const LIKE_CATS = ['help','professional','positive','result','congrats','general'];
+let _monthlyData = [];
+const LIKES_MAX_PER_TRANSACTION = 5;
 const ROLES = { photographer_user:0, aq_user:0, recruiter:1, hr_manager:1, tech_director:1, site_specialist:1, aq_manager:1, cashier:2, hr_director:2, exec_director:3, admin:4 };
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (a) => a.includes(roleNow());
@@ -444,15 +436,527 @@ async function createMember() {
   } catch (e) { showToast(e.message, true); }
 }
 
-async function openAchPanel() {
+async function syncFromUsers() {
+  if (!confirm('Создать карточки команды из существующих пользователей-управленцев?')) return;
+  try {
+    const res = await api('POST', '/team/sync-from-users');
+    showToast(`Создано ${res.created} карточек`);
+    await loadTeam();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function openAchievementsPanel() {
   if (!can('hr_director')) { showToast('Недостаточно прав', true); return; }
-  const types = await api('GET', '/achievement-types');
-  const allow = new Set(['milestone', 'social']);
-  const sel = document.getElementById('ga-type');
-  sel.innerHTML = types.filter((t) => allow.has(t.category)).map((t) => `<option value="${t.id}">${esc(t.icon || '')} ${esc(t.name)}</option>`).join('');
-  const sm = document.getElementById('ga-member');
-  sm.innerHTML = teamList.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
-  document.getElementById('ov-ach').classList.add('open');
+  let ov = document.getElementById('achievements-panel-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'achievements-panel-overlay';
+    ov.className = 'overlay';
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  ov.innerHTML = '<div class="modal" style="max-width:700px;width:95vw;max-height:85vh;overflow-y:auto;padding:0" onclick="event.stopPropagation()"><div style="padding:24px;text-align:center;color:var(--text3)">Загрузка...</div></div>';
+
+  try {
+    await api('POST', '/achievements/seed-defaults').catch(() => {});
+    const stats = await api('GET', '/achievements/tenure-stats');
+    _monthlyData = stats.monthly || [];
+    const achStats = stats.achievement_stats || [];
+    const recent = stats.recent || [];
+    const cats = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
+    const grouped = {};
+    achStats.forEach(a => {
+      const cat = (a.code && String(a.code).startsWith('veteran_')) ? 'milestone' : (cats[a.category] ? a.category : 'other');
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(a);
+    });
+    if (grouped.milestone) {
+      const order = ['veteran_6m', 'veteran_1y', 'veteran_3y', 'veteran_5y', 'veteran_10y', 'veteran_15y'];
+      grouped.milestone.sort((a, b) => {
+        const ia = order.indexOf(a.code);
+        const ib = order.indexOf(b.code);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+    }
+    const catOrder = ['sales', 'discipline', 'milestone', 'social', 'other'];
+    const groupKeys = catOrder.filter(k => grouped[k] && grouped[k].length).concat(
+      Object.keys(grouped).filter(k => !catOrder.includes(k) && grouped[k].length)
+    );
+
+    const resetBtn = can('admin')
+      ? `<button type="button" class="btn btn-ghost" style="flex:1" onclick="runResetVeterans()">🔄 Пересчитать стаж</button>`
+      : '';
+
+    ov.innerHTML = `<div class="modal" style="max-width:700px;width:95vw;max-height:85vh;overflow-y:auto;padding:0" onclick="event.stopPropagation()">
+      <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(245,166,35,.15);background:linear-gradient(135deg, rgba(245,166,35,.06), transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#f5a623">🏆 Достижения</div>
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('achievements-panel-overlay').classList.remove('open')" style="font-size:18px">✕</button>
+        </div>
+      </div>
+      <div style="padding:16px 24px">
+        <div style="font-size:13px;font-weight:600;color:#f5a623;margin-bottom:12px">🏆 Достижения месяца</div>
+        ${(stats.monthly && stats.monthly.length) ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:10px;margin-bottom:8px">
+          ${stats.monthly.map((m, idx) => `
+            <div style="background:linear-gradient(135deg, rgba(245,166,35,.1), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:transform .15s"
+              onclick="toggleMonthlyRecipients(${idx})"
+              onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+              <div style="font-size:32px;margin-bottom:6px">${esc(m.icon)}</div>
+              <div style="font-size:11px;color:var(--text);font-weight:500;line-height:1.3;margin-bottom:6px">${esc(m.achievement_name)}</div>
+              <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#f5a623">${m.count}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div id="monthly-recipients" style="margin-bottom:16px"></div>
+        ` : `
+        <div style="padding:16px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(245,166,35,.15);margin-bottom:20px">
+          За этот месяц пока нет новых достижений
+        </div>
+        `}
+        <div style="font-size:13px;font-weight:600;color:#f5a623;margin-bottom:10px">🎯 Статистика по типам</div>
+        ${groupKeys.map(cat => `
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${esc(cats[cat] || cat)}</div>
+            ${grouped[cat].map(a => `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:4px">
+                <span style="font-size:20px;width:28px;text-align:center">${a.icon || '🏅'}</span>
+                <span style="flex:1;font-size:13px;color:var(--text)">${esc(a.name)}</span>
+                <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;color:${Number(a.count) > 0 ? '#f5a623' : 'var(--text3)'}">${a.count != null ? a.count : 0}</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+        <div style="font-size:13px;font-weight:600;color:#f5a623;margin-top:16px;margin-bottom:10px">🕐 Последние выданные</div>
+        <div style="max-height:200px;overflow-y:auto">
+          ${recent.length ? recent.map(r => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12px;border-bottom:1px solid var(--border)">
+              <span style="font-size:16px">${r.icon || '🏅'}</span>
+              <span style="flex:1;color:var(--text)">${esc(r.photographer_name)}</span>
+              <span style="color:var(--text3)">${esc(r.name)}</span>
+              <span style="color:var(--text3);font-size:10px">${r.earned_at ? new Date(r.earned_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: '2-digit' }) : ''}</span>
+            </div>
+          `).join('') : '<div style="color:var(--text3);font-size:12px;padding:8px">Пока нет выданных достижений</div>'}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-primary" style="background:linear-gradient(135deg, #f5a623, #d4941e);flex:1" onclick="runAutoCheck()">▶ Проверить за месяц</button>
+          ${resetBtn}
+        </div>
+      </div>
+    </div>`;
+  } catch (e) {
+    ov.innerHTML = `<div class="modal" style="max-width:500px;padding:24px" onclick="event.stopPropagation()"><div style="color:var(--rank3)">${esc(e.message)}</div><button type="button" class="btn btn-ghost" onclick="document.getElementById('achievements-panel-overlay').classList.remove('open')" style="margin-top:12px">Закрыть</button></div>`;
+  }
+}
+
+function birthdayNavigateFromPanel(id, source) {
+  const ov = document.getElementById('birthdays-panel-overlay');
+  if (ov) ov.classList.remove('open');
+  setTimeout(() => {
+    if (source === 'team') {
+      if (location.pathname.endsWith('team.html')) openDrawer(id);
+      else location.href = 'team.html?open=' + encodeURIComponent(id);
+    } else {
+      location.href = 'index.html';
+    }
+  }, 200);
+}
+
+async function openBirthdaysPanel() {
+  let ov = document.getElementById('birthdays-panel-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'birthdays-panel-overlay';
+    ov.className = 'overlay';
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  ov.innerHTML = '<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0" onclick="event.stopPropagation()"><div style="padding:24px;text-align:center;color:var(--text3)">Загрузка...</div></div>';
+
+  const photoSrc = (url) => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    return API.replace('/api', '') + url;
+  };
+
+  try {
+    const data = await api('GET', '/birthdays');
+
+    const todayStr = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    function renderPerson(p) {
+      const bdDate = p.birthday_this_year ? new Date(p.birthday_this_year).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
+      const daysText = p.days_until === 0 ? 'Сегодня!'
+        : p.days_until > 0 ? `через ${p.days_until} дн.`
+        : `${Math.abs(p.days_until)} дн. назад`;
+
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:border-color .15s"
+          onclick="birthdayNavigateFromPanel('${String(p.id)}', '${p.source || 'photographer'}')"
+          onmouseenter="this.style.borderColor='rgba(245,166,35,.3)'" onmouseleave="this.style.borderColor='var(--border)'">
+          ${p.photo_url
+            ? `<img src="${photoSrc(p.photo_url)}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover"/>`
+            : `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;color:var(--bg)">${esc((p.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2))}</div>`
+          }
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px;color:var(--text)">${esc(p.name)}</div>
+            <div style="font-size:12px;color:var(--text3)">${esc(bdDate)} · исполняется ${esc(String(p.age))} лет</div>
+          </div>
+          <div style="font-size:11px;color:${p.days_until === 0 ? '#f5a623' : 'var(--text3)'};font-weight:${p.days_until === 0 ? '600' : '400'}">${esc(daysText)}</div>
+        </div>
+      `;
+    }
+
+    function renderSection(title, icon, items, emptyText) {
+      if (!items || !items.length) {
+        return `<div style="margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${icon} ${esc(title)}</div>
+          <div style="padding:12px;text-align:center;color:var(--text3);font-size:12px;background:var(--bg3);border-radius:8px;border:1px dashed var(--border)">${esc(emptyText)}</div>
+        </div>`;
+      }
+      return `<div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${icon} ${esc(title)}</div>
+        ${items.map(renderPerson).join('')}
+      </div>`;
+    }
+
+    ov.innerHTML = `<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0" onclick="event.stopPropagation()">
+
+      <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(245,166,35,.15);background:linear-gradient(135deg, rgba(245,166,35,.06), transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#f5a623">🎂 Дни рождения</div>
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('birthdays-panel-overlay').classList.remove('open')" style="font-size:18px">✕</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${esc(todayStr)}</div>
+      </div>
+
+      <div style="padding:16px 24px">
+
+        ${data.today && data.today.length ? `
+        <div style="margin-bottom:20px;padding:16px;background:linear-gradient(135deg, rgba(245,166,35,.12), rgba(245,166,35,.03));border:2px solid rgba(245,166,35,.3);border-radius:14px">
+          <div style="font-size:14px;font-weight:700;color:#f5a623;margin-bottom:10px">🎉 Сегодня день рождения!</div>
+          ${data.today.map(p => `
+            <div style="display:flex;align-items:center;gap:14px;padding:8px 0;transition:transform .15s;cursor:pointer"
+              onclick="birthdayNavigateFromPanel('${String(p.id)}', '${p.source || 'photographer'}')"
+              onmouseenter="this.style.transform='scale(1.02)'" onmouseleave="this.style.transform='scale(1)'">
+              ${p.photo_url
+                ? `<img src="${photoSrc(p.photo_url)}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #f5a623"/>`
+                : `<div style="width:48px;height:48px;border-radius:50%;background:#f5a623;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:16px;font-weight:700;color:var(--bg)">${esc((p.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2))}</div>`
+              }
+              <div>
+                <div style="font-weight:700;font-size:16px;color:var(--text)">${esc(p.name)}</div>
+                <div style="font-size:13px;color:#f5a623">🎂 Исполняется ${esc(String(p.age))} лет!</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
+        ${renderSection('Эта неделя', '📅', data.this_week || [], 'Нет именинников')}
+        ${renderSection('Прошлая неделя', '⏪', data.last_week || [], 'Не было')}
+        ${renderSection('Следующая неделя', '⏩', data.next_week || [], 'Нет предстоящих')}
+
+      </div>
+    </div>`;
+
+  } catch (e) {
+    ov.innerHTML = `<div class="modal" style="max-width:500px;padding:24px" onclick="event.stopPropagation()"><div style="color:var(--rank3)">${esc(e.message)}</div><button type="button" class="btn btn-ghost" onclick="document.getElementById('birthdays-panel-overlay').classList.remove('open')" style="margin-top:12px">Закрыть</button></div>`;
+  }
+}
+
+function toggleMonthlyRecipients(idx) {
+  const container = document.getElementById('monthly-recipients');
+  if (!container) return;
+  const m = _monthlyData[idx];
+  if (!m) return;
+
+  if (container.dataset.openIdx === String(idx)) {
+    container.innerHTML = '';
+    container.dataset.openIdx = '';
+    return;
+  }
+
+  container.dataset.openIdx = String(idx);
+  const recipients = m.recipients || [];
+
+  container.innerHTML = `
+    <div style="background:var(--bg3);border:1px solid rgba(245,166,35,.15);border-radius:10px;padding:12px;margin-top:8px">
+      <div style="font-size:12px;font-weight:600;color:#f5a623;margin-bottom:8px">${esc(m.icon)} ${esc(m.achievement_name)} — ${recipients.length} чел.</div>
+      ${recipients.map(r => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text)">${esc(r.name || '—')}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;color:var(--text3)">${r.earned_at ? new Date(r.earned_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : ''}</span>
+            ${r.id != null && r.id !== '' ? `<button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="document.getElementById('achievements-panel-overlay').classList.remove('open'); setTimeout(() => openFromMonthlyRecipient('${r.id}'), 200)">Карточка →</button>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function openFromMonthlyRecipient(id) {
+  api('GET', '/team/' + id).then(() => {
+    if (location.pathname.endsWith('team.html')) openDrawer(id);
+    else location.href = 'team.html?open=' + encodeURIComponent(id);
+  }).catch(() => { location.href = 'index.html'; });
+}
+
+let _selectedLikeAmount = 1;
+let _selectedLikeCategory = 'general';
+
+function selectLikeAmount(n) {
+  _selectedLikeAmount = n;
+  document.querySelectorAll('[id^="like-amt-"]').forEach(el => {
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+  });
+  const el = document.getElementById('like-amt-' + n);
+  if (el) {
+    el.style.background = 'rgba(229,62,62,.15)';
+    el.style.color = '#e53e3e';
+    el.style.borderColor = 'rgba(229,62,62,.3)';
+  }
+}
+
+function selectLikeCategory(cat) {
+  _selectedLikeCategory = cat;
+  document.querySelectorAll('[id^="like-cat-"]').forEach(el => {
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+  });
+  const el = document.getElementById('like-cat-' + cat);
+  if (el) {
+    el.style.background = 'rgba(229,62,62,.1)';
+    el.style.color = '#e53e3e';
+    el.style.borderColor = 'rgba(229,62,62,.2)';
+  }
+}
+
+async function sendLike(toId) {
+  try {
+    const comment = document.getElementById('like-comment')?.value.trim() || null;
+    await api('POST', '/peer-likes', {
+      to_id: toId,
+      amount: _selectedLikeAmount,
+      category: _selectedLikeCategory,
+      comment,
+    });
+    document.getElementById('like-modal-overlay')?.classList.remove('open');
+    showToast(`❤️ Отправлено ${_selectedLikeAmount} лайк(ов)!`);
+    _selectedLikeAmount = 1;
+    _selectedLikeCategory = 'general';
+  } catch (e) {
+    showToast(e.message, true);
+  }
+}
+
+async function openSendLikeModal(toId, toName) {
+  let budget;
+  try {
+    budget = await api('GET', '/peer-likes/my-budget');
+  } catch (e) {
+    showToast('Не удалось загрузить бюджет лайков', true);
+    return;
+  }
+
+  if (budget.remaining <= 0) {
+    showToast('У вас не осталось лайков в этом месяце (0/' + budget.total + ')', true);
+    return;
+  }
+
+  const alreadyToThis = (budget.by_person || []).find(p => String(p.to_id) === String(toId));
+  const remainingForPerson = budget.max_per_person - (alreadyToThis ? parseInt(alreadyToThis.total, 10) : 0);
+
+  if (remainingForPerson <= 0) {
+    showToast(`Этому коллеге уже отдано максимум (${budget.max_per_person}) лайков`, true);
+    return;
+  }
+
+  const maxAmount = Math.min(budget.remaining, remainingForPerson, LIKES_MAX_PER_TRANSACTION || 5);
+
+  let ov = document.getElementById('like-modal-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'like-modal-overlay';
+    ov.className = 'overlay';
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+
+  const CATS = {
+    help: '💪 Помощь',
+    professional: '⭐ Профессионализм',
+    positive: '😊 Позитив',
+    result: '🎯 Результат',
+    congrats: '🎂 Поздравление',
+    general: '❤️ Общее',
+  };
+
+  ov.innerHTML = `<div class="modal" style="max-width:420px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;color:#e53e3e">❤️ Отправить лайк</div>
+      <button class="btn btn-ghost" onclick="document.getElementById('like-modal-overlay').classList.remove('open')" style="font-size:16px">✕</button>
+    </div>
+
+    <div style="font-size:14px;margin-bottom:16px">Кому: <b>${esc(toName)}</b></div>
+
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+      Ваш баланс: <span style="color:#e53e3e;font-weight:600">${budget.remaining}</span> из ${budget.total} лайков
+      ${alreadyToThis ? ` · Этому коллеге: ${alreadyToThis.total}/${budget.max_per_person}` : ''}
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:6px">Сколько ❤️</div>
+      <div style="display:flex;gap:8px" id="like-amount-btns">
+        ${[1,2,3,4,5].filter(n => n <= maxAmount).map(n => `
+          <button class="btn btn-ghost" style="flex:1;font-size:16px;padding:8px;${n===1?'background:rgba(229,62,62,.15);color:#e53e3e;border-color:rgba(229,62,62,.3)':''}"
+            onclick="selectLikeAmount(${n})" id="like-amt-${n}">
+            ${'❤️'.repeat(n)}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:6px">За что?</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${Object.entries(CATS).map(([k, v]) => `
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;${k==='general'?'background:rgba(229,62,62,.1);color:#e53e3e;border-color:rgba(229,62,62,.2)':''}"
+            onclick="selectLikeCategory('${k}')" id="like-cat-${k}">${v}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="fl" style="margin-bottom:6px">Комментарий (необязательно)</div>
+      <input class="fin" id="like-comment" placeholder="Спасибо за..." style="width:100%"/>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg, #e53e3e, #f5a623);font-size:14px"
+      onclick="sendLike('${String(toId).replace(/'/g, "\\'")}')">Отправить ❤️</button>
+  </div>`;
+}
+
+function openSendLikeModalForDrawer() {
+  if (!drawerId || !drawerData) return;
+  openSendLikeModal(drawerId, drawerData.name);
+}
+
+async function openLikesPanel() {
+  let ov = document.getElementById('likes-panel-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'likes-panel-overlay';
+    ov.className = 'overlay';
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  ov.innerHTML = '<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0"><div style="padding:24px;text-align:center;color:var(--text3)">Загрузка...</div></div>';
+
+  try {
+    const photoSrc = (url) => {
+      if (!url) return '';
+      if (/^https?:\/\//i.test(url)) return url;
+      return API.replace('/api', '') + url;
+    };
+
+    const [topData, budget] = await Promise.all([
+      api('GET', '/peer-likes/top').catch(() => ({ month: '', top: [] })),
+      api('GET', '/peer-likes/my-budget').catch(() => null),
+    ]);
+
+    ov.innerHTML = `<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0">
+
+      <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(229,62,62,.15);background:linear-gradient(135deg, rgba(229,62,62,.06), transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#e53e3e">❤️ Любимцы народа</div>
+          <button class="btn btn-ghost" onclick="document.getElementById('likes-panel-overlay').classList.remove('open')" style="font-size:18px">✕</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${esc(topData.month || '')}</div>
+      </div>
+
+      <div style="padding:16px 24px">
+
+        ${budget ? `
+        <div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Ваш баланс лайков</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-family:'Unbounded',sans-serif;font-size:24px;font-weight:700;color:#e53e3e">${esc(String(budget.remaining))}</div>
+            <div style="font-size:12px;color:var(--text3)">из ${esc(String(budget.total))} осталось в этом месяце</div>
+          </div>
+          ${budget.by_person && budget.by_person.length ? `
+          <div style="font-size:11px;color:var(--text3);margin-top:8px">
+            Отдано: ${budget.by_person.map(p => esc(p.to_name) + ' (' + p.total + ')').join(', ')}
+          </div>` : ''}
+        </div>` : ''}
+
+        <div style="font-size:13px;font-weight:600;color:#e53e3e;margin-bottom:12px">🏆 Топ за ${esc(topData.month || 'месяц')}</div>
+
+        ${topData.top && topData.top.length ? topData.top.map((p, idx) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${idx < 3 ? 'linear-gradient(135deg, rgba(229,62,62,.08), transparent)' : 'var(--bg3)'};border:1px solid ${idx < 3 ? 'rgba(229,62,62,.15)' : 'var(--border)'};border-radius:10px;margin-bottom:6px;cursor:pointer"
+            onclick="likesTopNavigateToId('${String(p.to_id)}')">
+            <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:700;color:${idx === 0 ? '#f5a623' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'var(--text3)'};width:28px;text-align:center">#${p.position}</div>
+            ${p.photo_url
+              ? `<img src="${photoSrc(p.photo_url)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"/>`
+              : `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--bg)">${esc((p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2))}</div>`
+            }
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:14px">${esc(p.name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${esc(String(p.unique_fans))} фанат(ов)</div>
+            </div>
+            <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#e53e3e">${esc(String(p.total_likes))} ❤️</div>
+          </div>
+        `).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(229,62,62,.15)">Пока никто не получал лайков в этом месяце</div>'}
+
+      </div>
+    </div>`;
+
+  } catch (e) {
+    ov.innerHTML = `<div class="modal" style="max-width:500px;padding:24px"><div style="color:var(--rank3)">${esc(e.message)}</div><button class="btn btn-ghost" onclick="document.getElementById('likes-panel-overlay').classList.remove('open')" style="margin-top:12px">Закрыть</button></div>`;
+  }
+}
+
+function likesTopNavigateToId(id) {
+  document.getElementById('likes-panel-overlay').classList.remove('open');
+  setTimeout(() => {
+    api('GET', '/team/' + id).then(() => openDrawer(id)).catch(() => { location.href = 'index.html'; });
+  }, 200);
+}
+
+async function runAutoCheck() {
+  const month = prompt('Месяц (YYYY-MM, пусто = текущий):', new Date().toISOString().slice(0, 7));
+  if (month === null) return;
+  const m = month.trim();
+  try {
+    const body = m ? { month: m } : {};
+    const res = await api('POST', '/achievements/auto-check', body);
+    if (!res) return;
+    let msg = `Проверка за ${esc(String(res.period || '?'))}:\nВыдано: ${Number(res.total_awarded) || 0}`;
+    if (res.results && res.results.length) {
+      msg += '\n\n' + res.results.map(r => `${esc(String(r.icon || ''))} ${esc(String(r.achievement || ''))}: ${Number(r.awarded) || 0}`).join('\n');
+    }
+    alert(msg);
+    openAchievementsPanel();
+  } catch (e) {
+    showToast(e.message, true);
+  }
+}
+
+async function runResetVeterans() {
+  if (!confirm('Удалить все veteran-достижения и перевыдать с правильными датами?\n\nЭто безопасно — после нужно нажать «Проверить за месяц».')) return;
+  try {
+    const res = await api('POST', '/achievements/reset-veterans');
+    showToast(`Удалено ${res.deleted} записей. Теперь нажмите «Проверить за месяц».`);
+    openAchievementsPanel();
+  } catch (e) {
+    showToast(e.message, true);
+  }
 }
 
 async function grantAchievement() {
@@ -478,51 +982,6 @@ function openGrantAch() {
   }).catch((e) => showToast(e.message, true));
 }
 
-async function openBirthdaysPanel() {
-  try {
-    const data = await api('GET', '/birthdays');
-    const all = [...(data.today || []), ...(data.this_week || []), ...(data.next_week || []), ...(data.last_week || [])];
-    const teamLines = all.filter((p) => p.source === 'team');
-    const phLines = all.filter((p) => p.source !== 'team');
-    const lines = (a) => a.map((p) => `${esc(p.name)} — ${esc(String(p.age))} лет (${p.source === 'team' ? 'команда' : 'фотографы'})`).join('\n');
-    alert('🎂 Дни рождения\n\nСегодня и рядом:\n' + (lines(all) || 'Нет данных'));
-  } catch (e) { showToast(e.message, true); }
-}
-
-async function openLikesPanel() {
-  try {
-    const topData = await api('GET', '/peer-likes/top');
-    const budget = await api('GET', '/peer-likes/my-budget').catch(() => null);
-    let msg = '❤️ Топ за ' + (topData.month || '') + '\n\n';
-    if (topData.top && topData.top.length) msg += topData.top.map((p, i) => (i + 1) + '. ' + p.name + ' — ' + p.total_likes + ' ❤️').join('\n');
-    else msg += 'Пока пусто';
-    if (budget) msg += '\n\nОсталось лайков: ' + budget.remaining + ' / ' + budget.total;
-    alert(msg);
-  } catch (e) { showToast(e.message, true); }
-}
-
-function sendLikeDrawer() {
-  if (!drawerId) return;
-  likeTargetId = drawerId;
-  document.getElementById('lk-amt').value = '1';
-  const s = document.getElementById('lk-cat');
-  s.innerHTML = LIKE_CATS.map((c) => `<option value="${c}">${c}</option>`).join('');
-  document.getElementById('ov-like').classList.add('open');
-}
-
-async function confirmSendLike() {
-  if (!likeTargetId) return;
-  try {
-    await api('POST', '/peer-likes', {
-      to_id: likeTargetId,
-      amount: parseInt(document.getElementById('lk-amt').value, 10) || 1,
-      category: document.getElementById('lk-cat').value || 'general',
-    });
-    document.getElementById('ov-like').classList.remove('open');
-    showToast('Лайк отправлен');
-  } catch (e) { showToast(e.message, true); }
-}
-
 (async function init() {
   if (!accessToken && !refreshToken) { location.href = 'index.html'; return; }
   try {
@@ -538,6 +997,7 @@ async function confirmSendLike() {
     if (rec) rec.style.display = hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin']) ? '' : 'none';
 
     if (hasAnyRole(['exec_director', 'admin'])) document.getElementById('btn-add').style.display = 'inline-block';
+    if (currentUser.role === 'admin') document.getElementById('btn-sync').style.display = 'inline-block';
 
     await loadTeam();
     const params = new URLSearchParams(location.search);
