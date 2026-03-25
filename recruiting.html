@@ -252,6 +252,7 @@ textarea.fin{resize:vertical;min-height:50px}
       <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" id="tr-date" type="date"/></div>
       <div class="field" style="flex:1"><div class="fl">Время</div><input class="fin" id="tr-time" type="time" value="12:00"/></div>
     </div>
+    <div class="field"><div class="fl">Тренер *</div><select class="fselect" id="tr-trainer"><option value="">Загрузка...</option></select></div>
     <div class="field"><div class="fl">Место</div><input class="fin" id="tr-location" placeholder="Адрес или площадка"/></div>
     <div style="display:flex;gap:8px">
       <div class="field" style="flex:1"><div class="fl">Макс. участников</div><input class="fin" id="tr-max" type="number" value="15"/></div>
@@ -786,7 +787,21 @@ let trainings = [];
 
 async function openTrainings() {
   document.getElementById('trainings-modal').classList.add('open');
-  await loadTrainingsList();
+  await Promise.all([loadTrainingsList(), loadTrainers()]);
+}
+
+async function loadTrainers() {
+  try {
+    const trainers = await api('GET', '/trainers');
+    const sel = document.getElementById('tr-trainer');
+    if (!trainers.length) {
+      sel.innerHTML = '<option value="">Нет тренеров (добавьте роль trainer в карточке)</option>';
+    } else {
+      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    }
+  } catch (e) {
+    document.getElementById('tr-trainer').innerHTML = '<option value="">Ошибка загрузки</option>';
+  }
 }
 
 async function loadTrainingsList() {
@@ -818,19 +833,11 @@ async function loadTrainingsList() {
 async function createTraining() {
   const title = document.getElementById('tr-title').value.trim();
   const date = document.getElementById('tr-date').value;
+  const trainerId = document.getElementById('tr-trainer').value;
   if (!title || !date) { showToast('Название и дата обязательны', true); return; }
+  if (!trainerId) { showToast('Выберите тренера', true); return; }
 
   try {
-    // Используем текущего пользователя как тренера (можно потом выбирать)
-    // Нужен photographer_id — если нет, используем первый попавшийся
-    let trainerId = currentUser.photographer_id;
-    if (!trainerId) {
-      // Создаём без тренера не получится — API требует trainer_id
-      // Пока используем заглушку
-      showToast('Для создания тренинга нужен тренер (привязка к карточке)', true);
-      return;
-    }
-
     await api('POST', '/trainings', {
       title,
       training_date: date,
