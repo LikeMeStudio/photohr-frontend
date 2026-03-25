@@ -202,7 +202,8 @@ a{color:inherit;text-decoration:none}
 <div class="header">
   <a class="logo" href="index.html">Photo<span>HR</span></a>
   <div class="nav-links" id="nav-links">
-    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn" href="index.html">Фотографы</a>
+    <a class="nav-btn" href="team.html" id="nav-team">Команда</a>
     <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn" href="stock.html">Склад</a>
@@ -1217,6 +1218,8 @@ function exportAquagrimers(){
       return;
     }
     document.getElementById('user-pill').innerHTML = `<div class="role-dot" style="background:${ROLE_COLORS[currentUser.role]||'var(--text3)'}"></div><span>${esc(currentUser.name)}</span> <span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;
+    const nt=document.getElementById('nav-team');
+    if(nt) nt.style.display=(currentUser.role==='photographer_user'||currentUser.role==='aq_user')?'none':'';
     setupToolbarActions();
     await Promise.all([loadVenues(), reloadAll()]);
   } catch(e){
