@@ -79,7 +79,13 @@ let refreshLock=null;
 async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){try{if(!refreshLock){refreshLock=(async()=>{const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(!x.ok)throw new Error('refresh_failed');const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);})();}await refreshLock;o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
-(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');document.getElementById('user-pill').innerHTML=`<span>${U.name}</span>`;document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');}catch{doLogout();}})();
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');document.getElementById('user-pill').innerHTML=`<span>${esc(U.name)}</span>`;document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');}catch{doLogout();}})();
 
 async function load(){
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;if(!vid||!dt)return;
@@ -94,7 +100,7 @@ prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
 const reps=await api('GET',`/daily-reports?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
 report=reps.length?await api('GET',`/daily-reports/${reps[0].id}`).catch(()=>null):null;
 render(ev[0]);
-}catch(e){document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+}catch(e){document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
 function render(ev){
@@ -113,7 +119,7 @@ document.getElementById('C').innerHTML=`
 <div style="display:flex;gap:4px"><button class="btn btn-primary" onclick="startQR()">▶</button><button class="btn btn-ghost" onclick="stopQR()">⏹</button></div></div></div></div>
 
 <div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
-${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${a.photographer_name||'—'}</div><span style="font-size:9px;color:var(--text3)">${a.role_in_shift||''}</span>${ch?(a.is_late?`<span class="rs rs-late">⏰+${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`):`<span class="rs rs-wait">⏳</span><button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
+${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?(a.is_late?`<span class="rs rs-late">⏰+${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`):`<span class="rs rs-wait">⏳</span><button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
 </div>
 
 <div class="sec"><div class="sec-t">🖨 Принтеры</div>
@@ -140,9 +146,9 @@ ${ed?`<button class="btn btn-ghost" onclick="save('draft')">💾 Чернови�
 
 function salesTbl(phs,lines){
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
-prods.forEach(p=>{h+=`<th>${(p.product_name||p.name).slice(0,10)}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
+prods.forEach(p=>{h+=`<th>${esc(String((p.product_name||p.name)||'').slice(0,10))}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
 h+='<th>Брак</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th></tr></thead><tbody>';
-phs.forEach(a=>{const ph=a.photographer_id;h+=`<tr><td>${(a.photographer_name||'').slice(0,12)}</td>`;
+phs.forEach(a=>{const ph=a.photographer_id;h+=`<tr><td>${esc(String((a.photographer_name||'')).slice(0,12))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>l.photographer_id===ph&&l.product_id===pid);
 h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" onchange="rc()"/></td>`;});
 const x=lines.find(l=>l.photographer_id===ph);
@@ -179,7 +185,7 @@ function addPr(){const l=document.getElementById('prl'),i=l.children.length,d=do
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
-async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';new QRCode(b,{text:d.qr_code,width:160,height:160,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${e.message}</div>`;}}
+async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';new QRCode(b,{text:d.qr_code,width:160,height:160,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
 
 function collect(){
@@ -226,8 +232,8 @@ async function openVenueSettings(){
 
     c.innerHTML=`
       <div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📍 ${venue.name||'Площадка'}</div>
-        <div style="font-size:11px;color:var(--text3)">${venue.address||''} ${venue.city||''}</div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📍 ${esc(venue.name||'Площадка')}</div>
+        <div style="font-size:11px;color:var(--text3)">${esc(venue.address||'')} ${esc(venue.city||'')}</div>
         ${venue.checkin_radius_m?`<div style="font-size:11px;color:var(--text3)">Радиус чекина: ${venue.checkin_radius_m}м</div>`:''}
       </div>
 
@@ -235,7 +241,7 @@ async function openVenueSettings(){
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">🛒 Товары площадки (${venueProds.length})</div>
         ${venueProds.map(p=>`
           <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:12px">
-            <span style="flex:1">${p.product_name||p.name}</span>
+            <span style="flex:1">${esc(p.product_name||p.name)}</span>
             <span style="color:var(--accent2);font-weight:600">${p.price}₽</span>
             <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeProduct('${vid}','${p.product_id}')">✕</button>
           </div>
@@ -246,7 +252,7 @@ async function openVenueSettings(){
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">➕ Добавить товар</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <select class="fselect" id="add-prod" style="flex:1;min-width:150px">
-            ${allProds.filter(p=>!vpIds.has(p.id)).map(p=>`<option value="${p.id}">${p.name} (${p.default_price||0}₽)</option>`).join('')}
+            ${allProds.filter(p=>!vpIds.has(p.id)).map(p=>`<option value="${p.id}">${esc(p.name)} (${p.default_price||0}₽)</option>`).join('')}
           </select>
           <input class="fin" type="number" id="add-price" placeholder="Цена" style="width:80px" value="${allProds[0]?.default_price||0}"/>
           <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="addProduct('${vid}')">Добавить</button>
@@ -273,7 +279,7 @@ async function openVenueSettings(){
         </div>
       </div>
     `;
-  }catch(e){c.innerHTML=`<div style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){c.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
 function openNewProduct(){document.getElementById('new-prod-form').style.display='block';}

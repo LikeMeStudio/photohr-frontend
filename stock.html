@@ -130,14 +130,19 @@ async function api(m,p,b){
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');window.location.href='index.html';}
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 (async function init(){
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
-    document.getElementById('user-pill').innerHTML=`<span>${currentUser.name}</span>`;
+    document.getElementById('user-pill').innerHTML=`<span>${esc(currentUser.name)}</span>`;
     [warehouses,items]=await Promise.all([api('GET','/warehouses').catch(()=>[]),api('GET','/inventory-items').catch(()=>[])]);
     switchTab(0);
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
 
 function switchTab(idx){
@@ -158,15 +163,15 @@ async function loadStock(){
       <div class="section-title">📦 Остатки <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button></div>
       <table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Мин.</th><th>Статус</th></tr></thead><tbody>
       ${stock.map(s=>`<tr>
-        <td>${s.item_name} <span style="color:var(--text3);font-size:10px">${s.unit||'шт'}</span></td>
-        <td>${s.warehouse_name}</td>
+        <td>${esc(s.item_name)} <span style="color:var(--text3);font-size:10px">${esc(s.unit||'шт')}</span></td>
+        <td>${esc(s.warehouse_name)}</td>
         <td style="font-weight:600">${s.quantity}</td>
         <td>${s.min_quantity||'—'}</td>
         <td><span class="${s.is_low?'status-crit':'status-ok'}">${s.is_low?'⚠️ Мало':'✅ Норма'}</span></td>
       </tr>`).join('')}
       </tbody></table>
     </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
 async function loadMovements(){
@@ -180,15 +185,15 @@ async function loadMovements(){
       ${moves.map(m=>`<tr>
         <td>${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
         <td>${TYPE_LABELS[m.movement_type]||m.movement_type}</td>
-        <td>${m.item_name}</td>
-        <td style="font-weight:600">${m.quantity} ${m.unit||''}</td>
-        <td>${m.from_warehouse_name||'—'}</td>
-        <td>${m.to_warehouse_name||'—'}</td>
-        <td style="color:var(--text3)">${m.created_by_name||''}</td>
+        <td>${esc(m.item_name)}</td>
+        <td style="font-weight:600">${m.quantity} ${esc(m.unit||'')}</td>
+        <td>${esc(m.from_warehouse_name||'—')}</td>
+        <td>${esc(m.to_warehouse_name||'—')}</td>
+        <td style="color:var(--text3)">${esc(m.created_by_name||'')}</td>
       </tr>`).join('')}
       </tbody></table>`:'<div style="color:var(--text3)">Нет движений</div>'}
     </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
 async function loadDeficit(){
@@ -199,8 +204,8 @@ async function loadDeficit(){
       <div class="section-title">⚠️ Прогноз дефицита</div>
       ${data.length?`<table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
       ${data.map(d=>`<tr>
-        <td>${d.item_name}</td>
-        <td>${d.warehouse_name}</td>
+        <td>${esc(d.item_name)}</td>
+        <td>${esc(d.warehouse_name)}</td>
         <td>${d.quantity}</td>
         <td>${d.avg_daily_consumption||'0'}</td>
         <td style="font-weight:600;color:${d.status==='critical'?'var(--rank3)':d.status==='warning'?'var(--rank2)':'var(--text)'}">${d.days_remaining!==null?d.days_remaining+'д':'∞'}</td>
@@ -208,7 +213,7 @@ async function loadDeficit(){
       </tr>`).join('')}
       </tbody></table>`:'<div style="color:var(--text3)">Нет данных о расходниках</div>'}
     </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
 async function loadEquipment(){
@@ -220,20 +225,20 @@ async function loadEquipment(){
       <div class="section-title">🖨 Оборудование (${equip.length})</div>
       ${equip.length?`<table class="tbl"><thead><tr><th>Название</th><th>Серийный</th><th>Склад/Площадка</th><th>Статус</th></tr></thead><tbody>
       ${equip.map(e=>`<tr>
-        <td>${e.item_name} <span style="color:var(--text3);font-size:10px">${e.item_category||''}</span></td>
+        <td>${esc(e.item_name)} <span style="color:var(--text3);font-size:10px">${esc(e.item_category||'')}</span></td>
         <td style="font-family:monospace;font-size:11px">${e.serial_number||'—'}</td>
-        <td>${e.warehouse_name||'—'}${e.venue_name?' · '+e.venue_name:''}</td>
+        <td>${esc(e.warehouse_name||'—')}${e.venue_name?' · '+esc(e.venue_name):''}</td>
         <td>${STATUS[e.status]||e.status}</td>
       </tr>`).join('')}
       </tbody></table>`:'<div style="color:var(--text3)">Нет оборудования</div>'}
     </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
 function openMoveModal(){
   const itemSel=document.getElementById('mv-item');
-  itemSel.innerHTML=items.filter(i=>i.item_type==='consumable').map(i=>`<option value="${i.id}">${i.name} (${i.unit||'шт'})</option>`).join('');
-  const whOpts='<option value="">—</option>'+warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+  itemSel.innerHTML=items.filter(i=>i.item_type==='consumable').map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.unit||'шт')})</option>`).join('');
+  const whOpts='<option value="">—</option>'+warehouses.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('mv-from').innerHTML=whOpts;
   document.getElementById('mv-to').innerHTML=whOpts;
   document.getElementById('mv-qty').value=1;

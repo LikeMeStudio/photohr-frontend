@@ -396,6 +396,11 @@ function showToast(msg, err) {
   setTimeout(() => t.className = 'toast', 2500);
 }
 
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // ── INIT ──
 (async function init() {
   if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
@@ -411,7 +416,7 @@ function showToast(msg, err) {
 
 function setupHeader() {
   const c = ROLE_COLORS[currentUser.role] || '#9090a8';
-  document.getElementById('user-pill').innerHTML = `<div class="role-dot" style="background:${c}"></div><span>${currentUser.name}</span>`;
+  document.getElementById('user-pill').innerHTML = `<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span>`;
 }
 
 // ── LOAD ──
@@ -422,7 +427,7 @@ async function loadKanban() {
     kanbanData = await api('GET', '/candidates/kanban' + filterParam);
     allStages = kanbanData.stages_flat || [];
     renderKanban();
-  } catch (e) { document.getElementById('kanban-container').innerHTML = `<div class="loading">${e.message}</div>`; }
+  } catch (e) { document.getElementById('kanban-container').innerHTML = `<div class="loading">${esc(e.message)}</div>`; }
 }
 
 // ── RENDER ──
@@ -449,7 +454,7 @@ function renderKanban() {
       return `<div class="kanban-col">
         <div class="col-header">
           <div class="col-dot" style="background:${stage.color}"></div>
-          <div class="col-title">${stage.name}</div>
+          <div class="col-title">${esc(stage.name)}</div>
           <div class="col-count">${cards.length}</div>
         </div>
         <div class="col-body" data-stage="${stage.id}"
@@ -478,9 +483,9 @@ function renderCard(c) {
   return `<div class="cc${priorityClass}" draggable="true" data-id="${c.id}"
                ondragstart="dragStart(event,'${c.id}')" ondragend="dragEnd(event)"
                onclick="openCandidate('${c.id}')">
-    <div class="cc-name">${c.name}</div>
+    <div class="cc-name">${esc(c.name)}</div>
     <div class="cc-row">
-      <span class="cc-src ${srcClass}">${srcLabel}</span>
+      <span class="cc-src ${srcClass}">${esc(srcLabel)}</span>
       ${isOverdue ? '<span class="cc-overdue">⏰ просрочен</span>' : ''}
       <span>${timeAgo}</span>
       ${c.comment_count > 0 ? `<span class="cc-comments">💬${c.comment_count}</span>` : ''}
@@ -643,7 +648,7 @@ function renderDrawer(c) {
         </select>
       </div>
       <div class="field"><div class="fl">Следующий контакт</div><input class="fin" id="ed-next-contact" type="datetime-local" value="${c.next_contact_at ? c.next_contact_at.slice(0,16) : ''}"/></div>
-      <div class="field"><div class="fl">Резюме / заметки</div><textarea class="fin" id="ed-resume" rows="3">${c.resume_text || ''}</textarea></div>
+      <div class="field"><div class="fl">Резюме / заметки</div><textarea class="fin" id="ed-resume" rows="3">${esc(c.resume_text || '')}</textarea></div>
       <div class="modal-footer" style="margin-top:12px">
         <button class="btn btn-primary" onclick="saveCandidate('${c.id}')">Сохранить</button>
       </div>
@@ -651,25 +656,25 @@ function renderDrawer(c) {
   } else {
     dc.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <div class="dr-name" style="flex:1">${c.name}</div>
+        <div class="dr-name" style="flex:1">${esc(c.name)}</div>
         <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="enterEditMode('${c.id}')">✏️ Ред.</button>
       </div>
       <div class="dr-stage-badge" style="background:${stageColor}22;color:${stageColor};border:1px solid ${stageColor}44">
         <span style="width:6px;height:6px;border-radius:50%;background:${stageColor}"></span>
-        ${c.stage_name}
+        ${esc(c.stage_name)}
       </div>
 
       ${!c.is_terminal ? `
       <div class="dr-actions">
         <select class="fselect" id="move-stage" style="width:auto;flex:1">
-          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${s.name}</option>`).join('')}
+          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
         </select>
         <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">Перевести</button>
         <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="openRejectModal('${c.id}','${(c.stage_name||'').replace(/'/g,"\\'")}')">❌</button>
       </div>` : `
       <div class="dr-actions">
         <select class="fselect" id="move-stage" style="width:auto;flex:1">
-          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
         </select>
         <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">↩ Вернуть</button>
       </div>`}
@@ -678,24 +683,24 @@ function renderDrawer(c) {
 
       <div class="dr-section">
         <div class="dr-label">Контакты</div>
-        ${c.phone ? `<div class="dr-val">📞 <a href="tel:${c.phone}">${c.phone}</a></div>` : ''}
-        ${c.email ? `<div class="dr-val">📧 <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
-        ${c.telegram ? `<div class="dr-val">💬 ${c.telegram}</div>` : ''}
-        ${c.whatsapp ? `<div class="dr-val">📱 ${c.whatsapp}</div>` : ''}
-        ${c.city ? `<div class="dr-val">📍 ${c.city}</div>` : ''}
+        ${c.phone ? `<div class="dr-val">📞 <a href="tel:${c.phone}">${esc(c.phone)}</a></div>` : ''}
+        ${c.email ? `<div class="dr-val">📧 <a href="mailto:${c.email}">${esc(c.email)}</a></div>` : ''}
+        ${c.telegram ? `<div class="dr-val">💬 ${esc(c.telegram)}</div>` : ''}
+        ${c.whatsapp ? `<div class="dr-val">📱 ${esc(c.whatsapp)}</div>` : ''}
+        ${c.city ? `<div class="dr-val">📍 ${esc(c.city)}</div>` : ''}
         ${c.birth_date ? `<div class="dr-val">🎂 ${new Date(c.birth_date).toLocaleDateString('ru-RU')}</div>` : ''}
         ${!c.phone && !c.email && !c.telegram ? '<div class="dr-val" style="color:var(--text3)">Нет контактов</div>' : ''}
       </div>
 
       <div class="dr-section">
         <div class="dr-label">Информация</div>
-        <div class="dr-val"><span class="cc-src ${srcClass}">${srcLabel}</span> · ${c.target_role === 'aquagrim' ? '🎨 Аквагримёр' : '📷 Фотограф'} · ${c.priority === 'high' ? '🔥 Высокий' : c.priority === 'low' ? 'Низкий' : 'Обычный'}</div>
-        ${c.assigned_to_name ? `<div class="dr-val" style="margin-top:4px">👤 Ведёт: ${c.assigned_to_name}</div>` : ''}
-        ${c.referred_by_name ? `<div class="dr-val" style="margin-top:4px">🔗 Привёл: ${c.referred_by_name}</div>` : ''}
+        <div class="dr-val"><span class="cc-src ${srcClass}">${esc(srcLabel)}</span> · ${c.target_role === 'aquagrim' ? '🎨 Аквагримёр' : '📷 Фотограф'} · ${c.priority === 'high' ? '🔥 Высокий' : c.priority === 'low' ? 'Низкий' : 'Обычный'}</div>
+        ${c.assigned_to_name ? `<div class="dr-val" style="margin-top:4px">👤 Ведёт: ${esc(c.assigned_to_name)}</div>` : ''}
+        ${c.referred_by_name ? `<div class="dr-val" style="margin-top:4px">🔗 Привёл: ${esc(c.referred_by_name)}</div>` : ''}
         ${c.next_contact_at ? `<div class="dr-val" style="margin-top:4px">📅 Контакт: ${new Date(c.next_contact_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>` : ''}
       </div>
 
-      ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме</div><div class="dr-val" style="font-size:12px;line-height:1.5;max-height:120px;overflow-y:auto">${c.resume_text}</div></div>` : ''}
+      ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме</div><div class="dr-val" style="font-size:12px;line-height:1.5;max-height:120px;overflow-y:auto">${esc(c.resume_text)}</div></div>` : ''}
 
       <div class="dr-section">
         <div class="dr-label">История</div>
@@ -704,9 +709,9 @@ function renderDrawer(c) {
             <div class="tl-item">
               <div class="tl-dot"></div>
               <div>
-                <div>${s.from_stage_name ? s.from_stage_name + ' → ' : ''}${s.to_stage_name}</div>
-                ${s.notes ? `<div style="color:var(--text2);font-size:11px">${s.notes}</div>` : ''}
-                <div class="tl-date">${new Date(s.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${s.moved_by_name ? ' · ' + s.moved_by_name : ''}</div>
+                <div>${s.from_stage_name ? esc(s.from_stage_name) + ' → ' : ''}${esc(s.to_stage_name)}</div>
+                ${s.notes ? `<div style="color:var(--text2);font-size:11px">${esc(s.notes)}</div>` : ''}
+                <div class="tl-date">${new Date(s.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${s.moved_by_name ? ' · ' + esc(s.moved_by_name) : ''}</div>
               </div>
             </div>
           `).join('')}
@@ -717,8 +722,8 @@ function renderDrawer(c) {
         <div class="dr-label">Комментарии</div>
         ${(c.comments || []).map(cm => `
           <div class="cm-item">
-            <div class="cm-author">${cm.author_name}<span class="cm-type">${cm.comment_type}</span></div>
-            <div class="cm-body">${cm.body}</div>
+            <div class="cm-author">${esc(cm.author_name)}<span class="cm-type">${esc(cm.comment_type)}</span></div>
+            <div class="cm-body">${esc(cm.body)}</div>
             <div class="cm-date">${new Date(cm.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
           </div>
         `).join('')}
@@ -914,7 +919,7 @@ async function loadTrainers() {
     if (!trainers.length) {
       sel.innerHTML = '<option value="">Нет тренеров (добавьте роль trainer в карточке)</option>';
     } else {
-      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
     }
   } catch (e) {
     document.getElementById('tr-trainer').innerHTML = '<option value="">Ошибка загрузки</option>';
@@ -944,11 +949,11 @@ async function loadTrainingsList() {
       return `<div style="background:var(--bg3);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
         <div style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="toggleTrainingDetail('${t.id}')">
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${t.title}</div>
-            <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || t.venue_name || '—'}</div>
+          <div style="font-size:13px;font-weight:500">${esc(t.title)}</div>
+          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${esc(t.location_text || t.venue_name || '—')}</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:12px;color:var(--text2)">${t.trainer_name || ''}</div>
+          <div style="font-size:12px;color:var(--text2)">${esc(t.trainer_name || '')}</div>
             <div style="font-size:11px;color:${enrolledCount >= (t.max_attendees||999) ? 'var(--rank3)' : 'var(--rank1)'}">${enrolledCount}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
           </div>
           <span style="font-size:10px;color:var(--text3)">▼</span>
@@ -965,7 +970,7 @@ async function loadTrainingsList() {
       </div>`;
     }).join('');
   } catch (e) {
-    document.getElementById('trainings-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+    document.getElementById('trainings-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
 }
 
@@ -1004,15 +1009,15 @@ async function loadTrainingCandidates(trainingId) {
   enrolled.forEach(c => {
     const stage = allStages.find(s => s.id === c.stage_id);
     html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">
-      <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('trainings-modal').classList.remove('open');openCandidate('${c.id}')">${c.name}</span>
-      <span style="font-size:10px;color:var(--text3)">${stage?.name || ''}</span>
+      <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('trainings-modal').classList.remove('open');openCandidate('${c.id}')">${esc(c.name)}</span>
+      <span style="font-size:10px;color:var(--text3)">${esc(stage?.name || '')}</span>
       <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px" onclick="reassignTraining('${c.id}','${trainingId}')" title="Перенести">🔄</button>
     </div>`;
   });
   attendees.forEach(a => {
     if (!enrolled.find(c => c.name === a.photographer_name)) {
       html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px">
-        <span style="flex:1">${a.photographer_name}</span>
+        <span style="flex:1">${esc(a.photographer_name)}</span>
         <span style="font-size:10px;color:var(--rank1)">сотрудник</span>
       </div>`;
     }
@@ -1101,7 +1106,7 @@ async function loadTrainingPicker() {
       </div>`;
     }).join('');
   } catch (e) {
-    document.getElementById('training-pick-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+    document.getElementById('training-pick-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
 }
 
@@ -1119,7 +1124,7 @@ async function loadInternshipTrainers() {
     if (!trainers.length) {
       sel.innerHTML = '<option value="">Нет наставников</option>';
     } else {
-      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
     }
   } catch {
     document.getElementById('int-trainer').innerHTML = '<option value="">Ошибка</option>';
@@ -1147,11 +1152,11 @@ async function loadInternshipsList() {
       return `<div style="background:var(--bg3);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
         <div style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="toggleInternshipDetail('${t.id}')">
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${t.title}</div>
-            <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || '—'}</div>
+            <div style="font-size:13px;font-weight:500">${esc(t.title)}</div>
+            <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${esc(t.location_text || '—')}</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:12px;color:var(--text2)">${t.trainer_name || ''}</div>
+            <div style="font-size:12px;color:var(--text2)">${esc(t.trainer_name || '')}</div>
             <div style="font-size:11px;color:var(--rank1)">${enrolledCands.length}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
           </div>
           <span style="font-size:10px;color:var(--text3)">▼</span>
@@ -1162,8 +1167,8 @@ async function loadInternshipsList() {
             ${enrolledCands.length ? enrolledCands.map(c => {
               const stage = allStages.find(s => s.id === c.stage_id);
               return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px">
-                <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('internships-modal').classList.remove('open');openCandidate('${c.id}')">${c.name}</span>
-                <span style="font-size:10px;color:var(--text3)">${stage?.name || ''}</span>
+                <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('internships-modal').classList.remove('open');openCandidate('${c.id}')">${esc(c.name)}</span>
+                <span style="font-size:10px;color:var(--text3)">${esc(stage?.name || '')}</span>
               </div>`;
             }).join('') : '<div style="font-size:11px;color:var(--text3)">Пока никто</div>'}
           </div>
@@ -1171,7 +1176,7 @@ async function loadInternshipsList() {
       </div>`;
     }).join('');
   } catch (e) {
-    document.getElementById('internships-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+    document.getElementById('internships-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
 }
 
@@ -1229,7 +1234,7 @@ async function loadInternshipPicker() {
       </div>`;
     }).join('');
   } catch (e) {
-    document.getElementById('internship-pick-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+    document.getElementById('internship-pick-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
 }
 

@@ -1142,7 +1142,7 @@ function setupUserPill() {
   const color = ROLE_COLORS[currentUser.role];
   document.getElementById('user-pill').innerHTML =
     `<div class="role-dot" style="background:${color}"></div>
-     <span>${currentUser.name}</span>
+     <span>${esc(currentUser.name)}</span>
      <span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]}</span>`;
 }
 
@@ -1470,11 +1470,11 @@ function render(){
       <div class="ch">
         <div style="display:flex;align-items:center;gap:10px">
           ${p.photo_url
-            ? `<img src="${API.replace('/api','')}${p.photo_url}" onclick="event.stopPropagation();openLightbox('${API.replace('/api','')}${p.photo_url}')" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${p.name}"/>`
+            ? `<img src="${API.replace('/api','')}${p.photo_url}" onclick="event.stopPropagation();openLightbox('${API.replace('/api','')}${p.photo_url}')" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(p.name)}"/>`
             : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(p.name)}</div>`
           }
           <div>
-            <div class="cn">${p.name}${p.gender==='male'?' <span style="font-size:11px;color:var(--text3)">♂</span>':p.gender==='female'?' <span style="font-size:11px;color:var(--text3)">♀</span>':''}${calcAge(p.birth_date)!==null?' <span style="font-size:11px;color:var(--text3);font-weight:400">'+calcAge(p.birth_date)+'л</span>':''}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
+            <div class="cn">${esc(p.name)}${p.gender==='male'?' <span style="font-size:11px;color:var(--text3)">♂</span>':p.gender==='female'?' <span style="font-size:11px;color:var(--text3)">♀</span>':''}${calcAge(p.birth_date)!==null?' <span style="font-size:11px;color:var(--text3);font-weight:400">'+calcAge(p.birth_date)+'л</span>':''}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
             <div class="cd">${p.start_date ? new Date(p.start_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'}) : '&nbsp;'}</div>
           </div>
         </div>
@@ -1499,9 +1499,9 @@ function render(){
       ${p.venues?.length ? `<div class="vs">
         <div class="vl">Площадки</div>
         <div class="vps">
-          ${loves.map(v=>`<span class="vp vp-love">♥ ${v.venue_name}</span>`).join('')}
-          ${cans.map(v=>`<span class="vp vp-can">${v.venue_name}</span>`).join('')}
-          ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${v.venue_name}</span>`).join('')}
+          ${loves.map(v=>`<span class="vp vp-love">♥ ${esc(v.venue_name)}</span>`).join('')}
+          ${cans.map(v=>`<span class="vp vp-can">${esc(v.venue_name)}</span>`).join('')}
+          ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
         </div>
       </div>` : ''}
       ${p.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(p.summary).slice(0,120)}${p.summary.length>120?'…':''}</div>` : ''}
@@ -1603,7 +1603,7 @@ function buildVenueDropdownList(q){
           return `<div onclick="selectVenueFilter('${v.id}','${v.name}');event.stopPropagation()"
             style="padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:space-between;transition:background .1s;
             background:${sel?'rgba(124,108,255,.15)':'transparent'};color:${sel?'var(--accent2)':'var(--text)'}">
-            <span>${v.name}<span style="font-size:11px;color:var(--text3);margin-left:6px">${v.category||''}</span></span>
+            <span>${esc(v.name)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${esc(v.category||'')}</span></span>
             ${sel?'<span style="font-size:10px;color:var(--accent2)">✓</span>':''}
           </div>`;
         }).join('')}
@@ -1683,7 +1683,7 @@ async function openDrawer(id){
   const ph = await api('GET', `/photographers/${id}`);
   updateDrawerPhoto(ph);
   const age = calcAge(ph.birth_date);
-  document.getElementById('dr-name').innerHTML = ph.name + (age !== null ? ` <span style="font-size:14px;color:var(--text3);font-weight:400">${age} л</span>` : '');
+  document.getElementById('dr-name').innerHTML = esc(ph.name) + (age !== null ? ` <span style="font-size:14px;color:var(--text3);font-weight:400">${age} л</span>` : '');
   document.getElementById('dr-role-hint').textContent = canEditCard() ? 'Редактирование карточки' : 'Просмотр';
 
   editState = {
@@ -1899,7 +1899,7 @@ function renderInfoTab(ph){
         const cur = editState.venues.find(ev=>ev.venue_id===v.id);
         const att = cur?.attitude||'none';
         return `<div class="venue-row" id="vr-${v.id}" data-name="${v.name.toLowerCase()}" data-city="${city.toLowerCase()}" data-cat="${cat.toLowerCase()}">
-          <span class="venue-row-name" style="font-size:13px">${v.name}</span>
+          <span class="venue-row-name" style="font-size:13px">${esc(v.name)}</span>
           <div class="att-btns">
             <button class="att-btn ab-love ${att==='loves'?'sel':''}" onclick="setVenueAtt('${v.id}','loves')" title="Любит">♥</button>
             <button class="att-btn ab-can  ${att==='can'?'sel':''}"  onclick="setVenueAtt('${v.id}','can')"  title="Может">✓</button>
@@ -1935,11 +1935,11 @@ function renderInfoTab(ph){
   if(!isEditor) return `
     ${photoBlock}
     <div class="field-row" style="margin-bottom:12px">
-      <div class="field"><div class="fl">Имя</div><div class="fv">${ph.name}</div></div>
+          <div class="field"><div class="fl">Имя</div><div class="fv">${esc(ph.name)}</div></div>
     </div>
     ${(isManager && (ph.phone||ph.email)) ? `<div class="field-row" style="margin-bottom:12px">
-      ${ph.phone?`<div class="field"><div class="fl">Телефон</div><div class="fv">${ph.phone}</div></div>`:''}
-      ${ph.email?`<div class="field"><div class="fl">Email</div><div class="fv">${ph.email}</div></div>`:''}
+      ${ph.phone?`<div class="field"><div class="fl">Телефон</div><div class="fv">${esc(ph.phone)}</div></div>`:''}
+      ${ph.email?`<div class="field"><div class="fl">Email</div><div class="fv">${esc(ph.email)}</div></div>`:''}
     </div>` : ''}
     <div class="field-row" style="margin-top:4px;margin-bottom:12px">
       <div class="field"><div class="fl">Ранг</div><div class="fv">${RANK_NAMES[ph.rank]||'—'}</div></div>
@@ -1972,9 +1972,9 @@ function renderInfoTab(ph){
     </div>` : ''}
     <div class="fl" style="margin-top:4px;margin-bottom:6px">Площадки</div>
     <div class="vps">
-      ${(ph.venues||[]).filter(v=>v.attitude==='loves').map(v=>`<span class="vp vp-love">♥ ${v.venue_name}</span>`).join('')}
-      ${(ph.venues||[]).filter(v=>v.attitude==='can').map(v=>`<span class="vp vp-can">${v.venue_name}</span>`).join('')}
-      ${(ph.venues||[]).filter(v=>v.attitude==='dislikes').map(v=>`<span class="vp vp-dis">✕ ${v.venue_name}</span>`).join('')}
+      ${(ph.venues||[]).filter(v=>v.attitude==='loves').map(v=>`<span class="vp vp-love">♥ ${esc(v.venue_name)}</span>`).join('')}
+      ${(ph.venues||[]).filter(v=>v.attitude==='can').map(v=>`<span class="vp vp-can">${esc(v.venue_name)}</span>`).join('')}
+      ${(ph.venues||[]).filter(v=>v.attitude==='dislikes').map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
     </div>`;
 
   return `
@@ -2200,7 +2200,7 @@ function renderCommentsTab(ph){
         return `<div class="citem">
           <div class="citem-head">
             <div class="cauthor">
-              <span>${c.author_name}</span>
+              <span>${esc(c.author_name)}</span>
               ${isManager && c.author_role ? `<span style="font-size:10px;color:var(--text3)">${ROLE_LABELS[c.author_role]||''}</span>` : ''}
             </div>
             <div style="display:flex;align-items:center;gap:8px">
@@ -2229,7 +2229,7 @@ async function loadAudit(pid){
   document.getElementById('audit-list').innerHTML = rows.map(r=>`
     <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
       <span style="color:var(--text2)">${new Date(r.created_at).toLocaleString('ru-RU')}</span>
-      &nbsp; <b>${r.actor_name}</b> &nbsp;
+      &nbsp; <b>${esc(r.actor_name)}</b> &nbsp;
       <span style="color:var(--accent2)">${r.action}</span>
       ${r.field ? ` <span style="color:var(--text3)">${r.field}:</span> <span style="color:var(--rank3)">${r.old_value||'—'}</span> → <span style="color:var(--rank1)">${r.new_value||'—'}</span>` : ''}
     </div>
@@ -2277,7 +2277,7 @@ async function renderAchievementsTab(ph, content) {
           ${(achSummary.all || []).map(a =>
             `<div style="padding:6px 10px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:4px" title="${a.description||''}">
               <span style="font-size:16px">${a.icon||'⭐'}</span>
-              <span>${a.name}</span>
+              <span>${esc(a.name)}</span>
               <span style="font-size:10px;color:var(--text3)">${new Date(a.earned_at).toLocaleDateString('ru-RU',{month:'short',year:'2-digit'})}</span>
             </div>`
           ).join('') || '<div style="color:var(--text3);font-size:13px">Пока нет достижений</div>'}
@@ -2290,8 +2290,8 @@ async function renderAchievementsTab(ph, content) {
         ${(peerSummary.recent_public || []).map(r => `
           <div style="padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px">
             <div style="color:#f5a623;font-size:14px">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${r.comment}</div>` : ''}
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">${r.reviewer_name||'Аноним'} · ${r.venue_name||''} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
+            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${esc(r.comment)}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
           </div>
         `).join('') || '<div style="color:var(--text3);font-size:13px">Пока нет отзывов</div>'}
       </div>
@@ -2303,14 +2303,14 @@ async function renderAchievementsTab(ph, content) {
         ${peerSummary.management_only.map(r => `
           <div style="padding:8px;background:rgba(242,85,85,.05);border:1px solid rgba(242,85,85,.15);border-radius:8px;margin-bottom:6px">
             <div style="color:#f5a623;font-size:14px">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${r.comment}</div>` : ''}
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">${r.reviewer_name||'Аноним'} · ${r.venue_name||''}</div>
+            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${esc(r.comment)}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')}</div>
           </div>
         `).join('')}
       </div>` : ''}
     `;
   } catch(e) {
-    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${e.message}</div>`;
+    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${esc(e.message)}</div>`;
   }
 }
 
@@ -2667,12 +2667,12 @@ async function loadAdminHistory(){
       const d = new Date(r.created_at).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
       const ico = ENTITY_LABEL[r.entity]||'📝';
       const action = ACTION_LABEL[r.action]||r.action;
-      const target = r.entity_name && r.entity_name !== r.actor_name ? ` → ${r.entity_name}` : '';
+      const target = r.entity_name && r.entity_name !== r.actor_name ? ` → ${esc(r.entity_name)}` : '';
       return `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
         <span style="font-size:16px;flex-shrink:0">${ico}</span>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">
-            <span style="font-weight:500">${r.actor_name||'—'}</span>
+            <span style="font-weight:500">${esc(r.actor_name||'—')}</span>
             <span style="color:var(--accent2);font-size:12px">${action}</span>
             ${target ? `<span style="color:var(--text2);font-size:12px">${target}</span>` : ''}
             <span style="color:var(--text3);font-size:11px">${d}</span>
@@ -2691,7 +2691,7 @@ async function loadAdminHistory(){
         ${hasNext ? `<button class="btn btn-ghost" style="font-size:13px;padding:6px 16px" onclick="window._historyPage++;loadAdminHistory()">Вперёд →</button>` : ''}
       `;
     }
-  } catch(e){ list.innerHTML=`<div style="color:var(--rank3);padding:12px">${e.message}</div>`; }
+  } catch(e){ list.innerHTML=`<div style="color:var(--rank3);padding:12px">${esc(e.message)}</div>`; }
 }
 
 function renderAdminUsers(){
@@ -2714,8 +2714,8 @@ function renderAdminUsers(){
         const isPhReg = u.role === 'photographer_user';
         return `<div class="approve-row">
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:500">${u.name} ${isPhReg ? '<span style="font-size:11px;color:var(--rank1)">📷 фотограф</span>' : ''}</div>
-            <div style="font-size:12px;color:var(--text3)">${u.email} · ${d}</div>
+            <div style="font-size:14px;font-weight:500">${esc(u.name)} ${isPhReg ? '<span style="font-size:11px;color:var(--rank1)">📷 фотограф</span>' : ''}</div>
+            <div style="font-size:12px;color:var(--text3)">${esc(u.email)} · ${d}</div>
             <div style="display:flex;gap:4px;margin-top:4px">${badges.join('')}${u.photographer_id ? '<span class="badge badge-verified">🔗 карточка</span>' : ''}</div>
           </div>
           <select class="fselect" id="approve-role-${u.id}" style="width:140px;font-size:12px;padding:4px 8px">
@@ -2754,8 +2754,8 @@ function renderAdminUsers(){
       return filtered.map(u => `
         <div class="user-row" style="cursor:pointer" onclick="openEditUser('${u.id}')">
           <div style="flex:1">
-            <div class="user-row-name">${u.name}</div>
-            <div class="user-row-email">${u.email}</div>
+            <div class="user-row-name">${esc(u.name)}</div>
+            <div class="user-row-email">${esc(u.email)}</div>
           </div>
           <div class="role-badge rb-${u.role}">${ROLE_LABELS[u.role] || u.role}</div>
           ${u.id === currentUser.id ? '<span style="font-size:12px;color:var(--text3);margin-left:4px">(вы)</span>' : ''}
@@ -2829,17 +2829,17 @@ async function renderAdminArchive(){
         return `<div class="user-row" style="opacity:0.7;cursor:pointer" onclick="openArchivedUser('${u.id}')">
           <div style="flex:1">
             <div class="user-row-name" style="display:flex;align-items:center;gap:8px">
-              ${u.name}
+              ${esc(u.name)}
               <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(90,90,114,.15);color:var(--text3)">архив</span>
             </div>
-            <div class="user-row-email">${u.email} · ${d}</div>
+            <div class="user-row-email">${esc(u.email)} · ${d}</div>
           </div>
         </div>`;
       }).join('')}
     `;
     window._archivedUsers = archived;
   } catch(e){
-    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${e.message}</div>`;
+    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${esc(e.message)}</div>`;
   }
 }
 
@@ -2853,8 +2853,8 @@ function openArchivedUser(id){
   content.innerHTML = `
     <div style="text-align:center;margin-bottom:16px">
       <div style="width:56px;height:56px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px;color:var(--text3)">📦</div>
-      <div style="font-size:17px;font-weight:600">${u.name}</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:2px">${u.email}</div>
+      <div style="font-size:17px;font-weight:600">${esc(u.name)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px">${esc(u.email)}</div>
     </div>
     <div style="background:var(--bg3);border-radius:10px;border:1px solid var(--border);padding:14px;margin-bottom:12px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Дата регистрации</div>
@@ -2919,7 +2919,7 @@ async function loadArchivedUserAudit(userId){
       const d = new Date(r.created_at).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
       const action = ACTION_LABEL[r.action]||r.action;
       return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
-        <span style="font-weight:500">${r.actor_name||'—'}</span>
+        <span style="font-weight:500">${esc(r.actor_name||'—')}</span>
         <span style="color:var(--accent2);font-size:12px;margin:0 4px">${action}</span>
         <span style="color:var(--text3);font-size:11px">${d}</span>
         ${r.field ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">${r.field}: ${r.old_value||'—'} → ${r.new_value||'—'}</div>` : ''}
@@ -2957,7 +2957,7 @@ function renderAdminVenues(){
   const renderVenue = (v) => `
     <div class="user-row ${!v.is_active?'inactive-row':''}" style="cursor:pointer" onclick="openEditVenue('${v.id}')">
       <div style="flex:1">
-        <div class="user-row-name">${v.name}</div>
+        <div class="user-row-name">${esc(v.name)}</div>
         <div class="user-row-email">${v.city||''} ${!v.is_active?'· <span style="color:var(--rank3)">скрыта</span>':''}</div>
       </div>
       <span style="font-size:18px;color:var(--text3)">›</span>
@@ -3153,6 +3153,11 @@ async function changeMyPassword(){
 }
 
 function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>'); }
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 let toastTimer;
 function showToast(msg, isErr=false){

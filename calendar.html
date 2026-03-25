@@ -177,6 +177,11 @@ async function api(m,p,b){
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');window.location.href='index.html';}
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
@@ -184,16 +189,16 @@ const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
-    document.getElementById('user-pill').innerHTML=`<span>${currentUser.name}</span>`;
+    document.getElementById('user-pill').innerHTML=`<span>${esc(currentUser.name)}</span>`;
     venues=await api('GET','/venues');
     const vf=document.getElementById('venue-filter');
     const ev=document.getElementById('ev-venue');
     venues.forEach(v=>{
-      vf.innerHTML+=`<option value="${v.id}">${v.name}</option>`;
-      ev.innerHTML+=`<option value="${v.id}">${v.name}</option>`;
+      vf.innerHTML+=`<option value="${v.id}">${esc(v.name)}</option>`;
+      ev.innerHTML+=`<option value="${v.id}">${esc(v.name)}</option>`;
     });
     await loadCalendar();
-  }catch(e){document.getElementById('cal-grid').innerHTML=`<div class="loading" style="color:var(--rank3);grid-column:1/-1">${e.message}</div>`;}
+  }catch(e){document.getElementById('cal-grid').innerHTML=`<div class="loading" style="color:var(--rank3);grid-column:1/-1">${esc(e.message)}</div>`;}
 })();
 
 async function loadCalendar(){
@@ -289,13 +294,13 @@ async function showDayEvents(dateStr){
 
     html+=`<div style="padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <div style="font-size:14px;font-weight:600;flex:1">${vName}</div>
+        <div style="font-size:14px;font-weight:600;flex:1">${esc(vName)}</div>
         <span style="font-size:11px;color:${assigned.length>=needed?'var(--rank1)':'var(--rank2)'}">${assigned.length}/${needed} назначено</span>
         <button class="btn btn-primary btn-sm" onclick="openAssignModal('${ev.id}')">+ Назначить</button>
       </div>
       ${assigned.length?assigned.map(a=>`<div class="ep-row">
-        <span style="flex:1">${a.photographer_name||'Сотрудник'}</span>
-        <span style="font-size:11px;color:var(--text3)">${a.role_in_shift||'фотограф'}</span>
+        <span style="flex:1">${esc(a.photographer_name||'Сотрудник')}</span>
+        <span style="font-size:11px;color:var(--text3)">${esc(a.role_in_shift||'фотограф')}</span>
         <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeAssignment('${a.id}','${dateStr}')">✕</button>
       </div>`).join(''):'<div style="color:var(--text3);font-size:12px">Никто не назначен</div>'}
     </div>`;
@@ -343,11 +348,11 @@ async function openAssignModal(eventId){
     const available=await api('GET',`/staffing/available?date=${date}`).catch(()=>[]);
     const sel=document.getElementById('as-photographer');
     if(available.length){
-      sel.innerHTML=available.map(p=>`<option value="${p.id}">${p.name} ${p.attitude==='loves'?'❤️':p.attitude==='dislikes'?'✕':'✓'} (${p.shifts_this_month||0} смен)</option>`).join('');
+      sel.innerHTML=available.map(p=>`<option value="${p.id}">${esc(p.name)} ${p.attitude==='loves'?'❤️':p.attitude==='dislikes'?'✕':'✓'} (${p.shifts_this_month||0} смен)</option>`).join('');
     }else{
       // Fallback: all active photographers
       const phs=await api('GET','/photographers');
-      sel.innerHTML=phs.filter(p=>p.is_active).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+      sel.innerHTML=phs.filter(p=>p.is_active).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
     }
     document.getElementById('assign-modal').classList.add('open');
   }catch(e){showToast(e.message,true);}

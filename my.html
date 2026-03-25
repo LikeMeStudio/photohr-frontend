@@ -119,17 +119,22 @@ async function api(method,path,body){
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');window.location.href='index.html';}
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 (async function init(){
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
-    document.getElementById('user-pill').innerHTML=`<span>${currentUser.name}</span>`;
+    document.getElementById('user-pill').innerHTML=`<span>${esc(currentUser.name)}</span>`;
     if(!currentUser.photographer_id){
       document.getElementById('main').innerHTML='<div class="loading">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div>';
       return;
     }
     await loadProfile();
-  }catch(e){document.getElementById('main').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+  }catch(e){document.getElementById('main').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
 
 async function loadProfile(){
@@ -145,7 +150,7 @@ async function loadProfile(){
   const baseUrl=API.replace('/api','');
   const avatarHtml=ph.photo_url
     ?`<img src="${baseUrl}${ph.photo_url}"/>`
-    :`<div style="background:var(--accent);color:#fff;width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px">${(ph.name||'?')[0]}</div>`;
+    :`<div style="background:var(--accent);color:#fff;width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px">${esc((ph.name||'?')[0])}</div>`;
 
   const myPos=achSummary.leaderboard_position||'—';
   const stars='★'.repeat(Math.round(peerSummary.avg_stars||0))+'☆'.repeat(5-Math.round(peerSummary.avg_stars||0));
@@ -156,7 +161,7 @@ async function loadProfile(){
       <div class="profile-hero">
         <div class="profile-avatar">${avatarHtml}</div>
         <div class="profile-info">
-          <div class="profile-name">${ph.name}</div>
+          <div class="profile-name">${esc(ph.name)}</div>
           <div class="profile-meta">
             ${ph.grade?`<span>📊 ${ph.grade}</span>`:''}
             ${ph.rank?`<span>${'★'.repeat(ph.rank)} ранг</span>`:''}
@@ -192,7 +197,7 @@ async function loadProfile(){
     <!-- Achievements -->
     <div class="section">
       <div class="section-title">🏆 Достижения (${achSummary.total})</div>
-      ${achSummary.recent?.length?`<div class="badge-row">${achSummary.recent.map(a=>`<div class="ach-badge"><span class="icon">${a.icon||'⭐'}</span>${a.name}</div>`).join('')}</div>`:'<div style="color:var(--text3);font-size:13px">Пока нет достижений. Продолжай работать!</div>'}
+      ${achSummary.recent?.length?`<div class="badge-row">${achSummary.recent.map(a=>`<div class="ach-badge"><span class="icon">${a.icon||'⭐'}</span>${esc(a.name)}</div>`).join('')}</div>`:'<div style="color:var(--text3);font-size:13px">Пока нет достижений. Продолжай работать!</div>'}
     </div>
 
     <!-- Leaderboard -->
@@ -202,7 +207,7 @@ async function loadProfile(){
         const isMe=l.id===phId;
         return`<div class="lb-row ${isMe?'me':''}">
           <div class="lb-pos" style="color:${i<3?['#ffd700','#c0c0c0','#cd7f32'][i]:'var(--text3)'}">${i+1}</div>
-          <div class="lb-name">${l.name}${isMe?' (вы)':''}</div>
+          <div class="lb-name">${esc(l.name)}${isMe?' (вы)':''}</div>
           <div class="lb-value">${Number(l.total_revenue||0).toLocaleString('ru-RU')}₽</div>
         </div>`;
       }).join('')}
@@ -214,8 +219,8 @@ async function loadProfile(){
       ${peerSummary.avg_stars?`<div style="font-size:14px;margin-bottom:8px">Средняя оценка: <span style="color:#f5a623;font-size:18px">${'★'.repeat(Math.round(peerSummary.avg_stars))}</span> ${peerSummary.avg_stars}/5</div>`:''}
       ${(peerSummary.recent_public||[]).slice(0,5).map(r=>`<div class="review-item">
         <div class="review-stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-        ${r.comment?`<div class="review-text">${r.comment}</div>`:''}
-        <div class="review-from">${r.reviewer_name||'Аноним'} · ${r.venue_name||''} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
+        ${r.comment?`<div class="review-text">${esc(r.comment)}</div>`:''}
+        <div class="review-from">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
       </div>`).join('')||'<div style="color:var(--text3);font-size:13px">Пока нет отзывов</div>'}
     </div>
   `;
