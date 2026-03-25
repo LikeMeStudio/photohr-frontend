@@ -28,6 +28,7 @@ a{color:inherit;text-decoration:none}
 .btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.toolbar-unified .btn.btn-ghost{padding:6px 14px;border-radius:20px;font-size:12px}
 
 /* Profile hero */
 .profile-hero{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -82,6 +83,11 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
 </div>
+<div class="toolbar-unified" style="padding:10px 28px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+  <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
+  <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
+  <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+</div>
 <div class="main" id="main"><div class="loading">Загрузка...</div></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -134,6 +140,9 @@ function openProfile(){window.location.href='index.html';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
+function openAchievementsPanel(){window.location.href='index.html#achievements';}
+function openBirthdaysPanel(){window.location.href='index.html#birthdays';}
+function openLikesPanel(){window.location.href='index.html#likes';}
 
 (async function init(){
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
