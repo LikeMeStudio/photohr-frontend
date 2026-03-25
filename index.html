@@ -2368,7 +2368,7 @@ async function renderMentorshipTab(ph, content) {
           mentorInfo = await api('GET', `/photographers/${m.mentor_id}`);
         } catch (e) { /* нет доступа к карточке */ }
         const av = mentorInfo?.photo_url
-          ? `<img src="${esc(baseUrl + mentorInfo.photo_url)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)"/>`
+          ? `<img src="${baseUrl}${mentorInfo.photo_url}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)"/>`
           : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;color:var(--bg)">${esc((m.mentor_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2))}</div>`;
         html += `<div style="padding:16px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:12px">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px">🎓 Ваш куратор</div>
