@@ -388,6 +388,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <div id="app">
   <div class="header">
     <div class="logo">Photo<span>HR</span></div>
+    <div style="display:flex;gap:6px;margin-left:12px" id="nav-links"></div>
     <div class="header-stats" id="hstats"></div>
     <div class="header-right">
       <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
@@ -1050,11 +1051,18 @@ function setupUserPill() {
 }
 
 function setupToolbarActions() {
+  // Navigation links
+  const nav = document.getElementById('nav-links');
+  const navBtns = ['<a class="f-btn active" href="index.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Сотрудники</a>'];
+  if (can('hr_director') || currentUser.role === 'recruiter') {
+    navBtns.push('<a class="f-btn" href="recruiting.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Рекрутинг</a>');
+  }
+  nav.innerHTML = navBtns.join('');
+
+  // Toolbar actions
   const el = document.getElementById('toolbar-actions');
   const btns = [];
   if (can('editor')) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
-  if (can('hr_director')) btns.push(`<button class="btn btn-ghost" onclick="window.location.href='calendar.html'" title="Календарь мероприятий">📅 Календарь</button>`);
-  if (can('hr_director')) btns.push(`<button class="btn btn-ghost" onclick="window.location.href='recruiting.html'" title="Воронка рекрутинга">👤 Рекрутинг</button>`);
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
   if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
