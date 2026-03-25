@@ -327,7 +327,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     </div>
   </div>
   <div style="padding:0 28px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px">
       <span style="font-size:10px;color:var(--text3);margin-right:3px">РАНГ</span>
       <button type="button" id="fb-r1" onclick="toggleTeamFilter('rank','1',this)"
         style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s"
@@ -346,12 +346,12 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       </button>
     </div>
     <span style="color:var(--border);user-select:none">|</span>
-    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px;flex-wrap:wrap;max-width:100%">
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;flex-wrap:wrap;max-width:100%">
       <span style="font-size:10px;color:var(--text3);margin-right:3px">ОТДЕЛЫ</span>
       <span id="team-dept-buttons" style="display:flex;align-items:center;gap:2px;flex-wrap:wrap"></span>
     </div>
     <span style="color:var(--border);user-select:none">|</span>
-    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px">
       <span style="font-size:10px;color:var(--text3);margin-right:3px">ПОЛ</span>
       <button type="button" id="fb-male" onclick="toggleTeamFilter('gender','male',this)"
         style="border:none;background:none;padding:3px 9px;font-size:15px;border-radius:10px;cursor:pointer;color:var(--text2);transition:all .15s"
@@ -722,10 +722,10 @@ function isBirthdayToday(birthDate) {
 
 function rankStyle(rank) {
   const r = String(rank);
-  if (r === '1') return 'background:#3d2000;color:#e8a060;border:1px solid #b87333';
-  if (r === '2') return 'background:#1a2030;color:#b8cce0;border:1px solid #8a9bb0';
-  if (r === '3') return 'background:#2a2000;color:#d4b840;border:1px solid #c9a84c';
-  return 'background:var(--bg3);color:var(--text3);border:1px solid var(--border)';
+  if (r === '1') return 'background:#3d2000;color:#e8a060;border:1px solid #b87333;border-radius:6px';
+  if (r === '2') return 'background:#1a2030;color:#b8cce0;border:1px solid #8a9bb0;border-radius:6px';
+  if (r === '3') return 'background:#2a2000;color:#d4b840;border:1px solid #c9a84c;border-radius:6px';
+  return 'background:var(--bg3);color:var(--text3);border:1px solid var(--border);border-radius:6px';
 }
 function rankStars(rank) {
   const r = parseInt(rank, 10) || 0;
