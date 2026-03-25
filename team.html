@@ -120,7 +120,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .cn{font-weight:600;font-size:14px}
 .card .cn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cd{font-size:11px;color:var(--text3);margin-top:2px}
-.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0}
+.rb{border-radius:6px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
 .rb1{background:rgba(184,115,51,.2) !important;color:#d4955a !important;border:1px solid rgba(184,115,51,.5) !important}
 .rb2{background:rgba(138,155,176,.2) !important;color:#a8bcce !important;border:1px solid rgba(138,155,176,.5) !important}
 .rb3{background:rgba(201,168,76,.2) !important;color:#c9a84c !important;border:1px solid rgba(201,168,76,.5) !important}
@@ -293,16 +293,6 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 @media(max-width:640px){.header,.toolbar,.main{padding-left:16px;padding-right:16px}.drawer{max-width:100%}}
 
 /* Team-specific */
-.team-pos-badge {
-  background: rgba(245,166,35,.15);
-  color: #f5a623;
-  border: 1px solid rgba(245,166,35,.25);
-  border-radius: 20px;
-  padding: 3px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
 .fbtn{background:transparent;border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;transition:all .15s;font-family:'Golos Text',sans-serif}
 .fbtn:hover{border-color:var(--accent);color:var(--accent)}
 .fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -767,12 +757,20 @@ function render() {
     if (!Array.isArray(ach)) ach = [];
     const bdClass = bdToday ? ' birthday-card' : '';
     const pu = cardPhotoUrl(m.photo_url);
-    const posBadge = m.position_title
-      ? `<div class="team-pos-badge">${esc(m.position_title)}</div>`
+    const badgeParts = [];
+    if (m.rank != null && [1, 2, 3].includes(Number(m.rank))) {
+      const r = Number(m.rank);
+      badgeParts.push(`<div class="rb" style="${rankStyle(m.rank)}">${rankStars(m.rank)} Ранг ${r}</div>`);
+    }
+    if (m.department && String(m.department).trim()) {
+      badgeParts.push(`<div style="padding:2px 10px;border-radius:6px;font-size:10px;font-weight:500;white-space:nowrap;background:rgba(62,207,180,.12);color:#3ecfb4;border:1px solid rgba(62,207,180,.25)">${esc(String(m.department).trim())}</div>`);
+    }
+    if (m.position_title && String(m.position_title).trim()) {
+      badgeParts.push(`<div style="padding:2px 10px;border-radius:6px;font-size:10px;font-weight:500;white-space:nowrap;background:rgba(144,144,168,.12);color:#9090a8;border:1px solid rgba(144,144,168,.25)">${esc(String(m.position_title).trim())}</div>`);
+    }
+    const rightBadges = badgeParts.length
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:8px">${badgeParts.join('')}</div>`
       : '';
-    const rankLabel = m.rank != null && [1, 2, 3].includes(Number(m.rank)) ? Number(m.rank) : '—';
-    const rankBadge = `<div class="rb" style="${rankStyle(m.rank)}">${rankStars(m.rank)} Ранг ${rankLabel}</div>`;
-    const rightBadges = `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:8px">${posBadge}${rankBadge}</div>`;
     const achStrip = ach.length
       ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
         ${ach.slice(0, 8).map((a) => `<span title="${esc(a.name)}" style="font-size:16px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
@@ -785,19 +783,17 @@ function render() {
     return `<div class="card${bdClass}" onclick="openDrawer('${m.id}')" style="position:relative">
       ${bdToday ? '<span style="position:absolute;top:-6px;right:-6px;font-size:20px;z-index:1">🎂</span>' : ''}
       <div class="ch">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
-            ${m.photo_url
-              ? `<img src="${esc(pu)}" onclick='event.stopPropagation();openLightbox(${JSON.stringify(pu)})' style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
-              : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
-            }
-            <div style="min-width:0;flex:1">
-              <div class="cn">${esc(m.name)}${m.gender === 'male' ? ' <span style="font-size:11px;color:var(--text3)">♂</span>' : m.gender === 'female' ? ' <span style="font-size:11px;color:var(--text3)">♀</span>' : ''}${calcAge(m.birth_date) !== null ? ' <span style="font-size:11px;color:var(--text3);font-weight:400">' + calcAge(m.birth_date) + 'л</span>' : ''}</div>
-              <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
-            </div>
+        <div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0">
+          ${m.photo_url
+            ? `<img src="${esc(pu)}" onclick='event.stopPropagation();openLightbox(${JSON.stringify(pu)})' style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
+            : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
+          }
+          <div style="min-width:0;flex:1">
+            <div class="cn" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}${m.gender === 'male' ? ' <span style="font-size:11px;color:var(--text3)">♂</span>' : m.gender === 'female' ? ' <span style="font-size:11px;color:var(--text3)">♀</span>' : ''}${calcAge(m.birth_date) !== null ? ' <span style="font-size:11px;color:var(--text3);font-weight:400">' + calcAge(m.birth_date) + 'л</span>' : ''}</div>
+            <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
           </div>
-          ${rightBadges}
         </div>
+        ${rightBadges}
       </div>
       ${summaryBlock}
       ${achStrip}
