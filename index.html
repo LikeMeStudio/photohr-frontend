@@ -1115,6 +1115,9 @@ function setupToolbarActions() {
   if (can('stock_manager') || can('admin')) {
     navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
   }
+  if (can('hr_director') || can('manager')) {
+    navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
+  }
   if (currentUser.photographer_id) {
     navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📷 Мой профиль</a>');
   }
@@ -1762,6 +1765,7 @@ function buildTabs(ph){
   const tabs = [{ label:'Информация' }];
   if(can('manager') || !can('manager')) tabs.push({ label:'Комментарии' });
   if(can('admin')) tabs.push({ label:'История' });
+  tabs.push({ label:'🏆 Достижения' });
 
   document.getElementById('tabs').innerHTML = tabs.map((t,i)=>
     `<button class="tab ${i===currentTab?'active':''}" onclick="switchTab(${i})">${t.label}</button>`
@@ -1780,6 +1784,7 @@ function renderTab(ph){
   if(currentTab===0) content.innerHTML = renderInfoTab(ph);
   if(currentTab===1) content.innerHTML = renderCommentsTab(ph);
   if(currentTab===2) content.innerHTML = renderHistoryTab(ph);
+  if(currentTab===3) { renderAchievementsTab(ph, content); return; }
   if(currentTab===0 && can('editor')) setupInfoEvents();
   if(currentTab===1) setupCommentEvents(ph.id);
 }
@@ -2183,6 +2188,84 @@ async function loadAudit(pid){
       ${r.field ? ` <span style="color:var(--text3)">${r.field}:</span> <span style="color:var(--rank3)">${r.old_value||'—'}</span> → <span style="color:var(--rank1)">${r.new_value||'—'}</span>` : ''}
     </div>
   `).join('');
+}
+
+async function renderAchievementsTab(ph, content) {
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const [achSummary, peerSummary] = await Promise.all([
+      api('GET', `/photographers/${ph.id}/achievements-summary`).catch(() => ({total:0, recent:[], all:[], by_category:{}, leaderboard_position:0})),
+      api('GET', `/photographers/${ph.id}/peer-summary`).catch(() => ({total_reviews:0, avg_stars:0, recent_public:[], management_only:[]})),
+    ]);
+
+    const catLabels = {sales:'Продажи', discipline:'Дисциплина', milestone:'Стаж', social:'Команда'};
+
+    content.innerHTML = `
+      <!-- Позиция в лидерборде -->
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;flex:1;min-width:100px">
+          <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:var(--accent2)">#${achSummary.leaderboard_position || '—'}</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">В лидерборде</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;flex:1;min-width:100px">
+          <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:var(--rank2)">${achSummary.total}</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Достижений</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;flex:1;min-width:100px">
+          <div style="font-size:20px;color:#f5a623">${peerSummary.avg_stars ? '★'.repeat(Math.round(peerSummary.avg_stars)) : '—'}</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">${peerSummary.total_reviews || 0} отзывов</div>
+        </div>
+      </div>
+
+      <!-- Достижения по категориям -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🏆 Достижения</div>
+        ${Object.entries(achSummary.by_category || {}).length ? `
+          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+            ${Object.entries(achSummary.by_category).map(([cat,cnt]) =>
+              `<span style="padding:3px 10px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">${catLabels[cat]||cat}: ${cnt}</span>`
+            ).join('')}
+          </div>
+        ` : ''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${(achSummary.all || []).map(a =>
+            `<div style="padding:6px 10px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:4px" title="${a.description||''}">
+              <span style="font-size:16px">${a.icon||'⭐'}</span>
+              <span>${a.name}</span>
+              <span style="font-size:10px;color:var(--text3)">${new Date(a.earned_at).toLocaleDateString('ru-RU',{month:'short',year:'2-digit'})}</span>
+            </div>`
+          ).join('') || '<div style="color:var(--text3);font-size:13px">Пока нет достижений</div>'}
+        </div>
+      </div>
+
+      <!-- Отзывы коллег (публичные) -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">⭐ Отзывы коллег</div>
+        ${(peerSummary.recent_public || []).map(r => `
+          <div style="padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px">
+            <div style="color:#f5a623;font-size:14px">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
+            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${r.comment}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${r.reviewer_name||'Аноним'} · ${r.venue_name||''} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
+          </div>
+        `).join('') || '<div style="color:var(--text3);font-size:13px">Пока нет отзывов</div>'}
+      </div>
+
+      <!-- Закрытые отзывы (для менеджеров) -->
+      ${can('manager') && (peerSummary.management_only||[]).length ? `
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--rank2)">🔒 Закрытые отзывы (видны только руководству)</div>
+        ${peerSummary.management_only.map(r => `
+          <div style="padding:8px;background:rgba(242,85,85,.05);border:1px solid rgba(242,85,85,.15);border-radius:8px;margin-bottom:6px">
+            <div style="color:#f5a623;font-size:14px">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
+            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${r.comment}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${r.reviewer_name||'Аноним'} · ${r.venue_name||''}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    `;
+  } catch(e) {
+    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${e.message}</div>`;
+  }
 }
 
 function setStar(key, val){

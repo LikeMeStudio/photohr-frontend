@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhotoHR — Календарь</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;--border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
+.nav-btn:hover{color:var(--text)}.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
+.main{max-width:1400px;margin:0 auto;padding:20px 24px}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.fin{padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none}
+.fin:focus{border-color:var(--accent)}
+.fselect{padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer}
+.spacer{flex:1}
+.week-label{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
+
+/* Calendar grid */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-header{font-size:11px;color:var(--text3);text-align:center;padding:6px;font-weight:600;text-transform:uppercase}
+.cal-day{background:var(--bg2);border:1px solid var(--border);border-radius:10px;min-height:100px;padding:8px;cursor:pointer;transition:all .15s}
+.cal-day:hover{border-color:var(--border2);background:var(--card-h)}
+.cal-day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.cal-day.other-month{opacity:.4}
+.cal-date{font-size:12px;font-weight:600;margin-bottom:4px}
+.cal-date.today{color:var(--accent2)}
+.cal-event{font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.cal-event.has-staff{background:rgba(62,207,142,.15);color:var(--rank1);border:1px solid rgba(62,207,142,.2)}
+.cal-event.needs-staff{background:rgba(245,166,35,.15);color:var(--rank2);border:1px solid rgba(245,166,35,.2)}
+.cal-event.no-staff{background:rgba(242,85,85,.12);color:var(--rank3);border:1px solid rgba(242,85,85,.2)}
+
+/* Event detail panel */
+.event-panel{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:16px}
+.ep-title{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:12px}
+.ep-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.ep-row:last-child{border-bottom:none}
+
+/* Overlay/Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
+.modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
+.dr-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.field{margin-bottom:10px}.fl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+.loading{text-align:center;padding:40px;color:var(--text3)}
+@media(max-width:768px){.cal-grid{grid-template-columns:repeat(7,1fr);gap:3px}.cal-day{min-height:60px;padding:4px}.cal-event{font-size:9px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <a class="logo" href="index.html">Photo<span>HR</span></a>
+  <div class="nav-links">
+    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
+    <a class="nav-btn active" href="calendar.html">Календарь</a>
+    <a class="nav-btn" href="venue.html">Площадка</a>
+  </div>
+  <div class="user-pill" id="user-pill"></div>
+  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+</div>
+<div class="main">
+  <div class="toolbar">
+    <button class="btn btn-ghost btn-sm" onclick="prevMonth()">◀</button>
+    <span class="week-label" id="month-label">Март 2026</span>
+    <button class="btn btn-ghost btn-sm" onclick="nextMonth()">▶</button>
+    <button class="btn btn-ghost btn-sm" onclick="goToday()">Сегодня</button>
+    <span class="spacer"></span>
+    <select class="fselect" id="venue-filter" onchange="loadCalendar()" style="width:auto;min-width:150px">
+      <option value="">Все площадки</option>
+    </select>
+    <button class="btn btn-primary" onclick="openNewEvent()">+ Мероприятие</button>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+  <div id="event-detail"></div>
+</div>
+
+<!-- New event modal -->
+<div class="overlay" id="event-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Новое мероприятие</span><button class="dr-close" onclick="document.getElementById('event-modal').classList.remove('open')">×</button></div>
+  <div class="field"><div class="fl">Площадка *</div><select class="fselect" id="ev-venue" style="width:100%"></select></div>
+  <div style="display:flex;gap:8px">
+    <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" type="date" id="ev-date" style="width:100%"/></div>
+    <div class="field" style="flex:1"><div class="fl">Тип</div>
+      <select class="fselect" id="ev-type" style="width:100%">
+        <option value="regular">Обычное</option>
+        <option value="special">Специальное</option>
+        <option value="holiday">Праздник</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <div class="field" style="flex:1"><div class="fl">Нужно фотографов</div><input class="fin" type="number" id="ev-photo" value="2" min="0" style="width:100%"/></div>
+    <div class="field" style="flex:1"><div class="fl">Нужно операторов</div><input class="fin" type="number" id="ev-ops" value="1" min="0" style="width:100%"/></div>
+  </div>
+  <div class="field"><div class="fl">Примечание</div><input class="fin" id="ev-notes" placeholder="Особые условия..." style="width:100%"/></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('event-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="createEvent()">Создать</button>
+  </div>
+</div>
+</div>
+
+<!-- Assign modal -->
+<div class="overlay" id="assign-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Назначить на смену</span><button class="dr-close" onclick="document.getElementById('assign-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="as-shift-id"/>
+  <div class="field"><div class="fl">Сотрудник</div><select class="fselect" id="as-photographer" style="width:100%"></select></div>
+  <div class="field"><div class="fl">Роль на смене</div>
+    <select class="fselect" id="as-role" style="width:100%">
+      <option value="photographer">Фотограф</option>
+      <option value="print_operator">Оператор печати</option>
+      <option value="admin">Администратор</option>
+      <option value="mentor">Наставник</option>
+    </select>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('assign-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="assignToShift()">Назначить</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
+let venues=[],allEvents=[],currentMonth=new Date().getMonth(),currentYear=new Date().getFullYear();
+
+async function api(m,p,b){
+  const o={method:m,headers:{'Content-Type':'application/json'}};
+  if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;
+  if(b)o.body=JSON.stringify(b);
+  let r=await fetch(API+p,o);
+  if(r.status===401&&refreshToken){
+    const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});
+    if(rr.ok){const d=await rr.json();accessToken=d.accessToken;refreshToken=d.refreshToken;localStorage.setItem('fhr_refresh',refreshToken);localStorage.setItem('fhr_access',accessToken);o.headers['Authorization']=`Bearer ${accessToken}`;r=await fetch(API+p,o);}
+    else{doLogout();return null;}
+  }
+  if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}
+  return r.json();
+}
+function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');window.location.href='index.html';}
+function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
+
+const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+(async function init(){
+  if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
+  try{
+    currentUser=await api('GET','/auth/me');
+    document.getElementById('user-pill').innerHTML=`<span>${currentUser.name}</span>`;
+    venues=await api('GET','/venues');
+    const vf=document.getElementById('venue-filter');
+    const ev=document.getElementById('ev-venue');
+    venues.forEach(v=>{
+      vf.innerHTML+=`<option value="${v.id}">${v.name}</option>`;
+      ev.innerHTML+=`<option value="${v.id}">${v.name}</option>`;
+    });
+    await loadCalendar();
+  }catch(e){document.getElementById('cal-grid').innerHTML=`<div class="loading" style="color:var(--rank3);grid-column:1/-1">${e.message}</div>`;}
+})();
+
+async function loadCalendar(){
+  const from=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`;
+  const lastDay=new Date(currentYear,currentMonth+1,0).getDate();
+  const to=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${lastDay}`;
+  const venueId=document.getElementById('venue-filter').value;
+  const vParam=venueId?`&venue_id=${venueId}`:'';
+
+  document.getElementById('month-label').textContent=`${MONTHS[currentMonth]} ${currentYear}`;
+
+  try{
+    allEvents=await api('GET',`/events?from=${from}&to=${to}${vParam}`);
+  }catch{allEvents=[];}
+
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const grid=document.getElementById('cal-grid');
+  const today=new Date().toISOString().split('T')[0];
+  const firstDay=new Date(currentYear,currentMonth,1);
+  let startDow=firstDay.getDay();
+  if(startDow===0)startDow=7; // Mon=1
+  const daysInMonth=new Date(currentYear,currentMonth+1,0).getDate();
+  const prevMonthDays=new Date(currentYear,currentMonth,0).getDate();
+
+  let html=DAYS.map(d=>`<div class="cal-header">${d}</div>`).join('');
+
+  // Previous month fill
+  for(let i=startDow-2;i>=0;i--){
+    html+=`<div class="cal-day other-month"><div class="cal-date">${prevMonthDays-i}</div></div>`;
+  }
+
+  // Current month
+  for(let d=1;d<=daysInMonth;d++){
+    const dateStr=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=dateStr===today;
+    const dayEvents=allEvents.filter(e=>e.event_date===dateStr||e.event_date?.split('T')[0]===dateStr);
+
+    html+=`<div class="cal-day ${isToday?'today':''}" onclick="showDayEvents('${dateStr}')">
+      <div class="cal-date ${isToday?'today':''}">${d}</div>
+      ${dayEvents.slice(0,3).map(e=>{
+        const assigned=e.assigned_count||0;
+        const needed=(e.required_photographers||0)+(e.required_operators||0)+(e.required_admins||0);
+        const cls=assigned>=needed&&needed>0?'has-staff':assigned>0?'needs-staff':'no-staff';
+        const vName=venues.find(v=>v.id===e.venue_id)?.name||'';
+        return`<div class="cal-event ${cls}" title="${vName}: ${assigned}/${needed}">${vName.slice(0,12)}${assigned?` (${assigned}/${needed})`:''}</div>`;
+      }).join('')}
+      ${dayEvents.length>3?`<div style="font-size:9px;color:var(--text3)">+${dayEvents.length-3}</div>`:''}
+    </div>`;
+  }
+
+  // Next month fill
+  const totalCells=(startDow-1)+daysInMonth;
+  const remaining=7-totalCells%7;
+  if(remaining<7){
+    for(let i=1;i<=remaining;i++){
+      html+=`<div class="cal-day other-month"><div class="cal-date">${i}</div></div>`;
+    }
+  }
+
+  grid.innerHTML=html;
+}
+
+async function showDayEvents(dateStr){
+  const dayEvents=allEvents.filter(e=>e.event_date===dateStr||e.event_date?.split('T')[0]===dateStr);
+  const panel=document.getElementById('event-detail');
+  const dateLabel=new Date(dateStr).toLocaleDateString('ru-RU',{day:'numeric',month:'long',weekday:'long'});
+
+  if(!dayEvents.length){
+    panel.innerHTML=`<div class="event-panel">
+      <div class="ep-title">${dateLabel}</div>
+      <div style="color:var(--text3);padding:8px 0">Нет мероприятий. <button class="btn btn-primary btn-sm" onclick="openNewEvent('${dateStr}')">+ Создать</button></div>
+    </div>`;
+    return;
+  }
+
+  let html=`<div class="event-panel"><div class="ep-title">${dateLabel} — ${dayEvents.length} мероприятий</div>`;
+
+  for(const ev of dayEvents){
+    const vName=venues.find(v=>v.id===ev.venue_id)?.name||'Площадка';
+    let assignments=[];
+    try{
+      const shifts=await api('GET',`/shifts?event_id=${ev.id}`);
+      if(shifts.length){
+        assignments=await api('GET',`/shifts/${shifts[0].id}/assignments`).catch(()=>[]);
+      }
+    }catch{}
+
+    const assigned=assignments.filter(a=>a.status!=='cancelled');
+    const needed=(ev.required_photographers||0)+(ev.required_operators||0);
+
+    html+=`<div style="padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:600;flex:1">${vName}</div>
+        <span style="font-size:11px;color:${assigned.length>=needed?'var(--rank1)':'var(--rank2)'}">${assigned.length}/${needed} назначено</span>
+        <button class="btn btn-primary btn-sm" onclick="openAssignModal('${ev.id}')">+ Назначить</button>
+      </div>
+      ${assigned.length?assigned.map(a=>`<div class="ep-row">
+        <span style="flex:1">${a.photographer_name||'Сотрудник'}</span>
+        <span style="font-size:11px;color:var(--text3)">${a.role_in_shift||'фотограф'}</span>
+        <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeAssignment('${a.id}','${dateStr}')">✕</button>
+      </div>`).join(''):'<div style="color:var(--text3);font-size:12px">Никто не назначен</div>'}
+    </div>`;
+  }
+
+  html+='</div>';
+  panel.innerHTML=html;
+}
+
+function prevMonth(){currentMonth--;if(currentMonth<0){currentMonth=11;currentYear--;}loadCalendar();document.getElementById('event-detail').innerHTML='';}
+function nextMonth(){currentMonth++;if(currentMonth>11){currentMonth=0;currentYear++;}loadCalendar();document.getElementById('event-detail').innerHTML='';}
+function goToday(){currentMonth=new Date().getMonth();currentYear=new Date().getFullYear();loadCalendar();}
+
+function openNewEvent(date){
+  document.getElementById('ev-date').value=date||new Date().toISOString().split('T')[0];
+  document.getElementById('event-modal').classList.add('open');
+}
+
+async function createEvent(){
+  const venueId=document.getElementById('ev-venue').value;
+  const date=document.getElementById('ev-date').value;
+  if(!venueId||!date){showToast('Выберите площадку и дату',true);return;}
+  try{
+    await api('POST','/events',{
+      venue_id:venueId,event_date:date,
+      event_type:document.getElementById('ev-type').value,
+      required_photographers:parseInt(document.getElementById('ev-photo').value)||0,
+      required_operators:parseInt(document.getElementById('ev-ops').value)||0,
+      notes:document.getElementById('ev-notes').value.trim()||null,
+    });
+    document.getElementById('event-modal').classList.remove('open');
+    showToast('Мероприятие создано');
+    await loadCalendar();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function openAssignModal(eventId){
+  try{
+    const shifts=await api('GET',`/shifts?event_id=${eventId}`);
+    if(!shifts.length){showToast('Смена не создана для этого мероприятия',true);return;}
+    document.getElementById('as-shift-id').value=shifts[0].id;
+
+    // Load available photographers
+    const date=shifts[0].event_date||document.getElementById('ev-date').value;
+    const available=await api('GET',`/staffing/available?date=${date}`).catch(()=>[]);
+    const sel=document.getElementById('as-photographer');
+    if(available.length){
+      sel.innerHTML=available.map(p=>`<option value="${p.id}">${p.name} ${p.attitude==='loves'?'❤️':p.attitude==='dislikes'?'✕':'✓'} (${p.shifts_this_month||0} смен)</option>`).join('');
+    }else{
+      // Fallback: all active photographers
+      const phs=await api('GET','/photographers');
+      sel.innerHTML=phs.filter(p=>p.is_active).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+    }
+    document.getElementById('assign-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
+}
+
+async function assignToShift(){
+  const shiftId=document.getElementById('as-shift-id').value;
+  const phId=document.getElementById('as-photographer').value;
+  const role=document.getElementById('as-role').value;
+  if(!phId){showToast('Выберите сотрудника',true);return;}
+  try{
+    await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:phId,role_in_shift:role});
+    document.getElementById('assign-modal').classList.remove('open');
+    showToast('Назначен');
+    await loadCalendar();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function removeAssignment(assignId,dateStr){
+  if(!confirm('Снять назначение?'))return;
+  try{
+    await api('DELETE',`/shift-assignments/${assignId}`);
+    showToast('Снято');
+    await loadCalendar();
+    showDayEvents(dateStr);
+  }catch(e){showToast(e.message,true);}
+}
+</script>
+</body>
+</html>
