@@ -184,7 +184,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 /* tabs */
 .tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:0}
 .tab{flex:1;min-width:0;padding:7px 4px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1.2;white-space:nowrap}
-.tab.active{background:var(--card);color:var(--text)}
+.tab.active{background:var(--accent);color:#fff}
 
 /* fields */
 .field-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
@@ -429,6 +429,7 @@ const LIKES_MAX_PER_TRANSACTION = 5;
 const ROLES = { photographer_user:0, aq_user:0, recruiter:1, hr_manager:1, tech_director:1, site_specialist:1, aq_manager:1, cashier:2, hr_director:2, exec_director:3, admin:4 };
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (a) => a.includes(roleNow());
+const canManageComments = () => hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']);
 const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
 
 const ROLE_LABELS = {
@@ -764,6 +765,169 @@ async function updateTeamDrawerEarned(m) {
   el.innerHTML = achStrip + rowBlock;
 }
 
+async function loadTeamAuditHtml(tmId) {
+  try {
+    const rows = await api('GET', `/team/${encodeURIComponent(tmId)}/audit`);
+    return rows.map((r) => `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--text2)">${new Date(r.created_at).toLocaleString('ru-RU')}</span>
+        &nbsp; <b>${esc(r.actor_name)}</b> &nbsp;
+        <span style="color:var(--accent2)">${esc(r.action)}</span>
+        ${r.field ? ` <span style="color:var(--text3)">${esc(r.field)}:</span> <span style="color:var(--rank3)">${esc(r.old_value ?? '—')}</span> → <span style="color:var(--rank1)">${esc(r.new_value ?? '—')}</span>` : ''}
+      </div>
+    `).join('') || '<div style="color:var(--text3);padding:12px">Нет записей</div>';
+  } catch (e) {
+    return `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function renderTeamAchievementsTab(tm, content) {
+  content.innerHTML = '<div style="color:var(--text3);padding:12px">Загрузка...</div>';
+  try {
+    const [achSummary, peerSummary, allTypes, likesData] = await Promise.all([
+      api('GET', `/photographers/${tm.id}/achievements-summary`).catch(() => ({ total: 0, recent: [], all: [], by_category: {}, leaderboard_position: 0 })),
+      api('GET', `/photographers/${tm.id}/peer-summary`).catch(() => ({ total_reviews: 0, avg_stars: 0, recent_public: [], management_only: [] })),
+      api('GET', '/achievement-types').catch(() => []),
+      api('GET', `/peer-likes/received?photographer_id=${encodeURIComponent(tm.id)}`).catch(() => null),
+    ]);
+
+    const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    let likesMonthLabel = '';
+    if (likesData && likesData.month) {
+      const [y, m] = likesData.month.split('-');
+      const mi = parseInt(m, 10);
+      likesMonthLabel = y && mi >= 1 && mi <= 12 ? monthNames[mi - 1] + ' ' + y : String(likesData.month);
+    }
+
+    const catLabels = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
+    const likeCats = { help:'💪 Помощь', professional:'⭐ Профессионализм', positive:'😊 Позитив', result:'🎯 Результат', congrats:'🎂 Поздравление', general:'❤️ Общее' };
+    const peerEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border)">Пока нет отзывов</div>`;
+
+    const earnedList = achSummary.all || [];
+    const earnedCodes = new Set(earnedList.map((a) => a.code));
+    const categories = {};
+    (allTypes || []).forEach((t) => {
+      const cat = t.category || 'other';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(t);
+    });
+    if (categories.milestone) {
+      const order = ['veteran_6m', 'veteran_1y', 'veteran_3y', 'veteran_5y', 'veteran_10y', 'veteran_15y'];
+      categories.milestone.sort((a, b) => {
+        const ia = order.indexOf(a.code);
+        const ib = order.indexOf(b.code);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+    }
+    const catOrder = ['sales', 'discipline', 'milestone', 'social', 'other'];
+    let achHtml = '';
+    catOrder.forEach((cat) => {
+      const items = categories[cat];
+      if (!items || !items.length) return;
+      achHtml += `<div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${esc(catLabels[cat] || cat)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:8px">`;
+      items.forEach((t) => {
+        const earned = earnedCodes.has(t.code);
+        const earnedData = earned ? earnedList.find((a) => a.code === t.code) : null;
+        const earnedDate = earnedData?.earned_at ? new Date(earnedData.earned_at).toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' }) : '';
+        achHtml += `<div style="padding:12px 10px;border-radius:10px;text-align:center;border:1px solid ${earned ? 'rgba(245,166,35,.3)' : 'var(--border)'};background:${earned ? 'linear-gradient(135deg, rgba(245,166,35,.1), rgba(245,166,35,.03))' : 'var(--bg3)'};${!earned ? 'opacity:0.45;' : ''}transition:opacity .2s">
+          <div style="font-size:28px;${!earned ? 'filter:grayscale(1);' : ''}">${esc(String(t.icon || '🏅'))}</div>
+          <div style="font-size:11px;font-weight:${earned ? '600' : '400'};color:${earned ? 'var(--text)' : 'var(--text3)'};margin-top:6px;line-height:1.3">${esc(t.name)}</div>
+          ${earned ? `<div style="font-size:9px;color:#f5a623;margin-top:4px">${esc(earnedDate)}</div>` : `<div style="font-size:9px;color:var(--text3);margin-top:4px">🔒</div>`}
+        </div>`;
+      });
+      achHtml += '</div></div>';
+    });
+    if (!achHtml) {
+      achHtml = '<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center">Типы достижений не загружены</div>';
+    }
+
+    content.innerHTML = `
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="background:linear-gradient(135deg, rgba(245,166,35,.08), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 18px;text-align:center;flex:1;min-width:90px">
+          <div style="font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:#f5a623">#${achSummary.leaderboard_position || '—'}</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">В лидерборде</div>
+        </div>
+        <div style="background:linear-gradient(135deg, rgba(245,166,35,.08), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 18px;text-align:center;flex:1;min-width:90px">
+          <div style="font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:#f5a623">${achSummary.total}</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">Достижений</div>
+        </div>
+        <div style="background:linear-gradient(135deg, rgba(245,166,35,.08), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 18px;text-align:center;flex:1;min-width:90px">
+          <div style="font-size:22px;color:#f5a623">${peerSummary.avg_stars ? '★'.repeat(Math.round(peerSummary.avg_stars)) : '—'}</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">${peerSummary.total_reviews || 0} отзывов</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:600;color:#f5a623;margin-bottom:12px">🏆 Витрина достижений</div>
+        ${achHtml}
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:600;color:#f5a623;margin-top:20px;margin-bottom:10px">⭐ Отзывы коллег</div>
+        ${(peerSummary.recent_public || []).length ? (peerSummary.recent_public || []).map((r) => {
+          const stars = Math.min(5, Math.max(0, Math.round(Number(r.stars) || 0)));
+          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('ru-RU') : '';
+          return `<div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span><span style="color:#f5a623">${'★'.repeat(stars)}</span><span style="color:var(--border2)">${'☆'.repeat(5 - stars)}</span></span>
+              <span style="font-size:10px;color:var(--text3)">${dateStr}</span>
+            </div>
+            ${r.comment ? `<div style="font-size:13px;color:var(--text)">${esc(r.comment)}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">${esc(r.reviewer_name || 'Аноним')}${r.venue_name ? ' · ' + esc(r.venue_name) : ''}</div>
+          </div>`;
+        }).join('') : peerEmpty}
+      </div>
+
+      ${likesData && likesData.total_likes > 0 ? `
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:600;color:#e53e3e;margin-top:20px;margin-bottom:10px">❤️ Лайки за ${esc(likesMonthLabel)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+          <div style="padding:8px 14px;background:linear-gradient(135deg, rgba(229,62,62,.1), transparent);border:1px solid rgba(229,62,62,.2);border-radius:20px;font-size:13px;color:#e53e3e;font-weight:600">
+            ${likesData.total_likes} ❤️
+          </div>
+          ${likesData.total_all_time ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">Всего за всё время: ${esc(String(likesData.total_all_time))} ❤️</span>` : ''}
+          ${(likesData.by_category || []).map((c) => `
+            <div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:11px;color:var(--text2)">
+              ${esc(likeCats[c.category] || c.category)}: ${esc(String(c.total))}
+            </div>
+          `).join('')}
+        </div>
+        <div style="margin-top:10px">
+        ${(likesData.details || []).slice(0, 10).map((d) => `
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+            <div style="color:#e53e3e;font-size:16px;min-width:20px">${'❤️'.repeat(Math.min(d.amount || 1, 5))}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500;color:var(--text)">${esc(d.from_name || 'Аноним')}</div>
+              ${d.comment ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;font-style:italic">"${esc(d.comment)}"</div>` : ''}
+              <div style="font-size:10px;color:var(--text3);margin-top:4px">${d.category ? esc(likeCats[d.category] || d.category) : ''}${d.category && d.created_at ? ' · ' : ''}${d.created_at ? esc(new Date(d.created_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : ''}</div>
+            </div>
+          </div>
+        `).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      ${canManageComments() && (peerSummary.management_only || []).length ? `
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--rank2)">🔒 Закрытые отзывы (видны только руководству)</div>
+        ${peerSummary.management_only.map((r) => {
+          const stars = Math.min(5, Math.max(0, Math.round(Number(r.stars) || 0)));
+          return `<div style="padding:12px;background:rgba(242,85,85,.05);border:1px solid rgba(242,85,85,.15);border-radius:10px;margin-bottom:8px">
+            <div style="font-size:14px"><span style="color:#f5a623">${'★'.repeat(stars)}</span><span style="color:var(--border2)">${'☆'.repeat(5 - stars)}</span></div>
+            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${esc(r.comment)}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(r.reviewer_name || 'Аноним')} · ${esc(r.venue_name || '')}</div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+      ${can('hr_director') ? `<div style="margin-top:14px"><button type="button" class="btn btn-primary" onclick="openGrantAch()">Выдать достижение</button></div>` : ''}
+    `;
+  } catch (e) {
+    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${esc(e.message)}</div>`;
+  }
+}
+
 function buildTeamTabs() {
   const tabs = [
     { label: '📋 Информация' },
@@ -813,7 +977,7 @@ function triggerTeamPhotoUpload() {
 
 function switchTab(i) {
   tabIdx = i;
-  document.querySelectorAll('#tabs .tab').forEach((t, j) => t.classList.toggle('active', j === i));
+  document.querySelectorAll('.tab').forEach((t, j) => t.classList.toggle('active', j === i));
   if (!drawerData) return;
   const body = document.getElementById('tab-content');
   const tm = drawerData;
@@ -917,40 +1081,40 @@ function switchTab(i) {
     ${tm.summary ? `<div style="margin-bottom:14px"><div class="fl" style="margin-bottom:6px">О себе</div><div style="background:var(--bg3);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.6;border-left:2px solid var(--rank2)">${escHtml(tm.summary)}</div></div>` : ''}`;
     }
   } else if (i === 1) {
-    body.innerHTML = `<div class="comment-input-wrap">
-      <textarea class="comment-ta" id="com-new" placeholder="Новый комментарий…"></textarea>
-      <button type="button" class="btn btn-primary" onclick="postComment()" style="align-self:flex-end;height:fit-content">Отправить</button>
+    const comments = drawerData.comments || [];
+    const canDelete = can('admin');
+    body.innerHTML = `
+<div style="display:flex;gap:8px;margin-bottom:16px">
+  <textarea class="fin" id="new-team-comment" rows="3" style="flex:1;resize:vertical" placeholder="Написать комментарий..."></textarea>
+  <button class="btn btn-primary" style="align-self:flex-end" onclick="postTeamComment()">Отправить</button>
+</div>
+${comments.length === 0 ? '<div style="color:var(--text3);font-size:14px;text-align:center;padding:24px">Комментариев пока нет</div>' : ''}
+${comments.map((c) => {
+  const roleLabel = c.author_role ? (ROLE_LABELS[c.author_role] || c.author_role) : '';
+  return `<div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <div>
+      <span style="font-weight:600;font-size:13px">${esc(c.author_name)}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:8px">${esc(roleLabel)}</span>
     </div>
-    <div class="comment-list" style="margin-top:8px">${(drawerData.comments || []).map((c) => `<div class="citem"><div class="citem-head"><span class="cauthor">${esc(c.author_name)}</span><span class="cdate">${esc(String(c.created_at).slice(0, 16))}</span></div><div class="cbody">${esc(c.body)}</div></div>`).join('') || '<div style="color:var(--text3);font-size:13px">Нет комментариев</div>'}</div>`;
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--text3)">${new Date(c.created_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+      ${canDelete ? `<button class="btn btn-ghost" style="color:var(--rank3);font-size:11px;padding:2px 6px" onclick="deleteTeamComment(${JSON.stringify(c.id)})">удалить</button>` : ''}
+    </div>
+  </div>
+  <div style="font-size:13px;color:var(--text);line-height:1.5">${escHtml(c.body)}</div>
+</div>`;
+}).join('')}`;
   } else if (i === 2) {
-    body.innerHTML = '<div style="color:var(--text3)">Загрузка…</div>';
-    api('GET', '/team/' + drawerId + '/audit').then((rows) => {
+    body.innerHTML = '<div style="color:var(--text3);padding:12px">Загрузка…</div>';
+    loadTeamAuditHtml(drawerId).then((html) => {
       const tc = document.getElementById('tab-content');
-      if (!tc) return;
-      tc.innerHTML = rows.length ? rows.map((r) => `<div class="audit-row"><b>${esc(r.action)}</b> ${esc(r.field || '')} · ${esc(String(r.created_at).slice(0, 19))}<br/><span style="color:var(--text3)">${esc(r.old_value || '—')} → ${esc(r.new_value || '—')}</span></div>`).join('') : '<div style="color:var(--text3)">Пусто</div>';
-    }).catch(() => {
-      const tc = document.getElementById('tab-content');
-      if (tc) tc.innerHTML = '<div style="color:var(--rank3)">Нет доступа к истории</div>';
+      if (tc && tabIdx === 2) tc.innerHTML = html;
     });
   } else if (i === 3) {
-    body.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0">Нет данных</div>';
+    body.innerHTML = '<div style="padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);font-size:14px;color:var(--text2)">Кураторство для управленческой команды в разработке.</div>';
   } else if (i === 4) {
-    api('GET', '/achievement-types').then((types) => {
-      const tc = document.getElementById('tab-content');
-      if (!tc) return;
-      const allow = new Set(['milestone', 'social']);
-      const filtered = types.filter((t) => allow.has(t.category));
-      const earned = drawerData.achievements || [];
-      tc.innerHTML = `
-        <div class="ach-grid">${filtered.map((t) => {
-          const ok = earned.some((e) => e.code === t.code);
-          return `<div class="ach-cell ${ok ? '' : 'locked'}"><div class="ic">${esc(t.icon || '⭐')}</div><div>${esc(t.name)}</div></div>`;
-        }).join('')}</div>
-        ${can('hr_director') ? `<div style="margin-top:14px"><button type="button" class="btn btn-primary" onclick="openGrantAch()">Выдать достижение</button></div>` : ''}`;
-    }).catch((e) => {
-      const tc = document.getElementById('tab-content');
-      if (tc) tc.innerHTML = '<div style="color:var(--rank3)">' + esc(e.message) + '</div>';
-    });
+    renderTeamAchievementsTab(tm, body);
   }
 }
 
@@ -978,14 +1142,25 @@ async function saveTeamCard() {
 }
 async function saveDrawer() { return saveTeamCard(); }
 
-async function postComment() {
-  const body = document.getElementById('com-new').value.trim();
+async function postTeamComment() {
+  const ta = document.getElementById('new-team-comment');
+  const body = ta?.value?.trim();
   if (!body || !drawerId) return;
   try {
     await api('POST', '/team/' + drawerId + '/comments', { body, comment_type: 'general' });
+    if (ta) ta.value = '';
     drawerData = await api('GET', '/team/' + drawerId);
     switchTab(1);
     showToast('Комментарий добавлен');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function deleteTeamComment(cid) {
+  if (!confirm('Удалить комментарий?')) return;
+  try {
+    await api('DELETE', '/comments/' + cid);
+    drawerData = await api('GET', '/team/' + drawerId);
+    switchTab(1);
   } catch (e) { showToast(e.message, true); }
 }
 
