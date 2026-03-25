@@ -773,6 +773,17 @@ function render() {
     else if (typeof ach === 'string') { try { ach = JSON.parse(ach); } catch { ach = []; } }
     if (!Array.isArray(ach)) ach = [];
     const bdClass = bdToday ? ' birthday-card' : '';
+    const ageVal = calcAge(m.birth_date);
+    const gSym = m.gender === 'male' ? '♂' : m.gender === 'female' ? '♀' : '';
+    let cdSecondRow = '';
+    if (gSym && ageVal !== null) cdSecondRow = gSym + ' ' + ageVal + 'л';
+    else if (gSym) cdSecondRow = gSym;
+    else if (ageVal !== null) cdSecondRow = ageVal + 'л';
+    if (m.birth_date) {
+      const bd = '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      cdSecondRow = cdSecondRow ? cdSecondRow + ' · ' + bd : bd;
+    }
+    const cdHtml = cdSecondRow || '&nbsp;';
     const pu = cardPhotoUrl(m.photo_url);
     const badgeParts = [];
     if (m.rank != null && [1, 2, 3].includes(Number(m.rank))) {
@@ -806,8 +817,8 @@ function render() {
             : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
           }
           <div style="min-width:0;flex:1">
-            <div class="cn" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}${m.gender === 'male' ? ' <span style="font-size:11px;color:var(--text3)">♂</span>' : m.gender === 'female' ? ' <span style="font-size:11px;color:var(--text3)">♀</span>' : ''}${calcAge(m.birth_date) !== null ? ' <span style="font-size:11px;color:var(--text3);font-weight:400">' + calcAge(m.birth_date) + 'л</span>' : ''}</div>
-            <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
+            <div class="cn" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
+            <div class="cd">${cdHtml}</div>
           </div>
         </div>
         ${rightBadges}

@@ -2091,6 +2091,17 @@ function render(){
     const dots = Array.from({length:10},(_,i)=>`<div class="${dotCls(i+1,p.sales_score??0)}">${i+1}</div>`).join('');
     const hasScores = p.score_photo||p.score_looks||p.score_social;
     const bdClass = bdToday ? ' birthday-card' : '';
+    const ageVal = calcAge(p.birth_date);
+    const gSym = p.gender === 'male' ? '♂' : p.gender === 'female' ? '♀' : '';
+    let cdSecondRow = '';
+    if (gSym && ageVal !== null) cdSecondRow = gSym + ' ' + ageVal + 'л';
+    else if (gSym) cdSecondRow = gSym;
+    else if (ageVal !== null) cdSecondRow = ageVal + 'л';
+    if (p.birth_date) {
+      const bd = '🎂 ' + new Date(p.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      cdSecondRow = cdSecondRow ? cdSecondRow + ' · ' + bd : bd;
+    }
+    const cdHtml = cdSecondRow || '&nbsp;';
     return `<div class="card${bdClass}" onclick="openDrawer('${p.id}')" style="${dimmed?'opacity:.45;filter:grayscale(.8);':''}">
       ${bdToday ? '<span style="position:absolute;top:-6px;right:-6px;font-size:20px;z-index:1">🎂</span>' : ''}
       <div class="ch">
@@ -2100,8 +2111,8 @@ function render(){
             : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(p.name)}</div>`
           }
           <div>
-            <div class="cn">${esc(p.name)}${p.gender==='male'?' <span style="font-size:11px;color:var(--text3)">♂</span>':p.gender==='female'?' <span style="font-size:11px;color:var(--text3)">♀</span>':''}${calcAge(p.birth_date)!==null?' <span style="font-size:11px;color:var(--text3);font-weight:400">'+calcAge(p.birth_date)+'л</span>':''}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
-            <div class="cd">${p.birth_date ? '🎂 ' + new Date(p.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
+            <div class="cn">${esc(p.name)}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
+            <div class="cd">${cdHtml}</div>
           </div>
         </div>
         <div class="rb" style="${rankStyle(p.rank)}">${rankStars(p.rank)} Ранг ${p.rank||'—'}</div>
