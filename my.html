@@ -75,6 +75,7 @@ a{color:inherit;text-decoration:none}
     <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn" href="stock.html">Склад</a>
+    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
     <a class="nav-btn" href="calendar.html">Календарь</a>
     <a class="nav-btn active" href="my.html">📷 Мой профиль</a>
   </div>
@@ -128,6 +129,9 @@ function esc(s) {
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
+    const aqAllowed=['aq_manager','hr_director','exec_director','admin','cashier'].includes(currentUser.role);
+    const aqBtn=document.getElementById('nav-aquagrim');
+    if(aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
     document.getElementById('user-pill').innerHTML=`<span>${esc(currentUser.name)}</span>`;
     if(!currentUser.photographer_id){
       document.getElementById('main').innerHTML='<div class="loading">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div>';

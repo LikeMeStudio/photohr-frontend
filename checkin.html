@@ -11,6 +11,9 @@
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 .top{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
 .logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap;overflow-x:auto}
+.nav-btn{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{color:var(--text)}.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .user-name{font-size:12px;color:var(--text2);margin-left:auto}
 .content{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center}
 .title{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;margin-bottom:8px}
@@ -35,6 +38,14 @@
 <body>
 <div class="top">
   <a class="logo" href="my.html">Photo<span>HR</span></a>
+  <div class="nav-links">
+    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
+    <a class="nav-btn" href="venue.html">Площадка</a>
+    <a class="nav-btn" href="stock.html">Склад</a>
+    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
+    <a class="nav-btn" href="calendar.html">Календарь</a>
+  </div>
   <span class="user-name" id="user-name"></span>
 </div>
 <div class="content" id="content">
@@ -59,6 +70,9 @@ function esc(s) {
   if(!AT&&!RT){location.href='index.html';return;}
   try{
     U=await api('GET','/auth/me');
+    const aqAllowed=['aq_manager','hr_director','exec_director','admin','cashier'].includes(U.role);
+    const aqBtn=document.getElementById('nav-aquagrim');
+    if(aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
     document.getElementById('user-name').textContent=U.name;
     if(!U.photographer_id){
       document.getElementById('content').innerHTML=`<div class="title">Нет карточки</div><div class="sub">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div><a href="index.html" class="btn btn-ghost">← Назад</a>`;

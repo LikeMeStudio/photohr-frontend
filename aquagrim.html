@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhotoHR — Аквагрим</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;
+  --border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;
+  --accent:#7c6cff;--accent2:#9b8dff;
+  --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
+  --love:#3ecf8e;--dislike:#f25555;--can:#9090a8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
+.nav-btn:hover{color:var(--text)}.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
+
+.toolbar{max-width:1400px;margin:0 auto;padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fin{padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none}
+.fin:focus{border-color:var(--accent)}
+.fselect{padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;cursor:pointer}
+.fselect option{background:var(--bg2)}
+.btn{padding:8px 16px;border-radius:10px;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.spacer{flex:1}
+
+.main{max-width:1400px;margin:0 auto;padding:20px 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.empty{text-align:center;padding:60px;color:var(--text3);grid-column:1/-1}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s}
+.card:hover{background:var(--card-h);border-color:var(--border2);transform:translateY(-2px)}
+.ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px}
+.av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;flex-shrink:0;border:1px solid var(--border2)}
+.cn{font-weight:600;font-size:14px}
+.cd{font-size:11px;color:var(--text3);margin-top:2px}
+.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.pill{padding:2px 8px;border-radius:7px;font-size:11px;border:1px solid var(--border);background:var(--bg3);color:var(--text2)}
+.pill.ok{border-color:rgba(62,207,142,.25);background:rgba(62,207,142,.12);color:#5ddba6}
+.pill.warn{border-color:rgba(245,166,35,.25);background:rgba(245,166,35,.10);color:var(--rank2)}
+.pill.bad{border-color:rgba(242,85,85,.25);background:rgba(242,85,85,.10);color:var(--rank3)}
+
+.vs{margin-top:10px}
+.vl{font-size:11px;color:var(--text2);margin-bottom:4px}
+.vps{display:flex;flex-wrap:wrap;gap:4px}
+.vp{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500}
+.vp-love{background:rgba(62,207,142,.12);color:#5ddba6;border:1px solid rgba(62,207,142,.25)}
+.vp-can{background:rgba(144,144,168,.1);color:var(--text2);border:1px solid var(--border)}
+.vp-dis{background:rgba(242,85,85,.1);color:var(--rank3);border:1px solid rgba(242,85,85,.25)}
+
+/* Drawer */
+.drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;backdrop-filter:blur(3px)}
+.drawer-bg.open{display:block}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:100%;max-width:600px;background:var(--bg2);border-left:1px solid var(--border2);overflow-y:auto;z-index:101;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.drawer.open{transform:translateX(0)}
+.drh{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:1}
+.drh-left{display:flex;align-items:center;gap:14px}
+.dr-name{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
+.dr-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;border-radius:8px;padding:4px 8px}
+.dr-close:hover{color:var(--text)}
+.dr-body{padding:20px 24px}
+.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:16px}
+.tab{flex:1;padding:7px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:13px;cursor:pointer;transition:all .15s}
+.tab.active{background:var(--card);color:var(--text)}
+
+.field-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.field{flex:1;min-width:140px}
+.fl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.fv{font-size:14px;color:var(--text)}
+.photo-zone{position:relative;width:52px;height:52px;border-radius:50%;cursor:pointer}
+.photo-zone img{width:52px;height:52px;border-radius:50%;object-fit:cover;display:block;border:2px solid var(--border2)}
+.photo-zone .photo-av{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;border:2px solid var(--border2)}
+.photo-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;font-size:10px;color:#fff;font-weight:600}
+.photo-zone:hover .photo-overlay{opacity:1}
+
+.comment-input-wrap{display:flex;gap:8px;margin-bottom:16px}
+.comment-ta{flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:14px;outline:none;resize:none;min-height:70px;line-height:1.5}
+.comment-ta:focus{border-color:var(--accent)}
+.comment-list{display:flex;flex-direction:column;gap:10px}
+.citem{background:var(--bg3);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+.citem-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cauthor{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.cdate{font-size:11px;color:var(--text3)}
+.cbody{font-size:13px;color:var(--text2);line-height:1.6}
+.cdel{font-size:11px;color:var(--rank3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px}
+.cdel:hover{background:rgba(242,85,85,.1)}
+
+/* Modals/Toast */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:24px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:16px;display:flex;justify-content:space-between}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+.loading{text-align:center;padding:40px;color:var(--text3)}
+
+/* Lightbox */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:90vw;max-height:90vh;border-radius:12px;object-fit:contain}
+</style>
+</head>
+<body>
+<div class="header">
+  <a class="logo" href="index.html">Photo<span>HR</span></a>
+  <div class="nav-links" id="nav-links">
+    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
+    <a class="nav-btn" href="venue.html">Площадка</a>
+    <a class="nav-btn" href="stock.html">Склад</a>
+    <a class="nav-btn active" href="aquagrim.html">Аквагрим</a>
+    <a class="nav-btn" href="calendar.html">Календарь</a>
+  </div>
+  <div class="user-pill" id="user-pill"></div>
+  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+</div>
+
+<div class="toolbar">
+  <input class="fin" id="search" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;min-width:220px;max-width:360px"/>
+  <select class="fselect" id="f-role" onchange="render()">
+    <option value="">Все роли</option>
+    <option value="aquagrim">Аквагримёр</option>
+    <option value="senior_aquagrim">Старший</option>
+    <option value="aquagrim_manager">Менеджер</option>
+  </select>
+  <select class="fselect" id="f-status" onchange="render()">
+    <option value="">Все статусы</option>
+    <option value="active">Активен</option>
+    <option value="paused">Пауза</option>
+    <option value="fired">Уволен</option>
+  </select>
+  <select class="fselect" id="f-active" onchange="render()">
+    <option value="">Активность: все</option>
+    <option value="true">Только активные</option>
+    <option value="false">Только неактивные</option>
+  </select>
+  <span class="spacer"></span>
+  <button class="btn btn-primary" id="btn-new" onclick="openNewAq()" style="display:none">+ Аквагример</button>
+</div>
+
+<div class="main">
+  <div class="grid" id="grid"><div class="empty">Загрузка...</div></div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="document.getElementById('lightbox').classList.remove('open')">
+  <img id="lightbox-img" src="" alt=""/>
+</div>
+
+<!-- Drawer -->
+<div class="drawer-bg" id="drawer-bg" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drh">
+    <div class="drh-left">
+      <div class="photo-zone" id="dr-photo-zone" style="cursor:default" onclick="onDrawerPhotoClick(event)">
+        <div class="photo-av" id="dr-av"></div>
+        <div class="photo-overlay" id="dr-photo-overlay" style="display:none">Заменить</div>
+      </div>
+      <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadPhoto(event)"/>
+      <div>
+        <div class="dr-name" id="dr-name"></div>
+        <div style="font-size:12px;color:var(--text3)" id="dr-hint"></div>
+      </div>
+    </div>
+    <button class="dr-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="dr-body">
+    <div class="tabs">
+      <button class="tab active" id="tab-0" onclick="switchTab(0)">Инфо</button>
+      <button class="tab" id="tab-1" onclick="switchTab(1)">Комментарии</button>
+      <button class="tab" id="tab-2" onclick="switchTab(2)">Площадки</button>
+    </div>
+    <div id="tab-content"></div>
+  </div>
+</div>
+
+<!-- New aquagrimer modal -->
+<div class="overlay" id="new-aq-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Новый аквагримёр</span><button class="dr-close" onclick="document.getElementById('new-aq-modal').classList.remove('open')">×</button></div>
+  <div class="field" style="margin-bottom:12px">
+    <div class="fl">Имя *</div>
+    <input class="fin" id="na-name" placeholder="Анна Иванова" autocomplete="off"/>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <div class="fl">Телефон</div>
+      <input class="fin" id="na-phone" placeholder="+7..." autocomplete="off"/>
+    </div>
+    <div class="field">
+      <div class="fl">Email</div>
+      <input class="fin" id="na-email" placeholder="anna@mail.ru" autocomplete="off"/>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <div class="fl">Роль</div>
+      <select class="fselect" id="na-role" style="width:100%">
+        <option value="aquagrim">Аквагримёр</option>
+        <option value="senior_aquagrim">Старший аквагримёр</option>
+        <option value="aquagrim_manager">Менеджер</option>
+      </select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('new-aq-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="createAquagrimer()">Создать</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.hostname==='localhost'
+  ? 'http://localhost:3001/api'
+  : 'https://fotohr-server-production.up.railway.app/api';
+
+let accessToken = localStorage.getItem('fhr_access') || null;
+let refreshToken = localStorage.getItem('fhr_refresh') || null;
+let currentUser = null;
+let refreshLock = null;
+
+let aquagrimers = [];
+let venues = [];
+
+const AQ_ROLE_LABELS = {
+  aquagrim: 'Аквагример',
+  senior_aquagrim: 'Старший аквагример',
+  aquagrim_manager: 'Менеджер'
+};
+
+const AQ_PAGE_ROLES = ['aq_manager','hr_director','exec_director','admin','cashier'];
+const AQ_EDIT_ROLES = ['aq_manager','hr_director','exec_director','admin'];
+
+const roleNow = () => currentUser?.role || '';
+const canSeePage = () => AQ_PAGE_ROLES.includes(roleNow());
+const canEdit = () => AQ_EDIT_ROLES.includes(roleNow());
+const canDeleteComments = (c) => roleNow()==='admin' || String(c.author_id)===String(currentUser?.id);
+
+function esc(s){
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function showToast(m,isErr){
+  const t=document.getElementById('toast');
+  t.textContent=m;
+  t.className='toast show'+(isErr?' error':'');
+  setTimeout(()=>t.className='toast',2500);
+}
+function doLogout(){
+  localStorage.removeItem('fhr_refresh');
+  localStorage.removeItem('fhr_access');
+  window.location.href='index.html';
+}
+
+async function api(method, path, body){
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(accessToken) opts.headers['Authorization']=`Bearer ${accessToken}`;
+  if(body) opts.body=JSON.stringify(body);
+  let res=await fetch(API+path,opts);
+  if(res.status===401 && refreshToken){
+    try{
+      if(!refreshLock){
+        refreshLock=(async()=>{
+          const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});
+          if(!rr.ok) throw new Error('refresh_failed');
+          const d=await rr.json();
+          accessToken=d.accessToken; refreshToken=d.refreshToken;
+          localStorage.setItem('fhr_refresh',refreshToken);
+          localStorage.setItem('fhr_access',accessToken);
+          if(d.user) currentUser=d.user;
+        })();
+      }
+      await refreshLock;
+      opts.headers['Authorization']=`Bearer ${accessToken}`;
+      res=await fetch(API+path,opts);
+    } catch {
+      doLogout();
+      return null;
+    } finally { refreshLock=null; }
+  }
+  if(!res.ok){
+    const err=await res.json().catch(()=>({error:'Ошибка'}));
+    throw new Error(err.error||'Ошибка');
+  }
+  return res.json();
+}
+
+function ini(n){ return String(n||'').split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2) || 'AQ'; }
+const AV_COLORS=[{bg:'#1a2a4a',fg:'#6aa6e8'},{bg:'#1a3028',fg:'#4ecb8a'},{bg:'#2e1a08',fg:'#e8a04e'},{bg:'#2e0a1a',fg:'#e86aa6'},{bg:'#1a1a3a',fg:'#8a7aee'},{bg:'#2a1a1a',fg:'#e87a6a'}];
+function avC(name){ let h=0; for(const c of String(name||'')) h=(h*31+c.charCodeAt(0))%AV_COLORS.length; return AV_COLORS[h]; }
+
+function pillHireStatus(s){
+  const v=String(s||'').toLowerCase();
+  if(v==='active') return {cls:'ok', txt:'Активен'};
+  if(v==='paused') return {cls:'warn', txt:'Пауза'};
+  if(v==='fired') return {cls:'bad', txt:'Уволен'};
+  return {cls:'', txt:s||'—'};
+}
+
+async function loadVenues(){ venues = await api('GET','/venues'); }
+async function loadAquagrimers(){
+  const q = new URLSearchParams();
+  const fA = document.getElementById('f-active').value;
+  const fR = document.getElementById('f-role').value;
+  const fS = document.getElementById('f-status').value;
+  if(fA) q.set('is_active', fA);
+  if(fR) q.set('employee_role', fR);
+  if(fS) q.set('hire_status', fS);
+  const qs = q.toString();
+  aquagrimers = await api('GET', '/aq/staff' + (qs?('?'+qs):''));
+}
+
+function openLightbox(url){
+  const lb=document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src=url;
+  lb.classList.add('open');
+}
+
+function cardHtml(a){
+  const av=avC(a.name);
+  const hs=pillHireStatus(a.hire_status);
+  const roleLbl = AQ_ROLE_LABELS[a.employee_role] || a.employee_role || '—';
+  const loves=(a.venues||[]).filter(v=>v.attitude==='loves');
+  const cans=(a.venues||[]).filter(v=>v.attitude==='can');
+  const dislikes=(a.venues||[]).filter(v=>v.attitude==='dislikes');
+  const photoBase = API.replace('/api','');
+  const dimmed = a.is_active === false || a.is_active === 'false' || a.is_active == null;
+  return `<div class="card" onclick="openDrawer('${a.id}')" style="${dimmed?'opacity:.5;filter:grayscale(.7)':''}">
+    <div class="ch">
+      <div style="display:flex;align-items:center;gap:10px">
+        ${a.photo_url
+          ? `<img src="${photoBase}${a.photo_url}" onclick="event.stopPropagation();openLightbox('${photoBase}${a.photo_url}')" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(a.name)}"/>`
+          : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(a.name)}</div>`
+        }
+        <div>
+          <div class="cn">${esc(a.name)}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
+          <div class="cd">${esc(roleLbl)} · ранг ${esc(a.rank||'—')}</div>
+        </div>
+      </div>
+      <div class="rb">Продажи ${esc(a.sales_score??0)}</div>
+    </div>
+    <div class="meta">
+      <span class="pill ${hs.cls}">${esc(hs.txt)}</span>
+      ${a.is_trainer ? `<span class="pill ok">🎓 Тренер</span>` : ''}
+    </div>
+    ${(a.venues||[]).length ? `<div class="vs">
+      <div class="vl">Площадки</div>
+      <div class="vps">
+        ${loves.map(v=>`<span class="vp vp-love">♥ ${esc(v.venue_name)}</span>`).join('')}
+        ${cans.map(v=>`<span class="vp vp-can">${esc(v.venue_name)}</span>`).join('')}
+        ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function render(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const list = aquagrimers.filter(a => !q || String(a.name||'').toLowerCase().includes(q));
+  const grid = document.getElementById('grid');
+  if(!list.length){ grid.innerHTML = `<div class="empty">Нет аквагримёров по фильтру</div>`; return; }
+  const active = list.filter(a => a.is_active === true || a.is_active === 'true');
+  const inactive = list.filter(a => a.is_active === false || a.is_active === 'false' || a.is_active == null);
+  let html = active.map(cardHtml).join('');
+  if(inactive.length){
+    html += `<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);color:var(--text3);font-size:12px">⏸ Неактивные (${inactive.length})</div>`;
+    html += inactive.map(cardHtml).join('');
+  }
+  grid.innerHTML = html;
+}
+
+let drawerId = null;
+let drawerTab = 0;
+let drawerData = null;
+
+function closeDrawer(){
+  document.getElementById('drawer-bg').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+  drawerId=null; drawerTab=0; drawerData=null;
+}
+function switchTab(i){
+  drawerTab=i;
+  [0,1,2].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active', t===i);
+  });
+  renderDrawerTab();
+}
+
+function updateDrawerPhoto(aq){
+  const zone = document.getElementById('dr-photo-zone');
+  const overlay = document.getElementById('dr-photo-overlay');
+  const base = API.replace('/api','');
+  const av = avC(aq.name);
+  if(aq.photo_url){
+    zone.innerHTML = `<img src="${base}${aq.photo_url}" class="dr-photo-img" alt="${esc(aq.name)}"/>` + (canEdit()?`<div class="photo-overlay" id="dr-photo-overlay">Заменить</div>`:'');
+    zone.style.cursor = 'zoom-in';
+  } else {
+    zone.innerHTML = `<div class="photo-av" id="dr-av" style="background:${av.bg};color:${av.fg}">${ini(aq.name)}</div>` + (canEdit()?`<div class="photo-overlay" id="dr-photo-overlay">Загрузить</div>`:'');
+    zone.style.cursor = canEdit() ? 'pointer' : 'default';
+  }
+  if(overlay) overlay.style.display = canEdit() ? 'flex' : 'none';
+}
+
+function onDrawerPhotoClick(e){
+  if(!drawerData) return;
+  const base = API.replace('/api','');
+  if(drawerData.photo_url){
+    openLightbox(base + drawerData.photo_url);
+    return;
+  }
+  if(canEdit()){
+    document.getElementById('photo-input').click();
+  }
+}
+
+async function openDrawer(id){
+  drawerId=id; drawerTab=0;
+  drawerData = await api('GET', `/aq/staff/${id}`);
+  document.getElementById('dr-name').textContent = drawerData.name || '—';
+  document.getElementById('dr-hint').textContent = canEdit() ? 'Редактирование карточки' : 'Просмотр';
+  updateDrawerPhoto(drawerData);
+  document.getElementById('drawer-bg').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  switchTab(0);
+}
+
+function infoField(label, value){
+  return `<div class="field"><div class="fl">${esc(label)}</div><div class="fv">${esc(value ?? '—')}</div></div>`;
+}
+function infoInput(id,label,value,type){
+  return `<div class="field"><div class="fl">${esc(label)}</div><input class="fin" id="${esc(id)}" value="${esc(value??'')}" ${type?`type="${esc(type)}"`:''}/></div>`;
+}
+function infoSelect(id,label,value,opts){
+  return `<div class="field"><div class="fl">${esc(label)}</div><select class="fselect" id="${esc(id)}" style="width:100%">${opts.map(o=>`<option value="${esc(o.value)}"${String(value||'')===String(o.value)?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`;
+}
+
+async function saveInfo(){
+  try{
+    const patch = {
+      name: document.getElementById('aq-name')?.value?.trim(),
+      phone: document.getElementById('aq-phone')?.value?.trim() || null,
+      email: document.getElementById('aq-email')?.value?.trim() || null,
+      gender: document.getElementById('aq-gender')?.value || null,
+      birth_date: document.getElementById('aq-birth')?.value || null,
+      start_date: document.getElementById('aq-start')?.value || null,
+      employee_role: document.getElementById('aq-emp-role')?.value || null,
+      hire_status: document.getElementById('aq-hire')?.value || null,
+      rank: Number(document.getElementById('aq-rank')?.value || 0) || null,
+      is_active: document.getElementById('aq-active')?.value === 'true',
+      is_trainer: document.getElementById('aq-trainer')?.value === 'true',
+      score_quality: Number(document.getElementById('aq-sq')?.value || 0) || null,
+      score_looks: Number(document.getElementById('aq-sl')?.value || 0) || null,
+      score_social: Number(document.getElementById('aq-ss')?.value || 0) || null,
+      grade: document.getElementById('aq-grade')?.value || null,
+      grade_score: document.getElementById('aq-grade-score')?.value ? Number(document.getElementById('aq-grade-score').value) : null,
+      summary: document.getElementById('aq-summary')?.value || null,
+      notes_for_next_shift: document.getElementById('aq-notes')?.value || null,
+    };
+    if(!patch.name) { showToast('Имя обязательно', true); return; }
+    await api('PATCH', `/aq/staff/${drawerId}`, patch);
+    showToast('Сохранено');
+    await reloadAll();
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    document.getElementById('dr-name').textContent = drawerData.name || '—';
+    updateDrawerPhoto(drawerData);
+    renderDrawerTab();
+  } catch(e){ showToast(e.message, true); }
+}
+
+function renderDrawerTab(){
+  const el = document.getElementById('tab-content');
+  if(!drawerData){ el.innerHTML=''; return; }
+
+  if(drawerTab===0){
+    if(!canEdit()){
+      el.innerHTML = `
+        <div class="field-row">
+          ${infoField('Имя', drawerData.name)}
+          ${infoField('Телефон', drawerData.phone)}
+        </div>
+        <div class="field-row">
+          ${infoField('Email', drawerData.email)}
+          ${infoField('Пол', drawerData.gender)}
+        </div>
+        <div class="field-row">
+          ${infoField('Дата рождения', drawerData.birth_date ? new Date(drawerData.birth_date).toLocaleDateString('ru-RU') : '—')}
+          ${infoField('Дата найма', drawerData.start_date ? new Date(drawerData.start_date).toLocaleDateString('ru-RU') : '—')}
+        </div>
+        <div class="field-row">
+          ${infoField('Роль', AQ_ROLE_LABELS[drawerData.employee_role] || drawerData.employee_role)}
+          ${infoField('Статус', drawerData.hire_status)}
+        </div>
+        <div class="field-row">
+          ${infoField('Ранг', drawerData.rank)}
+          ${infoField('Оценки', `Q:${drawerData.score_quality||0} L:${drawerData.score_looks||0} S:${drawerData.score_social||0}`)}
+        </div>
+        <div class="field-row">
+          ${infoField('Грейд', drawerData.grade)}
+          ${infoField('Тренер', drawerData.is_trainer ? 'Да' : 'Нет')}
+        </div>
+        <div style="margin-top:12px">
+          <div class="fl">Описание</div>
+          <div class="fv" style="color:var(--text2);line-height:1.6">${esc(drawerData.summary||'—')}</div>
+        </div>
+      `;
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="field-row">
+        ${infoInput('aq-name','Имя *',drawerData.name)}
+        ${infoInput('aq-phone','Телефон',drawerData.phone)}
+      </div>
+      <div class="field-row">
+        ${infoInput('aq-email','Email',drawerData.email)}
+        ${infoSelect('aq-gender','Пол',drawerData.gender,[
+          {value:'',label:'—'},
+          {value:'male',label:'Муж'},
+          {value:'female',label:'Жен'}
+        ])}
+      </div>
+      <div class="field-row">
+        ${infoInput('aq-birth','Дата рождения',drawerData.birth_date ? String(drawerData.birth_date).slice(0,10) : '', 'date')}
+        ${infoInput('aq-start','Дата найма',drawerData.start_date ? String(drawerData.start_date).slice(0,10) : '', 'date')}
+      </div>
+      <div class="field-row">
+        ${infoSelect('aq-emp-role','Роль',drawerData.employee_role,[
+          {value:'aquagrim',label:'Аквагримёр'},
+          {value:'senior_aquagrim',label:'Старший'},
+          {value:'aquagrim_manager',label:'Менеджер'}
+        ])}
+        ${infoSelect('aq-hire','Статус',drawerData.hire_status,[
+          {value:'active',label:'active'},
+          {value:'paused',label:'paused'},
+          {value:'fired',label:'fired'}
+        ])}
+      </div>
+      <div class="field-row">
+        ${infoInput('aq-rank','Ранг',drawerData.rank,'number')}
+        ${infoSelect('aq-active','is_active',drawerData.is_active===false?'false':'true',[
+          {value:'true',label:'Активен'},
+          {value:'false',label:'Неактивен'}
+        ])}
+      </div>
+      <div class="field-row">
+        ${infoSelect('aq-trainer','Тренер',drawerData.is_trainer?'true':'false',[
+          {value:'false',label:'Нет'},
+          {value:'true',label:'Да'}
+        ])}
+        ${infoInput('aq-grade','Грейд',drawerData.grade)}
+      </div>
+      <div class="field-row">
+        ${infoInput('aq-grade-score','grade_score',drawerData.grade_score,'number')}
+        ${infoInput('aq-sq','quality',drawerData.score_quality,'number')}
+      </div>
+      <div class="field-row">
+        ${infoInput('aq-sl','looks',drawerData.score_looks,'number')}
+        ${infoInput('aq-ss','social',drawerData.score_social,'number')}
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <div class="fl">Описание</div>
+        <textarea class="comment-ta" id="aq-summary" placeholder="Коротко..." style="min-height:90px">${esc(drawerData.summary||'')}</textarea>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <div class="fl">Заметки на следующую смену</div>
+        <textarea class="comment-ta" id="aq-notes" placeholder="Важно..." style="min-height:70px">${esc(drawerData.notes_for_next_shift||'')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        ${drawerData.photo_url ? `<button class="btn btn-ghost" onclick="deletePhoto()">Удалить фото</button>` : ''}
+        <button class="btn btn-primary" onclick="saveInfo()">Сохранить</button>
+      </div>
+    `;
+    return;
+  }
+
+  if(drawerTab===1){
+    const comments = (drawerData.comments||[]).filter(c=>c.is_deleted===false);
+    el.innerHTML = `
+      <div class="comment-input-wrap">
+        <textarea class="comment-ta" id="c-body" placeholder="Комментарий..."></textarea>
+        <button class="btn btn-primary" onclick="addComment()">Добавить</button>
+      </div>
+      <div class="comment-list">
+        ${comments.length ? comments.map(c=>`
+          <div class="citem">
+            <div class="citem-head">
+              <div class="cauthor"><span>${esc(c.author_name||'—')}</span></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="cdate">${c.created_at?new Date(c.created_at).toLocaleString('ru-RU'):'—'}</span>
+                ${canDeleteComments(c)?`<button class="cdel" onclick="deleteComment('${c.id}')">Удалить</button>`:''}
+              </div>
+            </div>
+            <div class="cbody">${esc(c.body||'')}</div>
+          </div>
+        `).join('') : `<div class="empty" style="padding:24px 0">Комментариев нет</div>`}
+      </div>
+    `;
+    return;
+  }
+
+  if(drawerTab===2){
+    const linked = drawerData.venues || [];
+    const linkedIds = linked.map(v=>String(v.venue_id));
+    const options = venues.filter(v=>v.is_active).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru')).map(v=>{
+      const dis = linkedIds.includes(String(v.id));
+      return `<option value="${esc(v.id)}"${dis?' disabled':''}>${esc(v.name)}${dis?' (уже привязано)':''}</option>`;
+    }).join('');
+
+    el.innerHTML = `
+      ${canEdit()?`
+        <div class="field-row" style="align-items:flex-end">
+          <div class="field" style="flex:1.4">
+            <div class="fl">Добавить площадку</div>
+            <select class="fselect" id="v-add" style="width:100%">${options || '<option value=\"\">Нет площадок</option>'}</select>
+          </div>
+          <div class="field" style="flex:.9">
+            <div class="fl">Attitude</div>
+            <select class="fselect" id="v-att" style="width:100%">
+              <option value="can">can</option>
+              <option value="loves">loves</option>
+              <option value="dislikes">dislikes</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="addVenue()">Добавить</button>
+          </div>
+        </div>
+      `:''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${linked.length ? linked.map(v=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+            <div style="flex:1;font-size:13px">${esc(v.venue_name||v.venue_id)}</div>
+            <div class="pill">${esc(v.attitude||'can')}</div>
+            ${canEdit()?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="removeVenue('${v.venue_id}')">Убрать</button>`:''}
+          </div>
+        `).join('') : `<div class="empty" style="padding:24px 0">Площадок нет</div>`}
+      </div>
+    `;
+    return;
+  }
+}
+
+async function addComment(){
+  try{
+    const body = document.getElementById('c-body').value.trim();
+    if(!body){ showToast('Комментарий пустой', true); return; }
+    await api('POST', `/aq/staff/${drawerId}/comments`, { body });
+    showToast('Комментарий добавлен');
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    renderDrawerTab();
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function deleteComment(id){
+  try{
+    await api('DELETE', `/aq/comments/${id}`);
+    showToast('Комментарий удалён');
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    renderDrawerTab();
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function addVenue(){
+  try{
+    const venue_id = document.getElementById('v-add').value;
+    const attitude = document.getElementById('v-att').value;
+    if(!venue_id){ showToast('Выберите площадку', true); return; }
+    await api('POST', `/aq/staff/${drawerId}/venues`, { venue_id, attitude });
+    showToast('Площадка добавлена');
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    renderDrawerTab();
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function removeVenue(venueId){
+  try{
+    await api('DELETE', `/aq/staff/${drawerId}/venues/${venueId}`);
+    showToast('Площадка убрана');
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    renderDrawerTab();
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function uploadPhoto(ev){
+  try{
+    if(!canEdit()) return;
+    const file = ev.target.files?.[0];
+    if(!file){ return; }
+    const fd = new FormData();
+    fd.append('photo', file);
+    const res = await fetch(API + `/aq/staff/${drawerId}/photo`, {
+      method:'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+      body: fd
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+    showToast('Фото обновлено');
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    updateDrawerPhoto(drawerData);
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+  finally{
+    ev.target.value='';
+  }
+}
+
+async function deletePhoto(){
+  try{
+    await api('DELETE', `/aq/staff/${drawerId}/photo`);
+    showToast('Фото удалено');
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    updateDrawerPhoto(drawerData);
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+}
+
+function openNewAq(){
+  document.getElementById('na-name').value='';
+  document.getElementById('na-phone').value='';
+  document.getElementById('na-email').value='';
+  document.getElementById('na-role').value='aquagrim';
+  document.getElementById('new-aq-modal').classList.add('open');
+}
+
+async function createAquagrimer(){
+  try{
+    const name = document.getElementById('na-name').value.trim();
+    const phone = document.getElementById('na-phone').value.trim();
+    const email = document.getElementById('na-email').value.trim();
+    const employee_role = document.getElementById('na-role').value;
+    if(!name){ showToast('Имя обязательно', true); return; }
+    await api('POST','/aq/staff',{ name, phone: phone||null, email: email||null, employee_role });
+    document.getElementById('new-aq-modal').classList.remove('open');
+    showToast('Аквагримёр добавлен');
+    await reloadAll();
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function reloadAll(){
+  await loadAquagrimers();
+  render();
+}
+
+(async function init(){
+  if(!accessToken && !refreshToken){ window.location.href='index.html'; return; }
+  try{
+    currentUser = await api('GET','/auth/me');
+    if(!canSeePage()){
+      window.location.href='index.html';
+      return;
+    }
+    document.getElementById('user-pill').innerHTML = `<span>${esc(currentUser.name)}</span>`;
+    document.getElementById('btn-new').style.display = canEdit() ? 'inline-block' : 'none';
+    await Promise.all([loadVenues(), reloadAll()]);
+  } catch(e){
+    document.getElementById('grid').innerHTML = `<div class="empty" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>
+

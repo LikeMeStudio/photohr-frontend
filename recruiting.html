@@ -138,6 +138,7 @@ textarea.fin{resize:vertical;min-height:50px}
     <a class="nav-btn active" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn" href="stock.html">Склад</a>
+    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
     <a class="nav-btn" href="calendar.html">Календарь</a>
   </div>
   <div class="user-pill" id="user-pill"></div>
@@ -407,6 +408,10 @@ function esc(s) {
   try {
     // Пробуем с текущим accessToken
     currentUser = await api('GET', '/auth/me');
+    // Аквагрим — видим только для разрешённых ролей
+    const aqAllowed = ['aq_manager','hr_director','exec_director','admin','cashier'].includes(currentUser.role);
+    const aqBtn = document.getElementById('nav-aquagrim');
+    if (aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
     setupHeader();
     await loadKanban();
   } catch {

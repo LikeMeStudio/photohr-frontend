@@ -47,7 +47,7 @@
 <body>
 <div class="header">
 <a class="logo" href="index.html">Photo<span>HR</span></a>
-<div class="nav-links"><a class="nav-btn" href="index.html">Сотрудники</a><a class="nav-btn" href="recruiting.html">Рекрутинг</a><a class="nav-btn active" href="venue.html">Площадка</a><a class="nav-btn" href="stock.html">Склад</a><a class="nav-btn" href="calendar.html">Календарь</a></div>
+<div class="nav-links"><a class="nav-btn" href="index.html">Сотрудники</a><a class="nav-btn" href="recruiting.html">Рекрутинг</a><a class="nav-btn active" href="venue.html">Площадка</a><a class="nav-btn" href="stock.html">Склад</a><a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a><a class="nav-btn" href="calendar.html">Календарь</a></div>
 <div class="user-pill" id="user-pill"></div><button class="logout-btn" onclick="doLogout()">Выйти</button>
 </div>
 <div class="main">
@@ -85,7 +85,7 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');document.getElementById('user-pill').innerHTML=`<span>${esc(U.name)}</span>`;document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');}catch{doLogout();}})();
+(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');const aqAllowed=['aq_manager','hr_director','exec_director','admin','cashier'].includes(U.role);const aqBtn=document.getElementById('nav-aquagrim');if(aqBtn)aqBtn.style.display=aqAllowed?'':'none';document.getElementById('user-pill').innerHTML=`<span>${esc(U.name)}</span>`;document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');}catch{doLogout();}})();
 
 async function load(){
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;if(!vid||!dt)return;

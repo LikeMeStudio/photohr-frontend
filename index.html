@@ -1159,6 +1159,9 @@ function setupToolbarActions() {
   if (hasAnyRole(['tech_director','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
   }
+  if (hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])) {
+    navBtns.push('<a class="f-btn" href="aquagrim.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Аквагрим</a>');
+  }
   if (hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user'])) {
     navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
   }
