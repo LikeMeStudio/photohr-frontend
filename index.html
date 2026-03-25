@@ -310,6 +310,14 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     <!-- РЕГИСТРАЦИЯ -->
     <div id="auth-register" style="display:none">
       <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Я регистрируюсь как</div>
+        <div style="display:flex;gap:6px">
+          <button class="f-btn active" id="reg-type-staff" onclick="setRegType('staff')" style="flex:1;padding:8px">👤 Сотрудник</button>
+          <button class="f-btn" id="reg-type-photographer" onclick="setRegType('photographer')" style="flex:1;padding:8px">📷 Фотограф</button>
+          <button class="f-btn" id="reg-type-aquagrim" onclick="setRegType('aquagrim')" style="flex:1;padding:8px">🎨 Аквагримёр</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Имя и фамилия</div>
         <input class="fin" type="text" id="r-name" placeholder="Иван Иванов" style="width:100%"/>
       </div>
@@ -321,6 +329,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Пароль (минимум 8 символов)</div>
         <input class="fin" type="password" id="r-pass" placeholder="••••••••" style="width:100%" onkeydown="if(event.key==='Enter')register()"/>
       </div>
+      <div id="reg-hint" style="font-size:12px;color:var(--text3);margin-bottom:12px;display:none"></div>
       <button class="btn btn-primary" style="width:100%" onclick="register()" id="register-btn">Зарегистрироваться</button>
       <div class="or-divider">или</div>
       <button class="google-btn" onclick="googleSignIn()">
@@ -527,11 +536,16 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="field" style="margin-bottom:12px">
     <div class="fl">Роль</div>
     <select class="fselect" id="nu-role">
-      <option value="viewer">viewer — только свои комментарии</option>
-      <option value="manager">manager — видит все комментарии</option>
-      <option value="editor">editor — редактирует карточки</option>
-      <option value="hr_director">hr_director — редактор + паспортные данные</option>
+      <option value="viewer">viewer — линейный менеджер</option>
+      <option value="manager">manager — менеджер</option>
+      <option value="editor">editor — редактор карточек</option>
+      <option value="hr_director">hr_director — HR-директор</option>
       <option value="admin">admin — полный доступ</option>
+      <option value="venue_admin">venue_admin — админ площадки</option>
+      <option value="print_operator">print_operator — оператор печати</option>
+      <option value="stock_manager">stock_manager — складской менеджер</option>
+      <option value="controller">controller — контролёр</option>
+      <option value="photographer_user">photographer_user — фотограф (ЛК)</option>
     </select>
   </div>
   <div class="field" style="margin-bottom:12px"><div class="fl">Временный пароль *</div><input class="fin" type="password" id="nu-pass" placeholder="Минимум 8 символов" autocomplete="new-password"/></div>
@@ -665,8 +679,8 @@ let photographers = [];
 let venues = [];
 let filters = { rank: null, sales: null, photo: null, venue: null, venueCategory: null, gender: null };
 
-const ROLE_LABELS = { viewer:'Линейный менеджер', manager:'Менеджер', editor:'Редактор', hr_director:'HR-директор', admin:'Администратор' };
-const ROLE_COLORS = { viewer:'#9090a8', manager:'#f5a623', editor:'#9b8dff', hr_director:'#3ecf8e', admin:'#ffd700' };
+const ROLE_LABELS = { viewer:'Линейный менеджер', manager:'Менеджер', editor:'Редактор', hr_director:'HR-директор', admin:'Администратор', venue_admin:'Админ площадки', print_operator:'Оператор печати', stock_manager:'Складской менеджер', controller:'Контролёр', photographer_user:'Фотограф' };
+const ROLE_COLORS = { viewer:'#9090a8', manager:'#f5a623', editor:'#9b8dff', hr_director:'#3ecf8e', admin:'#ffd700', venue_admin:'#e87a6a', print_operator:'#6aa6e8', stock_manager:'#8a7aee', controller:'#e86aa6', photographer_user:'#4ecb8a' };
 let currentDrawerId = null;
 let currentTab = 0;
 let editState = {};   // rank, sales_score, venues for current drawer
@@ -783,6 +797,24 @@ function switchAuthTab(tab) {
   document.getElementById('login-success').style.display = 'none';
 }
 
+let registerAccountType = 'staff';
+function setRegType(type) {
+  registerAccountType = type;
+  ['staff','photographer','aquagrim'].forEach(t => {
+    document.getElementById('reg-type-' + t).classList.toggle('active', t === type);
+  });
+  const hint = document.getElementById('reg-hint');
+  if (type === 'photographer') {
+    hint.textContent = '📷 Если ваш email совпадает с карточкой в системе — аккаунт привяжется автоматически';
+    hint.style.display = 'block';
+  } else if (type === 'aquagrim') {
+    hint.textContent = '🎨 Регистрация для аквагримёров';
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
 async function register() {
   const name = document.getElementById('r-name').value.trim();
   const email = document.getElementById('r-email').value.trim();
@@ -795,11 +827,12 @@ async function register() {
   try {
     const res = await fetch(API + '/auth/register', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ email, name, password: pass }),
+      body: JSON.stringify({ email, name, password: pass, account_type: registerAccountType }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    showPendingScreen('Проверьте почту <b>' + email + '</b> — мы отправили ссылку для подтверждения email. После этого администратор одобрит ваш аккаунт.', false);
+    const linkedMsg = data.linked ? '<br><span style="color:var(--rank1)">✓ Аккаунт привязан к вашей карточке!</span>' : '';
+    showPendingScreen('Проверьте почту <b>' + email + '</b> — мы отправили ссылку для подтверждения email. После этого администратор одобрит ваш аккаунт.' + linkedMsg, false);
   } catch (e) { showLoginErr(e.message); }
   finally { btn.textContent = 'Зарегистрироваться'; btn.disabled = false; }
 }
@@ -1014,9 +1047,11 @@ function setupUserPill() {
 function setupToolbarActions() {
   const el = document.getElementById('toolbar-actions');
   const btns = [];
-  if (can('editor')) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Фотограф</button>`);
+  if (can('editor')) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
+  if (can('hr_director')) btns.push(`<button class="btn btn-ghost" onclick="window.location.href='calendar.html'" title="Календарь мероприятий">📅 Календарь</button>`);
+  if (can('hr_director')) btns.push(`<button class="btn btn-ghost" onclick="window.location.href='recruiting.html'" title="Воронка рекрутинга">👤 Рекрутинг</button>`);
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
-  if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">Управление</button>`);
+  if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
 }
 
@@ -2399,17 +2434,23 @@ function renderAdminUsers(){
         if (u.email_verified) badges.push('<span class="badge badge-verified">email ✓</span>');
         else badges.push('<span class="badge badge-pending">email не подтверждён</span>');
         const d = new Date(u.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+        const isPhReg = u.role === 'photographer_user';
         return `<div class="approve-row">
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:500">${u.name}</div>
+            <div style="font-size:14px;font-weight:500">${u.name} ${isPhReg ? '<span style="font-size:11px;color:var(--rank1)">📷 фотограф</span>' : ''}</div>
             <div style="font-size:12px;color:var(--text3)">${u.email} · ${d}</div>
-            <div style="display:flex;gap:4px;margin-top:4px">${badges.join('')}</div>
+            <div style="display:flex;gap:4px;margin-top:4px">${badges.join('')}${u.photographer_id ? '<span class="badge badge-verified">🔗 карточка</span>' : ''}</div>
           </div>
-          <select class="fselect" id="approve-role-${u.id}" style="width:120px;font-size:12px;padding:4px 8px">
-            <option value="viewer">viewer</option>
+          <select class="fselect" id="approve-role-${u.id}" style="width:140px;font-size:12px;padding:4px 8px">
+            ${isPhReg ? '<option value="photographer_user" selected>📷 Фотограф</option>' : ''}
+            <option value="viewer" ${!isPhReg ? 'selected' : ''}>viewer</option>
             <option value="manager">manager</option>
             <option value="editor">editor</option>
             <option value="hr_director">hr_director</option>
+            <option value="venue_admin">venue_admin</option>
+            <option value="print_operator">print_operator</option>
+            <option value="stock_manager">stock_manager</option>
+            <option value="controller">controller</option>
           </select>
           <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="approveUser('${u.id}')">Одобрить</button>
           <button class="btn btn-danger" style="padding:6px 10px;font-size:12px" onclick="rejectUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">✕</button>
