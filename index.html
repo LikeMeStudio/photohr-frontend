@@ -3285,6 +3285,8 @@ async function renderAchievementsTab(ph, content) {
       api('GET', `/peer-likes/received?photographer_id=${ph.id}`).catch(() => null),
     ]);
 
+    console.log('LIKES_DATA', JSON.stringify(likesData));
+
     const catLabels = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
     const likeCats = { help:'💪 Помощь', professional:'⭐ Профессионализм', positive:'😊 Позитив', result:'🎯 Результат', congrats:'🎂 Поздравление', general:'❤️ Общее' };
     const peerEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border)">Пока нет отзывов</div>`;
