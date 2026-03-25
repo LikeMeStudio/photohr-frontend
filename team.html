@@ -118,6 +118,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
 .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;flex-shrink:0}
 .cn{font-weight:600;font-size:14px}
+.card .cn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cd{font-size:11px;color:var(--text3);margin-top:2px}
 .rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0}
 .rb1{background:rgba(184,115,51,.2) !important;color:#d4955a !important;border:1px solid rgba(184,115,51,.5) !important}
@@ -302,10 +303,10 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   font-weight: 600;
   white-space: nowrap;
 }
-.rank-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;display:inline-block;margin-left:6px;vertical-align:middle}
-.rank-1{background:rgba(62,207,142,.15);color:var(--rank1);border:1px solid rgba(62,207,142,.35)}
-.rank-2{background:rgba(245,166,35,.15);color:var(--rank2);border:1px solid rgba(245,166,35,.35)}
-.rank-3{background:rgba(124,108,255,.12);color:var(--accent2);border:1px solid rgba(124,108,255,.35)}
+.rank-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;display:inline-block;vertical-align:middle;border:1px solid transparent}
+.rank-1{background:rgba(62,207,142,.15);color:#3ecf8e;border-color:rgba(62,207,142,.25)}
+.rank-2{background:rgba(245,166,35,.15);color:#f5a623;border-color:rgba(245,166,35,.25)}
+.rank-3{background:rgba(124,108,255,.15);color:#7c6cff;border-color:rgba(124,108,255,.25)}
 .fbtn{background:transparent;border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;transition:all .15s;font-family:'Golos Text',sans-serif}
 .fbtn:hover{border-color:var(--accent);color:var(--accent)}
 .fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -765,26 +766,37 @@ function render() {
     const rankBadge = rkNum
       ? `<span class="rank-badge rank-${rkNum}">${'★'.repeat(rkNum)} Ранг ${rkNum}</span>`
       : '';
+    const rightBadges = (posBadge || rankBadge)
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:8px">${posBadge}${rankBadge}</div>`
+      : '';
+    const achStrip = ach.length
+      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
+        ${ach.slice(0, 8).map((a) => `<span title="${esc(a.name)}" style="font-size:16px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
+        ${ach.length > 8 ? `<span style="font-size:10px;color:#f5a623;align-self:center;font-weight:600">+${ach.length - 8}</span>` : ''}
+      </div>`
+      : '';
+    const summaryBlock = m.summary
+      ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(m.summary).slice(0, 120)}${m.summary.length > 120 ? '…' : ''}</div>`
+      : '';
     return `<div class="card${bdClass}" onclick="openDrawer('${m.id}')" style="position:relative">
       ${bdToday ? '<span style="position:absolute;top:-6px;right:-6px;font-size:20px;z-index:1">🎂</span>' : ''}
       <div class="ch">
-        <div style="display:flex;align-items:center;gap:10px">
-          ${m.photo_url
-            ? `<img src="${esc(pu)}" onclick='event.stopPropagation();openLightbox(${JSON.stringify(pu)})' style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
-            : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
-          }
-          <div>
-            <div class="cn">${esc(m.name)}${m.gender === 'male' ? ' <span style="font-size:11px;color:var(--text3)">♂</span>' : m.gender === 'female' ? ' <span style="font-size:11px;color:var(--text3)">♀</span>' : ''}${calcAge(m.birth_date) !== null ? ' <span style="font-size:11px;color:var(--text3);font-weight:400">' + calcAge(m.birth_date) + 'л</span>' : ''}</div>
-            <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+            ${m.photo_url
+              ? `<img src="${esc(pu)}" onclick='event.stopPropagation();openLightbox(${JSON.stringify(pu)})' style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
+              : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
+            }
+            <div style="min-width:0;flex:1">
+              <div class="cn">${esc(m.name)}${m.gender === 'male' ? ' <span style="font-size:11px;color:var(--text3)">♂</span>' : m.gender === 'female' ? ' <span style="font-size:11px;color:var(--text3)">♀</span>' : ''}${calcAge(m.birth_date) !== null ? ' <span style="font-size:11px;color:var(--text3);font-weight:400">' + calcAge(m.birth_date) + 'л</span>' : ''}</div>
+              <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
+            </div>
           </div>
+          ${rightBadges}
         </div>
-        ${posBadge || rankBadge ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">${posBadge}${rankBadge}</div>` : ''}
       </div>
-      ${ach.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
-        ${ach.slice(0, 8).map(a => `<span title="${esc(a.name)}" style="font-size:16px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
-        ${ach.length > 8 ? `<span style="font-size:10px;color:#f5a623;align-self:center;font-weight:600">+${ach.length - 8}</span>` : ''}
-      </div>` : ''}
-      ${m.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(m.summary).slice(0, 120)}${m.summary.length > 120 ? '…' : ''}</div>` : ''}
+      ${summaryBlock}
+      ${achStrip}
     </div>`;
   };
   g.innerHTML = rows.map((m) => cardHtml(m)).join('');
@@ -1277,9 +1289,9 @@ function switchTab(i) {
     const comments = drawerData.comments || [];
     const canDelete = can('admin');
     body.innerHTML = `
-<div style="display:flex;gap:8px;margin-bottom:16px">
-  <textarea class="fin" id="new-team-comment" rows="3" style="flex:1;resize:vertical" placeholder="Написать комментарий..."></textarea>
-  <button class="btn btn-primary" style="align-self:flex-end" onclick="postTeamComment()">Отправить</button>
+<div style="margin-bottom:16px">
+  <textarea class="fin" id="new-team-comment" rows="3" style="width:100%;resize:vertical;box-sizing:border-box;margin-bottom:8px" placeholder="Написать комментарий..."></textarea>
+  <button class="btn btn-primary" onclick="postTeamComment()">Отправить</button>
 </div>
 ${comments.length === 0 ? '<div style="color:var(--text3);font-size:14px;text-align:center;padding:24px">Комментариев пока нет</div>' : ''}
 ${comments.map((c) => {
