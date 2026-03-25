@@ -138,8 +138,9 @@ textarea.fin{resize:vertical;min-height:50px}
     <a class="nav-btn active" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn" href="stock.html">Склад</a>
-    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
     <a class="nav-btn" href="calendar.html">Календарь</a>
+    <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
+    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
   </div>
   <div class="user-pill" id="user-pill"></div>
   <button class="logout-btn" onclick="doLogout()">Выйти</button>
@@ -411,7 +412,9 @@ function esc(s) {
     // Аквагрим — видим только для разрешённых ролей
     const aqAllowed = ['aq_manager','hr_director','exec_director','admin','cashier'].includes(currentUser.role);
     const aqBtn = document.getElementById('nav-aquagrim');
+    const aqSep = document.getElementById('nav-aquagrim-sep');
     if (aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
+    if (aqSep) aqSep.style.display = aqAllowed ? '' : 'none';
     setupHeader();
     await loadKanban();
   } catch {

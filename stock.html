@@ -55,8 +55,9 @@ a{color:inherit;text-decoration:none}
     <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn active" href="stock.html">Склад</a>
-    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
     <a class="nav-btn" href="calendar.html">Календарь</a>
+    <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
+    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
   </div>
   <div class="user-pill" id="user-pill"></div>
   <button class="logout-btn" onclick="doLogout()">Выйти</button>
@@ -142,7 +143,9 @@ function esc(s) {
     currentUser=await api('GET','/auth/me');
     const aqAllowed=['aq_manager','hr_director','exec_director','admin','cashier'].includes(currentUser.role);
     const aqBtn=document.getElementById('nav-aquagrim');
+    const aqSep=document.getElementById('nav-aquagrim-sep');
     if(aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
+    if(aqSep) aqSep.style.display = aqAllowed ? '' : 'none';
     document.getElementById('user-pill').innerHTML=`<span>${esc(currentUser.name)}</span>`;
     [warehouses,items]=await Promise.all([api('GET','/warehouses').catch(()=>[]),api('GET','/inventory-items').catch(()=>[])]);
     switchTab(0);

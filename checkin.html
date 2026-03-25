@@ -43,8 +43,9 @@
     <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn" href="stock.html">Склад</a>
-    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
     <a class="nav-btn" href="calendar.html">Календарь</a>
+    <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
+    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
   </div>
   <span class="user-name" id="user-name"></span>
 </div>
@@ -72,7 +73,9 @@ function esc(s) {
     U=await api('GET','/auth/me');
     const aqAllowed=['aq_manager','hr_director','exec_director','admin','cashier'].includes(U.role);
     const aqBtn=document.getElementById('nav-aquagrim');
+    const aqSep=document.getElementById('nav-aquagrim-sep');
     if(aqBtn) aqBtn.style.display = aqAllowed ? '' : 'none';
+    if(aqSep) aqSep.style.display = aqAllowed ? '' : 'none';
     document.getElementById('user-name').textContent=U.name;
     if(!U.photographer_id){
       document.getElementById('content').innerHTML=`<div class="title">Нет карточки</div><div class="sub">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div><a href="index.html" class="btn btn-ghost">← Назад</a>`;

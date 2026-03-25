@@ -9,7 +9,9 @@
 :root{
   --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;
   --border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;
-  --accent:#7c6cff;--accent2:#9b8dff;
+  /* Аквагрим accent — бирюзовый вместо фиолетового */
+  --aq-accent:#3ecfb4;--aq-accent2:#5ee8d0;
+  --accent:var(--aq-accent);--accent2:var(--aq-accent2);
   --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
   --love:#3ecf8e;--dislike:#f25555;--can:#9090a8;
 }
@@ -22,10 +24,21 @@ a{color:inherit;text-decoration:none}
 .nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
 .nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
 .nav-btn:hover{color:var(--text)}.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.header-stats{display:flex;gap:16px;flex:1}
+.stat{text-align:center}
+.stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px}
 .logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
 
 .toolbar{max-width:1400px;margin:0 auto;padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.f-btn:hover{color:var(--text)}
+.f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.search-in{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none;width:220px;transition:border-color .15s}
+.search-in::placeholder{color:var(--text3)}
+.search-in:focus{border-color:var(--accent)}
 .fin{padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none}
 .fin:focus{border-color:var(--accent)}
 .fselect{padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;cursor:pointer}
@@ -45,7 +58,30 @@ a{color:inherit;text-decoration:none}
 .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;flex-shrink:0;border:1px solid var(--border2)}
 .cn{font-weight:600;font-size:14px}
 .cd{font-size:11px;color:var(--text3);margin-top:2px}
-.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0;background:rgba(62,207,180,.10);border:1px solid rgba(62,207,180,.35);color:var(--accent2)}
+
+/* score */
+.ss{margin:10px 0}
+.slr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.slbl{font-size:11px;color:var(--text2)}
+.sv{display:flex;align-items:center;gap:5px}
+.sn{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}
+.sc{font-size:11px;padding:2px 7px;border-radius:5px;font-weight:500}
+.sc-t{background:rgba(62,207,142,.15);color:var(--rank1)}
+.sc-m{background:rgba(245,166,35,.15);color:var(--rank2)}
+.sc-w{background:rgba(242,85,85,.15);color:var(--rank3)}
+.sc-z{background:rgba(90,90,114,.15);color:var(--text3)}
+.strack{height:4px;border-radius:2px;background:var(--bg3);overflow:hidden}
+.sfill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--aq-accent),var(--aq-accent2))}
+.dots{display:flex;gap:3px;margin-top:6px}
+.d{width:20px;height:20px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text3)}
+.d.dt{background:rgba(62,207,142,.2);border-color:rgba(62,207,142,.4);color:var(--rank1)}
+.d.dm{background:rgba(245,166,35,.2);border-color:rgba(245,166,35,.4);color:var(--rank2)}
+.d.dw{background:rgba(242,85,85,.2);border-color:rgba(242,85,85,.4);color:var(--rank3)}
+
+.comment-preview{background:var(--bg3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.5;margin-top:10px;border-left:2px solid var(--accent)}
+.no-comment{font-size:11px;color:var(--text3);margin-top:8px;font-style:italic}
+.comment-count{font-size:11px;color:var(--text3);margin-top:4px}
 
 .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .pill{padding:2px 8px;border-radius:7px;font-size:11px;border:1px solid var(--border);background:var(--bg3);color:var(--text2)}
@@ -122,34 +158,34 @@ a{color:inherit;text-decoration:none}
     <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
     <a class="nav-btn" href="venue.html">Площадка</a>
     <a class="nav-btn" href="stock.html">Склад</a>
-    <a class="nav-btn active" href="aquagrim.html">Аквагрим</a>
     <a class="nav-btn" href="calendar.html">Календарь</a>
+    <span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
+    <a class="nav-btn active" href="aquagrim.html">Аквагрим</a>
   </div>
-  <div class="user-pill" id="user-pill"></div>
-  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+  <div class="header-stats" id="hstats"></div>
+  <div class="header-right">
+    <div class="user-pill" id="user-pill"></div>
+    <button class="logout-btn" onclick="doLogout()">Выйти</button>
+  </div>
 </div>
 
 <div class="toolbar">
-  <input class="fin" id="search" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;min-width:220px;max-width:360px"/>
-  <select class="fselect" id="f-role" onchange="render()">
-    <option value="">Все роли</option>
-    <option value="aquagrim">Аквагримёр</option>
-    <option value="senior_aquagrim">Старший</option>
-    <option value="aquagrim_manager">Менеджер</option>
-  </select>
-  <select class="fselect" id="f-status" onchange="render()">
-    <option value="">Все статусы</option>
-    <option value="active">Активен</option>
-    <option value="paused">Пауза</option>
-    <option value="fired">Уволен</option>
-  </select>
-  <select class="fselect" id="f-active" onchange="render()">
-    <option value="">Активность: все</option>
-    <option value="true">Только активные</option>
-    <option value="false">Только неактивные</option>
+  <input class="search-in" id="search" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;min-width:220px;max-width:360px"/>
+  <button class="f-btn active" id="fb-all" onclick="resetFilters()">Все</button>
+  <button class="f-btn" id="fb-r1" onclick="setFilter('rank',1)">1★</button>
+  <button class="f-btn" id="fb-r2" onclick="setFilter('rank',2)">2★★</button>
+  <button class="f-btn" id="fb-r3" onclick="setFilter('rank',3)">3★★★</button>
+  <button class="f-btn" id="fb-zero" onclick="setFilter('sales','zero')">Стажёры(0)</button>
+  <button class="f-btn" id="fb-weak" onclick="setFilter('sales','weak')">Новички(1–4)</button>
+  <button class="f-btn" id="fb-mid" onclick="setFilter('sales','mid')">Молодцы(5–7)</button>
+  <button class="f-btn" id="fb-top" onclick="setFilter('sales','top')">Топ(8–10)</button>
+  <button class="f-btn" id="fb-male" onclick="setFilter('gender','male')">♂</button>
+  <button class="f-btn" id="fb-female" onclick="setFilter('gender','female')">♀</button>
+  <select class="fselect" id="f-venue" onchange="setFilter('venue', this.value)" style="min-width:180px">
+    <option value="">Площадка</option>
   </select>
   <span class="spacer"></span>
-  <button class="btn btn-primary" id="btn-new" onclick="openNewAq()" style="display:none">+ Аквагример</button>
+  <div id="toolbar-actions" style="display:flex;gap:8px"></div>
 </div>
 
 <div class="main">
@@ -180,9 +216,10 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="dr-body">
     <div class="tabs">
-      <button class="tab active" id="tab-0" onclick="switchTab(0)">Инфо</button>
+      <button class="tab active" id="tab-0" onclick="switchTab(0)">Информация</button>
       <button class="tab" id="tab-1" onclick="switchTab(1)">Комментарии</button>
-      <button class="tab" id="tab-2" onclick="switchTab(2)">Площадки</button>
+      <button class="tab" id="tab-2" onclick="switchTab(2)">История</button>
+      <button class="tab" id="tab-3" onclick="switchTab(3)">🏆 Достижения</button>
     </div>
     <div id="tab-content"></div>
   </div>
@@ -237,6 +274,7 @@ let refreshLock = null;
 
 let aquagrimers = [];
 let venues = [];
+let filters = { rank:null, sales:null, gender:null, venue:null };
 
 const AQ_ROLE_LABELS = {
   aquagrim: 'Аквагример',
@@ -313,17 +351,55 @@ function pillHireStatus(s){
   return {cls:'', txt:s||'—'};
 }
 
-async function loadVenues(){ venues = await api('GET','/venues'); }
+function calcAge(birth_date){
+  if(!birth_date) return null;
+  const b = new Date(birth_date);
+  const today = new Date();
+  let age = today.getFullYear() - b.getFullYear();
+  if(today.getMonth() < b.getMonth() || (today.getMonth()===b.getMonth() && today.getDate()<b.getDate())) age--;
+  return age;
+}
+function scoreInfo(s){
+  if(s===0) return{cat:'Стажёр',sc:'sc-z'};
+  if(s<=4)  return{cat:'Новичок',sc:'sc-w'};
+  if(s<=7)  return{cat:'Молодцы',sc:'sc-m'};
+  return{cat:'Топ',sc:'sc-t'};
+}
+function dotCls(i,score){
+  const s = Number(score||0);
+  const base = 'd';
+  if(i<=s){
+    if(s>=8) return base+' dt';
+    if(s>=5) return base+' dm';
+    if(s>=1) return base+' dw';
+  }
+  return base;
+}
+function rankStars(r){
+  const n = Number(r||0);
+  if(!n) return '☆';
+  if(n===1) return '★';
+  if(n===2) return '★★';
+  return '★★★';
+}
+
+async function loadVenues(){
+  venues = await api('GET','/venues');
+  const sel = document.getElementById('f-venue');
+  if(sel){
+    const opts = ['<option value="">Площадка</option>']
+      .concat(
+        venues
+          .filter(v=>v.is_active)
+          .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru'))
+          .map(v=>`<option value="${esc(v.id)}">${esc(v.name)}</option>`)
+      );
+    sel.innerHTML = opts.join('');
+  }
+}
 async function loadAquagrimers(){
-  const q = new URLSearchParams();
-  const fA = document.getElementById('f-active').value;
-  const fR = document.getElementById('f-role').value;
-  const fS = document.getElementById('f-status').value;
-  if(fA) q.set('is_active', fA);
-  if(fR) q.set('employee_role', fR);
-  if(fS) q.set('hire_status', fS);
-  const qs = q.toString();
-  aquagrimers = await api('GET', '/aq/staff' + (qs?('?'+qs):''));
+  // Фильтры — на клиенте, чтобы совпадало с index.html
+  aquagrimers = await api('GET', '/aq/staff');
 }
 
 function openLightbox(url){
@@ -334,13 +410,16 @@ function openLightbox(url){
 
 function cardHtml(a){
   const av=avC(a.name);
-  const hs=pillHireStatus(a.hire_status);
-  const roleLbl = AQ_ROLE_LABELS[a.employee_role] || a.employee_role || '—';
   const loves=(a.venues||[]).filter(v=>v.attitude==='loves');
   const cans=(a.venues||[]).filter(v=>v.attitude==='can');
   const dislikes=(a.venues||[]).filter(v=>v.attitude==='dislikes');
   const photoBase = API.replace('/api','');
   const dimmed = a.is_active === false || a.is_active === 'false' || a.is_active == null;
+  const score = a.sales_score ?? 0;
+  const si = scoreInfo(score);
+  const dots = Array.from({length:10},(_,i)=>`<div class="${dotCls(i+1,score)}">${i+1}</div>`).join('');
+  const hasStars = a.score_quality||a.score_looks||a.score_social;
+  const age = calcAge(a.birth_date);
   return `<div class="card" onclick="openDrawer('${a.id}')" style="${dimmed?'opacity:.5;filter:grayscale(.7)':''}">
     <div class="ch">
       <div style="display:flex;align-items:center;gap:10px">
@@ -349,16 +428,28 @@ function cardHtml(a){
           : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(a.name)}</div>`
         }
         <div>
-          <div class="cn">${esc(a.name)}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
-          <div class="cd">${esc(roleLbl)} · ранг ${esc(a.rank||'—')}</div>
+          <div class="cn">${esc(a.name)}${a.gender==='male'?' <span style="font-size:11px;color:var(--text3)">♂</span>':a.gender==='female'?' <span style="font-size:11px;color:var(--text3)">♀</span>':''}${age!==null?` <span style="font-size:11px;color:var(--text3);font-weight:400">${age}л</span>`:''}${dimmed?' <span style="font-size:10px;color:var(--text3);font-weight:400">• неактивен</span>':''}</div>
+          <div class="cd">${a.start_date ? new Date(a.start_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'}) : '&nbsp;'}</div>
         </div>
       </div>
-      <div class="rb">Продажи ${esc(a.sales_score??0)}</div>
+      <div class="rb">${rankStars(a.rank)} Ранг ${esc(a.rank||'—')}</div>
     </div>
-    <div class="meta">
-      <span class="pill ${hs.cls}">${esc(hs.txt)}</span>
-      ${a.is_trainer ? `<span class="pill ok">🎓 Тренер</span>` : ''}
+    <div class="ss">
+      <div class="slr">
+        <span class="slbl">Продажи</span>
+        <div class="sv">
+          <span class="sn" style="color:${score>=8?'var(--rank1)':score>=5?'var(--rank2)':score>0?'var(--rank3)':'var(--text3)'}">${esc(score)}</span>
+          <span class="sc ${si.sc}">${si.cat}</span>
+        </div>
+      </div>
+      <div class="strack"><div class="sfill" style="width:${Number(score||0)*10}%"></div></div>
+      <div class="dots">${dots}</div>
     </div>
+    ${hasStars ? `<div style="display:flex;gap:10px;margin:8px 0 4px;flex-wrap:wrap">
+      ${a.score_quality ? `<div style="font-size:11px;color:var(--text3)">🎨 <span style="color:#f5a623">${'★'.repeat(a.score_quality)}${'☆'.repeat(5-a.score_quality)}</span></div>` : ''}
+      ${a.score_looks ? `<div style="font-size:11px;color:var(--text3)">✨ <span style="color:#f5a623">${'★'.repeat(a.score_looks)}${'☆'.repeat(5-a.score_looks)}</span></div>` : ''}
+      ${a.score_social ? `<div style="font-size:11px;color:var(--text3)">💬 <span style="color:#f5a623">${'★'.repeat(a.score_social)}${'☆'.repeat(5-a.score_social)}</span></div>` : ''}
+    </div>` : ''}
     ${(a.venues||[]).length ? `<div class="vs">
       <div class="vl">Площадки</div>
       <div class="vps">
@@ -367,16 +458,84 @@ function cardHtml(a){
         ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
       </div>
     </div>` : ''}
+    ${a.summary ? `<div class="comment-preview">${esc(a.summary).slice(0,120)}${String(a.summary).length>120?'…':''}</div>` : ''}
+    ${Number(a.comment_count||0)>0
+      ? `<div class="comment-count">💬 ${Number(a.comment_count)} комментари${Number(a.comment_count)===1?'й':Number(a.comment_count)<5?'я':'ев'}${a.last_comment?` · ${esc(String(a.last_comment)).slice(0,60)}…`:''}</div>`
+      : `<div class="no-comment">Комментариев нет</div>`
+    }
   </div>`;
 }
 
+function setFilter(kind, value){
+  if(kind==='venue') value = value || null;
+  if(filters[kind] === value){
+    filters[kind] = null;
+  } else {
+    filters[kind] = value;
+  }
+  // UI toggles
+  const map = {
+    rank: {1:'fb-r1',2:'fb-r2',3:'fb-r3'},
+    sales:{zero:'fb-zero',weak:'fb-weak',mid:'fb-mid',top:'fb-top'},
+    gender:{male:'fb-male',female:'fb-female'}
+  };
+  if(map[kind]){
+    Object.values(map[kind]).forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
+    const id = map[kind][value];
+    if(id){ const el=document.getElementById(id); if(el) el.classList.add('active'); }
+  }
+  document.getElementById('fb-all')?.classList.toggle('active', !filters.rank && !filters.sales && !filters.gender && !filters.venue && !(document.getElementById('search')?.value||'').trim());
+  render();
+}
+function resetFilters(){
+  filters = { rank:null, sales:null, gender:null, venue:null };
+  ['fb-r1','fb-r2','fb-r3','fb-zero','fb-weak','fb-mid','fb-top','fb-male','fb-female'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  const s = document.getElementById('search'); if(s) s.value='';
+  const v = document.getElementById('f-venue'); if(v) v.value='';
+  document.getElementById('fb-all')?.classList.add('active');
+  render();
+}
+
+function filterAq(){
+  const q = (document.getElementById('search')?.value || '').trim().toLowerCase();
+  return aquagrimers.filter(a => {
+    if(q && !String(a.name||'').toLowerCase().includes(q)) return false;
+    if(filters.rank && String(a.rank) !== String(filters.rank)) return false;
+    if(filters.sales){
+      const s = a.sales_score ?? 0;
+      if(filters.sales==='zero' && s !== 0) return false;
+      if(filters.sales==='weak' && !(s >= 1 && s <= 4)) return false;
+      if(filters.sales==='mid'  && !(s >= 5 && s <= 7)) return false;
+      if(filters.sales==='top'  && s < 8) return false;
+    }
+    if(filters.gender && a.gender !== filters.gender) return false;
+    if(filters.venue){
+      const hasVenue = (a.venues||[]).some(v =>
+        String(v.venue_id) === String(filters.venue) && (v.attitude==='loves' || v.attitude==='can')
+      );
+      if(!hasVenue) return false;
+    }
+    return true;
+  });
+}
+
 function render(){
-  const q = document.getElementById('search').value.trim().toLowerCase();
-  const list = aquagrimers.filter(a => !q || String(a.name||'').toLowerCase().includes(q));
+  const list = filterAq();
   const grid = document.getElementById('grid');
-  if(!list.length){ grid.innerHTML = `<div class="empty">Нет аквагримёров по фильтру</div>`; return; }
   const active = list.filter(a => a.is_active === true || a.is_active === 'true');
   const inactive = list.filter(a => a.is_active === false || a.is_active === 'false' || a.is_active == null);
+
+  const hasFilter = filters.rank||filters.sales||filters.gender||filters.venue||(document.getElementById('search')?.value||'').trim();
+  const total = active.length;
+  const tops = active.filter(a=>(a.sales_score??0)>=8).length;
+  const avg = total ? (active.reduce((s,a)=>s+(a.sales_score||0),0)/total).toFixed(1) : '—';
+  document.getElementById('hstats').innerHTML = `
+    <div class="stat"><div class="stat-num" style="color:var(--accent2)">${total}</div><div class="stat-lbl">${hasFilter?'Найдено':'Всего'}</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank1)">${tops}</div><div class="stat-lbl">Топ</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank2)">${avg}</div><div class="stat-lbl">Средний балл</div></div>
+  `;
+
+  if(!list.length){ grid.innerHTML = `<div class="empty">Нет аквагримёров по фильтру</div>`; return; }
   let html = active.map(cardHtml).join('');
   if(inactive.length){
     html += `<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);color:var(--text3);font-size:12px">⏸ Неактивные (${inactive.length})</div>`;
@@ -396,7 +555,7 @@ function closeDrawer(){
 }
 function switchTab(i){
   drawerTab=i;
-  [0,1,2].forEach(t=>{
+  [0,1,2,3].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active', t===i);
   });
   renderDrawerTab();
@@ -452,6 +611,10 @@ function infoSelect(id,label,value,opts){
 
 async function saveInfo(){
   try{
+    const rankVal = document.getElementById('aq-rank')?.value;
+    const sqVal = document.getElementById('aq-sq')?.value;
+    const slVal = document.getElementById('aq-sl')?.value;
+    const ssVal = document.getElementById('aq-ss')?.value;
     const patch = {
       name: document.getElementById('aq-name')?.value?.trim(),
       phone: document.getElementById('aq-phone')?.value?.trim() || null,
@@ -461,12 +624,13 @@ async function saveInfo(){
       start_date: document.getElementById('aq-start')?.value || null,
       employee_role: document.getElementById('aq-emp-role')?.value || null,
       hire_status: document.getElementById('aq-hire')?.value || null,
-      rank: Number(document.getElementById('aq-rank')?.value || 0) || null,
+      rank: rankVal ? Number(rankVal) : null,
+      sales_score: document.getElementById('aq-sales')?.value != null ? Number(document.getElementById('aq-sales').value) : null,
       is_active: document.getElementById('aq-active')?.value === 'true',
       is_trainer: document.getElementById('aq-trainer')?.value === 'true',
-      score_quality: Number(document.getElementById('aq-sq')?.value || 0) || null,
-      score_looks: Number(document.getElementById('aq-sl')?.value || 0) || null,
-      score_social: Number(document.getElementById('aq-ss')?.value || 0) || null,
+      score_quality: (sqVal && sqVal!=='0') ? Number(sqVal) : null,
+      score_looks: (slVal && slVal!=='0') ? Number(slVal) : null,
+      score_social: (ssVal && ssVal!=='0') ? Number(ssVal) : null,
       grade: document.getElementById('aq-grade')?.value || null,
       grade_score: document.getElementById('aq-grade-score')?.value ? Number(document.getElementById('aq-grade-score').value) : null,
       summary: document.getElementById('aq-summary')?.value || null,
@@ -486,6 +650,50 @@ async function saveInfo(){
 function renderDrawerTab(){
   const el = document.getElementById('tab-content');
   if(!drawerData){ el.innerHTML=''; return; }
+
+  const linked = drawerData.venues || [];
+  const linkedIds = linked.map(v=>String(v.venue_id));
+  const options = venues
+    .filter(v=>v.is_active)
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'))
+    .map(v=>{
+      const dis = linkedIds.includes(String(v.id));
+      return `<option value="${esc(v.id)}"${dis?' disabled':''}>${esc(v.name)}${dis?' (уже привязано)':''}</option>`;
+    }).join('');
+
+  const venuesEditor = `
+    <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)">
+      <div class="fl">Площадки (❤️ / ✓ / ✗)</div>
+      ${canEdit()?`
+        <div class="field-row" style="align-items:flex-end;margin-top:8px">
+          <div class="field" style="flex:1.4">
+            <div class="fl">Добавить площадку</div>
+            <select class="fselect" id="v-add" style="width:100%">${options || '<option value=\"\">Нет площадок</option>'}</select>
+          </div>
+          <div class="field" style="flex:.9">
+            <div class="fl">Отношение</div>
+            <select class="fselect" id="v-att" style="width:100%">
+              <option value="loves">❤️ любит</option>
+              <option value="can">✓ может</option>
+              <option value="dislikes">✗ не любит</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="addVenue()">Добавить</button>
+          </div>
+        </div>
+      `:''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${linked.length ? linked.map(v=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+            <div style="flex:1;font-size:13px">${esc(v.venue_name||v.venue_id)}</div>
+            <div class="pill">${v.attitude==='loves'?'❤️ любит':v.attitude==='dislikes'?'✗ не любит':'✓ может'}</div>
+            ${canEdit()?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="removeVenue('${v.venue_id}')">Убрать</button>`:''}
+          </div>
+        `).join('') : `<div class="empty" style="padding:18px 0">Площадок нет</div>`}
+      </div>
+    </div>
+  `;
 
   if(drawerTab===0){
     if(!canEdit()){
@@ -507,17 +715,26 @@ function renderDrawerTab(){
           ${infoField('Статус', drawerData.hire_status)}
         </div>
         <div class="field-row">
-          ${infoField('Ранг', drawerData.rank)}
-          ${infoField('Оценки', `Q:${drawerData.score_quality||0} L:${drawerData.score_looks||0} S:${drawerData.score_social||0}`)}
+          ${infoField('Ранг универсальности', drawerData.rank ? `${'★'.repeat(drawerData.rank)} (${drawerData.rank})` : '—')}
+          ${infoField('Продажи', drawerData.sales_score ?? '—')}
         </div>
         <div class="field-row">
           ${infoField('Грейд', drawerData.grade)}
           ${infoField('Тренер', drawerData.is_trainer ? 'Да' : 'Нет')}
         </div>
+        <div class="field-row">
+          ${infoField('Мастерство', drawerData.score_quality ? `${'★'.repeat(drawerData.score_quality)}${'☆'.repeat(5-drawerData.score_quality)}` : '—')}
+          ${infoField('Внешний вид', drawerData.score_looks ? `${'★'.repeat(drawerData.score_looks)}${'☆'.repeat(5-drawerData.score_looks)}` : '—')}
+        </div>
+        <div class="field-row">
+          ${infoField('Общительность', drawerData.score_social ? `${'★'.repeat(drawerData.score_social)}${'☆'.repeat(5-drawerData.score_social)}` : '—')}
+          ${infoField('&nbsp;', '')}
+        </div>
         <div style="margin-top:12px">
           <div class="fl">Описание</div>
           <div class="fv" style="color:var(--text2);line-height:1.6">${esc(drawerData.summary||'—')}</div>
         </div>
+        ${venuesEditor}
       `;
       return;
     }
@@ -552,11 +769,24 @@ function renderDrawerTab(){
         ])}
       </div>
       <div class="field-row">
-        ${infoInput('aq-rank','Ранг',drawerData.rank,'number')}
+        ${infoSelect('aq-rank','Ранг универсальности',drawerData.rank,[
+          {value:'',label:'—'},
+          {value:'1',label:'★ Выборочно'},
+          {value:'2',label:'★★ Может все'},
+          {value:'3',label:'★★★ Любит все'}
+        ])}
         ${infoSelect('aq-active','is_active',drawerData.is_active===false?'false':'true',[
           {value:'true',label:'Активен'},
           {value:'false',label:'Неактивен'}
         ])}
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="fl">Оценка продаж (0–10)</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input class="fin" id="aq-sales" type="range" min="0" max="10" step="1" value="${esc(drawerData.sales_score??0)}" style="flex:1;padding:0;height:28px" oninput="document.getElementById('aq-sales-disp').textContent=this.value"/>
+          <div style="min-width:26px;text-align:center;font-family:'Unbounded',sans-serif;font-weight:600" id="aq-sales-disp">${esc(drawerData.sales_score??0)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px"><span>0 нет</span><span>1–4 слабые</span><span>5–7 молодцы</span><span>8–10 топ</span></div>
       </div>
       <div class="field-row">
         ${infoSelect('aq-trainer','Тренер',drawerData.is_trainer?'true':'false',[
@@ -567,11 +797,32 @@ function renderDrawerTab(){
       </div>
       <div class="field-row">
         ${infoInput('aq-grade-score','grade_score',drawerData.grade_score,'number')}
-        ${infoInput('aq-sq','quality',drawerData.score_quality,'number')}
+        ${infoSelect('aq-sq','Мастерство',drawerData.score_quality??0,[
+          {value:'0',label:'не оценено'},
+          {value:'1',label:'★'},
+          {value:'2',label:'★★'},
+          {value:'3',label:'★★★'},
+          {value:'4',label:'★★★★'},
+          {value:'5',label:'★★★★★'}
+        ])}
       </div>
       <div class="field-row">
-        ${infoInput('aq-sl','looks',drawerData.score_looks,'number')}
-        ${infoInput('aq-ss','social',drawerData.score_social,'number')}
+        ${infoSelect('aq-sl','Внешний вид',drawerData.score_looks??0,[
+          {value:'0',label:'не оценено'},
+          {value:'1',label:'★'},
+          {value:'2',label:'★★'},
+          {value:'3',label:'★★★'},
+          {value:'4',label:'★★★★'},
+          {value:'5',label:'★★★★★'}
+        ])}
+        ${infoSelect('aq-ss','Общительность',drawerData.score_social??0,[
+          {value:'0',label:'не оценено'},
+          {value:'1',label:'★'},
+          {value:'2',label:'★★'},
+          {value:'3',label:'★★★'},
+          {value:'4',label:'★★★★'},
+          {value:'5',label:'★★★★★'}
+        ])}
       </div>
       <div class="field" style="margin-bottom:12px">
         <div class="fl">Описание</div>
@@ -581,8 +832,10 @@ function renderDrawerTab(){
         <div class="fl">Заметки на следующую смену</div>
         <textarea class="comment-ta" id="aq-notes" placeholder="Важно..." style="min-height:70px">${esc(drawerData.notes_for_next_shift||'')}</textarea>
       </div>
+      ${venuesEditor}
       <div style="display:flex;gap:8px;justify-content:flex-end">
         ${drawerData.photo_url ? `<button class="btn btn-ghost" onclick="deletePhoto()">Удалить фото</button>` : ''}
+        <button class="btn btn-ghost" onclick="deactivateAq()">Деактивировать</button>
         <button class="btn btn-primary" onclick="saveInfo()">Сохранить</button>
       </div>
     `;
@@ -615,43 +868,16 @@ function renderDrawerTab(){
   }
 
   if(drawerTab===2){
-    const linked = drawerData.venues || [];
-    const linkedIds = linked.map(v=>String(v.venue_id));
-    const options = venues.filter(v=>v.is_active).sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru')).map(v=>{
-      const dis = linkedIds.includes(String(v.id));
-      return `<option value="${esc(v.id)}"${dis?' disabled':''}>${esc(v.name)}${dis?' (уже привязано)':''}</option>`;
-    }).join('');
+    el.innerHTML = `<div style="color:var(--text3);font-size:14px;line-height:1.6;padding:12px">
+      История изменений пока недоступна для аквагримёров.
+    </div>`;
+    return;
+  }
 
-    el.innerHTML = `
-      ${canEdit()?`
-        <div class="field-row" style="align-items:flex-end">
-          <div class="field" style="flex:1.4">
-            <div class="fl">Добавить площадку</div>
-            <select class="fselect" id="v-add" style="width:100%">${options || '<option value=\"\">Нет площадок</option>'}</select>
-          </div>
-          <div class="field" style="flex:.9">
-            <div class="fl">Attitude</div>
-            <select class="fselect" id="v-att" style="width:100%">
-              <option value="can">can</option>
-              <option value="loves">loves</option>
-              <option value="dislikes">dislikes</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" onclick="addVenue()">Добавить</button>
-          </div>
-        </div>
-      `:''}
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${linked.length ? linked.map(v=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
-            <div style="flex:1;font-size:13px">${esc(v.venue_name||v.venue_id)}</div>
-            <div class="pill">${esc(v.attitude||'can')}</div>
-            ${canEdit()?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="removeVenue('${v.venue_id}')">Убрать</button>`:''}
-          </div>
-        `).join('') : `<div class="empty" style="padding:24px 0">Площадок нет</div>`}
-      </div>
-    `;
+  if(drawerTab===3){
+    el.innerHTML = `<div style="color:var(--text3);font-size:14px;line-height:1.6;padding:12px">
+      🏆 Достижения пока недоступны для аквагримёров.
+    </div>`;
     return;
   }
 }
@@ -735,6 +961,19 @@ async function deletePhoto(){
   } catch(e){ showToast(e.message, true); }
 }
 
+async function deactivateAq(){
+  try{
+    if(!canEdit()) return;
+    if(!confirm('Деактивировать аквагримёра?')) return;
+    await api('PATCH', `/aq/staff/${drawerId}`, { is_active: false });
+    showToast('Деактивирован');
+    await reloadAll();
+    drawerData = await api('GET', `/aq/staff/${drawerId}`);
+    updateDrawerPhoto(drawerData);
+    renderDrawerTab();
+  } catch(e){ showToast(e.message, true); }
+}
+
 function openNewAq(){
   document.getElementById('na-name').value='';
   document.getElementById('na-phone').value='';
@@ -762,6 +1001,19 @@ async function reloadAll(){
   render();
 }
 
+function setupToolbarActions(){
+  const el = document.getElementById('toolbar-actions');
+  if(!el) return;
+  const btns = [];
+  if(canEdit()) btns.push(`<button class="btn btn-primary" onclick="openNewAq()">+ Аквагример</button>`);
+  btns.push(`<button class="btn btn-ghost" onclick="exportAquagrimers()">↓ Экспорт</button>`);
+  el.innerHTML = btns.join('');
+}
+
+function exportAquagrimers(){
+  showToast('Экспорт пока не подключен', true);
+}
+
 (async function init(){
   if(!accessToken && !refreshToken){ window.location.href='index.html'; return; }
   try{
@@ -771,7 +1023,7 @@ async function reloadAll(){
       return;
     }
     document.getElementById('user-pill').innerHTML = `<span>${esc(currentUser.name)}</span>`;
-    document.getElementById('btn-new').style.display = canEdit() ? 'inline-block' : 'none';
+    setupToolbarActions();
     await Promise.all([loadVenues(), reloadAll()]);
   } catch(e){
     document.getElementById('grid').innerHTML = `<div class="empty" style="color:var(--rank3)">${esc(e.message)}</div>`;
