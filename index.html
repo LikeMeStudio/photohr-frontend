@@ -1705,6 +1705,10 @@ function render(){
           ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
         </div>
       </div>` : ''}
+      ${(p.achievements && p.achievements.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+        ${(p.achievements || []).slice(0, 6).map(a => `<span title="${esc(a.name)}" style="font-size:14px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
+        ${(p.achievements || []).length > 6 ? `<span style="font-size:10px;color:var(--text3);align-self:center">+${(p.achievements || []).length - 6}</span>` : ''}
+      </div>` : ''}
       ${p.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(p.summary).slice(0,120)}${p.summary.length>120?'…':''}</div>` : ''}
       ${canManageComments()
         ? (p.comment_count>0
@@ -2825,14 +2829,46 @@ async function loadAudit(pid){
 async function renderAchievementsTab(ph, content) {
   content.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
-    const [achSummary, peerSummary] = await Promise.all([
-      api('GET', `/photographers/${ph.id}/achievements-summary`).catch(() => ({total:0, recent:[], all:[], by_category:{}, leaderboard_position:0})),
-      api('GET', `/photographers/${ph.id}/peer-summary`).catch(() => ({total_reviews:0, avg_stars:0, recent_public:[], management_only:[]})),
+    const [achSummary, peerSummary, allTypes] = await Promise.all([
+      api('GET', `/photographers/${ph.id}/achievements-summary`).catch(() => ({ total: 0, recent: [], all: [], by_category: {}, leaderboard_position: 0 })),
+      api('GET', `/photographers/${ph.id}/peer-summary`).catch(() => ({ total_reviews: 0, avg_stars: 0, recent_public: [], management_only: [] })),
+      api('GET', '/achievement-types').catch(() => []),
     ]);
 
-    const catLabels = {sales:'Продажи', discipline:'Дисциплина', milestone:'Стаж', social:'Команда'};
-    const achEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(245,166,35,.15)">Пока нет достижений. Они начисляются автоматически по итогам работы.</div>`;
+    const catLabels = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
     const peerEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border)">Пока нет отзывов</div>`;
+
+    const earnedList = achSummary.all || [];
+    const earnedCodes = new Set(earnedList.map(a => a.code));
+    const categories = {};
+    (allTypes || []).forEach(t => {
+      const cat = t.category || 'other';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(t);
+    });
+    const catOrder = ['sales', 'discipline', 'milestone', 'social', 'other'];
+    let achHtml = '';
+    catOrder.forEach(cat => {
+      const items = categories[cat];
+      if (!items || !items.length) return;
+      achHtml += `<div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${esc(catLabels[cat] || cat)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:8px">`;
+      items.forEach(t => {
+        const earned = earnedCodes.has(t.code);
+        const earnedData = earned ? earnedList.find(a => a.code === t.code) : null;
+        const earnedDate = earnedData?.earned_at ? new Date(earnedData.earned_at).toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' }) : '';
+        achHtml += `<div style="padding:12px 10px;border-radius:10px;text-align:center;border:1px solid ${earned ? 'rgba(245,166,35,.3)' : 'var(--border)'};background:${earned ? 'linear-gradient(135deg, rgba(245,166,35,.1), rgba(245,166,35,.03))' : 'var(--bg3)'};${!earned ? 'opacity:0.45;' : ''}transition:opacity .2s">
+          <div style="font-size:28px;${!earned ? 'filter:grayscale(1);' : ''}">${esc(String(t.icon || '🏅'))}</div>
+          <div style="font-size:11px;font-weight:${earned ? '600' : '400'};color:${earned ? 'var(--text)' : 'var(--text3)'};margin-top:6px;line-height:1.3">${esc(t.name)}</div>
+          ${earned ? `<div style="font-size:9px;color:#f5a623;margin-top:4px">${esc(earnedDate)}</div>` : `<div style="font-size:9px;color:var(--text3);margin-top:4px">🔒</div>`}
+        </div>`;
+      });
+      achHtml += '</div></div>';
+    });
+    if (!achHtml) {
+      achHtml = '<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center">Типы достижений не загружены</div>';
+    }
 
     content.innerHTML = `
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -2851,27 +2887,8 @@ async function renderAchievementsTab(ph, content) {
       </div>
 
       <div style="margin-bottom:16px">
-        <div style="font-size:14px;font-weight:600;color:#f5a623;margin-bottom:10px">🏆 Достижения</div>
-        ${Object.entries(achSummary.by_category || {}).length ? `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-            ${Object.entries(achSummary.by_category).map(([cat,cnt]) =>
-              `<span style="padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer;background:rgba(245,166,35,.12);color:#f5a623;border:1px solid rgba(245,166,35,.2)">${esc(catLabels[cat]||cat)}: ${cnt}</span>`
-            ).join('')}
-          </div>
-        ` : ''}
-        ${(achSummary.all || []).length ? (achSummary.all || []).map(a => {
-          const desc = a.description ? esc(a.description) : '';
-          const dateStr = a.earned_at ? new Date(a.earned_at).toLocaleDateString('ru-RU',{month:'short',year:'2-digit'}) : '';
-          const secondLine = desc || dateStr;
-          return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:linear-gradient(135deg, rgba(245,166,35,.06), rgba(245,166,35,.01));border:1px solid rgba(245,166,35,.15);border-left:3px solid #f5a623;border-radius:10px;margin-bottom:8px">
-            <span style="font-size:28px">${a.icon || '⭐'}</span>
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:600;font-size:13px;color:var(--text)">${esc(a.name)}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${secondLine}</div>
-            </div>
-            <div style="font-size:10px;color:var(--text3);white-space:nowrap">${dateStr && desc ? esc(dateStr) : ''}</div>
-          </div>`;
-        }).join('') : achEmpty}
+        <div style="font-size:14px;font-weight:600;color:#f5a623;margin-bottom:12px">🏆 Витрина достижений</div>
+        ${achHtml}
       </div>
 
       <div style="margin-bottom:16px">
