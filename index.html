@@ -2733,68 +2733,75 @@ async function renderAchievementsTab(ph, content) {
     ]);
 
     const catLabels = {sales:'Продажи', discipline:'Дисциплина', milestone:'Стаж', social:'Команда'};
+    const achEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(245,166,35,.15)">Пока нет достижений. Они начисляются автоматически по итогам работы.</div>`;
+    const peerEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border)">Пока нет отзывов</div>`;
 
     content.innerHTML = `
-      <!-- Позиция в лидерборде -->
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;flex:1;min-width:100px">
-          <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:var(--accent2)">#${achSummary.leaderboard_position || '—'}</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">В лидерборде</div>
+        <div style="background:linear-gradient(135deg, rgba(245,166,35,.08), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 18px;text-align:center;flex:1;min-width:90px">
+          <div style="font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:#f5a623">#${achSummary.leaderboard_position || '—'}</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">В лидерборде</div>
         </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;flex:1;min-width:100px">
-          <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:var(--rank2)">${achSummary.total}</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Достижений</div>
+        <div style="background:linear-gradient(135deg, rgba(245,166,35,.08), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 18px;text-align:center;flex:1;min-width:90px">
+          <div style="font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:#f5a623">${achSummary.total}</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">Достижений</div>
         </div>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;flex:1;min-width:100px">
-          <div style="font-size:20px;color:#f5a623">${peerSummary.avg_stars ? '★'.repeat(Math.round(peerSummary.avg_stars)) : '—'}</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">${peerSummary.total_reviews || 0} отзывов</div>
+        <div style="background:linear-gradient(135deg, rgba(245,166,35,.08), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 18px;text-align:center;flex:1;min-width:90px">
+          <div style="font-size:22px;color:#f5a623">${peerSummary.avg_stars ? '★'.repeat(Math.round(peerSummary.avg_stars)) : '—'}</div>
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">${peerSummary.total_reviews || 0} отзывов</div>
         </div>
       </div>
 
-      <!-- Достижения по категориям -->
       <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🏆 Достижения</div>
+        <div style="font-size:14px;font-weight:600;color:#f5a623;margin-bottom:10px">🏆 Достижения</div>
         ${Object.entries(achSummary.by_category || {}).length ? `
-          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
             ${Object.entries(achSummary.by_category).map(([cat,cnt]) =>
-              `<span style="padding:3px 10px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">${catLabels[cat]||cat}: ${cnt}</span>`
+              `<span style="padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer;background:rgba(245,166,35,.12);color:#f5a623;border:1px solid rgba(245,166,35,.2)">${esc(catLabels[cat]||cat)}: ${cnt}</span>`
             ).join('')}
           </div>
         ` : ''}
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${(achSummary.all || []).map(a =>
-            `<div style="padding:6px 10px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);font-size:12px;display:flex;align-items:center;gap:4px" title="${a.description||''}">
-              <span style="font-size:16px">${a.icon||'⭐'}</span>
-              <span>${esc(a.name)}</span>
-              <span style="font-size:10px;color:var(--text3)">${new Date(a.earned_at).toLocaleDateString('ru-RU',{month:'short',year:'2-digit'})}</span>
-            </div>`
-          ).join('') || '<div style="color:var(--text3);font-size:13px">Пока нет достижений</div>'}
-        </div>
+        ${(achSummary.all || []).length ? (achSummary.all || []).map(a => {
+          const desc = a.description ? esc(a.description) : '';
+          const dateStr = a.earned_at ? new Date(a.earned_at).toLocaleDateString('ru-RU',{month:'short',year:'2-digit'}) : '';
+          const secondLine = desc || dateStr;
+          return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:linear-gradient(135deg, rgba(245,166,35,.06), rgba(245,166,35,.01));border:1px solid rgba(245,166,35,.15);border-radius:10px;margin-bottom:8px">
+            <span style="font-size:28px">${a.icon || '⭐'}</span>
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:13px;color:var(--text)">${esc(a.name)}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${secondLine}</div>
+            </div>
+          </div>`;
+        }).join('') : achEmpty}
       </div>
 
-      <!-- Отзывы коллег (публичные) -->
       <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">⭐ Отзывы коллег</div>
-        ${(peerSummary.recent_public || []).map(r => `
-          <div style="padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px">
-            <div style="color:#f5a623;font-size:14px">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-            ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${esc(r.comment)}</div>` : ''}
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
-          </div>
-        `).join('') || '<div style="color:var(--text3);font-size:13px">Пока нет отзывов</div>'}
+        <div style="font-size:14px;font-weight:600;color:#f5a623;margin-top:20px;margin-bottom:10px">⭐ Отзывы коллег</div>
+        ${(peerSummary.recent_public || []).length ? (peerSummary.recent_public || []).map(r => {
+          const stars = Math.min(5, Math.max(0, Math.round(Number(r.stars) || 0)));
+          const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('ru-RU') : '';
+          return `<div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="color:#f5a623">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</span>
+              <span style="font-size:10px;color:var(--text3)">${dateStr}</span>
+            </div>
+            ${r.comment ? `<div style="font-size:13px;color:var(--text)">${esc(r.comment)}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">${esc(r.reviewer_name || 'Аноним')}${r.venue_name ? ' · ' + esc(r.venue_name) : ''}</div>
+          </div>`;
+        }).join('') : peerEmpty}
       </div>
 
-      <!-- Закрытые отзывы (для менеджеров) -->
       ${canManageComments() && (peerSummary.management_only||[]).length ? `
       <div>
         <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--rank2)">🔒 Закрытые отзывы (видны только руководству)</div>
-        ${peerSummary.management_only.map(r => `
-          <div style="padding:8px;background:rgba(242,85,85,.05);border:1px solid rgba(242,85,85,.15);border-radius:8px;margin-bottom:6px">
-            <div style="color:#f5a623;font-size:14px">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
+        ${peerSummary.management_only.map(r => {
+          const stars = Math.min(5, Math.max(0, Math.round(Number(r.stars) || 0)));
+          return `<div style="padding:12px;background:rgba(242,85,85,.05);border:1px solid rgba(242,85,85,.15);border-radius:10px;margin-bottom:8px">
+            <div style="color:#f5a623;font-size:14px">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
             ${r.comment ? `<div style="font-size:12px;margin-top:2px;color:var(--text2)">${esc(r.comment)}</div>` : ''}
             <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')}</div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>` : ''}
     `;
   } catch(e) {
