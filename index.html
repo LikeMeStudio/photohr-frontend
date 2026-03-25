@@ -85,7 +85,23 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 /* ── CARD ── */
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s;animation:fi .25s ease both}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
-.card:hover{background:var(--card-h);border-color:var(--border2);transform:translateY(-2px)}
+.card:hover:not(.birthday-card){background:var(--card-h);border-color:var(--border2);transform:translateY(-2px)}
+.card.birthday-card:hover{background:var(--card-h);transform:translateY(-2px)}
+
+@keyframes birthday-glow {
+  0%   { border-color: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,.2); }
+  25%  { border-color: #ff6b9d; box-shadow: 0 0 12px rgba(255,107,157,.15); }
+  50%  { border-color: #c084fc; box-shadow: 0 0 8px rgba(192,132,252,.15); }
+  75%  { border-color: #67e8f9; box-shadow: 0 0 12px rgba(103,232,249,.15); }
+  100% { border-color: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,.2); }
+}
+
+.birthday-card {
+  animation: birthday-glow 4s ease-in-out infinite, fi .25s ease both;
+  border-width: 2px;
+  border-style: solid;
+  position: relative;
+}
 
 /* ── PHOTO UPLOAD ── */
 .photo-zone{position:relative;width:80px;height:80px;border-radius:50%;margin:0 auto 16px;cursor:pointer}
@@ -1474,8 +1490,9 @@ async function openBirthdaysPanel() {
         <div style="margin-bottom:20px;padding:16px;background:linear-gradient(135deg, rgba(245,166,35,.12), rgba(245,166,35,.03));border:2px solid rgba(245,166,35,.3);border-radius:14px">
           <div style="font-size:14px;font-weight:700;color:#f5a623;margin-bottom:10px">🎉 Сегодня день рождения!</div>
           ${data.today.map(p => `
-            <div style="display:flex;align-items:center;gap:14px;padding:8px 0;cursor:pointer"
-              onclick="document.getElementById('birthdays-panel-overlay').classList.remove('open'); setTimeout(() => openDrawer(${Number(p.id)}), 200)">
+            <div style="display:flex;align-items:center;gap:14px;padding:8px 0;transition:transform .15s;cursor:pointer"
+              onclick="document.getElementById('birthdays-panel-overlay').classList.remove('open'); setTimeout(() => openDrawer('${p.id}'), 200)"
+              onmouseenter="this.style.transform='scale(1.02)'" onmouseleave="this.style.transform='scale(1)'">
               ${p.photo_url
                 ? `<img src="${photoSrc(p.photo_url)}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #f5a623"/>`
                 : `<div style="width:48px;height:48px;border-radius:50%;background:#f5a623;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:16px;font-weight:700;color:var(--bg)">${esc((p.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2))}</div>`
@@ -1845,7 +1862,8 @@ function render(){
     const dislikes = (p.venues||[]).filter(v=>v.attitude==='dislikes');
     const dots = Array.from({length:10},(_,i)=>`<div class="${dotCls(i+1,p.sales_score??0)}">${i+1}</div>`).join('');
     const hasScores = p.score_photo||p.score_looks||p.score_social;
-    return `<div class="card" onclick="openDrawer('${p.id}')" style="${dimmed?'opacity:.45;filter:grayscale(.8);':''}${bdToday?'position:relative;border:2px solid #f5a623;box-shadow:0 0 16px rgba(245,166,35,.15);':''}">
+    const bdClass = bdToday ? ' birthday-card' : '';
+    return `<div class="card${bdClass}" onclick="openDrawer('${p.id}')" style="${dimmed?'opacity:.45;filter:grayscale(.8);':''}">
       ${bdToday ? '<span style="position:absolute;top:-6px;right:-6px;font-size:20px;z-index:1">🎂</span>' : ''}
       <div class="ch">
         <div style="display:flex;align-items:center;gap:10px">
