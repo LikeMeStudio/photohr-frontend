@@ -52,13 +52,14 @@ a{color:inherit;text-decoration:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .empty{text-align:center;padding:60px;color:var(--text3);grid-column:1/-1}
 
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s;animation:fi .25s ease both}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
 .card:hover{background:var(--card-h);border-color:var(--border2);transform:translateY(-2px)}
-.ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px}
+.ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:10px}
 .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;flex-shrink:0;border:1px solid var(--border2)}
 .cn{font-weight:600;font-size:14px}
 .cd{font-size:11px;color:var(--text3);margin-top:2px}
-.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0;background:rgba(62,207,180,.10);border:1px solid rgba(62,207,180,.35);color:var(--accent2)}
+.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0}
 
 /* score */
 .ss{margin:10px 0}
@@ -72,7 +73,11 @@ a{color:inherit;text-decoration:none}
 .sc-w{background:rgba(242,85,85,.15);color:var(--rank3)}
 .sc-z{background:rgba(90,90,114,.15);color:var(--text3)}
 .strack{height:4px;border-radius:2px;background:var(--bg3);overflow:hidden}
-.sfill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--aq-accent),var(--aq-accent2))}
+.sfill{height:100%;border-radius:2px}
+.sf-t{background:linear-gradient(90deg,#1fa86b,#3ecf8e)}
+.sf-m{background:linear-gradient(90deg,#c47b10,#f5a623)}
+.sf-w{background:linear-gradient(90deg,#a02020,#f25555)}
+.sf-z{background:var(--border)}
 .dots{display:flex;gap:3px;margin-top:6px}
 .d{width:20px;height:20px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text3)}
 .d.dt{background:rgba(62,207,142,.2);border-color:rgba(62,207,142,.4);color:var(--rank1)}
@@ -143,6 +148,51 @@ a{color:inherit;text-decoration:none}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
+
+<<<<<<< HEAD
+=======
+/* venue picker (drawer) */
+.venue-picker{display:flex;flex-direction:column;gap:6px}
+.venue-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)}
+.venue-row-name{flex:1;font-size:13px}
+.att-btns{display:flex;gap:4px}
+.att-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;color:var(--text2)}
+.att-btn.ab-love.sel{background:rgba(62,207,142,.2);border-color:var(--love);color:var(--love)}
+.att-btn.ab-can.sel{background:rgba(144,144,168,.15);border-color:var(--can);color:var(--can)}
+.att-btn.ab-dis.sel{background:rgba(242,85,85,.2);border-color:var(--dislike);color:var(--dislike)}
+
+/* comment box in card */
+.comment-box{padding:8px 10px;background:var(--bg3);border-radius:8px;border-left:2px solid var(--accent);color:var(--text2);line-height:1.5;font-size:12px}
+
+>>>>>>> 045d49e (feat(aquagrim): full visual parity with photo — rank colors, score bars, venue picker)
+/* Rank buttons — медь/серебро/золото */
+.rank-opts{display:flex;gap:8px}
+.rank-opt{flex:1;padding:10px 6px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;text-align:center;transition:all .2s}
+.rank-opt.sel-1{
+  border-color:#cd7f32;color:#f4a460;
+  background:linear-gradient(135deg,#3d1f00 0%,#5c2e00 40%,#3d1f00 100%);
+  box-shadow:0 0 12px rgba(205,127,50,.3),inset 0 1px 0 rgba(255,200,100,.15);
+  text-shadow:0 0 8px rgba(244,164,96,.6);
+}
+.rank-opt.sel-2{
+  border-color:#a8b8c8;color:#d8e8f8;
+  background:linear-gradient(135deg,#1a2030 0%,#2a3545 40%,#1a2030 100%);
+  box-shadow:0 0 12px rgba(168,184,200,.25),inset 0 1px 0 rgba(220,235,255,.15);
+  text-shadow:0 0 8px rgba(216,232,248,.5);
+}
+.rank-opt.sel-3{
+  border-color:#c9a84c;color:#ffd700;
+  background:linear-gradient(135deg,#2a1f00 0%,#3d2e00 40%,#2a1f00 100%);
+  box-shadow:0 0 12px rgba(201,168,76,.35),inset 0 1px 0 rgba(255,230,100,.2);
+  text-shadow:0 0 8px rgba(255,215,0,.7);
+}
+
+/* Score slider */
+.score-wrap{display:flex;align-items:center;gap:12px}
+.frank{flex:1;-webkit-appearance:none;height:5px;border-radius:3px;background:var(--bg3);outline:none;border:none;cursor:pointer}
+.frank::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
+.score-disp{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;min-width:30px;text-align:center}
+.score-hints{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px}
 
 /* Lightbox */
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;align-items:center;justify-content:center;cursor:zoom-out}
@@ -360,10 +410,17 @@ function calcAge(birth_date){
   return age;
 }
 function scoreInfo(s){
-  if(s===0) return{cat:'Стажёр',sc:'sc-z'};
-  if(s<=4)  return{cat:'Новичок',sc:'sc-w'};
-  if(s<=7)  return{cat:'Молодцы',sc:'sc-m'};
-  return{cat:'Топ',sc:'sc-t'};
+  if(s===0) return{cat:'Стажёр',sc:'sc-z',sf:'sf-z'};
+  if(s<=4)  return{cat:'Новичок',sc:'sc-w',sf:'sf-w'};
+  if(s<=7)  return{cat:'Молодцы',sc:'sc-m',sf:'sf-m'};
+  return{cat:'Топ',sc:'sc-t',sf:'sf-t'};
+}
+function rankStyle(rank){
+  const r = String(rank);
+  if(r==='1') return 'background:#3d2000;color:#e8a060;border:1px solid #b87333';
+  if(r==='2') return 'background:#1a2030;color:#b8cce0;border:1px solid #8a9bb0';
+  if(r==='3') return 'background:#2a2000;color:#d4b840;border:1px solid #c9a84c';
+  return 'background:var(--bg3);color:var(--text3);border:1px solid var(--border)';
 }
 function dotCls(i,score){
   const s = Number(score||0);
@@ -432,17 +489,17 @@ function cardHtml(a){
           <div class="cd">${a.start_date ? new Date(a.start_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'}) : '&nbsp;'}</div>
         </div>
       </div>
-      <div class="rb">${rankStars(a.rank)} Ранг ${esc(a.rank||'—')}</div>
+      <div class="rb" style="${rankStyle(a.rank)}">${rankStars(a.rank)} Ранг ${a.rank||'—'}</div>
     </div>
     <div class="ss">
       <div class="slr">
         <span class="slbl">Продажи</span>
         <div class="sv">
-          <span class="sn" style="color:${score>=8?'var(--rank1)':score>=5?'var(--rank2)':score>0?'var(--rank3)':'var(--text3)'}">${esc(score)}</span>
+          <span class="sn" style="color:${score>=8?'var(--rank1)':score>=5?'var(--rank2)':score>0?'var(--rank3)':'var(--text3)'}">${score}</span>
           <span class="sc ${si.sc}">${si.cat}</span>
         </div>
       </div>
-      <div class="strack"><div class="sfill" style="width:${Number(score||0)*10}%"></div></div>
+      <div class="strack"><div class="sfill ${si.sf}" style="width:${Number(score||0)*10}%"></div></div>
       <div class="dots">${dots}</div>
     </div>
     ${hasStars ? `<div style="display:flex;gap:10px;margin:8px 0 4px;flex-wrap:wrap">
@@ -458,7 +515,7 @@ function cardHtml(a){
         ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
       </div>
     </div>` : ''}
-    ${a.summary ? `<div class="comment-preview">${esc(a.summary).slice(0,120)}${String(a.summary).length>120?'…':''}</div>` : ''}
+    ${a.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px">${esc(a.summary).slice(0,120)}${String(a.summary).length>120?'…':''}</div>` : ''}
     ${Number(a.comment_count||0)>0
       ? `<div class="comment-count">💬 ${Number(a.comment_count)} комментари${Number(a.comment_count)===1?'й':Number(a.comment_count)<5?'я':'ев'}${a.last_comment?` · ${esc(String(a.last_comment)).slice(0,60)}…`:''}</div>`
       : `<div class="no-comment">Комментариев нет</div>`
@@ -547,6 +604,55 @@ function render(){
 let drawerId = null;
 let drawerTab = 0;
 let drawerData = null;
+let editState = { rank: null, sales_score: 0, score_quality: 0, score_looks: 0, score_social: 0 };
+
+const RANK_NAMES = {1:'Выборочно', 2:'Может все', 3:'Любит все'};
+const RANK_DESC  = {1:'Работает только на отдельных', 2:'Может на любых', 3:'Любит все площадки'};
+
+function setRank(r){
+  editState.rank = editState.rank===r ? null : r;
+  document.querySelectorAll('.rank-opt').forEach((b,i)=>{
+    b.className = `rank-opt ${editState.rank===i+1?`sel-${i+1}`:''}`;
+  });
+}
+function setScore(v){
+  editState.sales_score = v;
+  const disp = document.getElementById('aq-sales-disp');
+  if(disp){
+    disp.textContent = v;
+    disp.style.color = v>=8?'var(--rank1)':v>=5?'var(--rank2)':v>0?'var(--rank3)':'var(--text3)';
+  }
+}
+function setStar(key, val){
+  editState[key] = editState[key]===val ? 0 : val;
+  const container = document.getElementById('stars-'+key);
+  if(!container) return;
+  container.querySelectorAll('span').forEach((s,i)=>{
+    s.style.color = i < editState[key] ? '#f5a623' : 'var(--border2)';
+  });
+}
+function hoverStar(key, val){
+  const container = document.getElementById('stars-'+key);
+  if(!container) return;
+  container.querySelectorAll('span').forEach((s,i)=>{
+    s.style.color = i < val ? '#f5a623' : 'var(--border2)';
+    s.style.transform = i < val ? 'scale(1.15)' : '';
+  });
+}
+function unhoverStar(key){
+  const container = document.getElementById('stars-'+key);
+  if(!container) return;
+  container.querySelectorAll('span').forEach((s,i)=>{
+    s.style.color = i < editState[key] ? '#f5a623' : 'var(--border2)';
+    s.style.transform = '';
+  });
+}
+function readStars(val){
+  if(!val) return '<span style="font-size:13px;color:var(--text3)">не оценено</span>';
+  return Array.from({length:5},(_,i)=>
+    `<span style="font-size:18px;color:${i<val?'#f5a623':'var(--border2)'}">★</span>`
+  ).join('');
+}
 
 function closeDrawer(){
   document.getElementById('drawer-bg').classList.remove('open');
@@ -591,6 +697,17 @@ function onDrawerPhotoClick(e){
 async function openDrawer(id){
   drawerId=id; drawerTab=0;
   drawerData = await api('GET', `/aq/staff/${id}`);
+  editState = {
+    rank: drawerData.rank ? Number(drawerData.rank) : null,
+    sales_score: drawerData.sales_score ?? 0,
+    score_quality: drawerData.score_quality ?? 0,
+    score_looks: drawerData.score_looks ?? 0,
+    score_social: drawerData.score_social ?? 0,
+<<<<<<< HEAD
+=======
+    venues: (drawerData.venues||[]).map(v=>({venue_id:v.venue_id, attitude:v.attitude})),
+>>>>>>> 045d49e (feat(aquagrim): full visual parity with photo — rank colors, score bars, venue picker)
+  };
   document.getElementById('dr-name').textContent = drawerData.name || '—';
   document.getElementById('dr-hint').textContent = canEdit() ? 'Редактирование карточки' : 'Просмотр';
   updateDrawerPhoto(drawerData);
@@ -611,10 +728,6 @@ function infoSelect(id,label,value,opts){
 
 async function saveInfo(){
   try{
-    const rankVal = document.getElementById('aq-rank')?.value;
-    const sqVal = document.getElementById('aq-sq')?.value;
-    const slVal = document.getElementById('aq-sl')?.value;
-    const ssVal = document.getElementById('aq-ss')?.value;
     const patch = {
       name: document.getElementById('aq-name')?.value?.trim(),
       phone: document.getElementById('aq-phone')?.value?.trim() || null,
@@ -624,13 +737,13 @@ async function saveInfo(){
       start_date: document.getElementById('aq-start')?.value || null,
       employee_role: document.getElementById('aq-emp-role')?.value || null,
       hire_status: document.getElementById('aq-hire')?.value || null,
-      rank: rankVal ? Number(rankVal) : null,
-      sales_score: document.getElementById('aq-sales')?.value != null ? Number(document.getElementById('aq-sales').value) : null,
+      rank: editState.rank || null,
+      sales_score: editState.sales_score ?? null,
       is_active: document.getElementById('aq-active')?.value === 'true',
       is_trainer: document.getElementById('aq-trainer')?.value === 'true',
-      score_quality: (sqVal && sqVal!=='0') ? Number(sqVal) : null,
-      score_looks: (slVal && slVal!=='0') ? Number(slVal) : null,
-      score_social: (ssVal && ssVal!=='0') ? Number(ssVal) : null,
+      score_quality: editState.score_quality || null,
+      score_looks: editState.score_looks || null,
+      score_social: editState.score_social || null,
       grade: document.getElementById('aq-grade')?.value || null,
       grade_score: document.getElementById('aq-grade-score')?.value ? Number(document.getElementById('aq-grade-score').value) : null,
       summary: document.getElementById('aq-summary')?.value || null,
@@ -652,48 +765,68 @@ function renderDrawerTab(){
   if(!drawerData){ el.innerHTML=''; return; }
 
   const linked = drawerData.venues || [];
-  const linkedIds = linked.map(v=>String(v.venue_id));
-  const options = venues
-    .filter(v=>v.is_active)
-    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'))
-    .map(v=>{
-      const dis = linkedIds.includes(String(v.id));
-      return `<option value="${esc(v.id)}"${dis?' disabled':''}>${esc(v.name)}${dis?' (уже привязано)':''}</option>`;
+
+  const venuesEditor = (() => {
+    if(!canEdit()){
+      // Read-only: just show pills
+      const loves = linked.filter(v=>v.attitude==='loves');
+      const cans = linked.filter(v=>v.attitude==='can');
+      const dislikes = linked.filter(v=>v.attitude==='dislikes');
+      return `
+        <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)">
+          <div class="fl" style="margin-bottom:8px">Площадки <span style="opacity:.6">♥ любит · ✓ может · ✕ не любит</span></div>
+          ${linked.length ? `<div class="vps">
+            ${loves.map(v=>`<span class="vp vp-love">♥ ${esc(v.venue_name)}</span>`).join('')}
+            ${cans.map(v=>`<span class="vp vp-can">✓ ${esc(v.venue_name)}</span>`).join('')}
+            ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
+          </div>` : `<div style="font-size:12px;color:var(--text3)">Площадки не выбраны</div>`}
+        </div>`;
+    }
+    // Edit mode: inline 3-button per venue grouped by city
+    const activeVenues = venues.filter(v=>v.is_active);
+    const cities = [...new Set(activeVenues.map(v=>v.city||'Другое'))];
+
+    // Current selection summary
+    const selLoves = linked.filter(v=>v.attitude==='loves');
+    const selCans = linked.filter(v=>v.attitude==='can');
+    const selDis = linked.filter(v=>v.attitude==='dislikes');
+    const selSummary = linked.length ? `<div class="vps" style="margin-bottom:10px">
+      ${selLoves.map(v=>`<span class="vp vp-love">♥ ${esc(v.venue_name)}</span>`).join('')}
+      ${selCans.map(v=>`<span class="vp vp-can">✓ ${esc(v.venue_name)}</span>`).join('')}
+      ${selDis.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
+    </div>` : `<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Площадки не выбраны</div>`;
+
+    const cityGroups = cities.map(city=>{
+      const cityVenues = activeVenues.filter(v=>(v.city||'Другое')===city);
+      const rows = cityVenues.map(v=>{
+        const cur = linked.find(lv=>String(lv.venue_id)===String(v.id));
+        const att = cur?.attitude||'none';
+        return '<div class="venue-row" id="aqvr-'+v.id+'">' +
+          '<span class="venue-row-name">'+esc(v.name)+'</span>' +
+          '<div class="att-btns">' +
+            '<button class="att-btn ab-love '+(att==='loves'?'sel':'')+'" onclick="setVenueAtt(\''+v.id+'\',\'loves\')" title="Любит">♥</button>' +
+            '<button class="att-btn ab-can '+(att==='can'?'sel':'')+'" onclick="setVenueAtt(\''+v.id+'\',\'can\')" title="Может">✓</button>' +
+            '<button class="att-btn ab-dis '+(att==='dislikes'?'sel':'')+'" onclick="setVenueAtt(\''+v.id+'\',\'dislikes\')" title="Не любит">✕</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      const cityId = 'aqcity-'+city.replace(/\\s+/g,'-');
+      return '<div style="margin-bottom:8px">' +
+        '<div onclick="toggleVenueGroup(\''+cityId+'\')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg2);border-radius:10px;cursor:pointer;border:1px solid var(--border2)">' +
+          '<span style="font-size:13px;font-weight:600">'+esc(city)+'</span>' +
+          '<span id="'+cityId+'-ico" style="font-size:10px;color:var(--text3)">▼</span>' +
+        '</div>' +
+        '<div id="'+cityId+'" style="margin-top:4px;display:none">'+rows+'</div>' +
+      '</div>';
     }).join('');
 
-  const venuesEditor = `
-    <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)">
-      <div class="fl">Площадки (❤️ / ✓ / ✗)</div>
-      ${canEdit()?`
-        <div class="field-row" style="align-items:flex-end;margin-top:8px">
-          <div class="field" style="flex:1.4">
-            <div class="fl">Добавить площадку</div>
-            <select class="fselect" id="v-add" style="width:100%">${options || '<option value=\"\">Нет площадок</option>'}</select>
-          </div>
-          <div class="field" style="flex:.9">
-            <div class="fl">Отношение</div>
-            <select class="fselect" id="v-att" style="width:100%">
-              <option value="loves">❤️ любит</option>
-              <option value="can">✓ может</option>
-              <option value="dislikes">✗ не любит</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" onclick="addVenue()">Добавить</button>
-          </div>
-        </div>
-      `:''}
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${linked.length ? linked.map(v=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
-            <div style="flex:1;font-size:13px">${esc(v.venue_name||v.venue_id)}</div>
-            <div class="pill">${v.attitude==='loves'?'❤️ любит':v.attitude==='dislikes'?'✗ не любит':'✓ может'}</div>
-            ${canEdit()?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="removeVenue('${v.venue_id}')">Убрать</button>`:''}
-          </div>
-        `).join('') : `<div class="empty" style="padding:18px 0">Площадок нет</div>`}
-      </div>
-    </div>
-  `;
+    return '<div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border)">' +
+      '<div class="fl" style="margin-bottom:8px">Площадки <span style="opacity:.6">♥ любит · ✓ может · ✕ не любит</span></div>' +
+      selSummary +
+      '<div style="position:relative;margin-bottom:10px"><input id="aq-venue-search" class="fin" placeholder="🔍 Поиск площадки..." oninput="filterAqVenueSearch()" style="width:100%;padding:8px 12px;font-size:13px"/></div>' +
+      cityGroups +
+    '</div>';
+  })();
 
   if(drawerTab===0){
     if(!canEdit()){
@@ -714,21 +847,40 @@ function renderDrawerTab(){
           ${infoField('Роль', AQ_ROLE_LABELS[drawerData.employee_role] || drawerData.employee_role)}
           ${infoField('Статус', drawerData.hire_status)}
         </div>
-        <div class="field-row">
-          ${infoField('Ранг универсальности', drawerData.rank ? `${'★'.repeat(drawerData.rank)} (${drawerData.rank})` : '—')}
-          ${infoField('Продажи', drawerData.sales_score ?? '—')}
+        <div style="margin-bottom:14px">
+          <div class="fl" style="margin-bottom:8px">Ранг универсальности</div>
+          <div class="rank-opts">
+            ${[1,2,3].map(r=>`
+              <div class="rank-opt ${drawerData.rank==r?`sel-${r}`:''}" style="cursor:default;opacity:${drawerData.rank==r?1:0.3}">
+                ${'★'.repeat(r)} ${RANK_NAMES[r]}<br/>
+                <span style="font-size:10px;opacity:.7">${RANK_DESC[r]}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <div class="fl" style="margin-bottom:4px">Оценка продаж</div>
+          <div class="fv" style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600;color:${(drawerData.sales_score??0)>=8?'var(--rank1)':(drawerData.sales_score??0)>=5?'var(--rank2)':(drawerData.sales_score??0)>0?'var(--rank3)':'var(--text3)'}">${drawerData.sales_score ?? '—'}</div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div class="fl" style="margin-bottom:10px">Оценки сотрудника</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+              <span style="font-size:13px;color:var(--text2)">🎨 Мастерство</span>
+              <div>${readStars(drawerData.score_quality)}</div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+              <span style="font-size:13px;color:var(--text2)">✨ Внешний вид</span>
+              <div>${readStars(drawerData.score_looks)}</div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+              <span style="font-size:13px;color:var(--text2)">💬 Общительность</span>
+              <div>${readStars(drawerData.score_social)}</div>
+            </div>
+          </div>
         </div>
         <div class="field-row">
           ${infoField('Грейд', drawerData.grade)}
           ${infoField('Тренер', drawerData.is_trainer ? 'Да' : 'Нет')}
-        </div>
-        <div class="field-row">
-          ${infoField('Мастерство', drawerData.score_quality ? `${'★'.repeat(drawerData.score_quality)}${'☆'.repeat(5-drawerData.score_quality)}` : '—')}
-          ${infoField('Внешний вид', drawerData.score_looks ? `${'★'.repeat(drawerData.score_looks)}${'☆'.repeat(5-drawerData.score_looks)}` : '—')}
-        </div>
-        <div class="field-row">
-          ${infoField('Общительность', drawerData.score_social ? `${'★'.repeat(drawerData.score_social)}${'☆'.repeat(5-drawerData.score_social)}` : '—')}
-          ${infoField('&nbsp;', '')}
         </div>
         <div style="margin-top:12px">
           <div class="fl">Описание</div>
@@ -768,65 +920,60 @@ function renderDrawerTab(){
           {value:'fired',label:'fired'}
         ])}
       </div>
+      <div style="margin-bottom:14px">
+        <div class="fl" style="margin-bottom:8px">Ранг универсальности</div>
+        <div class="rank-opts">
+          ${[1,2,3].map(r=>`
+            <button class="rank-opt ${editState.rank===r?'sel-'+r:''}" onclick="setRank(${r})">
+              ${'★'.repeat(r)} ${RANK_NAMES[r]}<br/>
+              <span style="font-size:10px;opacity:.7">${RANK_DESC[r]}</span>
+            </button>`).join('')}
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="fl" style="margin-bottom:8px">Оценка продаж</div>
+        <div class="score-wrap">
+          <input type="range" class="frank" min="0" max="10" step="1" value="${editState.sales_score}" id="aq-sales" oninput="setScore(parseInt(this.value))"/>
+          <div class="score-disp" id="aq-sales-disp" style="color:${editState.sales_score>=8?'var(--rank1)':editState.sales_score>=5?'var(--rank2)':editState.sales_score>0?'var(--rank3)':'var(--text3)'}">${editState.sales_score}</div>
+        </div>
+        <div class="score-hints"><span>0 нет</span><span>1–4 слабые</span><span>5–7 молодцы</span><span>8–10 топ</span></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="fl" style="margin-bottom:10px">Оценки сотрудника</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${[
+            {key:'score_quality', label:'🎨 Мастерство'},
+            {key:'score_looks',   label:'✨ Внешний вид'},
+            {key:'score_social',  label:'💬 Общительность'},
+          ].map(({key,label})=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+              <span style="font-size:13px;color:var(--text2)">${label}</span>
+              <div style="display:flex;gap:6px" id="stars-${key}">
+                ${[1,2,3,4,5].map(n=>`
+                  <span onclick="setStar('${key}',${n})" style="font-size:22px;cursor:pointer;line-height:1;transition:transform .1s;color:${editState[key]>=n?'#f5a623':'var(--border2)'}" onmouseenter="hoverStar('${key}',${n})" onmouseleave="unhoverStar('${key}')">★</span>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <div class="fl">Сводное описание (не уходит в ленту)</div>
+        <textarea class="comment-ta" id="aq-summary" placeholder="Коротко..." style="min-height:90px">${esc(drawerData.summary||'')}</textarea>
+      </div>
       <div class="field-row">
-        ${infoSelect('aq-rank','Ранг универсальности',drawerData.rank,[
-          {value:'',label:'—'},
-          {value:'1',label:'★ Выборочно'},
-          {value:'2',label:'★★ Может все'},
-          {value:'3',label:'★★★ Любит все'}
-        ])}
         ${infoSelect('aq-active','is_active',drawerData.is_active===false?'false':'true',[
           {value:'true',label:'Активен'},
           {value:'false',label:'Неактивен'}
         ])}
-      </div>
-      <div style="margin-bottom:16px">
-        <div class="fl">Оценка продаж (0–10)</div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <input class="fin" id="aq-sales" type="range" min="0" max="10" step="1" value="${esc(drawerData.sales_score??0)}" style="flex:1;padding:0;height:28px" oninput="document.getElementById('aq-sales-disp').textContent=this.value"/>
-          <div style="min-width:26px;text-align:center;font-family:'Unbounded',sans-serif;font-weight:600" id="aq-sales-disp">${esc(drawerData.sales_score??0)}</div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px"><span>0 нет</span><span>1–4 слабые</span><span>5–7 молодцы</span><span>8–10 топ</span></div>
-      </div>
-      <div class="field-row">
         ${infoSelect('aq-trainer','Тренер',drawerData.is_trainer?'true':'false',[
           {value:'false',label:'Нет'},
           {value:'true',label:'Да'}
         ])}
+      </div>
+      <div class="field-row">
         ${infoInput('aq-grade','Грейд',drawerData.grade)}
-      </div>
-      <div class="field-row">
         ${infoInput('aq-grade-score','grade_score',drawerData.grade_score,'number')}
-        ${infoSelect('aq-sq','Мастерство',drawerData.score_quality??0,[
-          {value:'0',label:'не оценено'},
-          {value:'1',label:'★'},
-          {value:'2',label:'★★'},
-          {value:'3',label:'★★★'},
-          {value:'4',label:'★★★★'},
-          {value:'5',label:'★★★★★'}
-        ])}
-      </div>
-      <div class="field-row">
-        ${infoSelect('aq-sl','Внешний вид',drawerData.score_looks??0,[
-          {value:'0',label:'не оценено'},
-          {value:'1',label:'★'},
-          {value:'2',label:'★★'},
-          {value:'3',label:'★★★'},
-          {value:'4',label:'★★★★'},
-          {value:'5',label:'★★★★★'}
-        ])}
-        ${infoSelect('aq-ss','Общительность',drawerData.score_social??0,[
-          {value:'0',label:'не оценено'},
-          {value:'1',label:'★'},
-          {value:'2',label:'★★'},
-          {value:'3',label:'★★★'},
-          {value:'4',label:'★★★★'},
-          {value:'5',label:'★★★★★'}
-        ])}
-      </div>
-      <div class="field" style="margin-bottom:12px">
-        <div class="fl">Описание</div>
-        <textarea class="comment-ta" id="aq-summary" placeholder="Коротко..." style="min-height:90px">${esc(drawerData.summary||'')}</textarea>
       </div>
       <div class="field" style="margin-bottom:12px">
         <div class="fl">Заметки на следующую смену</div>
@@ -904,27 +1051,46 @@ async function deleteComment(id){
   } catch(e){ showToast(e.message, true); }
 }
 
-async function addVenue(){
+async function setVenueAtt(venueId, attitude){
   try{
-    const venue_id = document.getElementById('v-add').value;
-    const attitude = document.getElementById('v-att').value;
-    if(!venue_id){ showToast('Выберите площадку', true); return; }
-    await api('POST', `/aq/staff/${drawerId}/venues`, { venue_id, attitude });
-    showToast('Площадка добавлена');
+    const linked = drawerData.venues || [];
+    const cur = linked.find(v=>String(v.venue_id)===String(venueId));
+    if(cur && cur.attitude === attitude){
+      // Toggle off — remove
+      await api('DELETE', `/aq/staff/${drawerId}/venues/${venueId}`);
+    } else if(cur){
+      // Change attitude — remove then add
+      await api('DELETE', `/aq/staff/${drawerId}/venues/${venueId}`);
+      await api('POST', `/aq/staff/${drawerId}/venues`, { venue_id: venueId, attitude });
+    } else {
+      // New — add
+      await api('POST', `/aq/staff/${drawerId}/venues`, { venue_id: venueId, attitude });
+    }
     drawerData = await api('GET', `/aq/staff/${drawerId}`);
     renderDrawerTab();
     await reloadAll();
   } catch(e){ showToast(e.message, true); }
 }
 
-async function removeVenue(venueId){
-  try{
-    await api('DELETE', `/aq/staff/${drawerId}/venues/${venueId}`);
-    showToast('Площадка убрана');
-    drawerData = await api('GET', `/aq/staff/${drawerId}`);
-    renderDrawerTab();
-    await reloadAll();
-  } catch(e){ showToast(e.message, true); }
+function toggleVenueGroup(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const ico = document.getElementById(id+'-ico');
+  if(el.style.display==='none'){
+    el.style.display='block';
+    if(ico) ico.textContent='▲';
+  } else {
+    el.style.display='none';
+    if(ico) ico.textContent='▼';
+  }
+}
+
+function filterAqVenueSearch(){
+  const q = (document.getElementById('aq-venue-search')?.value||'').toLowerCase();
+  document.querySelectorAll('.venue-row').forEach(row=>{
+    const name = row.querySelector('.venue-row-name')?.textContent?.toLowerCase()||'';
+    row.style.display = !q || name.includes(q) ? 'flex' : 'none';
+  });
 }
 
 async function uploadPhoto(ev){
