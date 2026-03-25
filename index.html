@@ -706,6 +706,68 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </div>
 </div>
 
+<!-- ── MENTORSHIP: назначить подопечного ── -->
+<div class="overlay" id="mentorship-modal" onclick="if(event.target===this)closeMentorAssignModal()">
+<div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+  <div class="modal-title"><span>Назначить подопечного</span><button class="dr-close" onclick="closeMentorAssignModal()">×</button></div>
+  <div style="font-size:13px;margin-bottom:12px">Наставник: <b id="mm-mentor-name"></b></div>
+  <div class="field" style="margin-bottom:12px">
+    <div class="fl">Подопечный</div>
+    <select class="fselect" id="mm-mentee" style="width:100%"></select>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <div class="fl">Тип бонуса</div>
+      <select class="fselect" id="mm-bonus-type">
+        <option value="percent_revenue">% от выручки подопечного</option>
+        <option value="fixed">Фикс за период</option>
+        <option value="none">Без бонуса</option>
+      </select>
+    </div>
+    <div class="field">
+      <div class="fl">Значение</div>
+      <input class="fin" id="mm-bonus-value" type="number" step="0.1" min="0" value="1.0" placeholder="1.0"/>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <div class="fl">Срок (мес.)</div>
+      <input class="fin" id="mm-duration" type="number" min="1" max="60" value="6"/>
+    </div>
+    <div class="field">
+      <div class="fl">Мин. смен/мес</div>
+      <input class="fin" id="mm-min-shifts" type="number" min="0" value="4"/>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeMentorAssignModal()">Отмена</button>
+    <button class="btn btn-primary" onclick="submitMentorAssign()">Создать</button>
+  </div>
+</div>
+</div>
+
+<!-- ── MENTORSHIP: управление (HR) ── -->
+<div class="overlay" id="mentorship-mgmt-overlay" onclick="if(event.target===this)closeMentorshipMgmt()">
+<div class="modal" onclick="event.stopPropagation()" style="max-width:920px;max-height:92vh;display:flex;flex-direction:column">
+  <div class="modal-title"><span>👥 Управление кураторством</span><button class="dr-close" onclick="closeMentorshipMgmt()">×</button></div>
+  <div style="flex:1;overflow-y:auto;padding-right:4px">
+    <div id="mentorship-dash-body" style="margin-bottom:20px"></div>
+    <div id="mentorship-active-list" style="margin-bottom:20px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">Расчёт бонусов за месяц</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px">
+        <div class="field" style="margin:0">
+          <div class="fl">Месяц</div>
+          <input class="fin" type="month" id="mentorship-calc-month"/>
+        </div>
+        <button class="btn btn-primary" onclick="runMentorshipCalc()">Рассчитать бонусы</button>
+      </div>
+      <div id="mentorship-calc-result"></div>
+    </div>
+  </div>
+</div>
+</div>
+
 <script>
 // ── CONFIG ──
 // Замените на URL вашего сервера после деплоя
@@ -775,6 +837,15 @@ const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
 const canEditCard = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin','site_specialist']);
 const canManageComments = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
 const canPassport = () => currentUser?.role === 'admin' || currentUser?.role === 'hr_director';
+const canMentorshipHR = () => hasAnyRole(['hr_director', 'exec_director', 'admin']);
+function getDrawerTabIndices() {
+  const idx = { info: 0, comments: 1 };
+  let n = 2;
+  if (can('admin')) { idx.history = n++; }
+  if (canMentorshipHR()) { idx.mentorship = n++; }
+  idx.achievements = n++;
+  return idx;
+}
 
 // ── API HELPER ──
 async function api(method, path, body) {
@@ -1175,6 +1246,7 @@ function setupToolbarActions() {
   const el = document.getElementById('toolbar-actions');
   const btns = [];
   if (canEditCard()) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
+  if (canMentorshipHR()) btns.push(`<button class="btn btn-ghost" onclick="openMentorshipMgmt()" title="Кураторство и бонусы">👥 Кураторство</button>`);
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
   if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
@@ -1813,6 +1885,7 @@ function buildTabs(ph){
   const tabs = [{ label:'Информация' }];
   tabs.push({ label:'Комментарии' });
   if(can('admin')) tabs.push({ label:'История' });
+  if(canMentorshipHR()) tabs.push({ label:'👥 Кураторство' });
   tabs.push({ label:'🏆 Достижения' });
 
   document.getElementById('tabs').innerHTML = tabs.map((t,i)=>
@@ -1829,12 +1902,14 @@ function switchTab(i){
 
 function renderTab(ph){
   const content = document.getElementById('tab-content');
-  if(currentTab===0) content.innerHTML = renderInfoTab(ph);
-  if(currentTab===1) content.innerHTML = renderCommentsTab(ph);
-  if(currentTab===2) content.innerHTML = renderHistoryTab(ph);
-  if(currentTab===3) { renderAchievementsTab(ph, content); return; }
-  if(currentTab===0 && canEditCard()) setupInfoEvents();
-  if(currentTab===1) setupCommentEvents(ph.id);
+  const T = getDrawerTabIndices();
+  if(currentTab===T.info) content.innerHTML = renderInfoTab(ph);
+  else if(currentTab===T.comments) content.innerHTML = renderCommentsTab(ph);
+  else if(T.history !== undefined && currentTab===T.history) content.innerHTML = renderHistoryTab(ph);
+  else if(T.mentorship !== undefined && currentTab===T.mentorship) { renderMentorshipTab(ph, content); return; }
+  else if(currentTab===T.achievements) { renderAchievementsTab(ph, content); return; }
+  if(currentTab===T.info && canEditCard()) setupInfoEvents();
+  if(currentTab===T.comments) setupCommentEvents(ph.id);
 }
 
 function renderInfoTab(ph){
@@ -2050,9 +2125,20 @@ function renderInfoTab(ph){
           <input type="checkbox" id="edit-ph-is-trainer" ${ph.is_trainer?'checked':''} style="cursor:pointer"/> 🎓 Тренер
         </label>
         <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="edit-ph-is-curator" ${ph.is_curator?'checked':''} style="cursor:pointer"/> 🧭 Куратор
+          <input type="checkbox" id="edit-ph-is-curator" ${ph.is_curator?'checked':''} style="cursor:pointer"/> 🧭 Куратор (MLM-бонусы)
         </label>
       </div>
+      ${canMentorshipHR() ? `
+      <div class="fl" style="margin-bottom:6px;margin-top:4px">Наставничество</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="edit-ph-can-be-mentor" ${ph.can_be_mentor?'checked':''} style="cursor:pointer"/> Может быть наставником
+        </label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:var(--text2)">Макс. подопечных</span>
+          <input type="number" class="fin" id="edit-ph-mentor-max" min="1" max="99" value="${ph.mentor_max_mentees!=null?ph.mentor_max_mentees:3}" style="width:56px;padding:6px 8px;font-size:13px"/>
+        </div>
+      </div>` : ''}
     </div>` : `
     <div style="margin-bottom:14px">
       <div class="fl" style="margin-bottom:4px">Роль</div>
@@ -2226,6 +2312,308 @@ function renderHistoryTab(ph){
     <button class="btn btn-ghost" onclick="loadAudit('${ph.id}')">Загрузить историю</button>
     <div id="audit-list" style="margin-top:16px"></div>
   </div>`;
+}
+
+async function renderMentorshipTab(ph, content) {
+  content.innerHTML = '<div class="loading" style="padding:20px;color:var(--text3)">Загрузка...</div>';
+  try {
+    const [asMentor, asMentee] = await Promise.all([
+      api('GET', `/mentorships?mentor_id=${ph.id}`).catch(() => []),
+      api('GET', `/mentorships?mentee_id=${ph.id}`).catch(() => []),
+    ]);
+    const listM = Array.isArray(asMentor) ? asMentor : [];
+    const listE = Array.isArray(asMentee) ? asMentee : [];
+    const activeM = listM.filter(m => m.status === 'active');
+    const activeE = listE.filter(m => m.status === 'active');
+    const maxM = ph.mentor_max_mentees != null ? ph.mentor_max_mentees : 3;
+    const canHR = canMentorshipHR();
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      const D = new Date(d);
+      return isNaN(D.getTime()) ? esc(String(d)) : D.toLocaleDateString('ru-RU');
+    }
+    function fmtMoney(n) {
+      const x = Number(n) || 0;
+      return x.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + '₽';
+    }
+    function estBonus(m) {
+      const rev = parseFloat(m.mentee_revenue) || 0;
+      const bt = m.bonus_type || 'percent_revenue';
+      if (bt === 'none') return 0;
+      if (bt === 'percent_revenue') return Math.round(rev * parseFloat(m.bonus_value || 0) / 100 * 100) / 100;
+      if (bt === 'fixed') return parseFloat(m.bonus_value||0);
+      return 0;
+    }
+    function bonusDesc(m) {
+      const bt = m.bonus_type || 'percent_revenue';
+      if (bt === 'none') return 'нет';
+      if (bt === 'percent_revenue') return `${parseFloat(m.bonus_value||0)}% от выручки`;
+      if (bt === 'fixed') return `фикс ${fmtMoney(m.bonus_value)}`;
+      return '—';
+    }
+
+    let bonusRows = [];
+    if (ph.can_be_mentor && listM.length) {
+      const details = await Promise.all(listM.map(m => api('GET', `/mentorships/${m.id}`).catch(() => ({ bonuses: [] }))));
+      details.forEach((d, i) => {
+        const menteeName = listM[i].mentee_name || '';
+        (d.bonuses || []).forEach(b => {
+          bonusRows.push({
+            period: `${fmtDate(b.period_start)} — ${fmtDate(b.period_end)}`,
+            mentee: menteeName,
+            shifts: b.mentee_shifts_count,
+            revenue: b.mentee_revenue,
+            bonus: b.bonus_amount,
+            status: String(b.status || '') + (b.is_eligible === false ? ' (не выполнено условие смен)' : ''),
+          });
+        });
+      });
+      bonusRows.sort((a, b) => a.period.localeCompare(b.period));
+      bonusRows.reverse();
+    }
+
+    let html = '';
+
+    if (!ph.can_be_mentor && !activeE.length) {
+      html += `<div style="padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);font-size:14px;color:var(--text2)">
+        Кураторство не активно. Включите «Может быть наставником» в настройках на вкладке «Информация».
+      </div>`;
+    }
+
+    if (ph.can_be_mentor) {
+      html += `<div style="margin-bottom:18px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px">👨‍🏫 Наставник</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Лимит: ${activeM.length}/${maxM} подопечных</div>`;
+
+      if (activeM.length === 0) {
+        html += `<div style="color:var(--text3);font-size:13px;margin-bottom:10px">Нет активных подопечных</div>`;
+      } else {
+        html += activeM.map(m => `
+          <div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+            <div style="font-weight:600;font-size:14px">${esc(m.mentee_name || '')}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:6px">
+              Смен: ${m.mentee_shifts ?? 0} &nbsp;|&nbsp; Выручка: ${fmtMoney(m.mentee_revenue)} &nbsp;|&nbsp;
+              Бонус: ${fmtMoney(estBonus(m))} &nbsp;|&nbsp; с ${fmtDate(m.started_at)}
+            </div>
+            ${canHR ? `<button class="btn btn-ghost" style="margin-top:10px;font-size:12px;padding:5px 12px" onclick="endMentorship('${m.id}')">Завершить</button>` : ''}
+          </div>
+        `).join('');
+      }
+      if (canHR) {
+        html += `<button class="btn btn-primary" style="margin-top:8px;font-size:13px" onclick="openMentorAssignModal()">+ Назначить подопечного</button>`;
+      }
+      html += `</div>`;
+    }
+
+    activeE.forEach(m => {
+      html += `<div style="margin-bottom:18px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">🎓 Подопечный</div>
+        <div style="font-size:13px">Куратор: <b>${esc(m.mentor_name||'')}</b></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:6px">Период: ${fmtDate(m.started_at)} — ${fmtDate(m.ends_at)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px">Бонус куратору: ${bonusDesc(m)} | Мин. смен/мес: ${m.min_mentee_shifts_per_month ?? 4}</div>
+      </div>`;
+    });
+
+    if (ph.can_be_mentor && bonusRows.length) {
+      html += `<div style="margin-top:8px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">История бонусов</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="text-align:left;color:var(--text3);border-bottom:1px solid var(--border)">
+            <th style="padding:6px 4px">Период</th><th>Подопечный</th><th>Смены</th><th>Выручка</th><th>Бонус</th><th>Статус</th>
+          </tr></thead>
+          <tbody>
+          ${bonusRows.map(r => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 4px">${esc(r.period)}</td>
+            <td>${esc(r.mentee)}</td>
+            <td>${r.shifts}</td>
+            <td>${fmtMoney(r.revenue)}</td>
+            <td>${fmtMoney(r.bonus)}</td>
+            <td>${esc(r.status)}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table></div></div>`;
+    } else if (ph.can_be_mentor && listM.length) {
+      html += `<div style="font-size:12px;color:var(--text3);margin-top:12px">История бонусов пока пуста.</div>`;
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = `<div style="color:var(--rank3);padding:12px">${esc(e.message)}</div>`;
+  }
+}
+
+async function endMentorship(mid) {
+  if (!canMentorshipHR()) return;
+  if (!confirm('Завершить кураторство?')) return;
+  try {
+    await api('PATCH', `/mentorships/${mid}`, { status: 'completed', end_reason: 'manual' });
+    showToast('Кураторство завершено');
+    const ph = await api('GET', `/photographers/${currentDrawerId}`);
+    editState._ph = ph;
+    renderTab(editState._ph);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function openMentorAssignModal() {
+  if (!canMentorshipHR() || !currentDrawerId) return;
+  document.getElementById('mentorship-modal').classList.add('open');
+  document.getElementById('mm-mentor-name').textContent = editState._ph?.name || '';
+  try {
+    const [allPh, activeMs] = await Promise.all([
+      api('GET', '/photographers'),
+      api('GET', '/mentorships?status=active').catch(() => []),
+    ]);
+    const taken = new Set((activeMs || []).map(m => m.mentee_id));
+    const sel = document.getElementById('mm-mentee');
+    const opts = (allPh || []).filter(p => p.is_active !== false && p.id !== currentDrawerId && !taken.has(p.id))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    sel.innerHTML = '<option value="">— выберите подопечного —</option>' + opts.map(p =>
+      `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    document.getElementById('mm-bonus-type').value = 'percent_revenue';
+    document.getElementById('mm-bonus-value').value = '1.0';
+    document.getElementById('mm-duration').value = '6';
+    document.getElementById('mm-min-shifts').value = '4';
+  } catch (e) {
+    showToast(e.message, true);
+  }
+}
+
+function closeMentorAssignModal() {
+  document.getElementById('mentorship-modal').classList.remove('open');
+}
+
+async function submitMentorAssign() {
+  const menteeId = document.getElementById('mm-mentee').value;
+  if (!menteeId) { showToast('Выберите подопечного', true); return; }
+  try {
+    await api('POST', '/mentorships', {
+      mentor_id: currentDrawerId,
+      mentee_id: menteeId,
+      bonus_type: document.getElementById('mm-bonus-type').value,
+      bonus_value: parseFloat(document.getElementById('mm-bonus-value').value) || 1,
+      bonus_duration_months: parseInt(document.getElementById('mm-duration').value, 10) || 6,
+      min_mentee_shifts_per_month: parseInt(document.getElementById('mm-min-shifts').value, 10) || 4,
+    });
+    closeMentorAssignModal();
+    showToast('Связка создана');
+    const ph = await api('GET', `/photographers/${currentDrawerId}`);
+    editState._ph = ph;
+    renderTab(editState._ph);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function openMentorshipMgmt() {
+  document.getElementById('mentorship-mgmt-overlay').classList.add('open');
+  await loadMentorshipMgmt();
+}
+
+function closeMentorshipMgmt() {
+  document.getElementById('mentorship-mgmt-overlay').classList.remove('open');
+}
+
+async function loadMentorshipMgmt() {
+  const dashEl = document.getElementById('mentorship-dash-body');
+  const listEl = document.getElementById('mentorship-active-list');
+  const im = document.getElementById('mentorship-calc-month');
+  if (im && !im.value) {
+    const d = new Date();
+    im.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (dashEl) dashEl.innerHTML = '<span style="color:var(--text3)">Загрузка...</span>';
+  if (listEl) listEl.innerHTML = '';
+  try {
+    const [dash, active] = await Promise.all([
+      api('GET', '/mentorships/dashboard'),
+      api('GET', '/mentorships?status=active'),
+    ]);
+    const st = dash.stats || {};
+    if (dashEl) {
+      dashEl.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <span style="padding:8px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:13px">Активных: <b>${st.active_count ?? 0}</b></span>
+          <span style="padding:8px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:13px">Завершённых: <b>${st.completed_count ?? 0}</b></span>
+          <span style="padding:8px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:13px">Ушёл (quit): <b>${st.mentee_quit_count ?? 0}</b></span>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Наставники по активным связкам</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="text-align:left;color:var(--text3);border-bottom:1px solid var(--border)">
+            <th style="padding:6px 4px">Наставник</th><th>Подопечных</th><th>Грейд</th>
+          </tr></thead>
+          <tbody>
+          ${(dash.mentors || []).map(m => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 4px">${esc(m.mentor_name||'')}</td>
+            <td>${m.mentees_count}</td>
+            <td>${esc(m.grade||'—')}</td>
+          </tr>`).join('') || '<tr><td colspan="3" style="color:var(--text3);padding:8px">Нет данных</td></tr>'}
+          </tbody>
+        </table></div>`;
+    }
+    if (listEl) {
+      const rows = Array.isArray(active) ? active : [];
+      listEl.innerHTML = `
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Все активные связки</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="text-align:left;color:var(--text3);border-bottom:1px solid var(--border)">
+            <th style="padding:6px 4px">Наставник</th><th>Подопечный</th><th>Срок до</th><th>Бонус</th>
+          </tr></thead>
+          <tbody>
+          ${rows.map(r => {
+            const bt = r.bonus_type || 'percent_revenue';
+            const bonusTxt = bt === 'none' ? 'нет' : bt === 'percent_revenue' ? `${parseFloat(r.bonus_value||0)}%` : `фикс ${Number(r.bonus_value||0)}₽`;
+            return `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px 4px">${esc(r.mentor_name||'')}</td>
+              <td>${esc(r.mentee_name||'')}</td>
+              <td>${r.ends_at ? new Date(r.ends_at).toLocaleDateString('ru-RU') : '—'}</td>
+              <td>${esc(bonusTxt)}</td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="4" style="color:var(--text3);padding:8px">Нет активных связок</td></tr>'}
+          </tbody>
+        </table></div>`;
+    }
+  } catch (e) {
+    if (dashEl) dashEl.innerHTML = `<span style="color:var(--rank3)">${esc(e.message)}</span>`;
+  }
+}
+
+async function runMentorshipCalc() {
+  const monthEl = document.getElementById('mentorship-calc-month');
+  const month = monthEl?.value;
+  if (!month) { showToast('Укажите месяц', true); return; }
+  const out = document.getElementById('mentorship-calc-result');
+  if (out) out.innerHTML = '<span style="color:var(--text3)">Считаем...</span>';
+  try {
+    const res = await api('POST', '/mentorships/calc-bonuses', { month });
+    const results = res.results || [];
+    if (out) {
+      out.innerHTML = `
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Результат за ${esc(month)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Проверено связок: ${res.mentorships_checked}, создано записей бонусов: ${res.bonuses_created}</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="text-align:left;color:var(--text3);border-bottom:1px solid var(--border)">
+            <th style="padding:6px 4px">Наставник</th><th>Подопечный</th><th>Смены</th><th>Выручка</th><th>Бонус</th><th>Условие</th>
+          </tr></thead>
+          <tbody>
+          ${results.map(r => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 4px">${esc(r.mentor||'')}</td>
+            <td>${esc(r.mentee||'')}</td>
+            <td>${r.shifts}</td>
+            <td>${(Number(r.revenue)||0).toLocaleString('ru-RU')}₽</td>
+            <td>${(Number(r.bonus)||0).toLocaleString('ru-RU')}₽</td>
+            <td>${r.eligible ? 'да' : 'нет'}</td>
+          </tr>`).join('') || '<tr><td colspan="6" style="color:var(--text3);padding:8px">Нет данных</td></tr>'}
+          </tbody>
+        </table></div>`;
+    }
+    showToast(`Готово: ${res.bonuses_created} записей бонусов`);
+  } catch (e) {
+    if (out) out.innerHTML = `<span style="color:var(--rank3)">${esc(e.message)}</span>`;
+    showToast(e.message, true);
+  }
 }
 
 async function loadAudit(pid){
@@ -2452,6 +2840,8 @@ async function saveCard(){
     const employeeRoleEl = document.getElementById('edit-ph-employee-role');
     const isTrainerEl = document.getElementById('edit-ph-is-trainer');
     const isCuratorEl = document.getElementById('edit-ph-is-curator');
+    const canBeMentorEl = document.getElementById('edit-ph-can-be-mentor');
+    const mentorMaxEl = document.getElementById('edit-ph-mentor-max');
 
     await api('PATCH', `/photographers/${currentDrawerId}`, {
       name:         nameEl?.value.trim()    || undefined,
@@ -2472,6 +2862,8 @@ async function saveCard(){
       employee_role: employeeRoleEl?.value || undefined,
       is_trainer: isTrainerEl?.checked ?? undefined,
       is_curator: isCuratorEl?.checked ?? undefined,
+      ...(canMentorshipHR() && canBeMentorEl ? { can_be_mentor: !!canBeMentorEl.checked } : {}),
+      ...(canMentorshipHR() && mentorMaxEl ? { mentor_max_mentees: parseInt(mentorMaxEl.value, 10) || 3 } : {}),
     });
     await loadPhotographers();
     render();
