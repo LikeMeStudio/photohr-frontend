@@ -148,38 +148,6 @@ a{color:inherit;text-decoration:none}
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;align-items:center;justify-content:center;cursor:zoom-out}
 .lightbox.open{display:flex}
 .lightbox img{max-width:90vw;max-height:90vh;border-radius:12px;object-fit:contain}
-
-/* Rank buttons — медь/серебро/золото */
-.rank-opts{display:flex;gap:8px}
-.rank-opt{flex:1;padding:10px 6px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;text-align:center;transition:all .2s}
-.rank-opt.sel-1{
-  border-color:#cd7f32;
-  color:#f4a460;
-  background:linear-gradient(135deg,#3d1f00 0%,#5c2e00 40%,#3d1f00 100%);
-  box-shadow:0 0 12px rgba(205,127,50,.3),inset 0 1px 0 rgba(255,200,100,.15);
-  text-shadow:0 0 8px rgba(244,164,96,.6);
-}
-.rank-opt.sel-2{
-  border-color:#a8b8c8;
-  color:#d8e8f8;
-  background:linear-gradient(135deg,#1a2030 0%,#2a3545 40%,#1a2030 100%);
-  box-shadow:0 0 12px rgba(168,184,200,.25),inset 0 1px 0 rgba(220,235,255,.15);
-  text-shadow:0 0 8px rgba(216,232,248,.5);
-}
-.rank-opt.sel-3{
-  border-color:#c9a84c;
-  color:#ffd700;
-  background:linear-gradient(135deg,#2a1f00 0%,#3d2e00 40%,#2a1f00 100%);
-  box-shadow:0 0 12px rgba(201,168,76,.35),inset 0 1px 0 rgba(255,230,100,.2);
-  text-shadow:0 0 8px rgba(255,215,0,.7);
-}
-
-/* Score slider */
-.score-wrap{display:flex;align-items:center;gap:12px}
-.frank{flex:1;-webkit-appearance:none;height:5px;border-radius:3px;background:var(--bg3);outline:none;border:none;cursor:pointer}
-.frank::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
-.score-disp{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;min-width:30px;text-align:center}
-.score-hints{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px}
 </style>
 </head>
 <body>
@@ -580,52 +548,6 @@ let drawerId = null;
 let drawerTab = 0;
 let drawerData = null;
 
-// Состояние для интерактивных элементов
-let editState = { rank: null, sales_score: 0, score_quality: 0, score_looks: 0, score_social: 0 };
-
-function setRank(r){
-  editState.rank = r;
-  document.querySelectorAll('.rank-opt').forEach((b,i)=>{
-    b.className = `rank-opt ${editState.rank===i+1?`sel-${i+1}`:''}`;
-  });
-}
-
-function setScore(v){
-  editState.sales_score = v;
-  const disp = document.getElementById('aq-sales-disp');
-  if(disp){
-    disp.textContent = v;
-    disp.style.color = v>=8?'var(--rank1)':v>=5?'var(--rank2)':v>0?'var(--rank3)':'var(--text3)';
-  }
-}
-
-function setStar(key, val){
-  editState[key] = editState[key]===val ? 0 : val;
-  const container = document.getElementById('stars-'+key);
-  if(!container) return;
-  container.querySelectorAll('span').forEach((s,i)=>{
-    s.style.color = i < editState[key] ? '#f5a623' : 'var(--border2)';
-  });
-}
-
-function hoverStar(key, val){
-  const container = document.getElementById('stars-'+key);
-  if(!container) return;
-  container.querySelectorAll('span').forEach((s,i)=>{
-    s.style.color = i < val ? '#f5a623' : 'var(--border2)';
-    s.style.transform = i < val ? 'scale(1.15)' : '';
-  });
-}
-
-function unhoverStar(key){
-  const container = document.getElementById('stars-'+key);
-  if(!container) return;
-  container.querySelectorAll('span').forEach((s,i)=>{
-    s.style.color = i < editState[key] ? '#f5a623' : 'var(--border2)';
-    s.style.transform = '';
-  });
-}
-
 function closeDrawer(){
   document.getElementById('drawer-bg').classList.remove('open');
   document.getElementById('drawer').classList.remove('open');
@@ -669,13 +591,6 @@ function onDrawerPhotoClick(e){
 async function openDrawer(id){
   drawerId=id; drawerTab=0;
   drawerData = await api('GET', `/aq/staff/${id}`);
-  editState = {
-    rank: drawerData.rank,
-    sales_score: drawerData.sales_score ?? 0,
-    score_quality: drawerData.score_quality ?? 0,
-    score_looks: drawerData.score_looks ?? 0,
-    score_social: drawerData.score_social ?? 0,
-  };
   document.getElementById('dr-name').textContent = drawerData.name || '—';
   document.getElementById('dr-hint').textContent = canEdit() ? 'Редактирование карточки' : 'Просмотр';
   updateDrawerPhoto(drawerData);
@@ -696,6 +611,10 @@ function infoSelect(id,label,value,opts){
 
 async function saveInfo(){
   try{
+    const rankVal = document.getElementById('aq-rank')?.value;
+    const sqVal = document.getElementById('aq-sq')?.value;
+    const slVal = document.getElementById('aq-sl')?.value;
+    const ssVal = document.getElementById('aq-ss')?.value;
     const patch = {
       name: document.getElementById('aq-name')?.value?.trim(),
       phone: document.getElementById('aq-phone')?.value?.trim() || null,
@@ -705,13 +624,13 @@ async function saveInfo(){
       start_date: document.getElementById('aq-start')?.value || null,
       employee_role: document.getElementById('aq-emp-role')?.value || null,
       hire_status: document.getElementById('aq-hire')?.value || null,
-      rank: editState.rank || null,
-      sales_score: editState.sales_score ?? null,
+      rank: rankVal ? Number(rankVal) : null,
+      sales_score: document.getElementById('aq-sales')?.value != null ? Number(document.getElementById('aq-sales').value) : null,
       is_active: document.getElementById('aq-active')?.value === 'true',
       is_trainer: document.getElementById('aq-trainer')?.value === 'true',
-      score_quality: editState.score_quality || null,
-      score_looks: editState.score_looks || null,
-      score_social: editState.score_social || null,
+      score_quality: (sqVal && sqVal!=='0') ? Number(sqVal) : null,
+      score_looks: (slVal && slVal!=='0') ? Number(slVal) : null,
+      score_social: (ssVal && ssVal!=='0') ? Number(ssVal) : null,
       grade: document.getElementById('aq-grade')?.value || null,
       grade_score: document.getElementById('aq-grade-score')?.value ? Number(document.getElementById('aq-grade-score').value) : null,
       summary: document.getElementById('aq-summary')?.value || null,
@@ -731,13 +650,6 @@ async function saveInfo(){
 function renderDrawerTab(){
   const el = document.getElementById('tab-content');
   if(!drawerData){ el.innerHTML=''; return; }
-
-  function readStars(val){
-    if(!val) return '<span style="font-size:13px;color:var(--text3)">не оценено</span>';
-    return Array.from({length:5},(_,i)=>
-      `<span style="font-size:18px;color:${i<val?'#f5a623':'var(--border2)'}">★</span>`
-    ).join('');
-  }
 
   const linked = drawerData.venues || [];
   const linkedIds = linked.map(v=>String(v.venue_id));
@@ -802,40 +714,21 @@ function renderDrawerTab(){
           ${infoField('Роль', AQ_ROLE_LABELS[drawerData.employee_role] || drawerData.employee_role)}
           ${infoField('Статус', drawerData.hire_status)}
         </div>
-        <div style="margin-bottom:14px">
-          <div class="fl" style="margin-bottom:8px">Ранг универсальности</div>
-          <div class="rank-opts">
-            ${[1,2,3].map(r=>`
-              <div class="rank-opt ${drawerData.rank===r?`sel-${r}`:''}" style="cursor:default;opacity:${drawerData.rank===r?1:0.3}">
-                ${'★'.repeat(r)} ${r===1?'Выборочно':r===2?'Может все':'Любит все'}<br/>
-                <span style="font-size:10px;opacity:.7">${r===1?'Работает только на отдельных':r===2?'Может на любых':'Любит все площадки'}</span>
-              </div>`).join('')}
-          </div>
-        </div>
         <div class="field-row">
+          ${infoField('Ранг универсальности', drawerData.rank ? `${'★'.repeat(drawerData.rank)} (${drawerData.rank})` : '—')}
           ${infoField('Продажи', drawerData.sales_score ?? '—')}
-          ${infoField('&nbsp;', '')}
-        </div>
-        <div style="margin-bottom:16px">
-          <div class="fl" style="margin-bottom:10px">Оценки сотрудника</div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-              <span style="font-size:13px;color:var(--text2)">🎨 Мастерство</span>
-              <div>${readStars(drawerData.score_quality)}</div>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-              <span style="font-size:13px;color:var(--text2)">✨ Внешний вид</span>
-              <div>${readStars(drawerData.score_looks)}</div>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-              <span style="font-size:13px;color:var(--text2)">💬 Общительность</span>
-              <div>${readStars(drawerData.score_social)}</div>
-            </div>
-          </div>
         </div>
         <div class="field-row">
           ${infoField('Грейд', drawerData.grade)}
           ${infoField('Тренер', drawerData.is_trainer ? 'Да' : 'Нет')}
+        </div>
+        <div class="field-row">
+          ${infoField('Мастерство', drawerData.score_quality ? `${'★'.repeat(drawerData.score_quality)}${'☆'.repeat(5-drawerData.score_quality)}` : '—')}
+          ${infoField('Внешний вид', drawerData.score_looks ? `${'★'.repeat(drawerData.score_looks)}${'☆'.repeat(5-drawerData.score_looks)}` : '—')}
+        </div>
+        <div class="field-row">
+          ${infoField('Общительность', drawerData.score_social ? `${'★'.repeat(drawerData.score_social)}${'☆'.repeat(5-drawerData.score_social)}` : '—')}
+          ${infoField('&nbsp;', '')}
         </div>
         <div style="margin-top:12px">
           <div class="fl">Описание</div>
@@ -875,60 +768,65 @@ function renderDrawerTab(){
           {value:'fired',label:'fired'}
         ])}
       </div>
-      <div style="margin-bottom:14px">
-        <div class="fl" style="margin-bottom:8px">Ранг универсальности</div>
-        <div class="rank-opts">
-          ${[1,2,3].map(r=>`
-            <button class="rank-opt ${editState.rank===r?`sel-${r}`:''}" onclick="setRank(${r})">
-              ${'★'.repeat(r)} ${r===1?'Выборочно':r===2?'Может все':'Любит все'}<br/>
-              <span style="font-size:10px;opacity:.7">${r===1?'Работает только на отдельных':r===2?'Может на любых':'Любит все площадки'}</span>
-            </button>`).join('')}
-        </div>
-      </div>
-      <div style="margin-bottom:16px">
-        <div class="fl" style="margin-bottom:8px">Оценка продаж</div>
-        <div class="score-wrap">
-          <input type="range" class="frank" min="0" max="10" step="1" value="${editState.sales_score}" id="aq-sales" oninput="setScore(parseInt(this.value))"/>
-          <div class="score-disp" id="aq-sales-disp" style="color:${editState.sales_score>=8?'var(--rank1)':editState.sales_score>=5?'var(--rank2)':editState.sales_score>0?'var(--rank3)':'var(--text3)'}">${editState.sales_score}</div>
-        </div>
-        <div class="score-hints"><span>0 нет</span><span>1–4 слабые</span><span>5–7 молодцы</span><span>8–10 топ</span></div>
-      </div>
-      <div style="margin-bottom:16px">
-        <div class="fl" style="margin-bottom:10px">Оценки сотрудника</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          ${[
-            {key:'score_quality', label:'🎨 Мастерство'},
-            {key:'score_looks',   label:'✨ Внешний вид'},
-            {key:'score_social',  label:'💬 Общительность'},
-          ].map(({key,label})=>`
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
-              <span style="font-size:13px;color:var(--text2)">${label}</span>
-              <div style="display:flex;gap:6px" id="stars-${key}">
-                ${[1,2,3,4,5].map(n=>`
-                  <span onclick="setStar('${key}',${n})" style="font-size:22px;cursor:pointer;line-height:1;transition:transform .1s;color:${editState[key]>=n?'#f5a623':'var(--border2)'}" onmouseenter="hoverStar('${key}',${n})" onmouseleave="unhoverStar('${key}')">★</span>
-                `).join('')}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-      <div class="field" style="margin-bottom:12px">
-        <div class="fl">Описание</div>
-        <textarea class="comment-ta" id="aq-summary" placeholder="Коротко..." style="min-height:90px">${esc(drawerData.summary||'')}</textarea>
-      </div>
       <div class="field-row">
+        ${infoSelect('aq-rank','Ранг универсальности',drawerData.rank,[
+          {value:'',label:'—'},
+          {value:'1',label:'★ Выборочно'},
+          {value:'2',label:'★★ Может все'},
+          {value:'3',label:'★★★ Любит все'}
+        ])}
         ${infoSelect('aq-active','is_active',drawerData.is_active===false?'false':'true',[
           {value:'true',label:'Активен'},
           {value:'false',label:'Неактивен'}
         ])}
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="fl">Оценка продаж (0–10)</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input class="fin" id="aq-sales" type="range" min="0" max="10" step="1" value="${esc(drawerData.sales_score??0)}" style="flex:1;padding:0;height:28px" oninput="document.getElementById('aq-sales-disp').textContent=this.value"/>
+          <div style="min-width:26px;text-align:center;font-family:'Unbounded',sans-serif;font-weight:600" id="aq-sales-disp">${esc(drawerData.sales_score??0)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px"><span>0 нет</span><span>1–4 слабые</span><span>5–7 молодцы</span><span>8–10 топ</span></div>
+      </div>
+      <div class="field-row">
         ${infoSelect('aq-trainer','Тренер',drawerData.is_trainer?'true':'false',[
           {value:'false',label:'Нет'},
           {value:'true',label:'Да'}
         ])}
+        ${infoInput('aq-grade','Грейд',drawerData.grade)}
       </div>
       <div class="field-row">
-        ${infoInput('aq-grade','Грейд',drawerData.grade)}
         ${infoInput('aq-grade-score','grade_score',drawerData.grade_score,'number')}
+        ${infoSelect('aq-sq','Мастерство',drawerData.score_quality??0,[
+          {value:'0',label:'не оценено'},
+          {value:'1',label:'★'},
+          {value:'2',label:'★★'},
+          {value:'3',label:'★★★'},
+          {value:'4',label:'★★★★'},
+          {value:'5',label:'★★★★★'}
+        ])}
+      </div>
+      <div class="field-row">
+        ${infoSelect('aq-sl','Внешний вид',drawerData.score_looks??0,[
+          {value:'0',label:'не оценено'},
+          {value:'1',label:'★'},
+          {value:'2',label:'★★'},
+          {value:'3',label:'★★★'},
+          {value:'4',label:'★★★★'},
+          {value:'5',label:'★★★★★'}
+        ])}
+        ${infoSelect('aq-ss','Общительность',drawerData.score_social??0,[
+          {value:'0',label:'не оценено'},
+          {value:'1',label:'★'},
+          {value:'2',label:'★★'},
+          {value:'3',label:'★★★'},
+          {value:'4',label:'★★★★'},
+          {value:'5',label:'★★★★★'}
+        ])}
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <div class="fl">Описание</div>
+        <textarea class="comment-ta" id="aq-summary" placeholder="Коротко..." style="min-height:90px">${esc(drawerData.summary||'')}</textarea>
       </div>
       <div class="field" style="margin-bottom:12px">
         <div class="fl">Заметки на следующую смену</div>
