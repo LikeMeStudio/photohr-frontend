@@ -842,7 +842,7 @@ function getDrawerTabIndices() {
   const idx = { info: 0, comments: 1 };
   let n = 2;
   if (can('admin')) { idx.history = n++; }
-  if (canMentorshipHR()) { idx.mentorship = n++; }
+  idx.mentorship = n++;
   idx.achievements = n++;
   return idx;
 }
@@ -1885,7 +1885,7 @@ function buildTabs(ph){
   const tabs = [{ label:'Информация' }];
   tabs.push({ label:'Комментарии' });
   if(can('admin')) tabs.push({ label:'История' });
-  if(canMentorshipHR()) tabs.push({ label:'👥 Кураторство' });
+  tabs.push({ label:'👥 Кураторство' });
   tabs.push({ label:'🏆 Достижения' });
 
   document.getElementById('tabs').innerHTML = tabs.map((t,i)=>
@@ -2353,6 +2353,43 @@ async function renderMentorshipTab(ph, content) {
       return '—';
     }
 
+    if (!canHR) {
+      const baseUrl = API.replace('/api','');
+      if (!activeE.length) {
+        content.innerHTML = `<div style="padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);font-size:14px;color:var(--text2)">
+      У этого сотрудника нет назначенного куратора.
+    </div>`;
+        return;
+      }
+      let html = '';
+      for (const m of activeE) {
+        let mentorInfo = null;
+        try {
+          mentorInfo = await api('GET', `/photographers/${m.mentor_id}`);
+        } catch (e) { /* нет доступа к карточке */ }
+        const av = mentorInfo?.photo_url
+          ? `<img src="${esc(baseUrl + mentorInfo.photo_url)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)"/>`
+          : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;color:var(--bg)">${esc((m.mentor_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2))}</div>`;
+        html += `<div style="padding:16px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px">🎓 Ваш куратор</div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+        ${av}
+        <div>
+          <div style="font-weight:600;font-size:15px">${esc(m.mentor_name||'')}</div>
+          ${mentorInfo?.phone ? `<div style="font-size:13px;color:var(--text2);margin-top:4px">📞 <a href="tel:${esc(mentorInfo.phone)}" style="color:var(--accent2)">${esc(mentorInfo.phone)}</a></div>` : ''}
+          ${mentorInfo?.email ? `<div style="font-size:13px;color:var(--text2);margin-top:2px">✉️ <a href="mailto:${esc(mentorInfo.email)}" style="color:var(--accent2)">${esc(mentorInfo.email)}</a></div>` : ''}
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text3)">
+        Период: ${fmtDate(m.started_at)} — ${fmtDate(m.ends_at)}
+      </div>
+      ${mentorInfo ? `<button class="btn btn-ghost" style="margin-top:12px;font-size:12px" onclick="openDrawer('${m.mentor_id}')">Открыть карточку куратора</button>` : ''}
+    </div>`;
+      }
+      content.innerHTML = html;
+      return;
+    }
+
     let bonusRows = [];
     if (ph.can_be_mentor && listM.length) {
       const details = await Promise.all(listM.map(m => api('GET', `/mentorships/${m.id}`).catch(() => ({ bonuses: [] }))));
@@ -2410,6 +2447,7 @@ async function renderMentorshipTab(ph, content) {
       html += `<div style="margin-bottom:18px;padding:14px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
         <div style="font-size:14px;font-weight:600;margin-bottom:8px">🎓 Подопечный</div>
         <div style="font-size:13px">Куратор: <b>${esc(m.mentor_name||'')}</b></div>
+        <button class="btn btn-ghost" style="margin-top:8px;font-size:11px" onclick="openDrawer('${m.mentor_id}')">Открыть карточку</button>
         <div style="font-size:12px;color:var(--text3);margin-top:6px">Период: ${fmtDate(m.started_at)} — ${fmtDate(m.ends_at)}</div>
         <div style="font-size:12px;color:var(--text2);margin-top:8px">Бонус куратору: ${bonusDesc(m)} | Мин. смен/мес: ${m.min_mentee_shifts_per_month ?? 4}</div>
       </div>`;
