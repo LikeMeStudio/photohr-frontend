@@ -84,6 +84,10 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 /* ── CARD ── */
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s;animation:fi .25s ease both}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+/* Toast — центр снизу, как на index.html */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 24px;border-radius:12px;font-size:13px;font-weight:500;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s ease;max-width:min(90vw,420px);text-align:center}
+.toast.show{opacity:1;pointer-events:auto}
+.toast.error{background:rgba(242,85,85,.15);border-color:rgba(242,85,85,.35);color:#fca5a5}
 .card:hover:not(.birthday-card){background:var(--card-h);border-color:var(--border2);transform:translateY(-2px)}
 .card.birthday-card:hover{background:var(--card-h);transform:translateY(-2px)}
 
@@ -703,7 +707,20 @@ async function api(method, path, body) {
 }
 
 function doLogout() { localStorage.removeItem('fhr_refresh'); localStorage.removeItem('fhr_access'); location.href = 'index.html'; }
-function showToast(msg, err) { const t = document.getElementById('toast'); t.textContent = msg; t.className = err ? 'toast error' : 'toast'; setTimeout(() => { t.className = 'toast'; }, 2600); }
+let toastTimer;
+function showToast(msg, isErr = false) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.className = isErr ? 'toast show error' : 'toast show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2500);
+}
 
 function photoSrc(url) {
   if (!url) return '';
