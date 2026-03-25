@@ -2843,7 +2843,7 @@ async function saveCard(){
     const canBeMentorEl = document.getElementById('edit-ph-can-be-mentor');
     const mentorMaxEl = document.getElementById('edit-ph-mentor-max');
 
-    await api('PATCH', `/photographers/${currentDrawerId}`, {
+    const _body = {
       name:         nameEl?.value.trim()    || undefined,
       phone:        phoneEl?.value.trim()   || null,
       email:        emailEl?.value.trim()   || null,
@@ -2864,7 +2864,11 @@ async function saveCard(){
       is_curator: isCuratorEl?.checked ?? undefined,
       ...(canMentorshipHR() && canBeMentorEl ? { can_be_mentor: !!canBeMentorEl.checked } : {}),
       ...(canMentorshipHR() && mentorMaxEl ? { mentor_max_mentees: parseInt(mentorMaxEl.value, 10) || 3 } : {}),
-    });
+    };
+    console.log('SAVE_CARD_BODY', JSON.stringify(_body));
+    console.log('SAVE_CARD_KEYS', Object.keys(_body).filter(k => _body[k] !== undefined));
+
+    await api('PATCH', `/photographers/${currentDrawerId}`, _body);
     await loadPhotographers();
     render();
     closeDrawer();
