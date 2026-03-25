@@ -788,11 +788,16 @@ async function confirmReject() {
     // Маппинг: какой reject-этап соответствует текущему
     const rejStages = allStages.filter(s => s.funnel === 'rejected').sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     let targetRejectStage = rejStages[0]; // default: первый
-    if (currentOrder <= 1) targetRejectStage = rejStages.find(s => s.name.includes('отклика')) || rejStages[0];
+    // sort_order 1-2: Новый отклик, Приглашен → после отклика
+    if (currentOrder <= 2) targetRejectStage = rejStages.find(s => s.name.includes('отклика')) || rejStages[0];
+    // sort_order 3-4: Пришёл, Прошёл 1-ю часть → после обучения ч.1
     else if (currentOrder <= 4) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.1')) || rejStages[1] || rejStages[0];
-    else if (currentOrder <= 6) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.2')) || rejStages[2] || rejStages[0];
+    // sort_order 5-7: Придёт на 2-ю, Прошёл 2-ю, Назначена стажировка → после обучения ч.2
+    else if (currentOrder <= 7) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.2')) || rejStages[2] || rejStages[0];
+    // sort_order 10-12: Ожидает/Пришёл/Прошёл стажировку → после стажировки
     else if (currentOrder <= 12) targetRejectStage = rejStages.find(s => s.name.includes('стажировки')) || rejStages[3] || rejStages[0];
-    else if (currentOrder <= 14) targetRejectStage = rejStages.find(s => s.name.includes('первых выходов')) || rejStages[4] || rejStages[0];
+    // sort_order 13-14: Первые выходы, Принят → после первых выходов
+    else targetRejectStage = rejStages.find(s => s.name.includes('первых выходов')) || rejStages[4] || rejStages[0];
 
     if (!targetRejectStage) { showToast('Нет этапа для отказа', true); return; }
 
