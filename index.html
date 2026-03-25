@@ -312,9 +312,9 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <div style="margin-bottom:14px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Я регистрируюсь как</div>
         <div style="display:flex;gap:6px">
-          <button class="f-btn active" id="reg-type-staff" onclick="setRegType('staff')" style="flex:1;padding:8px">👤 Сотрудник</button>
-          <button class="f-btn" id="reg-type-photographer" onclick="setRegType('photographer')" style="flex:1;padding:8px">📷 Фотограф</button>
+          <button class="f-btn active" id="reg-type-photographer" onclick="setRegType('photographer')" style="flex:1;padding:8px">📷 Фотограф</button>
           <button class="f-btn" id="reg-type-aquagrim" onclick="setRegType('aquagrim')" style="flex:1;padding:8px">🎨 Аквагримёр</button>
+          <button class="f-btn" id="reg-type-staff" onclick="setRegType('staff')" style="flex:1;padding:8px">👤 Сотрудник</button>
         </div>
       </div>
       <div style="margin-bottom:14px">
@@ -797,10 +797,10 @@ function switchAuthTab(tab) {
   document.getElementById('login-success').style.display = 'none';
 }
 
-let registerAccountType = 'staff';
+let registerAccountType = 'photographer';
 function setRegType(type) {
   registerAccountType = type;
-  ['staff','photographer','aquagrim'].forEach(t => {
+  ['photographer','aquagrim','staff'].forEach(t => {
     document.getElementById('reg-type-' + t).classList.toggle('active', t === type);
   });
   const hint = document.getElementById('reg-hint');
@@ -808,7 +808,7 @@ function setRegType(type) {
     hint.textContent = '📷 Если ваш email совпадает с карточкой в системе — аккаунт привяжется автоматически';
     hint.style.display = 'block';
   } else if (type === 'aquagrim') {
-    hint.textContent = '🎨 Регистрация для аквагримёров';
+    hint.textContent = '🎨 Если ваш email совпадает с карточкой в системе — аккаунт привяжется автоматически';
     hint.style.display = 'block';
   } else {
     hint.style.display = 'none';
