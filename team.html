@@ -11,178 +11,379 @@
   --border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;
   --accent:#7c6cff;--accent2:#9b8dff;
   --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
+  --love:#3ecf8e;--dislike:#f25555;--can:#9090a8;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-a{color:inherit;text-decoration:none}
+
+/* ── LOGIN ── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:400px}
+.login-logo{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;margin-bottom:8px}
+.login-logo span{color:var(--accent2)}
+.login-sub{font-size:14px;color:var(--text2);margin-bottom:32px}
+.login-error{background:rgba(242,85,85,.1);border:1px solid rgba(242,85,85,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--rank3);margin-bottom:16px;display:none}
+.login-success{background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--rank1);margin-bottom:16px;display:none}
+.login-tabs{display:flex;gap:0;margin-bottom:24px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.login-tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:500;background:transparent;color:var(--text2);border:none;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
+.login-tab.active{background:var(--accent);color:#fff}
+.login-tab:hover:not(.active){color:var(--text)}
+.or-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text3);font-size:12px}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.google-btn{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .15s}
+.google-btn:hover{border-color:var(--border2);background:var(--card-h)}
+.google-btn svg{width:18px;height:18px}
+.pending-screen{text-align:center;padding:60px 20px}
+.pending-icon{font-size:48px;margin-bottom:16px}
+.pending-title{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600;margin-bottom:8px}
+.pending-text{color:var(--text2);font-size:14px;line-height:1.6;max-width:360px;margin:0 auto 24px}
+.pending-badge{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:500}
+.pending-badge.verified{background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);color:var(--rank1)}
+.pending-badge.unverified{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--rank2)}
+.approve-row{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:8px}
+.approve-row .badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:500}
+.badge-verified{background:rgba(62,207,142,.15);color:var(--rank1)}
+.badge-google{background:rgba(124,108,255,.15);color:var(--accent2)}
+.badge-pending{background:rgba(245,166,35,.15);color:var(--rank2)}
+
+/* ── MAIN APP ── */
+#app{display:none}
 .header{padding:18px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}
 .logo span{color:var(--accent2)}
-.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
-.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
-.nav-btn:hover{color:var(--text)}
-.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px;margin-left:auto}
-.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;font-family:'Golos Text',sans-serif}
+.header-stats{display:flex;gap:16px;flex:1}
+.stat{text-align:center}
+.stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.role-dot{width:7px;height:7px;border-radius:50%}
+
+/* ── FILTERS ── */
 .toolbar{padding:12px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.f-btn:hover{color:var(--text)}
+.f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+#fb-r1.active{background:#3d2000;color:#e8a060;border-color:#b87333}
+#fb-r2.active{background:#1a2030;color:#b8cce0;border-color:#8a9bb0}
+#fb-r3.active{background:#2a2000;color:#d4b840;border-color:#c9a84c}
+.f-zero.active{background:#3a3a4a;border-color:#5a5a72;color:var(--text)}
+.f-weak.active{background:rgba(242,85,85,.8);border-color:var(--rank3);color:#fff}
+.f-mid.active{background:rgba(62,207,142,.8);border-color:var(--rank1);color:#0a2e1e}
+.f-top.active{background:linear-gradient(135deg,#f5a623,#e8830a);border-color:#f5a623;color:#1a0a00}
+#fb-p1.active,#fb-p2.active,#fb-p3.active,#fb-p4.active,#fb-p5.active{background:rgba(245,166,35,.2);border-color:#f5a623;color:#f5a623}
 .search-in{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none;width:200px;transition:border-color .15s}
 .search-in::placeholder{color:var(--text3)}
 .search-in:focus{border-color:var(--accent)}
-.fselect{padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;cursor:pointer;font-family:'Golos Text',sans-serif;outline:none;min-width:160px}
-.fselect:focus{border-color:var(--accent)}
+
+/* ── GRID ── */
 .main{padding:24px 28px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .empty{text-align:center;padding:60px;color:var(--text3);grid-column:1/-1}
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s;animation:fi .25s ease both;position:relative}
+
+/* ── CARD ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;transition:all .18s;animation:fi .25s ease both}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
 .card:hover:not(.birthday-card){background:var(--card-h);border-color:var(--border2);transform:translateY(-2px)}
 .card.birthday-card:hover{background:var(--card-h);transform:translateY(-2px)}
-@keyframes birthday-glow{
-  0%{border-color:#f5a623;box-shadow:0 0 8px rgba(245,166,35,.2)}
-  25%{border-color:#ff6b9d;box-shadow:0 0 12px rgba(255,107,157,.15)}
-  50%{border-color:#c084fc;box-shadow:0 0 8px rgba(192,132,252,.15)}
-  75%{border-color:#67e8f9;box-shadow:0 0 12px rgba(103,232,249,.15)}
-  100%{border-color:#f5a623;box-shadow:0 0 8px rgba(245,166,35,.2)}
+
+@keyframes birthday-glow {
+  0%   { border-color: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,.2); }
+  25%  { border-color: #ff6b9d; box-shadow: 0 0 12px rgba(255,107,157,.15); }
+  50%  { border-color: #c084fc; box-shadow: 0 0 8px rgba(192,132,252,.15); }
+  75%  { border-color: #67e8f9; box-shadow: 0 0 12px rgba(103,232,249,.15); }
+  100% { border-color: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,.2); }
 }
-.birthday-card{animation:birthday-glow 4s ease-in-out infinite, fi .25s ease both;border-width:2px;border-style:solid;position:relative}
-.ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:10px}
+
+.birthday-card {
+  animation: birthday-glow 4s ease-in-out infinite, fi .25s ease both;
+  border-width: 2px;
+  border-style: solid;
+  position: relative;
+}
+
+/* ── PHOTO UPLOAD ── */
+.photo-zone{position:relative;width:80px;height:80px;border-radius:50%;margin:0 auto 16px;cursor:pointer}
+.photo-zone img{width:80px;height:80px;border-radius:50%;object-fit:cover;display:block;border:2px solid var(--border2)}
+.photo-zone .photo-av{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;border:2px solid var(--border2)}
+.photo-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;gap:2px}
+.photo-zone:hover .photo-overlay{opacity:1}
+.photo-overlay-icon{font-size:18px;line-height:1}
+.photo-overlay-txt{font-size:10px;color:#fff;font-weight:500}
+.photo-uploading{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+/* Lightbox */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:500;align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:90vw;max-height:90vh;border-radius:12px;object-fit:contain}
+.ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
 .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;flex-shrink:0}
-.av img{width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)}
 .cn{font-weight:600;font-size:14px}
 .cd{font-size:11px;color:var(--text3);margin-top:2px}
-.team-pos-badge{
-  background:rgba(245,166,35,.15);color:#f5a623;border:1px solid rgba(245,166,35,.25);
-  border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600;flex-shrink:0;align-self:flex-start;text-align:right;max-width:42%;
-}
-.comment-box{background:var(--bg3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.5;margin-top:8px;border-left:2px solid var(--rank2)}
-.btn{padding:9px 18px;border-radius:20px;font-family:'Golos Text',sans-serif;font-size:14px;cursor:pointer;transition:all .15s;border:none}
-.btn-primary{background:var(--accent);color:#fff;font-weight:600}
-.btn-primary:hover{background:var(--accent2)}
-.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
-.btn-ghost:hover{color:var(--text)}
+.rb{padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0}
+.rb1{background:rgba(184,115,51,.2) !important;color:#d4955a !important;border:1px solid rgba(184,115,51,.5) !important}
+.rb2{background:rgba(138,155,176,.2) !important;color:#a8bcce !important;border:1px solid rgba(138,155,176,.5) !important}
+.rb3{background:rgba(201,168,76,.2) !important;color:#c9a84c !important;border:1px solid rgba(201,168,76,.5) !important}
+
+/* score */
+.ss{margin:10px 0}
+.slr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.slbl{font-size:11px;color:var(--text2)}
+.sv{display:flex;align-items:center;gap:5px}
+.sn{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}
+.sc{font-size:11px;padding:2px 7px;border-radius:5px;font-weight:500}
+.sc-t{background:rgba(62,207,142,.15);color:var(--rank1)}
+.sc-m{background:rgba(245,166,35,.15);color:var(--rank2)}
+.sc-w{background:rgba(242,85,85,.15);color:var(--rank3)}
+.sc-z{background:rgba(90,90,114,.15);color:var(--text3)}
+.strack{height:4px;border-radius:2px;background:var(--bg3);overflow:hidden}
+.sfill{height:100%;border-radius:2px}
+.sf-t{background:linear-gradient(90deg,#1fa86b,#3ecf8e)}
+.sf-m{background:linear-gradient(90deg,#c47b10,#f5a623)}
+.sf-w{background:linear-gradient(90deg,#a02020,#f25555)}
+.sf-z{background:var(--border)}
+.dots{display:flex;gap:3px;margin-top:6px}
+.d{width:20px;height:20px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text3)}
+.d.dt{background:rgba(62,207,142,.2);border-color:rgba(62,207,142,.4);color:var(--rank1)}
+.d.dm{background:rgba(245,166,35,.2);border-color:rgba(245,166,35,.4);color:var(--rank2)}
+.d.dw{background:rgba(242,85,85,.2);border-color:rgba(242,85,85,.4);color:var(--rank3)}
+
+/* venues pills */
+.vs{margin:8px 0}
+.vl{font-size:11px;color:var(--text2);margin-bottom:4px}
+.vps{display:flex;flex-wrap:wrap;gap:4px}
+.vp{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500}
+.vp-love{background:rgba(62,207,142,.12);color:#5ddba6;border:1px solid rgba(62,207,142,.25)}
+.vp-can{background:rgba(144,144,168,.1);color:var(--text2);border:1px solid var(--border)}
+.vp-dis{background:rgba(242,85,85,.1);color:var(--rank3);border:1px solid rgba(242,85,85,.25)}
+
+.comment-preview{background:var(--bg3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.5;margin-top:10px;border-left:2px solid var(--accent)}
+.no-comment{font-size:11px;color:var(--text3);margin-top:8px;font-style:italic}
+.comment-count{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* ── DRAWER (карточка фотографа) ── */
 .drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;backdrop-filter:blur(3px)}
 .drawer-bg.open{display:block}
 .drawer{position:fixed;right:0;top:0;bottom:0;width:100%;max-width:600px;background:var(--bg2);border-left:1px solid var(--border2);z-index:101;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;height:100%;max-height:100dvh}
 .drawer.open{transform:translateX(0)}
 .dr-head-sticky{flex-shrink:0;background:var(--bg2);border-bottom:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.15);padding-bottom:12px;position:sticky;top:0;z-index:10}
 .drh{padding:20px 24px 12px;border-bottom:none;display:flex;align-items:center;justify-content:space-between}
+.dr-earned{padding:0 24px 4px;min-height:0}
+.dr-tabs-wrap{padding:0 24px 12px}
+.dr-body{flex:1;min-height:0;overflow-y:auto;padding:16px 24px 24px}
 .drh-left{display:flex;align-items:center;gap:14px}
 .dr-name{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
 .dr-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;border-radius:8px;padding:4px 8px}
 .dr-close:hover{color:var(--text)}
-.dr-tabs-wrap{padding:0 24px 12px}
-.dr-body{flex:1;min-height:0;overflow-y:auto;padding:16px 24px 24px}
+/* drawer avatar — компактный размер в шапке */
+#dr-photo-zone{width:52px;height:52px;flex-shrink:0}
+#dr-photo-zone img.dr-photo-img{width:52px;height:52px}
+#dr-photo-zone .photo-av{width:52px;height:52px;font-size:14px}
+#dr-photo-zone .photo-overlay-txt{display:none}
+#dr-photo-zone .photo-del-btn{width:17px;height:17px;font-size:9px;top:-1px;right:-1px}
+
+/* tabs */
 .tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:0}
-.tab{flex:1;min-width:0;padding:7px 4px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1.2;white-space:nowrap}
+.tab{flex:1;min-width:0;padding:7px 4px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1.2;white-space:nowrap}
 .tab.active{background:var(--card);color:var(--text)}
-.drawer-foot{padding:12px 24px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:var(--bg2)}
-.photo-zone{position:relative;width:52px;height:52px;border-radius:50%;cursor:pointer;flex-shrink:0}
-.photo-zone img.dr-photo-img,.photo-zone img{width:52px;height:52px;border-radius:50%;object-fit:cover;display:block;border:2px solid var(--border2)}
-.photo-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;gap:2px}
-.photo-overlay-txt{font-size:10px;color:#fff;font-weight:500}
-.photo-zone:hover .photo-overlay{opacity:1}
-.field{margin-bottom:12px}
+
+/* fields */
+.field-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.field{flex:1;min-width:140px}
 .fl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .fv{font-size:14px;color:var(--text)}
 .fin{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:14px;outline:none}
 .fin:focus{border-color:var(--accent)}
-.comment-ta{width:100%;min-height:72px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;resize:vertical;font-family:'Golos Text',sans-serif}
-.citem{background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border)}
-.cauthor{font-size:12px;font-weight:600;color:var(--accent2)}
-.cbody{font-size:13px;color:var(--text2);margin-top:4px;line-height:1.5}
-.audit-row{font-size:12px;padding:8px 0;border-bottom:1px solid var(--border);color:var(--text2)}
-.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
-.ach-cell{border-radius:10px;padding:10px;border:1px solid var(--border);text-align:center;font-size:12px}
-.ach-cell.locked{opacity:.45}
-.ach-cell .ic{font-size:22px}
+.fselect{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:14px;outline:none;cursor:pointer}
+.fselect option{background:var(--bg2)}
+
+/* rank selector — металлические цвета */
+.rank-opts{display:flex;gap:8px}
+.rank-opt{flex:1;padding:10px 6px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;text-align:center;transition:all .2s}
+.rank-opt.sel-1{
+  border-color:#cd7f32;
+  color:#f4a460;
+  background:linear-gradient(135deg,#3d1f00 0%,#5c2e00 40%,#3d1f00 100%);
+  box-shadow:0 0 12px rgba(205,127,50,.3),inset 0 1px 0 rgba(255,200,100,.15);
+  text-shadow:0 0 8px rgba(244,164,96,.6);
+}
+.rank-opt.sel-2{
+  border-color:#a8b8c8;
+  color:#d8e8f8;
+  background:linear-gradient(135deg,#1a2030 0%,#2a3545 40%,#1a2030 100%);
+  box-shadow:0 0 12px rgba(168,184,200,.25),inset 0 1px 0 rgba(220,235,255,.15);
+  text-shadow:0 0 8px rgba(216,232,248,.5);
+}
+.rank-opt.sel-3{
+  border-color:#c9a84c;
+  color:#ffd700;
+  background:linear-gradient(135deg,#2a1f00 0%,#3d2e00 40%,#2a1f00 100%);
+  box-shadow:0 0 12px rgba(201,168,76,.35),inset 0 1px 0 rgba(255,230,100,.2);
+  text-shadow:0 0 8px rgba(255,215,0,.7);
+}
+
+/* score slider */
+.score-wrap{display:flex;align-items:center;gap:12px}
+.frank{flex:1;-webkit-appearance:none;height:5px;border-radius:3px;background:var(--bg3);outline:none;border:none;cursor:pointer}
+.frank::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
+.score-disp{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;min-width:30px;text-align:center}
+.score-hints{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px}
+
+/* venue picker */
+.venue-picker{display:flex;flex-direction:column;gap:6px}
+.venue-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)}
+.venue-row-name{flex:1;font-size:13px}
+.att-btns{display:flex;gap:4px}
+.att-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;color:var(--text2)}
+.att-btn.ab-love.sel{background:rgba(62,207,142,.2);border-color:var(--love);color:var(--love)}
+.att-btn.ab-can.sel{background:rgba(144,144,168,.15);border-color:var(--can);color:var(--can)}
+.att-btn.ab-dis.sel{background:rgba(242,85,85,.2);border-color:var(--dislike);color:var(--dislike)}
+
+/* comments feed */
+.comment-input-wrap{display:flex;gap:8px;margin-bottom:16px}
+.comment-ta{flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:14px;outline:none;resize:none;min-height:70px;line-height:1.5}
+.comment-ta:focus{border-color:var(--accent)}
+.comment-ta::placeholder{color:var(--text3)}
+.comment-list{display:flex;flex-direction:column;gap:10px}
+.citem{background:var(--bg3);border-radius:10px;padding:12px 14px;border:1px solid var(--border)}
+.citem-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cauthor{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.cdate{font-size:11px;color:var(--text3)}
+.cbody{font-size:13px;color:var(--text2);line-height:1.6}
+.cdel{font-size:11px;color:var(--rank3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px}
+.cdel:hover{background:rgba(242,85,85,.1)}
+.deleted-msg{font-style:italic;color:var(--text3)}
+
+/* admin panel */
+.admin-section{margin-bottom:28px}
+.admin-section h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:6px}
+.user-row-name{flex:1;font-size:14px;font-weight:500}
+.user-row-email{font-size:12px;color:var(--text3)}
+.role-badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.rb-viewer{background:rgba(144,144,168,.1);color:var(--text2);border:1px solid var(--border)}
+.rb-manager{background:rgba(245,166,35,.1);color:var(--rank2);border:1px solid rgba(245,166,35,.2)}
+.rb-editor{background:rgba(124,108,255,.1);color:var(--accent2);border:1px solid rgba(124,108,255,.2)}
+.rb-admin{background:rgba(62,207,142,.1);color:var(--rank1);border:1px solid rgba(62,207,142,.2)}
+.inactive-row{opacity:.5}
+
+/* modals */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
 .overlay.open{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:24px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;animation:su .2s ease}
 @keyframes su{from{opacity:0;transform:translateY(16px)}to{opacity:1}}
-.modal-h{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:20px;color:var(--text)}
+.modal-title{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:20px;display:flex;justify-content:space-between}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500}
-.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+
+/* buttons */
+.btn{padding:9px 18px;border-radius:10px;font-family:'Golos Text',sans-serif;font-size:14px;cursor:pointer;transition:all .15s;border:none}
+.btn-primary{background:var(--accent);color:#fff;font-weight:600}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text)}
+.btn-danger{background:transparent;color:var(--rank3);border:1px solid rgba(242,85,85,.3)}
+.btn-danger:hover{background:rgba(242,85,85,.1)}
+.btn-save-float{position:sticky;bottom:0;width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Golos Text',sans-serif;font-size:15px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .15s}
+.btn-save-float:hover{background:var(--accent2)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+@media(max-width:640px){.header,.toolbar,.main{padding-left:16px;padding-right:16px}.drawer{max-width:100%}}
+
+/* Team-specific */
+.team-pos-badge {
+  background: rgba(245,166,35,.15);
+  color: #f5a623;
+  border: 1px solid rgba(245,166,35,.25);
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 </style>
 </head>
 <body>
 <div class="header">
   <a class="logo" href="index.html">Photo<span>HR</span></a>
-  <div class="nav-links">
-    <a class="nav-btn" href="index.html">Фотографы</a>
-    <a class="nav-btn active" href="team.html" id="nav-team">Команда</a>
-    <a class="nav-btn" href="recruiting.html" id="nav-recruiting">Рекрутинг</a>
-    <a class="nav-btn" href="venue.html">Площадка</a>
-    <a class="nav-btn" href="stock.html">Склад</a>
-    <a class="nav-btn" href="calendar.html">Календарь</a>
+  <div style="display:flex;gap:6px;margin-left:12px;flex-wrap:wrap;flex:1" id="nav-links-team">
+    <a class="f-btn" href="index.html">Фотографы</a>
+    <a class="f-btn active" href="team.html" id="nav-team">Команда</a>
+    <a class="f-btn" href="recruiting.html" id="nav-recruiting" style="display:none">Рекрутинг</a>
+    <a class="f-btn" href="venue.html">Площадка</a>
+    <a class="f-btn" href="stock.html">Склад</a>
+    <a class="f-btn" href="calendar.html">Календарь</a>
     <span id="nav-aquagrim-sep" style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>
-    <a class="nav-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
+    <a class="f-btn" href="aquagrim.html" id="nav-aquagrim">Аквагрим</a>
   </div>
   <div class="user-pill" id="user-pill"></div>
-  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+  <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
 </div>
-<div class="toolbar">
-  <input class="search-in" id="q" placeholder="Поиск по имени…" oninput="render()"/>
-  <select class="fselect" id="dep-filter" onchange="render()"><option value="">Все отделы</option></select>
-  <span style="flex:1"></span>
-  <button class="btn btn-ghost" id="btn-add" style="display:none" onclick="openNewMember()">+ Член команды</button>
-  <button class="btn btn-ghost" id="btn-sync" style="display:none" onclick="syncFromUsers()" title="Создать карточки из существующих пользователей-управленцев">🔄 Синхронизировать</button>
-  <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
-  <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
-  <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+<div style="border-bottom:1px solid var(--border);background:var(--bg)">
+  <div style="padding:10px 28px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <input class="search-in" id="q" placeholder="🔍 Поиск по имени…" oninput="render()" style="flex:1;max-width:320px"/>
+    <select class="fselect" id="dep-filter" onchange="render()" style="min-width:180px;max-width:320px"><option value="">Все отделы</option></select>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" id="btn-add" style="display:none" onclick="openNewMember()">+ Член команды</button>
+      <button class="btn btn-ghost" id="btn-sync" style="display:none" onclick="syncFromUsers()" title="Создать карточки из существующих пользователей-управленцев">🔄 Синхронизировать</button>
+      <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
+      <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
+      <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+    </div>
+  </div>
 </div>
 <div class="main"><div class="grid" id="grid"><div class="empty">Загрузка…</div></div></div>
 
-<div class="drawer-bg" id="dr-bg" onclick="if(event.target===this)closeDrawer()"></div>
+<div class="lightbox" id="lightbox" onclick="document.getElementById('lightbox').classList.remove('open')">
+  <img id="lightbox-img" src="" alt=""/>
+</div>
+
+<div class="drawer-bg" id="drawer-bg" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div class="dr-head-sticky">
     <div class="drh">
       <div class="drh-left">
-        <div class="photo-zone" id="dr-photo-zone" style="display:none" onclick="document.getElementById('ph-file').click()">
-          <img class="dr-photo-img" alt=""/>
-          <div class="photo-overlay"><span class="photo-overlay-txt">Фото</span></div>
+        <div class="photo-zone" id="dr-photo-zone" style="cursor:default">
+          <div class="photo-av" id="dr-av"></div>
         </div>
+        <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp,image/*" style="display:none" onchange="uploadPhoto(event)"/>
         <div>
           <div class="dr-name" id="dr-name"></div>
-          <div style="font-size:12px;color:var(--text3)" id="dr-sub"></div>
+          <div style="font-size:12px;color:var(--text3)" id="dr-role-hint"></div>
         </div>
       </div>
       <button type="button" class="dr-close" onclick="closeDrawer()">×</button>
     </div>
+    <div id="dr-earned" class="dr-earned"></div>
     <div class="dr-tabs-wrap">
-      <div class="tabs" id="tabs">
-        <button type="button" class="tab active" data-i="0" onclick="setTab(0)">📋 Информация</button>
-        <button type="button" class="tab" data-i="1" onclick="setTab(1)">💬 Комментарии</button>
-        <button type="button" class="tab" data-i="2" onclick="setTab(2)">📜 История</button>
-        <button type="button" class="tab" data-i="3" onclick="setTab(3)">🏆 Достижения</button>
-      </div>
+      <div class="tabs" id="tabs"></div>
     </div>
   </div>
-  <div class="dr-body" id="dr-body"></div>
-  <div class="drawer-foot">
-    <button type="button" class="btn btn-primary" id="btn-like" onclick="openSendLikeModalForDrawer()">❤️ Лайк</button>
-    <button type="button" class="btn btn-ghost" id="btn-save" style="display:none" onclick="saveDrawer()">Сохранить изменения</button>
+  <div class="dr-body">
+    <div id="tab-content"></div>
   </div>
 </div>
-<input type="file" id="ph-file" accept="image/*" style="display:none" onchange="uploadPhoto(this.files[0])"/>
 
 <div class="overlay" id="ov-new"><div class="modal" onclick="event.stopPropagation()">
-  <div class="modal-h">Новый член команды</div>
+  <div class="modal-title"><span>Новый член команды</span><button type="button" class="dr-close" onclick="document.getElementById('ov-new').classList.remove('open')">×</button></div>
   <div class="field"><div class="fl">Имя *</div><input class="fin" id="nm-name"/></div>
   <div class="field"><div class="fl">Должность</div><input class="fin" id="nm-pos"/></div>
   <div class="field"><div class="fl">Отдел</div><input class="fin" id="nm-dep"/></div>
   <div class="field"><div class="fl">Телефон</div><input class="fin" id="nm-phone"/></div>
   <div class="field"><div class="fl">Email</div><input class="fin" id="nm-email" type="email"/></div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+  <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('ov-new').classList.remove('open')">Отмена</button>
     <button class="btn btn-primary" onclick="createMember()">Создать</button>
   </div>
 </div></div>
 
-<div class="overlay" id="ov-ach"><div class="modal" onclick="event.stopPropagation()"><div class="modal-h">🏆 Выдать достижение</div>
+<div class="overlay" id="ov-ach"><div class="modal" onclick="event.stopPropagation()"><div class="modal-title"><span>🏆 Выдать достижение</span><button type="button" class="dr-close" onclick="document.getElementById('ov-ach').classList.remove('open')">×</button></div>
   <div class="field"><div class="fl">Член команды</div><select class="fselect" id="ga-member" style="width:100%"></select></div>
   <div class="field"><div class="fl">Тип достижения</div><select class="fselect" id="ga-type" style="width:100%"></select></div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+  <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('ov-ach').classList.remove('open')">Закрыть</button>
     <button class="btn btn-primary" onclick="grantAchievement()">Выдать</button>
   </div>
@@ -217,13 +418,6 @@ function calcAge(birthDate) {
   if (today.getMonth() < b.getMonth() || (today.getMonth() === b.getMonth() && today.getDate() < b.getDate())) age--;
   return age;
 }
-function genderIcon(g) {
-  if (!g) return '';
-  const s = String(g).toLowerCase();
-  if (s === 'male' || s === 'м' || s === 'мужской' || s === 'm') return ' <span style="font-size:11px;color:var(--text3)">♂</span>';
-  if (s === 'female' || s === 'ж' || s === 'женский' || s === 'f') return ' <span style="font-size:11px;color:var(--text3)">♀</span>';
-  return '';
-}
 let _monthlyData = [];
 const LIKES_MAX_PER_TRANSACTION = 5;
 const ROLES = { photographer_user:0, aq_user:0, recruiter:1, hr_manager:1, tech_director:1, site_specialist:1, aq_manager:1, cashier:2, hr_director:2, exec_director:3, admin:4 };
@@ -234,6 +428,19 @@ const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>'); }
+function openLightbox(url) {
+  const lb = document.getElementById('lightbox');
+  const im = document.getElementById('lightbox-img');
+  if (!lb || !im) return;
+  im.src = url;
+  lb.classList.add('open');
+}
+function cardPhotoUrl(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return API.replace('/api', '') + url;
 }
 
 async function api(method, path, body) {
@@ -295,46 +502,41 @@ function render() {
   });
   const g = document.getElementById('grid');
   if (!rows.length) { g.innerHTML = '<div class="empty">Никого не найдено</div>'; return; }
-  g.innerHTML = rows.map((m) => {
-    const bd = m.birth_date;
-    const bdToday = isBirthdayToday(bd);
-    const bdClass = bdToday ? ' birthday-card' : '';
+  const cardHtml = (m) => {
+    const av = avC(m.name);
+    const bdToday = isBirthdayToday(m.birth_date);
     let ach = m.achievements;
     if (ach == null) ach = [];
     else if (typeof ach === 'string') { try { ach = JSON.parse(ach); } catch { ach = []; } }
     if (!Array.isArray(ach)) ach = [];
-    const av = avC(m.name);
-    const ageStr = calcAge(bd) != null ? ` <span style="font-size:11px;color:var(--text3);font-weight:400">${calcAge(bd)}л</span>` : '';
-    const bdLine = bd ? `🎂 ${new Date(bd).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : '\u00a0';
-    const pos = m.position_title ? `<div class="team-pos-badge">${esc(m.position_title)}</div>` : '';
-    const achStrip = ach.length
-      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
-        ${ach.slice(0, 8).map((it) => `<span title="${esc(it.name)}" style="font-size:16px;cursor:default">${esc(String(it.icon || '🏅'))}</span>`).join('')}
-        ${ach.length > 8 ? `<span style="font-size:10px;color:#f5a623;align-self:center;font-weight:600">+${ach.length - 8}</span>` : ''}
-      </div>`
+    const bdClass = bdToday ? ' birthday-card' : '';
+    const pu = cardPhotoUrl(m.photo_url);
+    const posBadge = m.position_title
+      ? `<div class="team-pos-badge">${esc(m.position_title)}</div>`
       : '';
-    const sum = m.summary
-      ? `<div class="comment-box" style="margin-top:8px">${esc(m.summary).slice(0, 120)}${m.summary.length > 120 ? '…' : ''}</div>`
-      : '';
-    const ph = m.photo_url
-      ? `<img src="${photoSrc(m.photo_url)}" alt="${esc(m.name)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2)"/>`
-      : `<div class="av" style="background:${av.bg};color:${av.fg}">${esc(ini(m.name))}</div>`;
     return `<div class="card${bdClass}" onclick="openDrawer('${m.id}')" style="position:relative">
       ${bdToday ? '<span style="position:absolute;top:-6px;right:-6px;font-size:20px;z-index:1">🎂</span>' : ''}
       <div class="ch">
-        <div style="display:flex;align-items:center;gap:10px;min-width:0">
-          ${ph}
-          <div style="min-width:0">
-            <div class="cn">${esc(m.name)}${genderIcon(m.gender)}${ageStr}</div>
-            <div class="cd">${bdLine}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${m.photo_url
+            ? `<img src="${esc(pu)}" onclick="event.stopPropagation();openLightbox(${JSON.stringify(pu)})" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
+            : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
+          }
+          <div>
+            <div class="cn">${esc(m.name)}${m.gender === 'male' ? ' <span style="font-size:11px;color:var(--text3)">♂</span>' : m.gender === 'female' ? ' <span style="font-size:11px;color:var(--text3)">♀</span>' : ''}${calcAge(m.birth_date) !== null ? ' <span style="font-size:11px;color:var(--text3);font-weight:400">' + calcAge(m.birth_date) + 'л</span>' : ''}</div>
+            <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
           </div>
         </div>
-        ${pos}
+        ${posBadge}
       </div>
-      ${achStrip}
-      ${sum}
+      ${ach.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
+        ${ach.slice(0, 8).map(a => `<span title="${esc(a.name)}" style="font-size:16px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
+        ${ach.length > 8 ? `<span style="font-size:10px;color:#f5a623;align-self:center;font-weight:600">+${ach.length - 8}</span>` : ''}
+      </div>` : ''}
+      ${m.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(m.summary).slice(0, 120)}${m.summary.length > 120 ? '…' : ''}</div>` : ''}
     </div>`;
-  }).join('');
+  };
+  g.innerHTML = rows.map((m) => cardHtml(m)).join('');
 }
 
 async function loadTeam() {
@@ -345,82 +547,222 @@ async function loadTeam() {
   render();
 }
 
+function updateTeamDrawerPhoto(m) {
+  const av = avC(m.name);
+  const avEl = document.getElementById('dr-av');
+  const zone = document.getElementById('dr-photo-zone');
+  if (!avEl || !zone) return;
+  const oldImg = zone.querySelector('img.dr-photo-img');
+  if (oldImg) oldImg.remove();
+  if (m.photo_url) {
+    avEl.style.display = 'none';
+    const img = document.createElement('img');
+    img.className = 'dr-photo-img';
+    const full = cardPhotoUrl(m.photo_url);
+    img.src = full + (full.includes('?') ? '&' : '?') + 't=' + Date.now();
+    img.alt = m.name || '';
+    img.style.cssText = 'width:52px;height:52px;border-radius:50%;object-fit:cover;display:block;border:2px solid var(--border2);cursor:zoom-in';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openLightbox(full);
+    });
+    zone.appendChild(img);
+  } else {
+    avEl.style.display = '';
+    avEl.style.background = av.bg;
+    avEl.style.color = av.fg;
+    avEl.textContent = ini(m.name || '');
+  }
+  const canUpload = hasAnyRole(['hr_director', 'exec_director', 'admin']);
+  zone.style.cursor = canUpload ? 'pointer' : 'default';
+  zone.onclick = canUpload ? () => document.getElementById('photo-input').click() : null;
+}
+
+async function updateTeamDrawerEarned(m) {
+  const el = document.getElementById('dr-earned');
+  if (!el) return;
+  const earned = m.achievements || [];
+  const myTeamId = currentUser?.team_member_id;
+  const isOwn = myTeamId && drawerId && String(drawerId) === String(myTeamId);
+  const canSendLike = !isOwn;
+  let _quickLikes = null;
+  try {
+    _quickLikes = await api('GET', `/peer-likes/received?photographer_id=${encodeURIComponent(m.id)}`);
+  } catch (e) {
+    _quickLikes = null;
+  }
+  const likeBtn = canSendLike
+    ? `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#e53e3e;border-color:rgba(229,62,62,.2)"
+        onclick="openSendLikeModal('${m.id}', '${esc(m.name)}')" title="Отправить лайк">
+        ❤️ Like<span style="color:#e53e3e">Me</span>
+      </button>`
+    : '';
+  const quickSummary =
+    _quickLikes && _quickLikes.total_likes > 0
+      ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(229,62,62,.1);border:1px solid rgba(229,62,62,.15);border-radius:16px;font-size:12px;color:#e53e3e;font-weight:600">
+  ${_quickLikes.total_likes} ❤️
+</span>${(_quickLikes.by_category || [])
+          .slice(0, 3)
+          .map((c) => {
+            const icons = { help: '💪', professional: '⭐', positive: '😊', result: '🎯', congrats: '🎂', general: '❤️' };
+            return `<span style="font-size:11px;color:var(--text3);padding:2px 6px;background:var(--bg3);border-radius:10px">${icons[c.category] || '❤️'} ${esc(String(c.total))}</span>`;
+          })
+          .join('')}`
+      : '';
+  const rowWrap = (inner) =>
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0">${inner}</div>`;
+  const rowBlock = canSendLike || quickSummary ? rowWrap(likeBtn + quickSummary) : '';
+  el.innerHTML = earned.length
+    ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;background:linear-gradient(135deg, rgba(245,166,35,.08), transparent);border-radius:8px">
+        ${earned.map((a) => `<span title="${esc(a.name)}" style="font-size:18px">${esc(String(a.icon || '🏅'))}</span>`).join('')}
+      </div>${rowBlock}`
+    : rowBlock;
+}
+
+function buildTeamTabs() {
+  const tabs = [
+    { label: '📋 Информация' },
+    { label: '💬 Комментарии' },
+    { label: '📜 История' },
+    { label: '🏆 Достижения' },
+  ];
+  const el = document.getElementById('tabs');
+  if (!el) return;
+  el.innerHTML = tabs.map((t, i) =>
+    `<button type="button" class="tab ${i === tabIdx ? 'active' : ''}" onclick="switchTab(${i})">${t.label}</button>`
+  ).join('');
+}
+
 function closeDrawer() {
-  document.getElementById('dr-bg').classList.remove('open');
+  document.getElementById('drawer-bg').classList.remove('open');
   document.getElementById('drawer').classList.remove('open');
+  const de = document.getElementById('dr-earned');
+  if (de) de.innerHTML = '';
   drawerId = null;
   drawerData = null;
 }
 
 async function openDrawer(id) {
   drawerId = id;
+  tabIdx = 0;
   editMode = can('hr_director');
-  document.getElementById('dr-bg').classList.add('open');
+  document.getElementById('drawer-bg').classList.add('open');
   document.getElementById('drawer').classList.add('open');
-  document.getElementById('btn-save').style.display = editMode ? 'inline-block' : 'none';
-  const canPh = hasAnyRole(['hr_director', 'exec_director', 'admin']);
-  document.getElementById('dr-photo-zone').style.display = canPh ? 'block' : 'none';
   try {
     drawerData = await api('GET', '/team/' + id);
-    document.getElementById('dr-name').textContent = drawerData.name || '';
-    document.getElementById('dr-sub').textContent = [drawerData.position_title, drawerData.department].filter(Boolean).join(' · ') || '';
-    const img = document.querySelector('#dr-photo-zone img.dr-photo-img');
-    if (drawerData.photo_url) { img.src = photoSrc(drawerData.photo_url); img.style.display = 'block'; } else { img.src = ''; img.style.display = 'none'; }
-    setTab(tabIdx);
+    updateTeamDrawerPhoto(drawerData);
+    await updateTeamDrawerEarned(drawerData);
+    const age = calcAge(drawerData.birth_date);
+    document.getElementById('dr-name').innerHTML = esc(drawerData.name) + (age !== null ? ` <span style="font-size:14px;color:var(--text3);font-weight:400">${age} л</span>` : '');
+    document.getElementById('dr-role-hint').textContent = editMode ? 'Редактирование карточки' : 'Просмотр';
+    buildTeamTabs();
+    switchTab(0);
   } catch (e) { showToast(e.message, true); }
 }
 
-function setTab(i) {
+function switchTab(i) {
   tabIdx = i;
   document.querySelectorAll('#tabs .tab').forEach((t, j) => t.classList.toggle('active', j === i));
   if (!drawerData) return;
-  const body = document.getElementById('dr-body');
+  const body = document.getElementById('tab-content');
   if (i === 0) {
     if (editMode) {
       body.innerHTML = `
-        <div class="field"><div class="fl">Имя</div><input class="fin" id="ed-name" value="${esc(drawerData.name)}"/></div>
-        <div class="field"><div class="fl">Должность</div><input class="fin" id="ed-pos" value="${esc(drawerData.position_title || '')}"/></div>
-        <div class="field"><div class="fl">Отдел</div><input class="fin" id="ed-dep" value="${esc(drawerData.department || '')}"/></div>
-        <div class="field"><div class="fl">Телефон</div><input class="fin" id="ed-phone" value="${esc(drawerData.phone || '')}"/></div>
-        <div class="field"><div class="fl">Email</div><input class="fin" id="ed-email" value="${esc(drawerData.email || '')}"/></div>
-        <div class="field"><div class="fl">Пол</div><input class="fin" id="ed-gender" value="${esc(drawerData.gender || '')}"/></div>
-        <div class="field"><div class="fl">Дата рождения</div><input class="fin" id="ed-bd" type="date" value="${drawerData.birth_date ? String(drawerData.birth_date).slice(0, 10) : ''}"/></div>
-        <div class="field"><div class="fl">Начало сотрудничества</div><input class="fin" id="ed-sd" type="date" value="${drawerData.start_date ? String(drawerData.start_date).slice(0, 10) : ''}"/></div>
-        <div class="field"><div class="fl">О себе</div><textarea class="comment-ta" id="ed-sum">${esc(drawerData.summary || '')}</textarea></div>
-        <label style="font-size:13px;color:var(--text2)"><input type="checkbox" id="ed-active" ${drawerData.is_active !== false ? 'checked' : ''}/> Активен</label>`;
+        <div class="field" style="margin-bottom:12px">
+          <div class="fl">Имя *</div>
+          <input class="fin" id="ed-name" value="${esc(drawerData.name)}"/>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <div class="fl">Должность</div>
+            <input class="fin" id="ed-pos" value="${esc(drawerData.position_title || '')}"/>
+          </div>
+          <div class="field">
+            <div class="fl">Отдел</div>
+            <input class="fin" id="ed-dep" value="${esc(drawerData.department || '')}"/>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <div class="fl">Телефон</div>
+            <input class="fin" id="ed-phone" value="${esc(drawerData.phone || '')}"/>
+          </div>
+          <div class="field">
+            <div class="fl">Email</div>
+            <input class="fin" id="ed-email" type="email" value="${esc(drawerData.email || '')}"/>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <div class="fl">Пол</div>
+            <input class="fin" id="ed-gender" value="${esc(drawerData.gender || '')}"/>
+          </div>
+          <div class="field">
+            <div class="fl">Дата рождения</div>
+            <input class="fin" id="ed-bd" type="date" value="${drawerData.birth_date ? String(drawerData.birth_date).slice(0, 10) : ''}"/>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:14px">
+          <div class="fl">Начало сотрудничества</div>
+          <input class="fin" id="ed-sd" type="date" value="${drawerData.start_date ? String(drawerData.start_date).slice(0, 10) : ''}"/>
+        </div>
+        <div class="field" style="margin-bottom:14px">
+          <div class="fl">О себе</div>
+          <textarea class="comment-ta" id="ed-sum" style="min-height:90px;width:100%;display:block">${escHtml(drawerData.summary || '')}</textarea>
+        </div>
+        <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:16px"><input type="checkbox" id="ed-active" ${drawerData.is_active !== false ? 'checked' : ''}/> Активен</label>
+        <button type="button" class="btn-save-float" onclick="saveDrawer()">Сохранить изменения</button>`;
     } else {
       body.innerHTML = `
         <div class="field"><div class="fl">Имя</div><div class="fv">${esc(drawerData.name)}</div></div>
-        <div class="field"><div class="fl">Должность</div><div class="fv">${esc(drawerData.position_title || '—')}</div></div>
-        <div class="field"><div class="fl">Отдел</div><div class="fv">${esc(drawerData.department || '—')}</div></div>
-        <div class="field"><div class="fl">Телефон</div><div class="fv">${esc(drawerData.phone || '—')}</div></div>
-        <div class="field"><div class="fl">Email</div><div class="fv">${esc(drawerData.email || '—')}</div></div>
-        <div class="field"><div class="fl">Пол</div><div class="fv">${esc(drawerData.gender || '—')}</div></div>
-        <div class="field"><div class="fl">Дата рождения</div><div class="fv">${drawerData.birth_date ? esc(String(drawerData.birth_date).slice(0, 10)) : '—'}</div></div>
+        <div class="field-row">
+          <div class="field"><div class="fl">Должность</div><div class="fv">${esc(drawerData.position_title || '—')}</div></div>
+          <div class="field"><div class="fl">Отдел</div><div class="fv">${esc(drawerData.department || '—')}</div></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><div class="fl">Телефон</div><div class="fv">${esc(drawerData.phone || '—')}</div></div>
+          <div class="field"><div class="fl">Email</div><div class="fv">${esc(drawerData.email || '—')}</div></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><div class="fl">Пол</div><div class="fv">${esc(drawerData.gender || '—')}</div></div>
+          <div class="field"><div class="fl">Дата рождения</div><div class="fv">${drawerData.birth_date ? esc(String(drawerData.birth_date).slice(0, 10)) : '—'}</div></div>
+        </div>
         <div class="field"><div class="fl">Начало сотрудничества</div><div class="fv">${drawerData.start_date ? esc(String(drawerData.start_date).slice(0, 10)) : '—'}</div></div>
-        <div class="field"><div class="fl">О себе</div><div class="fv" style="white-space:pre-wrap">${esc(drawerData.summary || '—')}</div></div>`;
+        <div class="field"><div class="fl">О себе</div><div class="fv" style="white-space:pre-wrap">${escHtml(drawerData.summary || '—')}</div></div>`;
     }
   } else if (i === 1) {
-    body.innerHTML = `<div class="field"><textarea class="comment-ta" id="com-new" placeholder="Новый комментарий…"></textarea></div>
-      <button class="btn btn-primary" onclick="postComment()">Отправить</button>
-      <div style="margin-top:16px">${(drawerData.comments || []).map((c) => `<div class="citem"><div class="cauthor">${esc(c.author_name)} · ${esc(String(c.created_at).slice(0, 16))}</div><div class="cbody">${esc(c.body)}</div></div>`).join('') || '<div style="color:var(--text3);font-size:13px">Нет комментариев</div>'}</div>`;
+    body.innerHTML = `<div class="comment-input-wrap">
+      <textarea class="comment-ta" id="com-new" placeholder="Новый комментарий…"></textarea>
+      <button type="button" class="btn btn-primary" onclick="postComment()" style="align-self:flex-end;height:fit-content">Отправить</button>
+    </div>
+    <div class="comment-list" style="margin-top:8px">${(drawerData.comments || []).map((c) => `<div class="citem"><div class="citem-head"><span class="cauthor">${esc(c.author_name)}</span><span class="cdate">${esc(String(c.created_at).slice(0, 16))}</span></div><div class="cbody">${esc(c.body)}</div></div>`).join('') || '<div style="color:var(--text3);font-size:13px">Нет комментариев</div>'}</div>`;
   } else if (i === 2) {
     body.innerHTML = '<div style="color:var(--text3)">Загрузка…</div>';
     api('GET', '/team/' + drawerId + '/audit').then((rows) => {
-      body.innerHTML = rows.length ? rows.map((r) => `<div class="audit-row"><b>${esc(r.action)}</b> ${esc(r.field || '')} · ${esc(String(r.created_at).slice(0, 19))}<br/><span style="color:var(--text3)">${esc(r.old_value || '—')} → ${esc(r.new_value || '—')}</span></div>`).join('') : '<div style="color:var(--text3)">Пусто</div>';
-    }).catch(() => { body.innerHTML = '<div style="color:var(--rank3)">Нет доступа к истории</div>'; });
+      const tc = document.getElementById('tab-content');
+      if (!tc) return;
+      tc.innerHTML = rows.length ? rows.map((r) => `<div class="audit-row"><b>${esc(r.action)}</b> ${esc(r.field || '')} · ${esc(String(r.created_at).slice(0, 19))}<br/><span style="color:var(--text3)">${esc(r.old_value || '—')} → ${esc(r.new_value || '—')}</span></div>`).join('') : '<div style="color:var(--text3)">Пусто</div>';
+    }).catch(() => {
+      const tc = document.getElementById('tab-content');
+      if (tc) tc.innerHTML = '<div style="color:var(--rank3)">Нет доступа к истории</div>';
+    });
   } else if (i === 3) {
     api('GET', '/achievement-types').then((types) => {
+      const tc = document.getElementById('tab-content');
+      if (!tc) return;
       const allow = new Set(['milestone', 'social']);
       const filtered = types.filter((t) => allow.has(t.category));
       const earned = drawerData.achievements || [];
-      body.innerHTML = `
+      tc.innerHTML = `
         <div class="ach-grid">${filtered.map((t) => {
           const ok = earned.some((e) => e.code === t.code);
           return `<div class="ach-cell ${ok ? '' : 'locked'}"><div class="ic">${esc(t.icon || '⭐')}</div><div>${esc(t.name)}</div></div>`;
         }).join('')}</div>
-        ${can('hr_director') ? `<div style="margin-top:14px"><button class="btn btn-primary" onclick="openGrantAch()">Выдать достижение</button></div>` : ''}`;
-    }).catch((e) => { body.innerHTML = '<div style="color:var(--rank3)">' + esc(e.message) + '</div>'; });
+        ${can('hr_director') ? `<div style="margin-top:14px"><button type="button" class="btn btn-primary" onclick="openGrantAch()">Выдать достижение</button></div>` : ''}`;
+    }).catch((e) => {
+      const tc = document.getElementById('tab-content');
+      if (tc) tc.innerHTML = '<div style="color:var(--rank3)">' + esc(e.message) + '</div>';
+    });
   }
 }
 
@@ -443,7 +785,11 @@ async function saveDrawer() {
     showToast('Сохранено');
     await loadTeam();
     drawerData = await api('GET', '/team/' + drawerId);
-    setTab(0);
+    updateTeamDrawerPhoto(drawerData);
+    await updateTeamDrawerEarned(drawerData);
+    const age = calcAge(drawerData.birth_date);
+    document.getElementById('dr-name').innerHTML = esc(drawerData.name) + (age !== null ? ` <span style="font-size:14px;color:var(--text3);font-weight:400">${age} л</span>` : '');
+    switchTab(0);
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -453,22 +799,38 @@ async function postComment() {
   try {
     await api('POST', '/team/' + drawerId + '/comments', { body, comment_type: 'general' });
     drawerData = await api('GET', '/team/' + drawerId);
-    setTab(1);
+    switchTab(1);
     showToast('Комментарий добавлен');
   } catch (e) { showToast(e.message, true); }
 }
 
-async function uploadPhoto(file) {
+async function uploadPhoto(event) {
+  const file = event.target.files && event.target.files[0];
   if (!file || !drawerId) return;
-  const fd = new FormData();
-  fd.append('photo', file);
-  const res = await fetch(API + '/team/' + drawerId + '/photo', { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken }, body: fd });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); showToast(e.error || 'Ошибка загрузки', true); return; }
-  showToast('Фото обновлено');
-  await loadTeam();
-  drawerData = await api('GET', '/team/' + drawerId);
-  const img = document.querySelector('#dr-photo-zone img.dr-photo-img');
-  if (drawerData.photo_url) { img.src = photoSrc(drawerData.photo_url); img.style.display = 'block'; }
+  event.target.value = '';
+  const zone = document.getElementById('dr-photo-zone');
+  const loading = document.createElement('div');
+  loading.className = 'photo-uploading';
+  loading.textContent = '...';
+  if (zone) zone.appendChild(loading);
+  try {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await fetch(API + '/team/' + drawerId + '/photo', { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken }, body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Ошибка загрузки');
+    }
+    drawerData = await api('GET', '/team/' + drawerId);
+    updateTeamDrawerPhoto(drawerData);
+    await updateTeamDrawerEarned(drawerData);
+    await loadTeam();
+    showToast('Фото обновлено');
+  } catch (e) {
+    showToast(e.message, true);
+  } finally {
+    loading.remove();
+  }
 }
 
 function openNewMember() {
@@ -812,6 +1174,12 @@ async function sendLike(toId) {
     showToast(`❤️ Отправлено ${_selectedLikeAmount} лайк(ов)!`);
     _selectedLikeAmount = 1;
     _selectedLikeCategory = 'general';
+    if (drawerId && String(drawerId) === String(toId)) {
+      try {
+        drawerData = await api('GET', '/team/' + drawerId);
+        await updateTeamDrawerEarned(drawerData);
+      } catch (e) { /* ignore */ }
+    }
   } catch (e) {
     showToast(e.message, true);
   }
@@ -902,11 +1270,6 @@ async function openSendLikeModal(toId, toName) {
     <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg, #e53e3e, #f5a623);font-size:14px"
       onclick="sendLike('${String(toId).replace(/'/g, "\\'")}')">Отправить ❤️</button>
   </div>`;
-}
-
-function openSendLikeModalForDrawer() {
-  if (!drawerId || !drawerData) return;
-  openSendLikeModal(drawerId, drawerData.name);
 }
 
 async function openLikesPanel() {
@@ -1029,7 +1392,7 @@ async function grantAchievement() {
     showToast('Достижение выдано');
     document.getElementById('ov-ach').classList.remove('open');
     await loadTeam();
-    if (drawerId === photographer_id) { drawerData = await api('GET', '/team/' + drawerId); setTab(3); }
+    if (drawerId === photographer_id) { drawerData = await api('GET', '/team/' + drawerId); await updateTeamDrawerEarned(drawerData); switchTab(3); }
   } catch (e) { showToast(e.message, true); }
 }
 
