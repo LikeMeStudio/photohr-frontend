@@ -369,7 +369,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="modal-title"><span>Новый член команды</span><button type="button" class="dr-close" onclick="document.getElementById('ov-new').classList.remove('open')">×</button></div>
   <div class="field"><div class="fl">Имя *</div><input class="fin" id="nm-name"/></div>
   <div class="field"><div class="fl">Должность</div><input class="fin" id="nm-pos"/></div>
-  <div class="field"><div class="fl">Отдел</div><input class="fin" id="nm-dep"/></div>
+  <div class="field"><div class="fl">Отдел</div><select class="fselect" id="nm-dep" style="width:100%"></select></div>
   <div class="field"><div class="fl">Телефон</div><input class="fin" id="nm-phone"/></div>
   <div class="field"><div class="fl">Email</div><input class="fin" id="nm-email" type="email"/></div>
   <div class="modal-footer">
@@ -395,6 +395,14 @@ let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
 let teamList = [];
+let departments = (() => {
+  try {
+    const s = localStorage.getItem('photohr_departments');
+    if (!s) return null;
+    const p = JSON.parse(s);
+    return Array.isArray(p) ? p : null;
+  } catch { return null; }
+})() || ['HR', 'Технический', 'Финансовый', 'Служба заботы', 'Управление'];
 let drawerId = null;
 let drawerData = null;
 let editMode = false;
@@ -638,11 +646,48 @@ function render() {
   g.innerHTML = rows.map((m) => cardHtml(m)).join('');
 }
 
+function getMergedDepartmentOptions() {
+  const fromCfg = departments.slice();
+  const fromData = [...new Set(teamList.map((t) => t.department).filter(Boolean))];
+  return [...new Set([...fromCfg, ...fromData])].sort((a, b) => a.localeCompare(b, 'ru'));
+}
+
+function refreshDepFilterSelect() {
+  const depSelect = document.getElementById('dep-filter');
+  if (!depSelect) return;
+  const prev = depSelect.value;
+  const opts = getMergedDepartmentOptions();
+  depSelect.innerHTML = '<option value="">Все отделы</option>' + opts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  if (prev && [...opts, ''].includes(prev)) depSelect.value = prev;
+}
+
+function buildDepartmentOptionsHtml(selectedVal) {
+  const val = selectedVal != null ? String(selectedVal) : '';
+  const set = new Set(departments);
+  if (val && !set.has(val)) set.add(val);
+  const all = [...set].sort((a, b) => a.localeCompare(b, 'ru'));
+  return `<option value="" ${!val ? 'selected' : ''}>—</option>` + all.map((d) => `<option value="${esc(d)}" ${d === val ? 'selected' : ''}>${esc(d)}</option>`).join('');
+}
+
+function manageDepartments() {
+  if (!can('admin')) return;
+  const current = prompt('Текущие отделы (через запятую):\n\nОтредактируйте и нажмите OK', departments.join(', '));
+  if (current === null) return;
+  departments = current.split(',').map((s) => s.trim()).filter(Boolean);
+  localStorage.setItem('photohr_departments', JSON.stringify(departments));
+  refreshDepFilterSelect();
+  if (drawerId && drawerData && editMode && tabIdx === 0) switchTab(0);
+  const nmDep = document.getElementById('nm-dep');
+  if (nmDep && nmDep.tagName === 'SELECT') {
+    const cur = nmDep.value;
+    nmDep.innerHTML = buildDepartmentOptionsHtml(cur);
+  }
+  showToast('Отделы обновлены');
+}
+
 async function loadTeam() {
   teamList = await api('GET', '/team');
-  const departments = [...new Set(teamList.map((t) => t.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-  const depSelect = document.getElementById('dep-filter');
-  depSelect.innerHTML = '<option value="">Все отделы</option>' + departments.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  refreshDepFilterSelect();
   render();
 }
 
@@ -691,8 +736,8 @@ async function updateTeamDrawerEarned(m) {
     _quickLikes = null;
   }
   const likeBtn = canSendLike
-    ? `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#e53e3e;border-color:rgba(229,62,62,.2)"
-        onclick="openSendLikeModal('${m.id}', '${esc(m.name)}')" title="Отправить лайк">
+    ? `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;color:#e53e3e;border-color:rgba(229,62,62,.2)"
+        onclick="openSendLikeModal(${JSON.stringify(String(m.id))}, ${JSON.stringify(String(m.name || ''))})" title="Отправить лайк">
         ❤️ Like<span style="color:#e53e3e">Me</span>
       </button>`
     : '';
@@ -711,7 +756,7 @@ async function updateTeamDrawerEarned(m) {
   const rowWrap = (inner) =>
     `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0">${inner}</div>`;
   const achStrip = earned.length
-    ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;background:linear-gradient(135deg, rgba(245,166,35,.08), transparent);border-radius:8px">
+    ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;padding:6px 10px;background:linear-gradient(135deg, rgba(245,166,35,.08), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
         ${earned.map((a) => `<span title="${esc(a.name)}" style="font-size:18px">${esc(String(a.icon || '🏅'))}</span>`).join('')}
       </div>`
     : '';
@@ -805,7 +850,10 @@ function switchTab(i) {
       </div>
       <div class="field">
         <div class="fl">Отдел</div>
-        <input class="fin" id="edit-tm-department" value="${esc(tm.department || '')}" placeholder="Отдел"/>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select class="fselect" id="edit-tm-department" style="flex:1">${buildDepartmentOptionsHtml(tm.department)}</select>
+          ${can('admin') ? `<button type="button" class="btn btn-ghost" style="padding:4px 8px;font-size:11px;flex-shrink:0" onclick="manageDepartments()" title="Управление отделами">⚙️</button>` : ''}
+        </div>
       </div>
     </div>
     <div class="field-row team-fr" style="margin-bottom:14px">
@@ -924,13 +972,8 @@ async function saveTeamCard() {
     await api('PATCH', '/team/' + drawerId, body);
     showToast('Сохранено');
     await loadTeam();
-    drawerData = await api('GET', '/team/' + drawerId);
-    updateTeamDrawerPhoto(drawerData);
-    await updateTeamDrawerEarned(drawerData);
-    const age = calcAge(drawerData.birth_date);
-    document.getElementById('dr-name').innerHTML = `<span style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700">${esc(drawerData.name)}</span>${age !== null ? ` <span style="color:var(--text3);font-size:14px;font-weight:400">${age} л</span>` : ''}`;
-    document.getElementById('dr-role-hint').textContent = [drawerData.position_title, drawerData.department].filter(Boolean).join(' · ') || '—';
-    switchTab(0);
+    render();
+    closeDrawer();
   } catch (e) { showToast(e.message, true); }
 }
 async function saveDrawer() { return saveTeamCard(); }
@@ -982,7 +1025,7 @@ async function uploadPhoto(event) {
 function openNewMember() {
   document.getElementById('nm-name').value = '';
   document.getElementById('nm-pos').value = '';
-  document.getElementById('nm-dep').value = '';
+  document.getElementById('nm-dep').innerHTML = buildDepartmentOptionsHtml('');
   document.getElementById('nm-phone').value = '';
   document.getElementById('nm-email').value = '';
   document.getElementById('ov-new').classList.add('open');
