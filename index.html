@@ -89,16 +89,16 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .card.birthday-card:hover{background:var(--card-h);transform:translateY(-2px)}
 
 @keyframes birthday-glow {
-  0%   { border-color: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,.2); }
-  25%  { border-color: #ff6b9d; box-shadow: 0 0 12px rgba(255,107,157,.15); }
-  50%  { border-color: #c084fc; box-shadow: 0 0 8px rgba(192,132,252,.15); }
-  75%  { border-color: #67e8f9; box-shadow: 0 0 12px rgba(103,232,249,.15); }
-  100% { border-color: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,.2); }
+  0%   { border-color: #f5a623; box-shadow: 0 0 12px rgba(245,166,35,.25); }
+  25%  { border-color: #ff6b9d; box-shadow: 0 0 16px rgba(255,107,157,.2); }
+  50%  { border-color: #c084fc; box-shadow: 0 0 12px rgba(192,132,252,.2); }
+  75%  { border-color: #67e8f9; box-shadow: 0 0 16px rgba(103,232,249,.2); }
+  100% { border-color: #f5a623; box-shadow: 0 0 12px rgba(245,166,35,.25); }
 }
 
 .birthday-card {
   animation: birthday-glow 4s ease-in-out infinite, fi .25s ease both;
-  border-width: 2px;
+  border-width: 3px;
   border-style: solid;
   position: relative;
 }
