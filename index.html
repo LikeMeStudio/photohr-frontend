@@ -1289,6 +1289,8 @@ function exportPhotographers(){
     .catch(e => showToast(e.message, true));
 }
 
+let _monthlyData = [];
+
 async function openAchievementsPanel() {
   let ov = document.getElementById('achievements-panel-overlay');
   if (!ov) {
@@ -1304,6 +1306,7 @@ async function openAchievementsPanel() {
   try {
     await api('POST', '/achievements/seed-defaults').catch(() => {});
     const stats = await api('GET', '/achievements/tenure-stats');
+    _monthlyData = stats.monthly || [];
     const achStats = stats.achievement_stats || [];
     const recent = stats.recent || [];
     const cats = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
@@ -1341,15 +1344,18 @@ async function openAchievementsPanel() {
         <!-- Достижения месяца -->
         <div style="font-size:13px;font-weight:600;color:#f5a623;margin-bottom:12px">🏆 Достижения месяца</div>
         ${(stats.monthly && stats.monthly.length) ? `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:10px;margin-bottom:20px">
-          ${stats.monthly.map(m => `
-            <div style="background:linear-gradient(135deg, rgba(245,166,35,.1), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 10px;text-align:center;cursor:default" title="${esc((m.recipients||[]).map(r => r && r.name != null ? String(r.name) : '').filter(Boolean).join(', '))}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:10px;margin-bottom:8px">
+          ${stats.monthly.map((m, idx) => `
+            <div style="background:linear-gradient(135deg, rgba(245,166,35,.1), rgba(245,166,35,.02));border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:transform .15s"
+              onclick="toggleMonthlyRecipients(${idx})"
+              onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
               <div style="font-size:32px;margin-bottom:6px">${esc(m.icon)}</div>
               <div style="font-size:11px;color:var(--text);font-weight:500;line-height:1.3;margin-bottom:6px">${esc(m.achievement_name)}</div>
               <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#f5a623">${m.count}</div>
             </div>
           `).join('')}
         </div>
+        <div id="monthly-recipients" style="margin-bottom:16px"></div>
         ` : `
         <div style="padding:16px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(245,166,35,.15);margin-bottom:20px">
           За этот месяц пока нет новых достижений
@@ -1388,6 +1394,37 @@ async function openAchievementsPanel() {
   } catch (e) {
     ov.innerHTML = `<div class="modal" style="max-width:500px;padding:24px" onclick="event.stopPropagation()"><div style="color:var(--rank3)">${esc(e.message)}</div><button type="button" class="btn btn-ghost" onclick="document.getElementById('achievements-panel-overlay').classList.remove('open')" style="margin-top:12px">Закрыть</button></div>`;
   }
+}
+
+function toggleMonthlyRecipients(idx) {
+  const container = document.getElementById('monthly-recipients');
+  if (!container) return;
+  const m = _monthlyData[idx];
+  if (!m) return;
+
+  if (container.dataset.openIdx === String(idx)) {
+    container.innerHTML = '';
+    container.dataset.openIdx = '';
+    return;
+  }
+
+  container.dataset.openIdx = String(idx);
+  const recipients = m.recipients || [];
+
+  container.innerHTML = `
+    <div style="background:var(--bg3);border:1px solid rgba(245,166,35,.15);border-radius:10px;padding:12px;margin-top:8px">
+      <div style="font-size:12px;font-weight:600;color:#f5a623;margin-bottom:8px">${esc(m.icon)} ${esc(m.achievement_name)} — ${recipients.length} чел.</div>
+      ${recipients.map(r => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text)">${esc(r.name || '—')}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;color:var(--text3)">${r.earned_at ? new Date(r.earned_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : ''}</span>
+            ${r.id != null && r.id !== '' ? `<button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="document.getElementById('achievements-panel-overlay').classList.remove('open'); setTimeout(() => openDrawer(${Number(r.id)}), 200)">Карточка →</button>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 async function runAutoCheck() {
