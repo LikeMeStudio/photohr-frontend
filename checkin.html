@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>PhotoHR — Чекин</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--border:#2e2e3d;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.top{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
+.user-name{font-size:12px;color:var(--text2);margin-left:auto}
+.content{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center}
+.title{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;margin-bottom:8px}
+.sub{font-size:13px;color:var(--text2);margin-bottom:20px;max-width:320px}
+#reader{width:300px;height:300px;border-radius:16px;overflow:hidden;margin-bottom:20px}
+#reader video{border-radius:16px}
+.btn{padding:12px 28px;border-radius:12px;border:none;font-family:'Golos Text',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.result{padding:20px;border-radius:14px;margin-top:16px;max-width:340px;width:100%}
+.result-ok{background:rgba(62,207,142,.1);border:2px solid rgba(62,207,142,.4)}
+.result-fail{background:rgba(242,85,85,.1);border:2px solid rgba(242,85,85,.4)}
+.result-icon{font-size:48px;margin-bottom:8px}
+.result-title{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px}
+.result-sub{font-size:12px;color:var(--text2)}
+.shift-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;max-width:340px;width:100%;text-align:left}
+.shift-venue{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:4px}
+.shift-meta{font-size:12px;color:var(--text2)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="logo" href="my.html">Photo<span>HR</span></a>
+  <span class="user-name" id="user-name"></span>
+</div>
+<div class="content" id="content">
+  <div style="color:var(--text3)">Загрузка...</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,myShifts=[],scanner=null;
+
+async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(x.ok){const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}else{doLogout();return null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
+function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
+function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',3000);}
+
+(async()=>{
+  if(!AT&&!RT){location.href='index.html';return;}
+  try{
+    U=await api('GET','/auth/me');
+    document.getElementById('user-name').textContent=U.name;
+    if(!U.photographer_id){
+      document.getElementById('content').innerHTML=`<div class="title">Нет карточки</div><div class="sub">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div><a href="index.html" class="btn btn-ghost">← Назад</a>`;
+      return;
+    }
+    await loadMyShifts();
+  }catch(e){document.getElementById('content').innerHTML=`<div style="color:var(--rank3)">${e.message}</div>`;}
+})();
+
+async function loadMyShifts(){
+  const today=new Date().toISOString().split('T')[0];
+  const c=document.getElementById('content');
+  
+  // Пробуем найти смены через events
+  try{
+    const events=await api('GET',`/events?from=${today}&to=${today}`);
+    myShifts=[];
+    for(const ev of events){
+      const shifts=await api('GET',`/shifts?event_id=${ev.id}`).catch(()=>[]);
+      for(const sh of shifts){
+        const assigns=await api('GET',`/shifts/${sh.id}/assignments`).catch(()=>[]);
+        const myAssign=assigns.find(a=>a.photographer_id===U.photographer_id&&a.status!=='cancelled');
+        if(myAssign){
+          myShifts.push({...myAssign, shift:sh, event:ev, venue_name:ev.venue_name||ev.venue_id});
+        }
+      }
+    }
+  }catch{}
+
+  if(!myShifts.length){
+    c.innerHTML=`
+      <div class="title">📍 Чекин</div>
+      <div class="sub">У вас нет смен на сегодня (${new Date().toLocaleDateString('ru-RU')})</div>
+      <div style="margin-bottom:20px">
+        <div class="sub">Или отсканируйте QR-код площадки:</div>
+        <button class="btn btn-primary" onclick="startScanner()">📷 Сканировать QR</button>
+      </div>
+      <a href="my.html" class="btn btn-ghost">← Мой профиль</a>
+    `;
+    return;
+  }
+
+  c.innerHTML=`
+    <div class="title">📍 Чекин</div>
+    <div class="sub">Ваши смены на сегодня</div>
+    ${myShifts.map((s,i)=>`
+      <div class="shift-card">
+        <div class="shift-venue">${s.venue_name||'Площадка'}</div>
+        <div class="shift-meta">${s.role_in_shift||'фотограф'} · ${s.event?.event_date||''}</div>
+        <div style="margin-top:8px">
+          ${s.checkin_at?`<span style="color:var(--rank1);font-size:13px">✅ Вы отмечены (${new Date(s.checkin_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})})</span>`:`<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="startScanForShift(${i})">📷 Сканировать QR</button>`}
+        </div>
+      </div>
+    `).join('')}
+    <div style="margin-top:12px"><a href="my.html" class="btn btn-ghost">← Мой профиль</a></div>
+  `;
+}
+
+let pendingAssignmentId=null;
+
+function startScanForShift(idx){
+  pendingAssignmentId=myShifts[idx]?.id||null;
+  startScanner();
+}
+
+function startScanner(){
+  const c=document.getElementById('content');
+  c.innerHTML=`
+    <div class="title">📷 Наведите камеру на QR</div>
+    <div id="reader"></div>
+    <button class="btn btn-ghost" onclick="stopScanner();loadMyShifts();" style="margin-top:8px">← Отмена</button>
+  `;
+  scanner=new Html5Qrcode('reader');
+  scanner.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:{width:250,height:250}},
+    onScanSuccess,
+    ()=>{}
+  ).catch(e=>{
+    c.innerHTML=`<div class="title">Нет доступа к камере</div><div class="sub">${e.message}</div>
+    <div style="margin-top:12px"><div class="sub">Введите код вручную:</div>
+    <input id="manual-code" class="btn btn-ghost" style="width:250px;text-align:center;margin-bottom:8px" placeholder="shift_id:timestamp:hmac"/>
+    <button class="btn btn-primary" onclick="manualScan()">Отправить</button></div>
+    <button class="btn btn-ghost" onclick="loadMyShifts()" style="margin-top:12px">← Назад</button>`;
+  });
+}
+
+function stopScanner(){if(scanner){scanner.stop().catch(()=>{});scanner=null;}}
+
+async function onScanSuccess(code){
+  stopScanner();
+  await doCheckin(code);
+}
+
+function manualScan(){
+  const code=document.getElementById('manual-code')?.value?.trim();
+  if(code)doCheckin(code);
+}
+
+async function doCheckin(qrCode){
+  const c=document.getElementById('content');
+  c.innerHTML='<div style="color:var(--text3)">Отправка...</div>';
+  
+  // Получаем геопозицию
+  let lat=null,lng=null;
+  try{
+    const pos=await new Promise((res,rej)=>{navigator.geolocation.getCurrentPosition(res,rej,{timeout:5000,enableHighAccuracy:true});});
+    lat=pos.coords.latitude;lng=pos.coords.longitude;
+  }catch{}
+
+  try{
+    const body={qr_code:qrCode,checkin_type:'arrival',latitude:lat,longitude:lng};
+    if(pendingAssignmentId)body.assignment_id=pendingAssignmentId;
+    
+    const result=await api('POST','/checkins',body);
+    
+    c.innerHTML=`
+      <div class="result result-ok">
+        <div class="result-icon">✅</div>
+        <div class="result-title">Отмечен!</div>
+        <div class="result-sub">${result.is_late?'⏰ Опоздание '+result.late_minutes+' мин':'Вовремя'}</div>
+        ${result.venue_name?`<div class="result-sub" style="margin-top:4px">📍 ${result.venue_name}</div>`:''}
+        <div class="result-sub" style="margin-top:4px">${new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <div style="margin-top:16px"><a href="my.html" class="btn btn-primary">← Мой профиль</a></div>
+    `;
+  }catch(e){
+    c.innerHTML=`
+      <div class="result result-fail">
+        <div class="result-icon">❌</div>
+        <div class="result-title">Ошибка</div>
+        <div class="result-sub">${e.message}</div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-primary" onclick="startScanner()">Повторить</button>
+        <a href="my.html" class="btn btn-ghost">← Назад</a>
+      </div>
+    `;
+  }
+}
+</script>
+</body>
+</html>

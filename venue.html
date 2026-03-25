@@ -54,10 +54,23 @@
 <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
 <select class="fselect" id="vs" onchange="load()" style="min-width:180px"><option value="">Площадка...</option></select>
 <input class="fin" type="date" id="sd" onchange="load()" style="width:auto"/>
+<button class="btn btn-ghost" onclick="openVenueSettings()" title="Настройки площадки" style="font-size:14px;padding:5px 10px">⚙️</button>
 <div id="rs"></div><div style="flex:1"></div><div id="rstat"></div>
 </div>
 <div id="C"><div class="loading">Выберите площадку и дату</div></div>
 </div>
+
+<!-- Venue Settings Modal -->
+<div class="overlay" id="vs-modal" onclick="if(event.target===this)this.classList.remove('open')" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center">
+<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">⚙️ Настройки площадки</span>
+    <button class="dr-close" onclick="document.getElementById('vs-modal').style.display='none'" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+  </div>
+  <div id="vs-content"><div class="loading">Загрузка...</div></div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -192,6 +205,117 @@ toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');load()
 }catch(e){toast(e.message,1);}}
 
 async function mkEvent(){const v=document.getElementById('vs').value,d=document.getElementById('sd').value;try{await api('POST','/events',{venue_id:v,event_date:d,event_type:'regular'});toast('Создано');load();}catch(e){toast(e.message,1);}}
+
+// ── VENUE SETTINGS ──
+let allProducts=[];
+async function openVenueSettings(){
+  const vid=document.getElementById('vs').value;
+  if(!vid){toast('Выберите площадку',1);return;}
+  document.getElementById('vs-modal').style.display='flex';
+  const c=document.getElementById('vs-content');
+  c.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    const[venueProds, allProds, venue]=await Promise.all([
+      api('GET',`/venues/${vid}/products`).catch(()=>[]),
+      api('GET','/products').catch(()=>[]),
+      api('GET',`/venues/${vid}`).catch(()=>({})),
+    ]);
+    allProducts=allProds;
+    const vpIds=new Set(venueProds.map(p=>p.product_id));
+
+    c.innerHTML=`
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📍 ${venue.name||'Площадка'}</div>
+        <div style="font-size:11px;color:var(--text3)">${venue.address||''} ${venue.city||''}</div>
+        ${venue.checkin_radius_m?`<div style="font-size:11px;color:var(--text3)">Радиус чекина: ${venue.checkin_radius_m}м</div>`:''}
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">🛒 Товары площадки (${venueProds.length})</div>
+        ${venueProds.map(p=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:12px">
+            <span style="flex:1">${p.product_name||p.name}</span>
+            <span style="color:var(--accent2);font-weight:600">${p.price}₽</span>
+            <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeProduct('${vid}','${p.product_id}')">✕</button>
+          </div>
+        `).join('')||'<div style="color:var(--text3);font-size:12px">Нет товаров. Добавьте ниже.</div>'}
+      </div>
+
+      <div style="margin-bottom:16px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">➕ Добавить товар</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select class="fselect" id="add-prod" style="flex:1;min-width:150px">
+            ${allProds.filter(p=>!vpIds.has(p.id)).map(p=>`<option value="${p.id}">${p.name} (${p.default_price||0}₽)</option>`).join('')}
+          </select>
+          <input class="fin" type="number" id="add-price" placeholder="Цена" style="width:80px" value="${allProds[0]?.default_price||0}"/>
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="addProduct('${vid}')">Добавить</button>
+        </div>
+        ${!allProds.filter(p=>!vpIds.has(p.id)).length?'<div style="font-size:11px;color:var(--text3);margin-top:4px">Все товары уже добавлены. <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="openNewProduct()">Создать новый</button></div>':''}
+      </div>
+
+      <div id="new-prod-form" style="display:none;padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:16px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">Новый товар</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input class="fin" id="np-name" placeholder="Название" style="flex:1"/>
+          <select class="fselect" id="np-cat" style="width:auto"><option value="photo">Фото</option><option value="magnet">Магнит</option><option value="accessory">Аксессуар</option><option value="other">Другое</option></select>
+          <input class="fin" type="number" id="np-price" placeholder="Цена" style="width:70px"/>
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="createProduct('${vid}')">Создать</button>
+        </div>
+      </div>
+
+      <div style="padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">👥 Требуемый персонал</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div><div class="fl">Фотографов</div><input class="fin" type="number" id="vr-photo" value="${venue.required_photographers||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+          <div><div class="fl">Операторов</div><input class="fin" type="number" id="vr-ops" value="${venue.required_operators||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+          <div><div class="fl">Админов</div><input class="fin" type="number" id="vr-admin" value="${venue.required_admins||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+        </div>
+      </div>
+    `;
+  }catch(e){c.innerHTML=`<div style="color:var(--rank3)">${e.message}</div>`;}
+}
+
+function openNewProduct(){document.getElementById('new-prod-form').style.display='block';}
+
+async function addProduct(vid){
+  const prodId=document.getElementById('add-prod').value;
+  const price=parseFloat(document.getElementById('add-price').value);
+  if(!prodId){toast('Выберите товар',1);return;}
+  try{
+    await api('POST',`/venues/${vid}/products`,{product_id:prodId,price:price||0});
+    toast('Товар добавлен');
+    openVenueSettings();
+    prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
+  }catch(e){toast(e.message,1);}
+}
+
+async function removeProduct(vid,pid){
+  try{await api('DELETE',`/venues/${vid}/products/${pid}`);toast('Удалён');openVenueSettings();prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);}catch(e){toast(e.message,1);}
+}
+
+async function createProduct(vid){
+  const name=document.getElementById('np-name').value.trim();
+  const price=parseFloat(document.getElementById('np-price').value);
+  if(!name){toast('Введите название',1);return;}
+  try{
+    const p=await api('POST','/products',{name,category:document.getElementById('np-cat').value,default_price:price||0});
+    await api('POST',`/venues/${vid}/products`,{product_id:p.id,price:price||0});
+    toast('Товар создан и добавлен');
+    openVenueSettings();
+    prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
+  }catch(e){toast(e.message,1);}
+}
+
+async function saveVenueStaff(vid){
+  try{
+    await api('PATCH',`/venues/${vid}`,{
+      required_photographers:parseInt(document.getElementById('vr-photo').value)||0,
+      required_operators:parseInt(document.getElementById('vr-ops').value)||0,
+      required_admins:parseInt(document.getElementById('vr-admin').value)||0,
+    });
+    toast('Сохранено');
+  }catch(e){toast(e.message,1);}
+}
 </script>
 </body>
 </html>
