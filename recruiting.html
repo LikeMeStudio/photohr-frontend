@@ -719,15 +719,17 @@ async function doMove(id, stageId, trainingId) {
     if (trainingId) body.notes = `Тренинг: ${trainingId}`;
     const result = await api('POST', `/candidates/${id}/move`, body);
 
-    // Привязываем тренинг если выбран
+    // Привязываем тренинг и записываем в участники
     if (trainingId) {
-      await api('PATCH', `/candidates/${id}`, { training_id: trainingId });
+      await api('PATCH', `/candidates/${id}`, { training_id: trainingId }).catch(() => {});
+      // Получаем photographer_id кандидата если есть, иначе пропускаем attendee
+      // Кандидат ещё не фотограф — сохраняем только training_id в кандидате
     }
 
     if (result.converted) {
       showToast('🎉 Принят! Карточка создана.');
     } else {
-      showToast('Этап обновлён');
+      showToast(trainingId ? 'Записан на тренинг' : 'Этап обновлён');
     }
     closeDrawer();
     await loadKanban();
@@ -738,7 +740,18 @@ async function pickTrainingAndMove(trainingId) {
   const candId = document.getElementById('tp-cand-id').value;
   const stageId = document.getElementById('tp-stage-id').value;
   document.getElementById('training-pick-modal').classList.remove('open');
-  await doMove(candId, stageId, trainingId);
+
+  if (stageId) {
+    // Перемещение на новый этап + привязка к тренингу
+    await doMove(candId, stageId, trainingId);
+  } else {
+    // Перенос на другой тренинг (без смены этапа)
+    try {
+      await api('PATCH', `/candidates/${candId}`, { training_id: trainingId });
+      showToast('Перенесён на другой тренинг');
+      await loadKanban();
+    } catch (e) { showToast(e.message, true); }
+  }
 }
 
 async function skipTrainingAndMove() {
@@ -829,18 +842,122 @@ async function loadTrainingsList() {
       return;
     }
 
+    // Загружаем кандидатов записанных на тренинги
+    const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
+
     list.innerHTML = trainings.map(t => {
       const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
-      return `<div style="padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${t.title}</div>
-          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || t.venue_name || '—'}</div>
-          <div style="font-size:11px;color:var(--text2)">${t.trainer_name || ''} · ${t.registered_count || 0}${t.max_attendees ? '/' + t.max_attendees : ''} записано</div>
+      const enrolledCands = allCands.filter(c => c.training_id === t.id);
+      const enrolledCount = (t.registered_count || 0) + enrolledCands.length;
+
+      return `<div style="background:var(--bg3);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
+        <div style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="toggleTrainingDetail('${t.id}')">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">${t.title}</div>
+            <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || t.venue_name || '—'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--text2)">${t.trainer_name || ''}</div>
+            <div style="font-size:11px;color:${enrolledCount >= (t.max_attendees||999) ? 'var(--rank3)' : 'var(--rank1)'}">${enrolledCount}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
+          </div>
+          <span style="font-size:10px;color:var(--text3)">▼</span>
+        </div>
+        <div id="tr-detail-${t.id}" style="display:none;padding:0 12px 10px;border-top:1px solid var(--border)">
+          <div style="padding-top:8px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Записанные кандидаты:</div>
+            <div id="tr-cands-${t.id}"><div style="font-size:11px;color:var(--text3)">Загрузка...</div></div>
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="remindTraining('${t.id}','${t.title}')">📢 Напомнить всем</button>
+            </div>
+          </div>
         </div>
       </div>`;
     }).join('');
   } catch (e) {
     document.getElementById('trainings-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+  }
+}
+
+async function toggleTrainingDetail(trainingId) {
+  const el = document.getElementById('tr-detail-' + trainingId);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    await loadTrainingCandidates(trainingId);
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+async function loadTrainingCandidates(trainingId) {
+  const container = document.getElementById('tr-cands-' + trainingId);
+  if (!container) return;
+
+  // Ищем кандидатов с training_id = этот тренинг
+  const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
+  const enrolled = allCands.filter(c => c.training_id === trainingId);
+
+  // Также загружаем attendees из API (для тех кто уже стал фотографом)
+  let attendees = [];
+  try {
+    const detail = await api('GET', `/trainings/${trainingId}`);
+    attendees = detail.attendees || [];
+  } catch {}
+
+  if (!enrolled.length && !attendees.length) {
+    container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 0">Пока никто не записан</div>';
+    return;
+  }
+
+  let html = '';
+  enrolled.forEach(c => {
+    const stage = allStages.find(s => s.id === c.stage_id);
+    html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">
+      <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('trainings-modal').classList.remove('open');openCandidate('${c.id}')">${c.name}</span>
+      <span style="font-size:10px;color:var(--text3)">${stage?.name || ''}</span>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px" onclick="reassignTraining('${c.id}','${trainingId}')" title="Перенести">🔄</button>
+    </div>`;
+  });
+  attendees.forEach(a => {
+    if (!enrolled.find(c => c.name === a.photographer_name)) {
+      html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px">
+        <span style="flex:1">${a.photographer_name}</span>
+        <span style="font-size:10px;color:var(--rank1)">сотрудник</span>
+      </div>`;
+    }
+  });
+
+  container.innerHTML = html;
+}
+
+async function reassignTraining(candId, currentTrainingId) {
+  document.getElementById('tp-cand-id').value = candId;
+  document.getElementById('tp-stage-id').value = ''; // не меняем этап
+  document.getElementById('trainings-modal').classList.remove('open');
+  await loadTrainingPicker();
+  document.getElementById('training-pick-modal').classList.add('open');
+}
+
+async function remindTraining(trainingId, title) {
+  const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
+  const enrolled = allCands.filter(c => c.training_id === trainingId);
+
+  if (!enrolled.length) { showToast('Нет записанных кандидатов', true); return; }
+
+  const names = enrolled.map(c => c.name).join(', ');
+  const t = trainings.find(tr => tr.id === trainingId);
+  const d = t ? new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'long'}) : '';
+  const time = t?.training_time ? t.training_time.slice(0,5) : '';
+  const place = t?.location_text || '';
+
+  const msg = `📢 Напоминание: тренинг "${title}"\n📅 ${d} ${time}\n📍 ${place}\n👥 ${enrolled.length} чел: ${names}`;
+
+  // Копируем в буфер
+  try {
+    await navigator.clipboard.writeText(msg);
+    showToast(`Скопировано в буфер (${enrolled.length} чел)`);
+  } catch {
+    prompt('Скопируйте текст:', msg);
   }
 }
 
