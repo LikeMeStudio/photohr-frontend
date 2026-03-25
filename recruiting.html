@@ -446,6 +446,20 @@ async function dropCard(e, stageId) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (!draggedCard) return;
+
+  const stage = allStages.find(s => s.id === stageId);
+
+  // Если этап требует выбора тренинга — показываем пикер
+  if (stage && TRAINING_STAGES.includes(stage.name)) {
+    document.getElementById('tp-cand-id').value = draggedCard;
+    document.getElementById('tp-stage-id').value = stageId;
+    draggedCard = null;
+    await loadTrainingPicker();
+    document.getElementById('training-pick-modal').classList.add('open');
+    return;
+  }
+
+  // Если этап «Принят в штат» — покажем тост
   try {
     const result = await api('POST', `/candidates/${draggedCard}/move`, { stage_id: stageId });
     if (result.converted) {
