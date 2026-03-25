@@ -334,8 +334,30 @@ let currentFilter = 'all';
 let draggedCard = null;
 let refreshLock = null;
 
-const ROLE_LABELS = { viewer:'Менеджер', manager:'Менеджер', editor:'Редактор', hr_director:'HR-директор', admin:'Администратор', recruiter:'Рекрутер', venue_admin:'Админ площадки', print_operator:'Оператор', stock_manager:'Склад', controller:'Контролёр', photographer_user:'Фотограф' };
-const ROLE_COLORS = { viewer:'#9090a8', manager:'#f5a623', editor:'#9b8dff', hr_director:'#3ecf8e', admin:'#ffd700', recruiter:'#e86aa6', venue_admin:'#e87a6a', print_operator:'#6aa6e8', stock_manager:'#8a7aee', controller:'#e86aa6', photographer_user:'#4ecb8a' };
+const ROLE_LABELS = {
+  admin: 'Администратор',
+  exec_director: 'Исполнительный директор',
+  hr_director: 'HR-директор',
+  hr_manager: 'HR-менеджер',
+  recruiter: 'Рекрутер',
+  tech_director: 'Тех-директор',
+  site_specialist: 'Специалист по сайту',
+  cashier: 'Инкассация',
+  photographer_user: 'Сотрудник',
+  archived: 'Архив'
+};
+const ROLE_COLORS = {
+  admin: '#ffd700',
+  exec_director: '#f5a623',
+  hr_director: '#3ecf8e',
+  hr_manager: '#4ecb8a',
+  recruiter: '#e86aa6',
+  tech_director: '#8a7aee',
+  site_specialist: '#6aa6e8',
+  cashier: '#e87a6a',
+  photographer_user: '#9090a8',
+  archived: '#5a5a72'
+};
 const SRC_LABELS = { hh:'HH', avito:'Avito', referral:'Реферал', telegram:'TG', manual:'Вручную', website:'Сайт', other:'Другое' };
 
 // ── API ──

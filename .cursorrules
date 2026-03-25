@@ -1,0 +1,85 @@
+# PhotoHR — Frontend (.cursorrules)
+# Фронтенд HR-системы для LikeMe Studio
+
+## СТЕК
+- Vanilla JS (без фреймворков — осознанное решение)
+- Несколько HTML-страниц на GitHub Pages (не SPA)
+- Shared auth через localStorage (fhr_access, fhr_refresh)
+- Тёмная тема: CSS переменные --bg, --accent, --rank1/2/3
+- Шрифты: Unbounded (заголовки) + Golos Text (тело)
+
+## ДЕПЛОЙ
+- GitHub Pages: https://likemestudio.github.io/photohr-frontend/
+- Репо: LikeMeStudio/photohr-frontend
+- Auto-deploy при push в main
+- Бэкенд API: https://fotohr-server-production.up.railway.app/api
+
+## СТРАНИЦЫ (7 файлов)
+1. `index.html` (~3100 строк) — Главная: карточки сотрудников, drawer, фильтры, админка, ROLE_LABELS
+2. `recruiting.html` (~1240 строк) — Канбан рекрутинга: 3 воронки, drag-and-drop, тренинги, стажировки, отказы
+3. `venue.html` (~320 строк) — Интерфейс площадки: QR-чекин, состав смены, отчёт продаж (бумажная форма), настройки
+4. `calendar.html` (~365 строк) — Календарь мероприятий: месячная сетка, назначения на смены
+5. `my.html` (~210 строк) — ЛК фотографа: профиль, рейтинг, достижения, лидерборд, баланс ЗП
+6. `stock.html` (~250 строк) — Склад: остатки, движения, дефицит, оборудование
+7. `checkin.html` (~200 строк) — Мобильный QR-сканер для чекина
+
+## АВТОРИЗАЦИЯ
+- Login только через index.html (email+password или Google OAuth)
+- accessToken сохраняется в localStorage('fhr_access')
+- refreshToken в localStorage('fhr_refresh')
+- Все страницы при загрузке: если нет токенов → redirect на index.html
+- При 401 → auto-refresh → retry
+- Google OAuth redirect_uri всегда без index.html (фикс redirect_uri_mismatch)
+
+## НАВИГАЦИЯ
+- Единая на всех страницах: Сотрудники / Рекрутинг / Площадка / Склад / Календарь
+- index.html — динамическая по ролям (recruiter видит только Рекрутинг и т.д.)
+- Остальные — статичная (все ссылки)
+- my.html добавляет "📷 Мой профиль"
+
+## CSS ПЕРЕМЕННЫЕ (единые для всех страниц)
+```css
+--bg:#0f0f13; --bg2:#16161d; --bg3:#1e1e28;
+--card:#1a1a23; --card-h:#1f1f2a;
+--border:#2e2e3d; --border2:#3a3a4f;
+--text:#e8e8f0; --text2:#9090a8; --text3:#5a5a72;
+--accent:#7c6cff; --accent2:#9b8dff;
+--rank1:#3ecf8e; --rank2:#f5a623; --rank3:#f25555;
+```
+
+## ROLE_LABELS / ROLE_COLORS (11 ролей)
+```js
+const ROLE_LABELS = {
+  viewer:'Линейный менеджер', manager:'Менеджер', editor:'Редактор',
+  hr_director:'HR-директор', admin:'Администратор', venue_admin:'Админ площадки',
+  print_operator:'Оператор печати', stock_manager:'Складской менеджер',
+  controller:'Контролёр', photographer_user:'Фотограф', recruiter:'Рекрутер'
+};
+```
+
+## ПРАВИЛА
+1. Один файл = одна страница (не разбивать на компоненты)
+2. Все стили инлайн в <style> (не выносить в CSS файлы)
+3. Все скрипты инлайн в <script> (не выносить в JS файлы)
+4. Toast для уведомлений: showToast(msg, isError)
+5. API функция единая на каждой странице с auto-refresh
+6. Минимум внешних зависимостей (только qrcode.js и html5-qrcode)
+
+## КЛЮЧЕВЫЕ ПАТТЕРНЫ
+- Drawer (боковая панель): index.html и recruiting.html
+- Modal (модальные окна): overlay.open/close через classList
+- Kanban: CSS grid/flex с drag-and-drop (HTML5 native)
+- Таблицы: <table> с input[type=number] и авторасчётом итогов
+
+## БРЕНД
+- Проект: PhotoHR (не FotoHR)
+- Компания: LikeMe Studio
+- Логотип: Photo<span style="color:accent">HR</span>
+
+## НЕ ДЕЛАТЬ
+- Не использовать React/Vue/Angular
+- Не выносить в отдельные JS/CSS файлы
+- Не менять CSS переменные
+- Не менять формат токенов в localStorage
+- Не менять API URL константу
+- Не убирать auto-refresh логику

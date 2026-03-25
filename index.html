@@ -546,20 +546,17 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <div class="fl">Основная роль</div>
       <select class="fselect" id="np-role">
         <option value="photographer">Фотограф</option>
-        <option value="aquagrim">Аквагримёр</option>
-        <option value="admin_venue">Админ площадки</option>
         <option value="print_operator">Оператор печати</option>
-        <option value="manager_venue">Менеджер площадки</option>
+        <option value="venue_manager">Менеджер площадки</option>
+        <option value="mentor">Наставник</option>
       </select>
     </div>
   </div>
   <div class="field" style="margin-bottom:12px">
-    <div class="fl">Дополнительные роли</div>
+    <div class="fl">Флаги</div>
     <div id="np-roles-checkboxes" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0">
-      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="trainer"/> 🎓 Тренер</label>
-      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="mentor"/> 👨‍🏫 Наставник</label>
-      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="photographer"/> 📷 Фотограф</label>
-      <label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" value="print_operator"/> 🖨 Оператор</label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="np-is-trainer" style="cursor:pointer"/> 🎓 Тренер</label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="np-is-curator" style="cursor:pointer"/> 🧭 Куратор</label>
     </div>
   </div>
   <div class="modal-footer">
@@ -578,17 +575,15 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="field" style="margin-bottom:12px">
     <div class="fl">Роль</div>
     <select class="fselect" id="nu-role">
-      <option value="viewer">viewer — линейный менеджер</option>
-      <option value="manager">manager — менеджер</option>
-      <option value="editor">editor — редактор карточек</option>
-      <option value="hr_director">hr_director — HR-директор</option>
-      <option value="admin">admin — полный доступ</option>
-      <option value="venue_admin">venue_admin — админ площадки</option>
-      <option value="print_operator">print_operator — оператор печати</option>
-      <option value="stock_manager">stock_manager — складской менеджер</option>
-      <option value="controller">controller — контролёр</option>
-      <option value="photographer_user">photographer_user — фотограф (ЛК)</option>
-      <option value="recruiter">recruiter — рекрутер</option>
+      <option value="photographer_user">Сотрудник</option>
+      <option value="recruiter">Рекрутер</option>
+      <option value="hr_manager">HR-менеджер</option>
+      <option value="cashier">Инкассация</option>
+      <option value="tech_director">Тех-директор</option>
+      <option value="site_specialist">Специалист по сайту</option>
+      <option value="hr_director">HR-директор</option>
+      <option value="exec_director">Исп. директор</option>
+      <option value="admin">Администратор</option>
     </select>
   </div>
   <div class="field" style="margin-bottom:12px"><div class="fl">Временный пароль *</div><input class="fin" type="password" id="nu-pass" placeholder="Минимум 8 символов" autocomplete="new-password"/></div>
@@ -674,17 +669,15 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="field" style="margin-bottom:12px">
     <div class="fl">Роль</div>
     <select class="fselect" id="eu-role">
-      <option value="viewer">viewer — линейный менеджер</option>
-      <option value="manager">manager — менеджер</option>
-      <option value="editor">editor — редактор карточек</option>
-      <option value="hr_director">hr_director — HR-директор</option>
-      <option value="admin">admin — полный доступ</option>
-      <option value="venue_admin">venue_admin — админ площадки</option>
-      <option value="print_operator">print_operator — оператор печати</option>
-      <option value="stock_manager">stock_manager — складской менеджер</option>
-      <option value="controller">controller — контролёр</option>
-      <option value="photographer_user">photographer_user — фотограф (ЛК)</option>
-      <option value="recruiter">recruiter — рекрутер</option>
+      <option value="photographer_user">Сотрудник</option>
+      <option value="recruiter">Рекрутер</option>
+      <option value="hr_manager">HR-менеджер</option>
+      <option value="cashier">Инкассация</option>
+      <option value="tech_director">Тех-директор</option>
+      <option value="site_specialist">Специалист по сайту</option>
+      <option value="hr_director">HR-директор</option>
+      <option value="exec_director">Исп. директор</option>
+      <option value="admin">Администратор</option>
     </select>
   </div>
   <div class="field" style="margin-bottom:12px">
@@ -729,16 +722,58 @@ let venues = [];
 let filters = { rank: null, sales: null, photo: null, venue: null, venueCategory: null, gender: null };
 let refreshLock = null;
 
-const ROLE_LABELS = { viewer:'Линейный менеджер', manager:'Менеджер', editor:'Редактор', hr_director:'HR-директор', admin:'Администратор', venue_admin:'Админ площадки', print_operator:'Оператор печати', stock_manager:'Складской менеджер', controller:'Контролёр', photographer_user:'Фотограф' };
-const ROLE_COLORS = { viewer:'#9090a8', manager:'#f5a623', editor:'#9b8dff', hr_director:'#3ecf8e', admin:'#ffd700', venue_admin:'#e87a6a', print_operator:'#6aa6e8', stock_manager:'#8a7aee', controller:'#e86aa6', photographer_user:'#4ecb8a' };
+const ROLE_LABELS = {
+  admin: 'Администратор',
+  exec_director: 'Исполнительный директор',
+  hr_director: 'HR-директор',
+  hr_manager: 'HR-менеджер',
+  recruiter: 'Рекрутер',
+  tech_director: 'Тех-директор',
+  site_specialist: 'Специалист по сайту',
+  cashier: 'Инкассация',
+  photographer_user: 'Сотрудник',
+  archived: 'Архив'
+};
+const ROLE_COLORS = {
+  admin: '#ffd700',
+  exec_director: '#f5a623',
+  hr_director: '#3ecf8e',
+  hr_manager: '#4ecb8a',
+  recruiter: '#e86aa6',
+  tech_director: '#8a7aee',
+  site_specialist: '#6aa6e8',
+  cashier: '#e87a6a',
+  photographer_user: '#9090a8',
+  archived: '#5a5a72'
+};
+const EMPLOYEE_ROLE_LABELS = {
+  photographer: 'Фотограф',
+  print_operator: 'Оператор печати',
+  venue_manager: 'Менеджер площадки',
+  mentor: 'Наставник'
+};
 let currentDrawerId = null;
 let currentTab = 0;
 let editState = {};   // rank, sales_score, venues for current drawer
 let allUsers = [];
 
 // ── ROLES ──
-const ROLES = { viewer:0, manager:1, editor:2, hr_director:2, admin:3 };
-const can = (r) => (ROLES[currentUser?.role??'viewer']??-1) >= (ROLES[r]??999);
+const ROLES = {
+  photographer_user: 0,
+  recruiter: 1,
+  hr_manager: 1,
+  tech_director: 1,
+  site_specialist: 1,
+  cashier: 2,
+  hr_director: 2,
+  exec_director: 3,
+  admin: 4
+};
+const roleNow = () => currentUser?.role || 'photographer_user';
+const hasAnyRole = (roles) => roles.includes(roleNow());
+const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+const canEditCard = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin','site_specialist']);
+const canManageComments = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
 const canPassport = () => currentUser?.role === 'admin' || currentUser?.role === 'hr_director';
 
 // ── API HELPER ──
@@ -1115,19 +1150,19 @@ function setupToolbarActions() {
   // Navigation links
   const nav = document.getElementById('nav-links');
   const navBtns = ['<a class="f-btn active" href="index.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Сотрудники</a>'];
-  if (can('hr_director') || currentUser.role === 'recruiter') {
+  if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Рекрутинг</a>');
   }
-  if (can('venue_admin') || can('manager')) {
+  if (hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="venue.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Площадка</a>');
   }
-  if (can('stock_manager') || can('admin')) {
+  if (hasAnyRole(['tech_director','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
   }
-  if (can('hr_director') || can('manager')) {
+  if (hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user'])) {
     navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
   }
-  if (currentUser.photographer_id) {
+  if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
     navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📷 Мой профиль</a>');
   }
   nav.innerHTML = navBtns.join('');
@@ -1135,7 +1170,7 @@ function setupToolbarActions() {
   // Toolbar actions
   const el = document.getElementById('toolbar-actions');
   const btns = [];
-  if (can('editor')) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
+  if (canEditCard()) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
   if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
@@ -1470,7 +1505,7 @@ function render(){
         </div>
       </div>` : ''}
       ${p.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(p.summary).slice(0,120)}${p.summary.length>120?'…':''}</div>` : ''}
-      ${can('manager')
+      ${canManageComments()
         ? (p.comment_count>0
             ? `<div class="comment-count" style="margin-top:6px">💬 ${p.comment_count} комментари${p.comment_count===1?'й':Number(p.comment_count)<5?'я':'ев'}${p.last_comment?' · '+escHtml(String(p.last_comment)).slice(0,60)+'…':''}</div>`
             : `<div class="no-comment">Комментариев нет</div>`)
@@ -1649,7 +1684,7 @@ async function openDrawer(id){
   updateDrawerPhoto(ph);
   const age = calcAge(ph.birth_date);
   document.getElementById('dr-name').innerHTML = ph.name + (age !== null ? ` <span style="font-size:14px;color:var(--text3);font-weight:400">${age} л</span>` : '');
-  document.getElementById('dr-role-hint').textContent = can('editor') ? 'Редактирование карточки' : 'Просмотр';
+  document.getElementById('dr-role-hint').textContent = canEditCard() ? 'Редактирование карточки' : 'Просмотр';
 
   editState = {
     rank: ph.rank,
@@ -1698,7 +1733,7 @@ function updateDrawerPhoto(ph) {
 }
 
 function triggerPhotoUpload() {
-  if (!can('editor')) return;
+  if (!canEditCard()) return;
   document.getElementById('photo-input').click();
 }
 
@@ -1749,7 +1784,7 @@ async function uploadPhoto(event) {
 
 async function deletePhoto(event) {
   event.stopPropagation(); // не открываем file picker
-  if (!currentDrawerId || !can('editor')) return;
+  if (!currentDrawerId || !canEditCard()) return;
   if (!confirm('Удалить фото?')) return;
 
   try {
@@ -1772,7 +1807,7 @@ function closeDrawer(){
 
 function buildTabs(ph){
   const tabs = [{ label:'Информация' }];
-  if(can('manager') || !can('manager')) tabs.push({ label:'Комментарии' });
+  tabs.push({ label:'Комментарии' });
   if(can('admin')) tabs.push({ label:'История' });
   tabs.push({ label:'🏆 Достижения' });
 
@@ -1794,18 +1829,18 @@ function renderTab(ph){
   if(currentTab===1) content.innerHTML = renderCommentsTab(ph);
   if(currentTab===2) content.innerHTML = renderHistoryTab(ph);
   if(currentTab===3) { renderAchievementsTab(ph, content); return; }
-  if(currentTab===0 && can('editor')) setupInfoEvents();
+  if(currentTab===0 && canEditCard()) setupInfoEvents();
   if(currentTab===1) setupCommentEvents(ph.id);
 }
 
 function renderInfoTab(ph){
-  const isEditor = can('editor');
+  const isEditor = canEditCard();
   const score = editState.sales_score;
   const baseUrl = API.replace('/api','');
 
   const RANK_NAMES = {1:'Выборочно', 2:'Может все', 3:'Любит все'};
   const RANK_DESC  = {1:'Работает только на отдельных', 2:'Может на любых', 3:'Любит все площадки'};
-  const isManager = can('manager');
+  const isManager = canManageComments();
 
   // Звёзды только для чтения
   function readStars(val){
@@ -1995,34 +2030,36 @@ function renderInfoTab(ph){
           </select>
         </div>
       </div>
-      <div class="fl" style="margin-bottom:6px">Дополнительные роли</div>
-      <div id="edit-ph-roles" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        ${[
-          {val:'photographer', label:'📷 Фотограф'},
-          {val:'trainer', label:'🎓 Тренер'},
-          {val:'mentor', label:'👨‍🏫 Наставник'},
-          {val:'print_operator', label:'🖨 Оператор'},
-          {val:'aquagrim', label:'🎨 Аквагримёр'},
-          {val:'admin_venue', label:'🏢 Админ'},
-        ].map(r => {
-          const checked = (ph.employee_roles || []).includes(r.val) ? 'checked' : '';
-          return '<label style="font-size:12px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ph-role-cb" value="' + r.val + '" ' + checked + '/> ' + r.label + '</label>';
-        }).join('')}
+      <div class="field-row" style="margin-bottom:10px">
+        <div class="field" style="flex:1">
+          <div class="fl">Роль на площадке</div>
+          <select class="fselect" id="edit-ph-employee-role">
+            ${Object.entries(EMPLOYEE_ROLE_LABELS).map(([val,label]) =>
+              `<option value="${val}" ${String(ph.employee_role||'photographer')===val?'selected':''}>${label}</option>`
+            ).join('')}
+          </select>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="edit-ph-mentor" ${ph.can_be_mentor?'checked':''} style="cursor:pointer"/>
-        <label for="edit-ph-mentor" style="font-size:12px;cursor:pointer">Может быть наставником</label>
+      <div class="fl" style="margin-bottom:6px">Флаги</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="edit-ph-is-trainer" ${ph.is_trainer?'checked':''} style="cursor:pointer"/> 🎓 Тренер
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="edit-ph-is-curator" ${ph.is_curator?'checked':''} style="cursor:pointer"/> 🧭 Куратор
+        </label>
       </div>
     </div>` : `
-    ${(ph.employee_roles||[]).length ? `<div style="margin-bottom:14px">
-      <div class="fl" style="margin-bottom:4px">Роли</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${(ph.employee_roles||[]).map(r => {
-          const labels = {photographer:'📷 Фотограф', trainer:'🎓 Тренер', mentor:'👨‍🏫 Наставник', print_operator:'🖨 Оператор', aquagrim:'🎨 Аквагримёр', admin_venue:'🏢 Админ'};
-          return '<span style="padding:2px 8px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">' + (labels[r]||r) + '</span>';
-        }).join('')}
+    <div style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:4px">Роль</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span style="padding:2px 8px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">
+          ${EMPLOYEE_ROLE_LABELS[ph.employee_role] || ph.employee_role || '—'}
+        </span>
+        ${ph.is_trainer ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">🎓 Тренер</span>' : ''}
+        ${ph.is_curator ? '<span style="padding:2px 8px;border-radius:6px;font-size:11px;background:var(--bg3);border:1px solid var(--border)">🧭 Куратор</span>' : ''}
       </div>
-    </div>` : ''}
+    </div>
     ${ph.grade ? '<div style="margin-bottom:14px"><div class="fl" style="margin-bottom:4px">Грейд</div><div style="font-size:14px">' + ph.grade + '</div></div>' : ''}`}
     ${canPassport() ? `
     <div style="margin-bottom:14px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border2)">
@@ -2150,7 +2187,7 @@ function scrollToVenue(vid){
 
 function renderCommentsTab(ph){
   const comments = ph.comments || [];
-  const isManager = can('manager');
+  const isManager = canManageComments();
   return `
     <div style="margin-bottom:16px">
       <textarea class="comment-ta" id="new-comment" placeholder="Написать комментарий..." style="width:100%;display:block"></textarea>
@@ -2260,7 +2297,7 @@ async function renderAchievementsTab(ph, content) {
       </div>
 
       <!-- Закрытые отзывы (для менеджеров) -->
-      ${can('manager') && (peerSummary.management_only||[]).length ? `
+      ${canManageComments() && (peerSummary.management_only||[]).length ? `
       <div>
         <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--rank2)">🔒 Закрытые отзывы (видны только руководству)</div>
         ${peerSummary.management_only.map(r => `
@@ -2306,7 +2343,7 @@ function drPhotoClick(){
   const img = document.querySelector('#dr-photo-zone img.dr-photo-img');
   if(img){
     openLightbox(img.src.split('?')[0]);
-  } else if(can('editor')){
+  } else if(canEditCard()){
     triggerPhotoUpload();
   }
 }
@@ -2408,11 +2445,9 @@ async function saveCard(){
     const passportEl = document.getElementById('edit-ph-passport');
     const gradeEl   = document.getElementById('edit-ph-grade');
     const payEl     = document.getElementById('edit-ph-pay-scheme');
-    const mentorEl  = document.getElementById('edit-ph-mentor');
-
-    // Собираем employee_roles из чекбоксов
-    const roleCbs = document.querySelectorAll('.ph-role-cb:checked');
-    const employeeRoles = roleCbs.length ? Array.from(roleCbs).map(cb => cb.value) : undefined;
+    const employeeRoleEl = document.getElementById('edit-ph-employee-role');
+    const isTrainerEl = document.getElementById('edit-ph-is-trainer');
+    const isCuratorEl = document.getElementById('edit-ph-is-curator');
 
     await api('PATCH', `/photographers/${currentDrawerId}`, {
       name:         nameEl?.value.trim()    || undefined,
@@ -2430,8 +2465,9 @@ async function saveCard(){
       venues:       editState.venues,
       grade:        gradeEl?.value          || null,
       pay_scheme:   payEl?.value            || null,
-      employee_roles: employeeRoles,
-      can_be_mentor: mentorEl?.checked ?? undefined,
+      employee_role: employeeRoleEl?.value || undefined,
+      is_trainer: isTrainerEl?.checked ?? undefined,
+      is_curator: isCuratorEl?.checked ?? undefined,
     });
     await loadPhotographers();
     render();
@@ -2478,11 +2514,9 @@ async function createPhotographer(){
   const name = document.getElementById('np-name').value.trim();
   if(!name) return alert('Введите имя');
 
-  // Собираем дополнительные роли из чекбоксов
-  const roleCheckboxes = document.querySelectorAll('#np-roles-checkboxes input[type=checkbox]:checked');
   const mainRole = document.getElementById('np-role').value;
-  const extraRoles = Array.from(roleCheckboxes).map(cb => cb.value);
-  const allRoles = [mainRole, ...extraRoles.filter(r => r !== mainRole)];
+  const isTrainer = !!document.getElementById('np-is-trainer')?.checked;
+  const isCurator = !!document.getElementById('np-is-curator')?.checked;
 
   try {
     await api('POST', '/photographers', {
@@ -2491,10 +2525,11 @@ async function createPhotographer(){
       email: document.getElementById('np-email').value.trim() || null,
       start_date: document.getElementById('np-date').value || null,
       employee_role: mainRole,
-      employee_roles: allRoles,
+      is_trainer: isTrainer,
+      is_curator: isCurator,
       grade: document.getElementById('np-grade').value || null,
       pay_scheme: document.getElementById('np-pay-scheme').value || 'standard',
-      can_be_mentor: extraRoles.includes('mentor'),
+      can_be_mentor: mainRole === 'mentor',
     });
     document.getElementById('new-ph-modal').classList.remove('open');
     ['np-name','np-phone','np-email'].forEach(id=>document.getElementById(id).value='');
@@ -2684,15 +2719,15 @@ function renderAdminUsers(){
             <div style="display:flex;gap:4px;margin-top:4px">${badges.join('')}${u.photographer_id ? '<span class="badge badge-verified">🔗 карточка</span>' : ''}</div>
           </div>
           <select class="fselect" id="approve-role-${u.id}" style="width:140px;font-size:12px;padding:4px 8px">
-            ${isPhReg ? '<option value="photographer_user" selected>📷 Фотограф</option>' : ''}
-            <option value="viewer" ${!isPhReg ? 'selected' : ''}>viewer</option>
-            <option value="manager">manager</option>
-            <option value="editor">editor</option>
-            <option value="hr_director">hr_director</option>
-            <option value="venue_admin">venue_admin</option>
-            <option value="print_operator">print_operator</option>
-            <option value="stock_manager">stock_manager</option>
-            <option value="controller">controller</option>
+            <option value="photographer_user" ${isPhReg ? 'selected' : ''}>Сотрудник</option>
+            <option value="recruiter" ${(!isPhReg && u.role==='recruiter') ? 'selected' : ''}>Рекрутер</option>
+            <option value="hr_manager" ${(!isPhReg && u.role==='hr_manager') ? 'selected' : ''}>HR-менеджер</option>
+            <option value="cashier" ${(!isPhReg && u.role==='cashier') ? 'selected' : ''}>Инкассация</option>
+            <option value="tech_director" ${(!isPhReg && u.role==='tech_director') ? 'selected' : ''}>Тех-директор</option>
+            <option value="site_specialist" ${(!isPhReg && u.role==='site_specialist') ? 'selected' : ''}>Специалист по сайту</option>
+            <option value="hr_director" ${(!isPhReg && u.role==='hr_director') ? 'selected' : ''}>HR-директор</option>
+            <option value="exec_director" ${(!isPhReg && u.role==='exec_director') ? 'selected' : ''}>Исп. директор</option>
+            <option value="admin" ${(!isPhReg && u.role==='admin') ? 'selected' : ''}>Администратор</option>
           </select>
           <button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="approveUser('${u.id}')">Одобрить</button>
           <button class="btn btn-danger" style="padding:6px 10px;font-size:12px" onclick="rejectUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">✕</button>
@@ -2711,7 +2746,7 @@ function renderAdminUsers(){
     ${(() => {
       const search = (document.getElementById('admin-user-search')?.value || '').toLowerCase();
       const filter = window._adminUserFilter;
-      const staffRoles = ['viewer','manager','editor','hr_director','admin','venue_admin','print_operator','stock_manager','controller','recruiter'];
+      const staffRoles = ['admin','exec_director','hr_director','hr_manager','recruiter','tech_director','site_specialist','cashier'];
       let filtered = active;
       if (search) filtered = filtered.filter(u => u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
       if (filter === 'staff') filtered = filtered.filter(u => staffRoles.includes(u.role) && u.role !== 'photographer_user');
@@ -2833,11 +2868,15 @@ function openArchivedUser(id){
       <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Восстановить с ролью</div>
       <div style="display:flex;gap:8px;align-items:center">
         <select class="fselect" id="restore-role-${u.id}" style="flex:1;font-size:13px">
-          <option value="viewer">viewer</option>
-          <option value="manager">manager</option>
-          <option value="editor">editor</option>
-          <option value="hr_director">hr_director</option>
-          <option value="admin">admin</option>
+          <option value="photographer_user">Сотрудник</option>
+          <option value="recruiter">Рекрутер</option>
+          <option value="hr_manager">HR-менеджер</option>
+          <option value="cashier">Инкассация</option>
+          <option value="tech_director">Тех-директор</option>
+          <option value="site_specialist">Специалист по сайту</option>
+          <option value="hr_director">HR-директор</option>
+          <option value="exec_director">Исп. директор</option>
+          <option value="admin">Администратор</option>
         </select>
         <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="restoreUser('${u.id}')">♻️ Восстановить</button>
       </div>
@@ -2858,7 +2897,7 @@ function openArchivedUser(id){
 }
 
 async function restoreUser(id){
-  const role = document.getElementById('restore-role-'+id)?.value || 'viewer';
+  const role = document.getElementById('restore-role-'+id)?.value || 'photographer_user';
   if(!confirm('Восстановить пользователя с ролью «' + role + '»?')) return;
   try {
     await api('POST', `/users/${id}/restore`, { role });
@@ -3034,7 +3073,7 @@ async function toggleUser(uid, activate){
 
 async function approveUser(uid){
   const roleEl = document.getElementById('approve-role-' + uid);
-  const role = roleEl ? roleEl.value : 'viewer';
+  const role = roleEl ? roleEl.value : 'photographer_user';
   try {
     await api('POST', `/users/${uid}/approve`, { role });
     await loadUsers(); renderAdminUsers();
@@ -3058,7 +3097,7 @@ async function toggleVenue(vid, activate){
 
 function openNewUserModal(){
   ['nu-name','nu-email','nu-pass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('nu-role').value = 'viewer';
+  document.getElementById('nu-role').value = 'photographer_user';
   document.getElementById('nu-active').checked = true;
   document.getElementById('new-user-modal').classList.add('open');
   setTimeout(()=>document.getElementById('nu-name').focus(), 100);
@@ -3076,7 +3115,7 @@ async function createUser(){
     document.getElementById('new-user-modal').classList.remove('open');
     // Сбрасываем поля
     ['nu-name','nu-email','nu-pass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-    document.getElementById('nu-role').value = 'viewer';
+    document.getElementById('nu-role').value = 'photographer_user';
     document.getElementById('nu-active').checked = true;
     await loadUsers(); renderAdminUsers();
     showToast('Пользователь создан');
@@ -3092,9 +3131,7 @@ function openProfile(){
   el.style.color = av.fg;
   document.getElementById('profile-name').textContent = currentUser.name;
   document.getElementById('profile-email').textContent = currentUser.email;
-  const roleLabel = {viewer:'Линейный менеджер',manager:'Менеджер',editor:'Редактор',admin:'Администратор'};
-  const roleColor = {viewer:'var(--text3)',manager:'var(--rank2)',editor:'var(--accent2)',admin:'var(--rank1)'};
-  document.getElementById('profile-role').innerHTML = `<span style="color:${roleColor[currentUser.role]}">${roleLabel[currentUser.role]}</span>`;
+  document.getElementById('profile-role').innerHTML = `<span style="color:${ROLE_COLORS[currentUser.role]||'var(--text3)'}">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;
   document.getElementById('p-old-pass').value = '';
   document.getElementById('p-new-pass').value = '';
   document.getElementById('p-new-pass2').value = '';
