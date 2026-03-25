@@ -627,7 +627,7 @@ function render() {
       <div class="ch">
         <div style="display:flex;align-items:center;gap:10px">
           ${m.photo_url
-            ? `<img src="${esc(pu)}" onclick="event.stopPropagation();openLightbox(${JSON.stringify(pu)})" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
+            ? `<img src="${esc(pu)}" onclick='event.stopPropagation();openLightbox(${JSON.stringify(pu)})' style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--border2);cursor:zoom-in" alt="${esc(m.name)}"/>`
             : `<div class="av" style="background:${av.bg};color:${av.fg}">${ini(m.name)}</div>`
           }
           <div>
@@ -738,7 +738,7 @@ async function updateTeamDrawerEarned(m) {
   }
   const likeBtn = canSendLike
     ? `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;color:#e53e3e;border-color:rgba(229,62,62,.2)"
-        onclick="openSendLikeModal(${JSON.stringify(String(m.id))}, ${JSON.stringify(String(m.name || ''))})" title="Отправить лайк">
+        onclick='openSendLikeModal(${JSON.stringify(String(m.id))}, ${JSON.stringify(String(m.name || ''))})' title="Отправить лайк">
         ❤️ Like<span style="color:#e53e3e">Me</span>
       </button>`
     : '';
@@ -990,7 +990,7 @@ function switchTab(i) {
     <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg3);border-radius:12px;border:1px solid var(--border);margin-bottom:18px">
       <div style="flex-shrink:0">
         ${tm.photo_url
-          ? `<img src="${cardPhotoUrl(tm.photo_url)}?t=${Date.now()}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);cursor:zoom-in" onclick="event.stopPropagation();openLightbox(${JSON.stringify(cardPhotoUrl(tm.photo_url))})"/>`
+          ? `<img src="${cardPhotoUrl(tm.photo_url)}?t=${Date.now()}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);cursor:zoom-in" onclick='event.stopPropagation();openLightbox(${JSON.stringify(cardPhotoUrl(tm.photo_url))})'/>`
           : `<div style="width:64px;height:64px;border-radius:50%;background:${avC(tm.name).bg};color:${avC(tm.name).fg};display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;border:2px solid var(--border2)">${ini(tm.name)}</div>`}
       </div>
       <div style="flex:1">
@@ -1099,7 +1099,7 @@ ${comments.map((c) => {
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:11px;color:var(--text3)">${new Date(c.created_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-      ${canDelete ? `<button class="btn btn-ghost" style="color:var(--rank3);font-size:11px;padding:2px 6px" onclick="deleteTeamComment(${JSON.stringify(c.id)})">удалить</button>` : ''}
+      ${canDelete ? `<button class="btn btn-ghost" style="color:var(--rank3);font-size:11px;padding:2px 6px" onclick='deleteTeamComment(${JSON.stringify(c.id)})'>удалить</button>` : ''}
     </div>
   </div>
   <div style="font-size:13px;color:var(--text);line-height:1.5">${escHtml(c.body)}</div>
