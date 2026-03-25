@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhotoHR — Рекрутинг</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;
+  --border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;
+  --accent:#7c6cff;--accent2:#9b8dff;
+  --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* Header */
+.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}
+.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
+.nav-btn:hover{color:var(--text);border-color:var(--border2)}
+.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.role-dot{width:7px;height:7px;border-radius:50%}
+.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
+.logout-btn:hover{color:var(--rank3)}
+
+/* Toolbar */
+.toolbar{padding:10px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.search-in{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none;width:220px}
+.search-in::placeholder{color:var(--text3)}
+.search-in:focus{border-color:var(--accent)}
+.f-btn{padding:4px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:11px;cursor:pointer;transition:all .15s}
+.f-btn:hover{color:var(--text)}
+.f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.spacer{flex:1}
+.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:rgba(242,85,85,.15);color:var(--rank3);border:1px solid rgba(242,85,85,.3)}.btn-danger:hover{background:rgba(242,85,85,.25)}
+
+/* Kanban */
+.kanban{display:flex;gap:10px;padding:14px 24px;overflow-x:auto;align-items:flex-start;min-height:calc(100vh - 130px)}
+.kanban-col{min-width:250px;width:250px;flex-shrink:0;background:var(--bg2);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(100vh - 150px)}
+.col-header{padding:10px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);border-radius:12px 12px 0 0}
+.col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.col-title{font-size:12px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.col-count{font-size:10px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:6px}
+.col-body{padding:6px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;min-height:40px;transition:background .15s}
+.col-body.drag-over{background:rgba(124,108,255,.08)}
+
+/* Candidate card */
+.cc{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:grab;transition:all .12s;animation:fi .2s ease both}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+.cc:hover{border-color:var(--border2);background:var(--card-h)}
+.cc.dragging{opacity:.4;border-color:var(--accent)}
+.cc.priority-high{border-left:3px solid var(--rank2)}
+.cc-name{font-size:12px;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-row{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--text3);flex-wrap:wrap}
+.cc-src{padding:0 5px;border-radius:3px;font-size:9px;font-weight:600}
+.src-hh{background:rgba(255,80,80,.12);color:#ff6b6b}
+.src-avito{background:rgba(0,200,120,.12);color:#4ecb8a}
+.src-referral{background:rgba(124,108,255,.15);color:var(--accent2)}
+.src-telegram{background:rgba(0,136,204,.15);color:#3aa8d8}
+.src-manual{background:rgba(144,144,168,.12);color:var(--text2)}
+.src-website{background:rgba(245,166,35,.12);color:var(--rank2)}
+.cc-overdue{color:var(--rank3);font-weight:500}
+.cc-comments{opacity:.5}
+
+/* Drawer */
+.drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100}
+.drawer-bg.open{display:block}
+.drawer{position:fixed;top:0;right:0;width:460px;max-width:92vw;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:101;overflow-y:auto;padding:20px;transform:translateX(100%);transition:transform .2s ease}
+.drawer-bg.open .drawer{transform:translateX(0)}
+.dr-close{position:absolute;top:14px;right:14px;width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.dr-close:hover{color:var(--text)}
+.dr-name{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px;padding-right:36px}
+.dr-stage-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:500;margin-bottom:14px}
+.dr-section{margin-bottom:14px}
+.dr-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.dr-val{font-size:13px}
+.dr-val a{color:var(--accent2)}.dr-val a:hover{text-decoration:underline}
+.field{margin-bottom:10px}
+.fl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.fin{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none}
+.fin:focus{border-color:var(--accent)}
+.fselect{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none;cursor:pointer}
+.fselect option{background:var(--bg2)}
+textarea.fin{resize:vertical;min-height:50px}
+.dr-actions{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.timeline{display:flex;flex-direction:column;gap:6px}
+.tl-item{display:flex;gap:6px;font-size:11px;align-items:flex-start}
+.tl-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:4px}
+.tl-date{color:var(--text3);font-size:10px}
+.cm-item{padding:6px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px}
+.cm-author{font-size:10px;color:var(--accent2);margin-bottom:1px}
+.cm-body{font-size:12px;line-height:1.4}
+.cm-date{font-size:9px;color:var(--text3);margin-top:1px}
+.cm-type{font-size:9px;padding:0 4px;border-radius:2px;background:var(--bg);color:var(--text3);margin-left:3px}
+
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+.modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
+.modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:var(--text3)}
+
+/* Mobile */
+@media(max-width:768px){
+  .kanban{padding:10px}
+  .kanban-col{min-width:220px;width:220px}
+  .header{padding:10px 14px}
+  .toolbar{padding:8px 14px}
+  .drawer{width:100vw;max-width:100vw}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="logo" href="index.html">Photo<span>HR</span></a>
+  <div class="nav-links">
+    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn active" href="recruiting.html">Рекрутинг</a>
+    <a class="nav-btn" href="calendar.html">Календарь</a>
+  </div>
+  <div class="user-pill" id="user-pill"></div>
+  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+</div>
+
+<div class="toolbar">
+  <input class="search-in" id="search" placeholder="Поиск по имени, телефону..." oninput="renderKanban()"/>
+  <button class="f-btn" id="f-all" onclick="setFilter('all')">Все</button>
+  <button class="f-btn" id="f-photographer" onclick="setFilter('photographer')">📷 Фото</button>
+  <button class="f-btn" id="f-aquagrim" onclick="setFilter('aquagrim')">🎨 Аква</button>
+  <span class="spacer"></span>
+  <button class="btn btn-primary" onclick="openNewCandidate()">+ Кандидат</button>
+</div>
+
+<div id="kanban-container" class="kanban">
+  <div class="loading">Загрузка...</div>
+</div>
+
+<!-- Drawer: карточка кандидата -->
+<div class="drawer-bg" id="drawer-bg" onclick="if(event.target===this)closeDrawer()">
+<div class="drawer" id="drawer">
+  <button class="dr-close" onclick="closeDrawer()">×</button>
+  <div id="drawer-content"></div>
+</div>
+</div>
+
+<!-- Modal: новый кандидат -->
+<div class="overlay" id="new-cand-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Новый кандидат</span><button class="dr-close" onclick="document.getElementById('new-cand-modal').classList.remove('open')">×</button></div>
+  <div class="field"><div class="fl">Имя *</div><input class="fin" id="nc-name" placeholder="Иван Иванов"/></div>
+  <div class="field"><div class="fl">Телефон</div><input class="fin" id="nc-phone" placeholder="+7 900 123-45-67" type="tel"/></div>
+  <div class="field"><div class="fl">Email</div><input class="fin" id="nc-email" placeholder="email@example.com" type="email"/></div>
+  <div class="field"><div class="fl">Telegram</div><input class="fin" id="nc-telegram" placeholder="@username"/></div>
+  <div class="field"><div class="fl">Город</div><input class="fin" id="nc-city" placeholder="Москва"/></div>
+  <div class="field">
+    <div class="fl">Источник</div>
+    <select class="fselect" id="nc-source">
+      <option value="manual">Вручную</option>
+      <option value="hh">HeadHunter</option>
+      <option value="avito">Avito</option>
+      <option value="referral">Реферал</option>
+      <option value="telegram">Telegram</option>
+      <option value="website">Сайт</option>
+      <option value="other">Другое</option>
+    </select>
+  </div>
+  <div class="field">
+    <div class="fl">На роль</div>
+    <select class="fselect" id="nc-role">
+      <option value="photographer">Фотограф</option>
+      <option value="aquagrim">Аквагримёр</option>
+    </select>
+  </div>
+  <div class="field"><div class="fl">Приоритет</div>
+    <select class="fselect" id="nc-priority">
+      <option value="normal">Обычный</option>
+      <option value="high">Высокий</option>
+      <option value="low">Низкий</option>
+    </select>
+  </div>
+  <div class="field"><div class="fl">Комментарий</div><textarea class="fin" id="nc-notes" rows="2" placeholder="Первое впечатление..."></textarea></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('new-cand-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="createCandidate()">Добавить</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.hostname === 'localhost'
+  ? 'http://localhost:3001/api'
+  : 'https://fotohr-server-production.up.railway.app/api';
+
+let accessToken = null;
+let refreshToken = localStorage.getItem('fhr_refresh') || null;
+let currentUser = null;
+let kanbanData = [];
+let currentFilter = 'all';
+let draggedCard = null;
+
+const ROLE_LABELS = { viewer:'Менеджер', manager:'Менеджер', editor:'Редактор', hr_director:'HR-директор', admin:'Администратор', recruiter:'Рекрутер', venue_admin:'Админ площадки', print_operator:'Оператор', stock_manager:'Склад', controller:'Контролёр', photographer_user:'Фотограф' };
+const ROLE_COLORS = { viewer:'#9090a8', manager:'#f5a623', editor:'#9b8dff', hr_director:'#3ecf8e', admin:'#ffd700', recruiter:'#e86aa6', venue_admin:'#e87a6a', print_operator:'#6aa6e8', stock_manager:'#8a7aee', controller:'#e86aa6', photographer_user:'#4ecb8a' };
+const SRC_LABELS = { hh:'HH', avito:'Avito', referral:'Реферал', telegram:'TG', manual:'Вручную', website:'Сайт', other:'Другое' };
+
+// ── API ──
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
+  if (body) opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  if (res.status === 401 && refreshToken) {
+    const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
+    if (rr.ok) { const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_refresh', refreshToken); opts.headers['Authorization'] = `Bearer ${accessToken}`; res = await fetch(API + path, opts); }
+    else { doLogout(); return null; }
+  }
+  if (!res.ok) { const err = await res.json().catch(()=>({error:'Ошибка'})); throw new Error(err.error || 'Ошибка'); }
+  return res.json();
+}
+
+function doLogout() { accessToken = null; refreshToken = null; localStorage.removeItem('fhr_refresh'); window.location.href = 'index.html'; }
+
+function showToast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (err ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+// ── INIT ──
+(async function init() {
+  if (!refreshToken) { window.location.href = 'index.html'; return; }
+  try {
+    const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
+    if (!rr.ok) { doLogout(); return; }
+    const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_refresh', refreshToken);
+    currentUser = await api('GET', '/auth/me');
+    setupHeader();
+    await loadKanban();
+  } catch { doLogout(); }
+})();
+
+function setupHeader() {
+  const c = ROLE_COLORS[currentUser.role] || '#9090a8';
+  document.getElementById('user-pill').innerHTML = `<div class="role-dot" style="background:${c}"></div><span>${currentUser.name}</span>`;
+}
+
+// ── LOAD ──
+async function loadKanban() {
+  try {
+    const filterParam = currentFilter !== 'all' ? `?target_role=${currentFilter}` : '';
+    kanbanData = await api('GET', '/candidates/kanban' + filterParam);
+    renderKanban();
+  } catch (e) { document.getElementById('kanban-container').innerHTML = `<div class="loading">${e.message}</div>`; }
+}
+
+// ── RENDER ──
+function renderKanban() {
+  const search = (document.getElementById('search')?.value || '').toLowerCase();
+  const container = document.getElementById('kanban-container');
+
+  container.innerHTML = kanbanData.map(stage => {
+    let cards = stage.candidates || [];
+    if (search) cards = cards.filter(c => c.name.toLowerCase().includes(search) || (c.phone||'').includes(search));
+
+    return `<div class="kanban-col">
+      <div class="col-header">
+        <div class="col-dot" style="background:${stage.color}"></div>
+        <div class="col-title">${stage.name}</div>
+        <div class="col-count">${cards.length}</div>
+      </div>
+      <div class="col-body" data-stage="${stage.id}"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="dropCard(event, '${stage.id}')">
+        ${cards.map(c => renderCard(c)).join('')}
+        ${!cards.length ? '<div style="text-align:center;padding:12px;font-size:11px;color:var(--text3)">Пусто</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCard(c) {
+  const srcClass = 'src-' + (c.source || 'manual');
+  const srcLabel = SRC_LABELS[c.source] || c.source;
+  const timeAgo = getTimeAgo(c.stage_entered_at || c.created_at);
+  const isOverdue = c.next_contact_at && new Date(c.next_contact_at) < new Date();
+  const priorityClass = c.priority === 'high' ? ' priority-high' : '';
+
+  return `<div class="cc${priorityClass}" draggable="true" data-id="${c.id}"
+               ondragstart="dragStart(event,'${c.id}')" ondragend="dragEnd(event)"
+               onclick="openCandidate('${c.id}')">
+    <div class="cc-name">${c.name}</div>
+    <div class="cc-row">
+      <span class="cc-src ${srcClass}">${srcLabel}</span>
+      ${isOverdue ? '<span class="cc-overdue">⏰ просрочен</span>' : ''}
+      <span>${timeAgo}</span>
+      ${c.comment_count > 0 ? `<span class="cc-comments">💬${c.comment_count}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function getTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins + 'м';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'ч';
+  const days = Math.floor(hrs / 24);
+  return days + 'д';
+}
+
+// ── DRAG & DROP ──
+function dragStart(e, id) {
+  draggedCard = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function dragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+async function dropCard(e, stageId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedCard) return;
+  try {
+    const result = await api('POST', `/candidates/${draggedCard}/move`, { stage_id: stageId });
+    if (result.converted) {
+      showToast(`🎉 ${result.table === 'aquagrimers' ? 'Аквагримёр' : 'Сотрудник'} создан!`);
+    } else {
+      showToast('Перемещён');
+    }
+    await loadKanban();
+  } catch (e) { showToast(e.message, true); }
+  draggedCard = null;
+}
+
+// ── FILTERS ──
+function setFilter(f) {
+  currentFilter = f;
+  ['all','photographer','aquagrim'].forEach(k => {
+    const el = document.getElementById('f-' + k);
+    if (el) el.classList.toggle('active', k === f);
+  });
+  loadKanban();
+}
+setFilter('all');
+
+// ── NEW CANDIDATE ──
+function openNewCandidate() {
+  ['nc-name','nc-phone','nc-email','nc-telegram','nc-city','nc-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('nc-source').value = 'manual';
+  document.getElementById('nc-role').value = 'photographer';
+  document.getElementById('nc-priority').value = 'normal';
+  document.getElementById('new-cand-modal').classList.add('open');
+  setTimeout(() => document.getElementById('nc-name').focus(), 100);
+}
+
+async function createCandidate() {
+  const name = document.getElementById('nc-name').value.trim();
+  if (!name) { showToast('Введите имя', true); return; }
+  try {
+    await api('POST', '/candidates', {
+      name,
+      phone: document.getElementById('nc-phone').value.trim() || null,
+      email: document.getElementById('nc-email').value.trim() || null,
+      telegram: document.getElementById('nc-telegram').value.trim() || null,
+      city: document.getElementById('nc-city').value.trim() || null,
+      source: document.getElementById('nc-source').value,
+      target_role: document.getElementById('nc-role').value,
+      priority: document.getElementById('nc-priority').value,
+      notes: document.getElementById('nc-notes').value.trim() || null,
+    });
+    document.getElementById('new-cand-modal').classList.remove('open');
+    showToast('Кандидат добавлен');
+    await loadKanban();
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ── CANDIDATE DRAWER ──
+async function openCandidate(id) {
+  try {
+    const c = await api('GET', `/candidates/${id}`);
+    const dc = document.getElementById('drawer-content');
+
+    const stageColor = c.stage_color || '#6C63FF';
+    const srcClass = 'src-' + (c.source || 'manual');
+    const srcLabel = SRC_LABELS[c.source] || c.source;
+
+    dc.innerHTML = `
+      <div class="dr-name">${c.name}</div>
+      <div class="dr-stage-badge" style="background:${stageColor}22;color:${stageColor};border:1px solid ${stageColor}44">
+        <span style="width:6px;height:6px;border-radius:50%;background:${stageColor}"></span>
+        ${c.stage_name}
+      </div>
+
+      ${!c.is_terminal ? `
+      <div class="dr-actions">
+        <select class="fselect" id="move-stage" style="width:auto;flex:1">
+          ${kanbanData.map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${s.name}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">Перевести</button>
+      </div>` : ''}
+
+      ${c.photographer_id ? `<div style="padding:8px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--rank1)">✅ Принят → <a href="index.html" style="color:var(--rank1);text-decoration:underline">Карточка сотрудника</a></div>` : ''}
+
+      <div class="dr-section">
+        <div class="dr-label">Контакты</div>
+        ${c.phone ? `<div class="dr-val">📞 <a href="tel:${c.phone}">${c.phone}</a></div>` : ''}
+        ${c.email ? `<div class="dr-val">📧 <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
+        ${c.telegram ? `<div class="dr-val">💬 ${c.telegram}</div>` : ''}
+        ${c.city ? `<div class="dr-val">📍 ${c.city}</div>` : ''}
+        ${!c.phone && !c.email && !c.telegram ? '<div class="dr-val" style="color:var(--text3)">Нет контактов</div>' : ''}
+      </div>
+
+      <div class="dr-section">
+        <div class="dr-label">Информация</div>
+        <div class="dr-val"><span class="cc-src ${srcClass}">${srcLabel}</span> · ${c.target_role === 'aquagrim' ? '🎨 Аквагримёр' : '📷 Фотограф'} · ${c.priority === 'high' ? '🔥 Высокий' : c.priority === 'low' ? 'Низкий' : 'Обычный'}</div>
+        ${c.assigned_to_name ? `<div class="dr-val" style="margin-top:4px">👤 Ведёт: ${c.assigned_to_name}</div>` : ''}
+        ${c.referred_by_name ? `<div class="dr-val" style="margin-top:4px">🔗 Привёл: ${c.referred_by_name}</div>` : ''}
+      </div>
+
+      ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме</div><div class="dr-val" style="font-size:12px;line-height:1.5;max-height:120px;overflow-y:auto">${c.resume_text}</div></div>` : ''}
+
+      <div class="dr-section">
+        <div class="dr-label">История</div>
+        <div class="timeline">
+          ${(c.stage_log || []).map(s => `
+            <div class="tl-item">
+              <div class="tl-dot"></div>
+              <div>
+                <div>${s.from_stage_name ? s.from_stage_name + ' → ' : ''}${s.to_stage_name}</div>
+                ${s.notes ? `<div style="color:var(--text2);font-size:11px">${s.notes}</div>` : ''}
+                <div class="tl-date">${new Date(s.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${s.moved_by_name ? ' · ' + s.moved_by_name : ''}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="dr-section">
+        <div class="dr-label">Комментарии</div>
+        ${(c.comments || []).map(cm => `
+          <div class="cm-item">
+            <div class="cm-author">${cm.author_name}<span class="cm-type">${cm.comment_type}</span></div>
+            <div class="cm-body">${cm.body}</div>
+            <div class="cm-date">${new Date(cm.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+        `).join('')}
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input class="fin" id="new-cm" placeholder="Комментарий..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${c.id}')"/>
+          <select class="fselect" id="cm-type" style="width:auto;min-width:90px">
+            <option value="note">Заметка</option>
+            <option value="call">Звонок</option>
+            <option value="no_answer">Не ответил</option>
+            <option value="message_sent">Написал</option>
+            <option value="interview">Собеседование</option>
+          </select>
+          <button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="addComment('${c.id}')">→</button>
+        </div>
+      </div>
+
+      ${c.rejection_reason ? `<div class="dr-section"><div class="dr-label">Причина отказа</div><div class="dr-val" style="color:var(--rank3)">${c.rejection_reason}</div></div>` : ''}
+    `;
+
+    document.getElementById('drawer-bg').classList.add('open');
+  } catch (e) { showToast(e.message, true); }
+}
+
+function closeDrawer() { document.getElementById('drawer-bg').classList.remove('open'); }
+
+async function moveCandidate(id) {
+  const stageId = document.getElementById('move-stage').value;
+  try {
+    const result = await api('POST', `/candidates/${id}/move`, { stage_id: stageId });
+    if (result.converted) {
+      showToast(`🎉 Принят! Карточка создана.`);
+    } else {
+      showToast('Этап обновлён');
+    }
+    closeDrawer();
+    await loadKanban();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function addComment(id) {
+  const input = document.getElementById('new-cm');
+  const body = input.value.trim();
+  if (!body) return;
+  const type = document.getElementById('cm-type').value;
+  try {
+    await api('POST', `/candidates/${id}/comments`, { body, comment_type: type });
+    input.value = '';
+    openCandidate(id); // refresh drawer
+  } catch (e) { showToast(e.message, true); }
+}
+</script>
+</body>
+</html>
