@@ -323,10 +323,11 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     <div style="flex:1"></div>
     <div id="team-toolbar-actions" style="display:flex;gap:8px">
       <button class="btn btn-primary" id="btn-add" style="display:none" onclick="openNewMember()">+ Член команды</button>
-      <button class="btn btn-ghost" id="btn-sync" style="display:none" onclick="syncFromUsers()" title="Создать карточки из существующих пользователей-управленцев">🔄 Синхронизировать</button>
       <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
       <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
       <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+      <button class="btn btn-ghost" onclick="exportTeam()" title="Экспорт">↓ Экспорт</button>
+      <button class="btn btn-ghost" onclick="openTeamManagement()" title="Управление">⊙ Управление</button>
     </div>
   </div>
   <div style="padding:0 28px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -407,6 +408,9 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('ov-new').classList.remove('open')">Отмена</button>
     <button class="btn btn-primary" onclick="createMember()">Создать</button>
+  </div>
+  <div id="nm-sync-footer" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
+    <button type="button" class="btn btn-ghost" style="font-size:11px" onclick="syncFromUsers()" title="Создать карточки из существующих пользователей-управленцев">🔄 Синхронизировать из пользователей</button>
   </div>
 </div></div>
 
@@ -1465,6 +1469,9 @@ async function syncFromUsers() {
   } catch (e) { showToast(e.message, true); }
 }
 
+function exportTeam() { showToast('Экспорт в разработке'); }
+function openTeamManagement() { showToast('Управление в разработке'); }
+
 async function openAchievementsPanel() {
   if (!can('hr_director')) { showToast('Недостаточно прав', true); return; }
   let ov = document.getElementById('achievements-panel-overlay');
@@ -2012,7 +2019,7 @@ function openGrantAch() {
     setupTeamNav();
 
     if (hasAnyRole(['exec_director', 'admin'])) document.getElementById('btn-add').style.display = 'inline-block';
-    if (currentUser.role === 'admin') document.getElementById('btn-sync').style.display = 'inline-block';
+    if (currentUser.role === 'admin') document.getElementById('nm-sync-footer').style.display = 'block';
 
     await loadTeam();
     const params = new URLSearchParams(location.search);
