@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhotoHR — Склад</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;--border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
+.nav-btn:hover{color:var(--text)}.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
+.main{max-width:1200px;margin:0 auto;padding:20px 24px}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.tab{padding:6px 14px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
+.tab.active{background:var(--accent);color:#fff}
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
+.section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.fin{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none}
+.fin:focus{border-color:var(--accent)}
+.fselect{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer}
+.fselect option{background:var(--bg2)}
+.field{margin-bottom:10px}.fl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left}
+.tbl th{color:var(--text3);font-weight:600;font-size:11px;text-transform:uppercase}
+.tbl tr:hover td{background:var(--bg3)}
+.status-ok{color:var(--rank1)}.status-warn{color:var(--rank2)}.status-crit{color:var(--rank3)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+.modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
+.modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
+.dr-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+.loading{text-align:center;padding:40px;color:var(--text3)}
+</style>
+</head>
+<body>
+<div class="header">
+  <a class="logo" href="index.html">Photo<span>HR</span></a>
+  <div class="nav-links">
+    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn active" href="stock.html">Склад</a>
+  </div>
+  <div class="user-pill" id="user-pill"></div>
+  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+</div>
+<div class="main">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0)">📦 Остатки</button>
+    <button class="tab" onclick="switchTab(1)">🔄 Движения</button>
+    <button class="tab" onclick="switchTab(2)">⚠️ Дефицит</button>
+    <button class="tab" onclick="switchTab(3)">🖨 Оборудование</button>
+  </div>
+  <div id="content"><div class="loading">Загрузка...</div></div>
+</div>
+
+<!-- Movement modal -->
+<div class="overlay" id="move-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Новое движение</span><button class="dr-close" onclick="document.getElementById('move-modal').classList.remove('open')">×</button></div>
+  <div class="field"><div class="fl">Тип *</div>
+    <select class="fselect" id="mv-type" onchange="updateMoveFields()">
+      <option value="purchase">Закупка</option>
+      <option value="transfer">Перемещение</option>
+      <option value="writeoff">Списание</option>
+      <option value="adjustment">Корректировка</option>
+    </select>
+  </div>
+  <div class="field"><div class="fl">Товар *</div><select class="fselect" id="mv-item"></select></div>
+  <div class="field" id="mv-from-wrap"><div class="fl">Со склада</div><select class="fselect" id="mv-from"></select></div>
+  <div class="field" id="mv-to-wrap"><div class="fl">На склад</div><select class="fselect" id="mv-to"></select></div>
+  <div class="field"><div class="fl">Количество *</div><input class="fin" type="number" id="mv-qty" min="1" value="1"/></div>
+  <div class="field"><div class="fl">Примечание</div><input class="fin" id="mv-notes" placeholder="Причина..."/></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('move-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="createMovement()">Создать</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
+let warehouses=[],items=[],currentTabIdx=0;
+
+async function api(m,p,b){
+  const o={method:m,headers:{'Content-Type':'application/json'}};
+  if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;
+  if(b)o.body=JSON.stringify(b);
+  let r=await fetch(API+p,o);
+  if(r.status===401&&refreshToken){
+    const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});
+    if(rr.ok){const d=await rr.json();accessToken=d.accessToken;refreshToken=d.refreshToken;localStorage.setItem('fhr_refresh',refreshToken);localStorage.setItem('fhr_access',accessToken);o.headers['Authorization']=`Bearer ${accessToken}`;r=await fetch(API+p,o);}
+    else{doLogout();return null;}
+  }
+  if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}
+  return r.json();
+}
+function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');window.location.href='index.html';}
+function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
+
+(async function init(){
+  if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
+  try{
+    currentUser=await api('GET','/auth/me');
+    document.getElementById('user-pill').innerHTML=`<span>${currentUser.name}</span>`;
+    [warehouses,items]=await Promise.all([api('GET','/warehouses').catch(()=>[]),api('GET','/inventory-items').catch(()=>[])]);
+    switchTab(0);
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+})();
+
+function switchTab(idx){
+  currentTabIdx=idx;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  if(idx===0)loadStock();
+  if(idx===1)loadMovements();
+  if(idx===2)loadDeficit();
+  if(idx===3)loadEquipment();
+}
+
+async function loadStock(){
+  try{
+    const stock=await api('GET','/stock');
+    const c=document.getElementById('content');
+    if(!stock.length){c.innerHTML='<div class="section"><div class="section-title">📦 Остатки</div><div style="color:var(--text3)">Нет данных. Добавьте склады и товары.</div></div>';return;}
+    c.innerHTML=`<div class="section">
+      <div class="section-title">📦 Остатки <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button></div>
+      <table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Мин.</th><th>Статус</th></tr></thead><tbody>
+      ${stock.map(s=>`<tr>
+        <td>${s.item_name} <span style="color:var(--text3);font-size:10px">${s.unit||'шт'}</span></td>
+        <td>${s.warehouse_name}</td>
+        <td style="font-weight:600">${s.quantity}</td>
+        <td>${s.min_quantity||'—'}</td>
+        <td><span class="${s.is_low?'status-crit':'status-ok'}">${s.is_low?'⚠️ Мало':'✅ Норма'}</span></td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+}
+
+async function loadMovements(){
+  try{
+    const moves=await api('GET','/stock-movements?limit=50');
+    const c=document.getElementById('content');
+    const TYPE_LABELS={purchase:'📥 Закупка',transfer:'🔄 Перемещение',writeoff:'📤 Списание',adjustment:'📝 Корректировка',report_writeoff:'📊 По отчёту'};
+    c.innerHTML=`<div class="section">
+      <div class="section-title">🔄 Последние движения <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button></div>
+      ${moves.length?`<table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Кто</th></tr></thead><tbody>
+      ${moves.map(m=>`<tr>
+        <td>${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+        <td>${TYPE_LABELS[m.movement_type]||m.movement_type}</td>
+        <td>${m.item_name}</td>
+        <td style="font-weight:600">${m.quantity} ${m.unit||''}</td>
+        <td>${m.from_warehouse_name||'—'}</td>
+        <td>${m.to_warehouse_name||'—'}</td>
+        <td style="color:var(--text3)">${m.created_by_name||''}</td>
+      </tr>`).join('')}
+      </tbody></table>`:'<div style="color:var(--text3)">Нет движений</div>'}
+    </div>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+}
+
+async function loadDeficit(){
+  try{
+    const data=await api('GET','/stock/deficit');
+    const c=document.getElementById('content');
+    c.innerHTML=`<div class="section">
+      <div class="section-title">⚠️ Прогноз дефицита</div>
+      ${data.length?`<table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
+      ${data.map(d=>`<tr>
+        <td>${d.item_name}</td>
+        <td>${d.warehouse_name}</td>
+        <td>${d.quantity}</td>
+        <td>${d.avg_daily_consumption||'0'}</td>
+        <td style="font-weight:600;color:${d.status==='critical'?'var(--rank3)':d.status==='warning'?'var(--rank2)':'var(--text)'}">${d.days_remaining!==null?d.days_remaining+'д':'∞'}</td>
+        <td><span class="status-${d.status==='critical'?'crit':d.status==='warning'?'warn':'ok'}">${d.status==='critical'?'🔴 Критично':d.status==='warning'?'🟡 Скоро':'🟢 Норма'}</span></td>
+      </tr>`).join('')}
+      </tbody></table>`:'<div style="color:var(--text3)">Нет данных о расходниках</div>'}
+    </div>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+}
+
+async function loadEquipment(){
+  try{
+    const equip=await api('GET','/equipment');
+    const c=document.getElementById('content');
+    const STATUS={active:'🟢 Активно',repair:'🟡 Ремонт',written_off:'⚫ Списано',lost:'🔴 Утеряно'};
+    c.innerHTML=`<div class="section">
+      <div class="section-title">🖨 Оборудование (${equip.length})</div>
+      ${equip.length?`<table class="tbl"><thead><tr><th>Название</th><th>Серийный</th><th>Склад/Площадка</th><th>Статус</th></tr></thead><tbody>
+      ${equip.map(e=>`<tr>
+        <td>${e.item_name} <span style="color:var(--text3);font-size:10px">${e.item_category||''}</span></td>
+        <td style="font-family:monospace;font-size:11px">${e.serial_number||'—'}</td>
+        <td>${e.warehouse_name||'—'}${e.venue_name?' · '+e.venue_name:''}</td>
+        <td>${STATUS[e.status]||e.status}</td>
+      </tr>`).join('')}
+      </tbody></table>`:'<div style="color:var(--text3)">Нет оборудования</div>'}
+    </div>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${e.message}</div>`;}
+}
+
+function openMoveModal(){
+  const itemSel=document.getElementById('mv-item');
+  itemSel.innerHTML=items.filter(i=>i.item_type==='consumable').map(i=>`<option value="${i.id}">${i.name} (${i.unit||'шт'})</option>`).join('');
+  const whOpts='<option value="">—</option>'+warehouses.map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+  document.getElementById('mv-from').innerHTML=whOpts;
+  document.getElementById('mv-to').innerHTML=whOpts;
+  document.getElementById('mv-qty').value=1;
+  document.getElementById('mv-notes').value='';
+  updateMoveFields();
+  document.getElementById('move-modal').classList.add('open');
+}
+
+function updateMoveFields(){
+  const type=document.getElementById('mv-type').value;
+  document.getElementById('mv-from-wrap').style.display=(type==='purchase')?'none':'block';
+  document.getElementById('mv-to-wrap').style.display=(type==='writeoff')?'none':'block';
+}
+
+async function createMovement(){
+  const type=document.getElementById('mv-type').value;
+  const item_id=document.getElementById('mv-item').value;
+  const qty=parseInt(document.getElementById('mv-qty').value);
+  if(!item_id||!qty){showToast('Заполните поля',true);return;}
+  try{
+    await api('POST','/stock-movements',{
+      item_id,quantity:qty,movement_type:type,
+      from_warehouse_id:document.getElementById('mv-from').value||null,
+      to_warehouse_id:document.getElementById('mv-to').value||null,
+      notes:document.getElementById('mv-notes').value.trim()||null,
+    });
+    document.getElementById('move-modal').classList.remove('open');
+    showToast('Движение создано');
+    switchTab(currentTabIdx);
+  }catch(e){showToast(e.message,true);}
+}
+</script>
+</body>
+</html>

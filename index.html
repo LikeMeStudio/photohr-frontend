@@ -1112,6 +1112,12 @@ function setupToolbarActions() {
   if (can('venue_admin') || can('manager')) {
     navBtns.push('<a class="f-btn" href="venue.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Площадка</a>');
   }
+  if (can('stock_manager') || can('admin')) {
+    navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
+  }
+  if (currentUser.photographer_id) {
+    navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📷 Мой профиль</a>');
+  }
   nav.innerHTML = navBtns.join('');
 
   // Toolbar actions
