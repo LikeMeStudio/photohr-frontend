@@ -146,7 +146,9 @@ textarea.fin{resize:vertical;min-height:50px}
   <button class="f-btn" id="f-all" onclick="setFilter('all')">Все</button>
   <button class="f-btn" id="f-photographer" onclick="setFilter('photographer')">📷 Фото</button>
   <button class="f-btn" id="f-aquagrim" onclick="setFilter('aquagrim')">🎨 Аква</button>
+  <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;margin-left:8px;cursor:pointer"><input type="checkbox" id="show-rejected" onchange="renderKanban()"/> Отказы</label>
   <span class="spacer"></span>
+  <button class="btn btn-ghost" onclick="openTrainings()">📅 Тренинги</button>
   <button class="btn btn-primary" onclick="openNewCandidate()">+ Кандидат</button>
 </div>
 
@@ -201,6 +203,80 @@ textarea.fin{resize:vertical;min-height:50px}
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('new-cand-modal').classList.remove('open')">Отмена</button>
     <button class="btn btn-primary" onclick="createCandidate()">Добавить</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: отказ кандидата -->
+<div class="overlay" id="reject-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>❌ Отказ кандидата</span><button class="dr-close" onclick="document.getElementById('reject-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="rej-id"/>
+  <div class="field"><div class="fl">С какого этапа отвалился</div><div id="rej-from-stage" style="font-size:13px;color:var(--text2);padding:4px 0"></div></div>
+  <div class="field">
+    <div class="fl">Причина отказа *</div>
+    <select class="fselect" id="rej-reason">
+      <option value="candidate_refused">Кандидат отказался сам</option>
+      <option value="no_show">Не пришёл</option>
+      <option value="not_suitable">Не подходит по навыкам</option>
+      <option value="vacation">В отпуске / временно не может</option>
+      <option value="other_work">Готов на другой формат (платные съёмки и т.д.)</option>
+      <option value="other">Другое</option>
+    </select>
+  </div>
+  <div class="field"><div class="fl">Комментарий *</div><textarea class="fin" id="rej-comment" rows="3" placeholder="Подробности, планы на будущее..."></textarea></div>
+  <div class="field"><div class="fl">Вернуть позже?</div>
+    <select class="fselect" id="rej-return">
+      <option value="">Нет</option>
+      <option value="newyear">Готов на ёлки (декабрь)</option>
+      <option value="summer">Готов на лето</option>
+      <option value="later">Перезвонить позже</option>
+    </select>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('reject-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-danger" onclick="confirmReject()">Отклонить</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: тренинги -->
+<div class="overlay" id="trainings-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:600px">
+  <div class="modal-title"><span>📅 Тренинги</span><button class="dr-close" onclick="document.getElementById('trainings-modal').classList.remove('open')">×</button></div>
+  <div id="trainings-list" style="margin-bottom:16px"><div class="loading">Загрузка...</div></div>
+  <div style="border-top:1px solid var(--border);padding-top:12px">
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Добавить тренинг</div>
+    <div class="field"><div class="fl">Название *</div><input class="fin" id="tr-title" placeholder="Обучение новичков"/></div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" id="tr-date" type="date"/></div>
+      <div class="field" style="flex:1"><div class="fl">Время</div><input class="fin" id="tr-time" type="time" value="12:00"/></div>
+    </div>
+    <div class="field"><div class="fl">Место</div><input class="fin" id="tr-location" placeholder="Адрес или площадка"/></div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1"><div class="fl">Макс. участников</div><input class="fin" id="tr-max" type="number" value="15"/></div>
+      <div class="field" style="flex:1"><div class="fl">Тип</div>
+        <select class="fselect" id="tr-type">
+          <option value="onboarding">Обучение новичков</option>
+          <option value="advanced">Продвинутый</option>
+          <option value="general">Общий</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="createTraining()">Создать тренинг</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: выбор тренинга при переводе -->
+<div class="overlay" id="training-pick-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>📅 Выбрать тренинг</span><button class="dr-close" onclick="document.getElementById('training-pick-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="tp-cand-id"/>
+  <input type="hidden" id="tp-stage-id"/>
+  <div id="training-pick-list" style="margin-bottom:12px"><div class="loading">Загрузка...</div></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('training-pick-modal').classList.remove('open')">Пропустить</button>
   </div>
 </div>
 </div>
@@ -282,15 +358,18 @@ async function loadKanban() {
 }
 
 // ── RENDER ──
-const FUNNEL_LABELS = { hiring: '📋 Обучение', internship: '🎓 Стажировка и найм' };
+const FUNNEL_LABELS = { hiring: '📋 Обучение', internship: '🎓 Стажировка и найм', rejected: '❌ Отказы' };
 
 function renderKanban() {
   const search = (document.getElementById('search')?.value || '').toLowerCase();
+  const showRejected = document.getElementById('show-rejected')?.checked;
   const container = document.getElementById('kanban-container');
   const funnels = kanbanData.funnels || {};
 
   let html = '';
   for (const [funnelKey, stages] of Object.entries(funnels)) {
+    if (funnelKey === 'rejected' && !showRejected) continue;
+
     html += `<div class="funnel-section">
       <div class="funnel-label">${FUNNEL_LABELS[funnelKey] || funnelKey}</div>
       <div class="kanban-row">`;
@@ -491,10 +570,17 @@ function renderDrawer(c) {
       ${!c.is_terminal ? `
       <div class="dr-actions">
         <select class="fselect" id="move-stage" style="width:auto;flex:1">
-          ${allStages.map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${s.name}</option>`).join('')}
+          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${s.name}</option>`).join('')}
         </select>
         <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">Перевести</button>
-      </div>` : ''}
+        <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="openRejectModal('${c.id}','${(c.stage_name||'').replace(/'/g,"\\'")}')">❌</button>
+      </div>` : `
+      <div class="dr-actions">
+        <select class="fselect" id="move-stage" style="width:auto;flex:1">
+          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">↩ Вернуть</button>
+      </div>`}
 
       ${c.photographer_id ? `<div style="padding:8px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--rank1)">✅ Принят → <a href="index.html" style="color:var(--rank1);text-decoration:underline">Карточка сотрудника</a></div>` : ''}
 
@@ -593,18 +679,200 @@ async function saveCandidate(id) {
 
 function closeDrawer() { document.getElementById('drawer-bg').classList.remove('open'); }
 
+// Этапы требующие выбора тренинга
+const TRAINING_STAGES = ['Приглашен на обучение', 'Назначена стажировка', 'Ожидает стажировку'];
+
 async function moveCandidate(id) {
   const stageId = document.getElementById('move-stage').value;
+  const stage = allStages.find(s => s.id === stageId);
+
+  // Если этап требует выбора тренинга — показываем пикер
+  if (stage && TRAINING_STAGES.includes(stage.name)) {
+    document.getElementById('tp-cand-id').value = id;
+    document.getElementById('tp-stage-id').value = stageId;
+    await loadTrainingPicker();
+    document.getElementById('training-pick-modal').classList.add('open');
+    return;
+  }
+
+  await doMove(id, stageId);
+}
+
+async function doMove(id, stageId, trainingId) {
   try {
-    const result = await api('POST', `/candidates/${id}/move`, { stage_id: stageId });
+    const body = { stage_id: stageId };
+    if (trainingId) body.notes = `Тренинг: ${trainingId}`;
+    const result = await api('POST', `/candidates/${id}/move`, body);
+
+    // Привязываем тренинг если выбран
+    if (trainingId) {
+      await api('PATCH', `/candidates/${id}`, { training_id: trainingId });
+    }
+
     if (result.converted) {
-      showToast(`🎉 Принят! Карточка создана.`);
+      showToast('🎉 Принят! Карточка создана.');
     } else {
       showToast('Этап обновлён');
     }
     closeDrawer();
     await loadKanban();
   } catch (e) { showToast(e.message, true); }
+}
+
+async function pickTrainingAndMove(trainingId) {
+  const candId = document.getElementById('tp-cand-id').value;
+  const stageId = document.getElementById('tp-stage-id').value;
+  document.getElementById('training-pick-modal').classList.remove('open');
+  await doMove(candId, stageId, trainingId);
+}
+
+async function skipTrainingAndMove() {
+  const candId = document.getElementById('tp-cand-id').value;
+  const stageId = document.getElementById('tp-stage-id').value;
+  document.getElementById('training-pick-modal').classList.remove('open');
+  await doMove(candId, stageId);
+}
+
+// ── REJECT ──
+function openRejectModal(id, stageName) {
+  document.getElementById('rej-id').value = id;
+  document.getElementById('rej-from-stage').textContent = stageName;
+  document.getElementById('rej-comment').value = '';
+  document.getElementById('rej-reason').value = 'candidate_refused';
+  document.getElementById('rej-return').value = '';
+  document.getElementById('reject-modal').classList.add('open');
+}
+
+async function confirmReject() {
+  const id = document.getElementById('rej-id').value;
+  const reason = document.getElementById('rej-reason').value;
+  const comment = document.getElementById('rej-comment').value.trim();
+  const returnPlan = document.getElementById('rej-return').value;
+
+  if (!comment) { showToast('Комментарий обязателен', true); return; }
+
+  try {
+    // Находим нужную колонку отказов по текущему этапу кандидата
+    const cand = await api('GET', `/candidates/${id}`);
+    const currentStage = allStages.find(s => s.id === cand.stage_id);
+    const currentOrder = currentStage ? currentStage.sort_order || 0 : 0;
+
+    // Маппинг: какой reject-этап соответствует текущему
+    const rejStages = allStages.filter(s => s.funnel === 'rejected').sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    let targetRejectStage = rejStages[0]; // default: первый
+    if (currentOrder <= 1) targetRejectStage = rejStages.find(s => s.name.includes('отклика')) || rejStages[0];
+    else if (currentOrder <= 4) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.1')) || rejStages[1] || rejStages[0];
+    else if (currentOrder <= 6) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.2')) || rejStages[2] || rejStages[0];
+    else if (currentOrder <= 12) targetRejectStage = rejStages.find(s => s.name.includes('стажировки')) || rejStages[3] || rejStages[0];
+    else if (currentOrder <= 14) targetRejectStage = rejStages.find(s => s.name.includes('первых выходов')) || rejStages[4] || rejStages[0];
+
+    if (!targetRejectStage) { showToast('Нет этапа для отказа', true); return; }
+
+    const REASON_LABELS = { candidate_refused:'Отказался сам', no_show:'Не пришёл', not_suitable:'Не подходит', vacation:'В отпуске', other_work:'Другой формат', other:'Другое' };
+    const fullNote = `❌ ${REASON_LABELS[reason] || reason}${returnPlan ? ' | Вернуть: ' + returnPlan : ''}\n${comment}`;
+
+    await api('POST', `/candidates/${id}/move`, { stage_id: targetRejectStage.id, notes: fullNote });
+    await api('POST', `/candidates/${id}/comments`, { body: fullNote, comment_type: 'note' });
+
+    document.getElementById('reject-modal').classList.remove('open');
+    closeDrawer();
+    showToast('Кандидат перемещён в отказы');
+    await loadKanban();
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ── TRAININGS ──
+let trainings = [];
+
+async function openTrainings() {
+  document.getElementById('trainings-modal').classList.add('open');
+  await loadTrainingsList();
+}
+
+async function loadTrainingsList() {
+  try {
+    const from = new Date().toISOString().split('T')[0];
+    trainings = await api('GET', `/trainings?from=${from}&status=planned`);
+    const list = document.getElementById('trainings-list');
+
+    if (!trainings.length) {
+      list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет запланированных тренингов</div>';
+      return;
+    }
+
+    list.innerHTML = trainings.map(t => {
+      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
+      return `<div style="padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${t.title}</div>
+          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || t.venue_name || '—'}</div>
+          <div style="font-size:11px;color:var(--text2)">${t.trainer_name || ''} · ${t.registered_count || 0}${t.max_attendees ? '/' + t.max_attendees : ''} записано</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('trainings-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+  }
+}
+
+async function createTraining() {
+  const title = document.getElementById('tr-title').value.trim();
+  const date = document.getElementById('tr-date').value;
+  if (!title || !date) { showToast('Название и дата обязательны', true); return; }
+
+  try {
+    // Используем текущего пользователя как тренера (можно потом выбирать)
+    // Нужен photographer_id — если нет, используем первый попавшийся
+    let trainerId = currentUser.photographer_id;
+    if (!trainerId) {
+      // Создаём без тренера не получится — API требует trainer_id
+      // Пока используем заглушку
+      showToast('Для создания тренинга нужен тренер (привязка к карточке)', true);
+      return;
+    }
+
+    await api('POST', '/trainings', {
+      title,
+      training_date: date,
+      training_time: document.getElementById('tr-time').value || null,
+      location_text: document.getElementById('tr-location').value.trim() || null,
+      max_attendees: parseInt(document.getElementById('tr-max').value) || null,
+      training_type: document.getElementById('tr-type').value,
+      trainer_id: trainerId,
+    });
+    showToast('Тренинг создан');
+    document.getElementById('tr-title').value = '';
+    document.getElementById('tr-date').value = '';
+    await loadTrainingsList();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function loadTrainingPicker() {
+  try {
+    const from = new Date().toISOString().split('T')[0];
+    const list = await api('GET', `/trainings?from=${from}&status=planned`);
+    const container = document.getElementById('training-pick-list');
+
+    if (!list.length) {
+      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет предстоящих тренингов. Создайте через 📅 Тренинги.</div>';
+      return;
+    }
+
+    container.innerHTML = list.map(t => {
+      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
+      const full = t.max_attendees && t.registered_count >= t.max_attendees;
+      return `<div style="padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;${full ? 'opacity:.5' : 'cursor:pointer'}"
+                   ${full ? '' : `onclick="pickTrainingAndMove('${t.id}')"`}>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${t.title}</div>
+          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || t.venue_name || '—'}</div>
+        </div>
+        <div style="font-size:11px;color:${full ? 'var(--rank3)' : 'var(--rank1)'}">${t.registered_count || 0}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('training-pick-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+  }
 }
 
 async function addComment(id) {
@@ -615,7 +883,7 @@ async function addComment(id) {
   try {
     await api('POST', `/candidates/${id}/comments`, { body, comment_type: type });
     input.value = '';
-    openCandidate(id); // refresh drawer
+    openCandidate(id);
   } catch (e) { showToast(e.message, true); }
 }
 </script>
