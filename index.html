@@ -839,6 +839,7 @@ const EMPLOYEE_ROLE_LABELS = {
   mentor: 'Наставник'
 };
 let currentDrawerId = null;
+const LIKES_MAX_PER_TRANSACTION = 5;
 let currentTab = 0;
 let editState = {};   // rank, sales_score, venues for current drawer
 let allUsers = [];
@@ -1277,6 +1278,9 @@ function setupToolbarActions() {
   if (currentUser.role !== 'photographer_user' && currentUser.role !== 'aq_user') {
     btns.push(`<button class="btn btn-ghost" onclick="openBirthdaysPanel()" title="Дни рождения сотрудников">🎂 Дни рождения</button>`);
   }
+  if (currentUser.role !== 'archived') {
+    btns.push(`<button class="btn btn-ghost" onclick="openLikesPanel()" title="Народное признание">❤️ Лайки</button>`);
+  }
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
   if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
@@ -1547,6 +1551,218 @@ function toggleMonthlyRecipients(idx) {
       `).join('')}
     </div>
   `;
+}
+
+let _selectedLikeAmount = 1;
+let _selectedLikeCategory = 'general';
+
+function selectLikeAmount(n) {
+  _selectedLikeAmount = n;
+  document.querySelectorAll('[id^="like-amt-"]').forEach(el => {
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+  });
+  const el = document.getElementById('like-amt-' + n);
+  if (el) {
+    el.style.background = 'rgba(255,107,157,.15)';
+    el.style.color = '#ff6b9d';
+    el.style.borderColor = 'rgba(255,107,157,.3)';
+  }
+}
+
+function selectLikeCategory(cat) {
+  _selectedLikeCategory = cat;
+  document.querySelectorAll('[id^="like-cat-"]').forEach(el => {
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+  });
+  const el = document.getElementById('like-cat-' + cat);
+  if (el) {
+    el.style.background = 'rgba(255,107,157,.1)';
+    el.style.color = '#ff6b9d';
+    el.style.borderColor = 'rgba(255,107,157,.2)';
+  }
+}
+
+async function sendLike(toId) {
+  try {
+    const comment = document.getElementById('like-comment')?.value.trim() || null;
+    await api('POST', '/peer-likes', {
+      to_id: toId,
+      amount: _selectedLikeAmount,
+      category: _selectedLikeCategory,
+      comment,
+    });
+    document.getElementById('like-modal-overlay')?.classList.remove('open');
+    showToast(`❤️ Отправлено ${_selectedLikeAmount} лайк(ов)!`);
+    _selectedLikeAmount = 1;
+    _selectedLikeCategory = 'general';
+  } catch (e) {
+    showToast(e.message, true);
+  }
+}
+
+async function openSendLikeModal(toId, toName) {
+  let budget;
+  try {
+    budget = await api('GET', '/peer-likes/my-budget');
+  } catch (e) {
+    showToast('Не удалось загрузить бюджет лайков', true);
+    return;
+  }
+
+  if (budget.remaining <= 0) {
+    showToast('У вас не осталось лайков в этом месяце (0/' + budget.total + ')', true);
+    return;
+  }
+
+  const alreadyToThis = (budget.by_person || []).find(p => String(p.to_id) === String(toId));
+  const remainingForPerson = budget.max_per_person - (alreadyToThis ? parseInt(alreadyToThis.total, 10) : 0);
+
+  if (remainingForPerson <= 0) {
+    showToast(`Этому коллеге уже отдано максимум (${budget.max_per_person}) лайков`, true);
+    return;
+  }
+
+  const maxAmount = Math.min(budget.remaining, remainingForPerson, LIKES_MAX_PER_TRANSACTION || 5);
+
+  let ov = document.getElementById('like-modal-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'like-modal-overlay';
+    ov.className = 'overlay';
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+
+  const CATS = {
+    help: '💪 Помощь',
+    professional: '⭐ Профессионализм',
+    positive: '😊 Позитив',
+    result: '🎯 Результат',
+    congrats: '🎂 Поздравление',
+    general: '❤️ Общее',
+  };
+
+  ov.innerHTML = `<div class="modal" style="max-width:420px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;color:#ff6b9d">❤️ Отправить лайк</div>
+      <button class="btn btn-ghost" onclick="document.getElementById('like-modal-overlay').classList.remove('open')" style="font-size:16px">✕</button>
+    </div>
+
+    <div style="font-size:14px;margin-bottom:16px">Кому: <b>${toName}</b></div>
+
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+      Ваш баланс: <span style="color:#ff6b9d;font-weight:600">${budget.remaining}</span> из ${budget.total} лайков
+      ${alreadyToThis ? ` · Этому коллеге: ${alreadyToThis.total}/${budget.max_per_person}` : ''}
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:6px">Сколько ❤️</div>
+      <div style="display:flex;gap:8px" id="like-amount-btns">
+        ${[1,2,3,4,5].filter(n => n <= maxAmount).map(n => `
+          <button class="btn btn-ghost" style="flex:1;font-size:16px;padding:8px;${n===1?'background:rgba(255,107,157,.15);color:#ff6b9d;border-color:rgba(255,107,157,.3)':''}"
+            onclick="selectLikeAmount(${n})" id="like-amt-${n}">
+            ${'❤️'.repeat(n)}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:6px">За что?</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${Object.entries(CATS).map(([k, v]) => `
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;${k==='general'?'background:rgba(255,107,157,.1);color:#ff6b9d;border-color:rgba(255,107,157,.2)':''}"
+            onclick="selectLikeCategory('${k}')" id="like-cat-${k}">${v}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="fl" style="margin-bottom:6px">Комментарий (необязательно)</div>
+      <input class="fin" id="like-comment" placeholder="Спасибо за..." style="width:100%"/>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg, #ff6b9d, #f5a623);font-size:14px"
+      onclick="sendLike('${toId}')">Отправить ❤️</button>
+  </div>`;
+}
+
+async function openLikesPanel() {
+  let ov = document.getElementById('likes-panel-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'likes-panel-overlay';
+    ov.className = 'overlay';
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  ov.innerHTML = '<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0"><div style="padding:24px;text-align:center;color:var(--text3)">Загрузка...</div></div>';
+
+  try {
+    const photoSrc = (url) => {
+      if (!url) return '';
+      if (/^https?:\\/\\//i.test(url)) return url;
+      return API.replace('/api', '') + url;
+    };
+
+    const [topData, budget] = await Promise.all([
+      api('GET', '/peer-likes/top').catch(() => ({ month: '', top: [] })),
+      api('GET', '/peer-likes/my-budget').catch(() => null),
+    ]);
+
+    ov.innerHTML = `<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0">
+
+      <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,107,157,.15);background:linear-gradient(135deg, rgba(255,107,157,.06), transparent)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#ff6b9d">❤️ Любимцы народа</div>
+          <button class="btn btn-ghost" onclick="document.getElementById('likes-panel-overlay').classList.remove('open')" style="font-size:18px">✕</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${esc(topData.month || '')}</div>
+      </div>
+
+      <div style="padding:16px 24px">
+
+        ${budget ? `
+        <div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Ваш баланс лайков</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-family:'Unbounded',sans-serif;font-size:24px;font-weight:700;color:#ff6b9d">${esc(String(budget.remaining))}</div>
+            <div style="font-size:12px;color:var(--text3)">из ${esc(String(budget.total))} осталось в этом месяце</div>
+          </div>
+          ${budget.by_person && budget.by_person.length ? `
+          <div style="font-size:11px;color:var(--text3);margin-top:8px">
+            Отдано: ${budget.by_person.map(p => esc(p.to_name) + ' (' + p.total + ')').join(', ')}
+          </div>` : ''}
+        </div>` : ''}
+
+        <div style="font-size:13px;font-weight:600;color:#ff6b9d;margin-bottom:12px">🏆 Топ за ${esc(topData.month || 'месяц')}</div>
+
+        ${topData.top && topData.top.length ? topData.top.map((p, idx) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${idx < 3 ? 'linear-gradient(135deg, rgba(255,107,157,.08), transparent)' : 'var(--bg3)'};border:1px solid ${idx < 3 ? 'rgba(255,107,157,.15)' : 'var(--border)'};border-radius:10px;margin-bottom:6px;cursor:pointer"
+            onclick="document.getElementById('likes-panel-overlay').classList.remove('open'); setTimeout(() => openDrawer('${p.to_id}'), 200)">
+            <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:700;color:${idx === 0 ? '#f5a623' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'var(--text3)'};width:28px;text-align:center">#${p.position}</div>
+            ${p.photo_url
+              ? `<img src="${photoSrc(p.photo_url)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"/>`
+              : `<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--bg)">${esc((p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2))}</div>`
+            }
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:14px">${esc(p.name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${esc(String(p.unique_fans))} фанат(ов)</div>
+            </div>
+            <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#ff6b9d">${esc(String(p.total_likes))} ❤️</div>
+          </div>
+        `).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(255,107,157,.15)">Пока никто не получал лайков в этом месяце</div>'}
+
+      </div>
+    </div>`;
+
+  } catch (e) {
+    ov.innerHTML = `<div class="modal" style="max-width:500px;padding:24px"><div style="color:var(--rank3)">${esc(e.message)}</div><button class="btn btn-ghost" onclick="document.getElementById('likes-panel-overlay').classList.remove('open')" style="margin-top:12px">Закрыть</button></div>`;
+  }
 }
 
 async function runAutoCheck() {
@@ -2083,11 +2299,19 @@ function updateDrawerEarned(ph) {
   const el = document.getElementById('dr-earned');
   if (!el) return;
   const earned = ph.achievements || [];
+  const canSendLike = currentUser?.photographer_id && currentDrawerId && String(currentDrawerId) !== String(currentUser.photographer_id);
+  const likeBtn = canSendLike
+    ? `<button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#ff6b9d;border-color:rgba(255,107,157,.2)" 
+        onclick="openSendLikeModal('${ph.id}', '${esc(ph.name)}')" title="Отправить лайк">
+        ❤️ Лайк
+      </button>`
+    : '';
+
   el.innerHTML = earned.length
     ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;background:linear-gradient(135deg, rgba(245,166,35,.08), transparent);border-radius:8px">
         ${earned.map(a => `<span title="${esc(a.name)}" style="font-size:18px">${esc(String(a.icon || '🏅'))}</span>`).join('')}
-      </div>`
-    : '';
+      </div>${likeBtn}`
+    : likeBtn;
 }
 
 async function openDrawer(id){
@@ -3040,13 +3264,15 @@ async function loadAudit(pid){
 async function renderAchievementsTab(ph, content) {
   content.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
-    const [achSummary, peerSummary, allTypes] = await Promise.all([
+    const [achSummary, peerSummary, allTypes, likesData] = await Promise.all([
       api('GET', `/photographers/${ph.id}/achievements-summary`).catch(() => ({ total: 0, recent: [], all: [], by_category: {}, leaderboard_position: 0 })),
       api('GET', `/photographers/${ph.id}/peer-summary`).catch(() => ({ total_reviews: 0, avg_stars: 0, recent_public: [], management_only: [] })),
       api('GET', '/achievement-types').catch(() => []),
+      api('GET', `/peer-likes/received?photographer_id=${ph.id}`).catch(() => null),
     ]);
 
     const catLabels = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
+    const likeCats = { help:'💪 Помощь', professional:'⭐ Профессионализм', positive:'😊 Позитив', result:'🎯 Результат', congrats:'🎂 Поздравление', general:'❤️ Общее' };
     const peerEmpty = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border)">Пока нет отзывов</div>`;
 
     const earnedList = achSummary.all || [];
@@ -3125,6 +3351,29 @@ async function renderAchievementsTab(ph, content) {
           </div>`;
         }).join('') : peerEmpty}
       </div>
+
+      ${likesData && likesData.total_likes > 0 ? `
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:600;color:#ff6b9d;margin-top:20px;margin-bottom:10px">❤️ Лайки за ${esc(likesData.month)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <div style="padding:8px 14px;background:linear-gradient(135deg, rgba(255,107,157,.1), transparent);border:1px solid rgba(255,107,157,.2);border-radius:20px;font-size:13px;color:#ff6b9d;font-weight:600">
+            ${likesData.total_likes} ❤️
+          </div>
+          ${(likesData.by_category || []).map(c => `
+            <div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:11px;color:var(--text2)">
+              ${esc(likeCats[c.category] || c.category)}: ${c.total}
+            </div>
+          `).join('')}
+        </div>
+        ${(likesData.details || []).slice(0, 5).map(d => `
+          <div style="padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;font-size:12px">
+            <span style="color:#ff6b9d">${'❤️'.repeat(Math.min(d.amount, 5))}</span>
+            <span style="color:var(--text2);margin-left:6px">${esc(d.from_name)}</span>
+            ${d.comment ? `<span style="color:var(--text3);margin-left:6px">— ${esc(d.comment)}</span>` : ''}
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
 
       ${canManageComments() && (peerSummary.management_only||[]).length ? `
       <div>
