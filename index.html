@@ -1247,6 +1247,9 @@ function setupToolbarActions() {
   const btns = [];
   if (canEditCard()) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
   if (canMentorshipHR()) btns.push(`<button class="btn btn-ghost" onclick="openMentorshipMgmt()" title="Кураторство и бонусы">👥 Кураторство</button>`);
+  if (hasAnyRole(['hr_director','exec_director','admin'])) {
+    btns.push(`<button class="btn btn-ghost" onclick="runAchievementsCheck()" title="Проверить и выдать достижения за месяц">🏆 Достижения</button>`);
+  }
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
   if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
@@ -1276,6 +1279,30 @@ function exportPhotographers(){
       showToast(`Экспортировано: ${ids.length} чел.`);
     })
     .catch(e => showToast(e.message, true));
+}
+
+async function runAchievementsCheck() {
+  const month = prompt('Месяц для проверки (YYYY-MM, пусто = текущий):', new Date().toISOString().slice(0, 7));
+  if (month === null) return;
+  const m = month.trim();
+  try {
+    const body = m ? { month: m } : {};
+    const res = await api('POST', '/achievements/auto-check', body);
+    if (!res) return;
+    let msg = `Проверка за ${esc(String(res.period || 'текущий месяц'))}:\nВыдано достижений: ${Number(res.total_awarded) || 0}`;
+    if (res.results && res.results.length) {
+      msg += '\n\n' + res.results.map(r =>
+        `${esc(String(r.icon || ''))} ${esc(String(r.achievement || ''))}: ${Number(r.awarded) || 0} новых`
+      ).join('\n');
+    }
+    if (res.total_awarded === 0) {
+      msg += '\n\nНикто не заслужил новых достижений за этот период.';
+    }
+    alert(msg);
+    showToast(`Выдано ${Number(res.total_awarded) || 0} достижений`);
+  } catch (e) {
+    showToast(e.message, true);
+  }
 }
 
 async function loadPhotographers() {
