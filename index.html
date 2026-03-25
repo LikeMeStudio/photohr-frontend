@@ -2299,7 +2299,9 @@ function updateDrawerEarned(ph) {
   const el = document.getElementById('dr-earned');
   if (!el) return;
   const earned = ph.achievements || [];
-  const canSendLike = currentUser?.photographer_id && currentDrawerId && String(currentDrawerId) !== String(currentUser.photographer_id);
+  const myPhotographerId = currentUser?.photographer_id;
+  const isOwn = myPhotographerId && currentDrawerId && String(currentDrawerId) === String(myPhotographerId);
+  const canSendLike = !isOwn;
   const likeBtn = canSendLike
     ? `<button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#ff6b9d;border-color:rgba(255,107,157,.2)" 
         onclick="openSendLikeModal('${ph.id}', '${esc(ph.name)}')" title="Отправить лайк">
