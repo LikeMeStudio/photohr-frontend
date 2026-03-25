@@ -1705,7 +1705,7 @@ async function openLikesPanel() {
   try {
     const photoSrc = (url) => {
       if (!url) return '';
-      if (/^https?:\\/\\//i.test(url)) return url;
+      if (/^https?:\/\//i.test(url)) return url;
       return API.replace('/api', '') + url;
     };
 
