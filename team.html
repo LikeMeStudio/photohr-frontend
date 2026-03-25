@@ -302,6 +302,13 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   font-weight: 600;
   white-space: nowrap;
 }
+.rank-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;display:inline-block;margin-left:6px;vertical-align:middle}
+.rank-1{background:rgba(62,207,142,.15);color:var(--rank1);border:1px solid rgba(62,207,142,.35)}
+.rank-2{background:rgba(245,166,35,.15);color:var(--rank2);border:1px solid rgba(245,166,35,.35)}
+.rank-3{background:rgba(124,108,255,.12);color:var(--accent2);border:1px solid rgba(124,108,255,.35)}
+.fbtn{background:transparent;border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;transition:all .15s;font-family:'Golos Text',sans-serif}
+.fbtn:hover{border-color:var(--accent);color:var(--accent)}
+.fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 #team-drawer #dr-photo-zone{ width:56px;height:56px; }
 #team-drawer #dr-photo-zone img.dr-photo-img,
 #team-drawer #dr-photo-zone .photo-av{ width:56px;height:56px; font-size:15px; }
@@ -322,7 +329,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <div style="border-bottom:1px solid var(--border);background:var(--bg)">
   <div style="padding:10px 28px;display:flex;align-items:center;gap:8px">
     <input class="search-in" id="q" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;max-width:320px"/>
-    <select class="fselect" id="dep-filter" onchange="render()" style="width:auto;min-width:200px;max-width:280px;flex-shrink:0"><option value="">Все отделы</option></select>
+    <button class="f-btn active" id="fb-all" onclick="resetTeamFilters()" style="white-space:nowrap">Все</button>
     <div style="flex:1"></div>
     <div id="team-toolbar-actions" style="display:flex;gap:8px">
       <button class="btn btn-primary" id="btn-add" style="display:none" onclick="openNewMember()">+ Член команды</button>
@@ -330,6 +337,41 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
       <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
       <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+    </div>
+  </div>
+  <div style="padding:0 28px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+      <span style="font-size:10px;color:var(--text3);margin-right:3px">РАНГ</span>
+      <button type="button" id="fb-r1" onclick="toggleTeamFilter('rank','1',this)"
+        style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s"
+        onmouseover="rankHover(this,'1')" onmouseout="rankOut(this,'1')">
+        <span style="color:#e8a060;font-weight:600">1</span><span id="rs-1" style="color:var(--border2);transition:color .15s"> ★</span>
+      </button>
+      <button type="button" id="fb-r2" onclick="toggleTeamFilter('rank','2',this)"
+        style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s"
+        onmouseover="rankHover(this,'2')" onmouseout="rankOut(this,'2')">
+        <span style="color:#b8cce0;font-weight:600">2</span><span id="rs-2" style="color:var(--border2);transition:color .15s"> ★★</span>
+      </button>
+      <button type="button" id="fb-r3" onclick="toggleTeamFilter('rank','3',this)"
+        style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s"
+        onmouseover="rankHover(this,'3')" onmouseout="rankOut(this,'3')">
+        <span style="color:#d4b840;font-weight:600">3</span><span id="rs-3" style="color:var(--border2);transition:color .15s"> ★★★</span>
+      </button>
+    </div>
+    <span style="color:var(--border);user-select:none">|</span>
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px;flex-wrap:wrap;max-width:100%">
+      <span style="font-size:10px;color:var(--text3);margin-right:3px">ОТДЕЛЫ</span>
+      <span id="team-dept-buttons" style="display:flex;align-items:center;gap:2px;flex-wrap:wrap"></span>
+    </div>
+    <span style="color:var(--border);user-select:none">|</span>
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+      <span style="font-size:10px;color:var(--text3);margin-right:3px">ПОЛ</span>
+      <button type="button" id="fb-male" onclick="toggleTeamFilter('gender','male',this)"
+        style="border:none;background:none;padding:3px 9px;font-size:15px;border-radius:10px;cursor:pointer;color:var(--text2);transition:all .15s"
+        onmouseover="this.style.color='#6ab0e8'" onmouseout="if(teamFilters.gender!=='male')this.style.color='var(--text2)'">♂</button>
+      <button type="button" id="fb-female" onclick="toggleTeamFilter('gender','female',this)"
+        style="border:none;background:none;padding:3px 9px;font-size:15px;border-radius:10px;cursor:pointer;color:var(--text2);transition:all .15s"
+        onmouseover="this.style.color='#e88ab0'" onmouseout="if(teamFilters.gender!=='female')this.style.color='var(--text2)'">♀</button>
     </div>
   </div>
 </div>
@@ -395,6 +437,7 @@ let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
 let teamList = [];
+let teamFilters = { rank: null, department: null, gender: null };
 let departments = (() => {
   try {
     const s = localStorage.getItem('photohr_departments');
@@ -430,6 +473,100 @@ const ROLES = { photographer_user:0, aq_user:0, recruiter:1, hr_manager:1, tech_
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (a) => a.includes(roleNow());
 const canManageComments = () => hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']);
+
+function rankHover(btn, r) {
+  btn.style.background = r === '1' ? 'rgba(184,115,51,.2)' : r === '2' ? 'rgba(138,155,176,.2)' : 'rgba(201,168,76,.2)';
+  const stars = document.getElementById('rs-' + r);
+  const colors = { '1': '#e8a060', '2': '#b8cce0', '3': '#d4b840' };
+  if (stars) stars.style.color = colors[r];
+}
+function rankOut(btn, r) {
+  if (teamFilters.rank !== r) {
+    btn.style.background = 'none';
+    const stars = document.getElementById('rs-' + r);
+    if (stars) stars.style.color = 'var(--border2)';
+  }
+}
+function applyRankActiveStyle(r) {
+  const colors = { '1': 'rgba(184,115,51,.2)', '2': 'rgba(138,155,176,.2)', '3': 'rgba(201,168,76,.2)' };
+  const starColors = { '1': '#e8a060', '2': '#b8cce0', '3': '#d4b840' };
+  const btn = document.getElementById('fb-r' + r);
+  if (btn) btn.style.background = colors[r] || 'none';
+  const stars = document.getElementById('rs-' + r);
+  if (stars) stars.style.color = starColors[r];
+}
+function clearRankStyle(r) {
+  const btn = document.getElementById('fb-r' + r);
+  if (btn) btn.style.background = 'none';
+  const stars = document.getElementById('rs-' + r);
+  if (stars) stars.style.color = 'var(--border2)';
+}
+function applyGenderActiveStyle(g) {
+  const btn = document.getElementById('fb-' + g);
+  if (btn) btn.style.color = g === 'male' ? '#6ab0e8' : '#e88ab0';
+}
+function clearGenderStyle(g) {
+  const btn = document.getElementById('fb-' + g);
+  if (btn) btn.style.color = 'var(--text2)';
+}
+function updateTeamAllBtn() {
+  const hasFilter = teamFilters.rank || teamFilters.department || teamFilters.gender;
+  const allBtn = document.getElementById('fb-all');
+  if (allBtn) allBtn.classList.toggle('active', !hasFilter);
+}
+function resetTeamFilters() {
+  if (teamFilters.rank) clearRankStyle(teamFilters.rank);
+  if (teamFilters.gender) clearGenderStyle(teamFilters.gender);
+  teamFilters = { rank: null, department: null, gender: null };
+  ['fb-r1', 'fb-r2', 'fb-r3', 'fb-male', 'fb-female'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  document.querySelectorAll('.team-fb-dep').forEach((el) => el.classList.remove('active'));
+  const fbAll = document.getElementById('fb-all');
+  if (fbAll) fbAll.classList.add('active');
+  const qi = document.getElementById('q');
+  if (qi) qi.value = '';
+  ['1', '2', '3'].forEach((r) => clearRankStyle(r));
+  render();
+}
+function toggleTeamFilter(category, value, btn) {
+  if (teamFilters[category] === value) {
+    teamFilters[category] = null;
+    btn.classList.remove('active');
+    if (category === 'rank') clearRankStyle(value);
+    if (category === 'gender') clearGenderStyle(value);
+  } else {
+    if (teamFilters[category]) {
+      if (category === 'rank') clearRankStyle(teamFilters[category]);
+      if (category === 'gender') clearGenderStyle(teamFilters[category]);
+      if (category === 'department') {
+        document.querySelectorAll('.team-fb-dep').forEach((el) => el.classList.remove('active'));
+      }
+    }
+    teamFilters[category] = value;
+    if (category === 'rank') {
+      ['fb-r1', 'fb-r2', 'fb-r3'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
+    }
+    if (category === 'gender') {
+      ['fb-male', 'fb-female'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
+    }
+    if (category === 'department') {
+      document.querySelectorAll('.team-fb-dep').forEach((el) => el.classList.remove('active'));
+    }
+    btn.classList.add('active');
+    if (category === 'rank') applyRankActiveStyle(value);
+    if (category === 'gender') applyGenderActiveStyle(value);
+  }
+  updateTeamAllBtn();
+  render();
+}
 const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
 
 const ROLE_LABELS = {
@@ -508,12 +645,13 @@ function parseAchievements(m) {
 
 function updateTeamHeaderStats() {
   const q = (document.getElementById('q').value || '').trim().toLowerCase();
-  const dep = document.getElementById('dep-filter')?.value || '';
   let rows = teamList.filter((r) => r.is_active !== false);
   const totalAll = rows.length;
   if (q) rows = rows.filter((r) => (r.name || '').toLowerCase().includes(q));
-  if (dep) rows = rows.filter((r) => (r.department || '') === dep);
-  const hasFilter = !!(q || dep);
+  if (teamFilters.rank) rows = rows.filter((r) => String(r.rank ?? '') === String(teamFilters.rank));
+  if (teamFilters.department) rows = rows.filter((r) => (r.department || '') === teamFilters.department);
+  if (teamFilters.gender) rows = rows.filter((r) => r.gender === teamFilters.gender);
+  const hasFilter = !!(q || teamFilters.rank || teamFilters.department || teamFilters.gender);
   const tops = rows.filter((m) => parseAchievements(m).length >= 3).length;
   let avgSum = 0;
   let avgN = 0;
@@ -597,10 +735,11 @@ function isBirthdayToday(birthDate) {
 
 function render() {
   const q = (document.getElementById('q').value || '').trim().toLowerCase();
-  const dep = document.getElementById('dep-filter')?.value || '';
   let rows = teamList.filter((r) => r.is_active !== false);
   if (q) rows = rows.filter((r) => (r.name || '').toLowerCase().includes(q));
-  if (dep) rows = rows.filter((r) => (r.department || '') === dep);
+  if (teamFilters.rank) rows = rows.filter((r) => String(r.rank ?? '') === String(teamFilters.rank));
+  if (teamFilters.department) rows = rows.filter((r) => (r.department || '') === teamFilters.department);
+  if (teamFilters.gender) rows = rows.filter((r) => r.gender === teamFilters.gender);
   rows.sort((a, b) => {
     const ab = isBirthdayToday(a.birth_date) ? 0 : 1;
     const bb = isBirthdayToday(b.birth_date) ? 0 : 1;
@@ -622,6 +761,10 @@ function render() {
     const posBadge = m.position_title
       ? `<div class="team-pos-badge">${esc(m.position_title)}</div>`
       : '';
+    const rkNum = m.rank != null && [1, 2, 3].includes(Number(m.rank)) ? Number(m.rank) : null;
+    const rankBadge = rkNum
+      ? `<span class="rank-badge rank-${rkNum}">${'★'.repeat(rkNum)} Ранг ${rkNum}</span>`
+      : '';
     return `<div class="card${bdClass}" onclick="openDrawer('${m.id}')" style="position:relative">
       ${bdToday ? '<span style="position:absolute;top:-6px;right:-6px;font-size:20px;z-index:1">🎂</span>' : ''}
       <div class="ch">
@@ -635,7 +778,7 @@ function render() {
             <div class="cd">${m.birth_date ? '🎂 ' + new Date(m.birth_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : '&nbsp;'}</div>
           </div>
         </div>
-        ${posBadge}
+        ${posBadge || rankBadge ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">${posBadge}${rankBadge}</div>` : ''}
       </div>
       ${ach.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
         ${ach.slice(0, 8).map(a => `<span title="${esc(a.name)}" style="font-size:16px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
@@ -653,13 +796,47 @@ function getMergedDepartmentOptions() {
   return [...new Set([...fromCfg, ...fromData])].sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
-function refreshDepFilterSelect() {
-  const depSelect = document.getElementById('dep-filter');
-  if (!depSelect) return;
-  const prev = depSelect.value;
+function renderTeamDepartmentFilterButtons() {
+  const el = document.getElementById('team-dept-buttons');
+  if (!el) return;
   const opts = getMergedDepartmentOptions();
-  depSelect.innerHTML = '<option value="">Все отделы</option>' + opts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
-  if (prev && [...opts, ''].includes(prev)) depSelect.value = prev;
+  if (!opts.length) {
+    el.innerHTML = '<span style="font-size:11px;color:var(--text3);padding:2px 6px">(нет отделов)</span>';
+    return;
+  }
+  el.innerHTML = opts.map((d) =>
+    `<button type="button" class="f-btn team-fb-dep" data-dep="${esc(d)}" onclick='toggleTeamFilter("department", ${JSON.stringify(d)}, this)' style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px">${esc(d)}</button>`
+  ).join('');
+}
+
+function syncTeamFilterButtons() {
+  ['1', '2', '3'].forEach((r) => {
+    const btn = document.getElementById('fb-r' + r);
+    if (!btn) return;
+    const on = teamFilters.rank === r;
+    btn.classList.toggle('active', on);
+    if (on) applyRankActiveStyle(r);
+    else clearRankStyle(r);
+  });
+  ['fb-male', 'fb-female'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const g = id === 'fb-male' ? 'male' : 'female';
+    const on = teamFilters.gender === g;
+    el.classList.toggle('active', on);
+    if (on) applyGenderActiveStyle(g);
+    else clearGenderStyle(g);
+  });
+  document.querySelectorAll('.team-fb-dep').forEach((b) => {
+    const dep = b.getAttribute('data-dep');
+    b.classList.toggle('active', !!(teamFilters.department && dep === teamFilters.department));
+  });
+  updateTeamAllBtn();
+}
+
+function refreshDepFilterSelect() {
+  renderTeamDepartmentFilterButtons();
+  syncTeamFilterButtons();
 }
 
 function buildDepartmentOptionsHtml(selectedVal) {
@@ -1022,6 +1199,18 @@ function switchTab(i) {
     </div>
     <div class="field-row team-fr" style="margin-bottom:14px">
       <div class="field">
+        <div class="fl">Ранг</div>
+        <select class="fselect" id="edit-tm-rank">
+          <option value="">—</option>
+          <option value="1" ${String(tm.rank) === '1' || Number(tm.rank) === 1 ? 'selected' : ''}>★ 1</option>
+          <option value="2" ${String(tm.rank) === '2' || Number(tm.rank) === 2 ? 'selected' : ''}>★★ 2</option>
+          <option value="3" ${String(tm.rank) === '3' || Number(tm.rank) === 3 ? 'selected' : ''}>★★★ 3</option>
+        </select>
+      </div>
+      <div class="field"></div>
+    </div>
+    <div class="field-row team-fr" style="margin-bottom:14px">
+      <div class="field">
         <div class="fl">Телефон</div>
         <input class="fin" id="edit-tm-phone" value="${esc(tm.phone || '')}" placeholder="+7 (999) 000-00-00"/>
       </div>
@@ -1065,6 +1254,10 @@ function switchTab(i) {
     <div class="field-row team-fr" style="margin-bottom:12px">
       <div class="field"><div class="fl">Должность</div><div class="fv">${esc(tm.position_title || '—')}</div></div>
       <div class="field"><div class="fl">Отдел</div><div class="fv">${esc(tm.department || '—')}</div></div>
+    </div>
+    <div class="field-row team-fr" style="margin-bottom:12px">
+      <div class="field"><div class="fl">Ранг</div><div class="fv">${tm.rank != null && [1, 2, 3].includes(Number(tm.rank)) ? '★'.repeat(Number(tm.rank)) + ' (' + Number(tm.rank) + ')' : '—'}</div></div>
+      <div class="field"></div>
     </div>
     <div class="field-row team-fr" style="margin-bottom:12px">
       <div class="field"><div class="fl">Телефон</div><div class="fv">${esc(tm.phone || '—')}</div></div>
@@ -1121,6 +1314,8 @@ ${comments.map((c) => {
 async function saveTeamCard() {
   if (!drawerId || !editMode) return;
   try {
+    const rkEl = document.getElementById('edit-tm-rank');
+    const rkVal = rkEl && rkEl.value !== '' ? parseInt(rkEl.value, 10) : null;
     const body = {
       name: document.getElementById('edit-tm-name').value,
       position_title: document.getElementById('edit-tm-position').value || null,
@@ -1132,6 +1327,7 @@ async function saveTeamCard() {
       start_date: document.getElementById('edit-tm-start').value || null,
       summary: document.getElementById('edit-tm-summary').value || null,
       is_active: document.getElementById('edit-tm-active').checked,
+      rank: rkVal === 1 || rkVal === 2 || rkVal === 3 ? rkVal : null,
     };
     await api('PATCH', '/team/' + drawerId, body);
     showToast('Сохранено');
