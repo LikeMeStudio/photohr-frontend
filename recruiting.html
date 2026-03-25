@@ -332,6 +332,7 @@ let currentUser = null;
 let kanbanData = [];
 let currentFilter = 'all';
 let draggedCard = null;
+let refreshLock = null;
 
 const ROLE_LABELS = { viewer:'Менеджер', manager:'Менеджер', editor:'Редактор', hr_director:'HR-директор', admin:'Администратор', recruiter:'Рекрутер', venue_admin:'Админ площадки', print_operator:'Оператор', stock_manager:'Склад', controller:'Контролёр', photographer_user:'Фотограф' };
 const ROLE_COLORS = { viewer:'#9090a8', manager:'#f5a623', editor:'#9b8dff', hr_director:'#3ecf8e', admin:'#ffd700', recruiter:'#e86aa6', venue_admin:'#e87a6a', print_operator:'#6aa6e8', stock_manager:'#8a7aee', controller:'#e86aa6', photographer_user:'#4ecb8a' };
@@ -344,15 +345,22 @@ async function api(method, path, body) {
   if (body) opts.body = JSON.stringify(body);
   let res = await fetch(API + path, opts);
   if (res.status === 401 && refreshToken) {
-    const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
-    if (rr.ok) {
-      const d = await rr.json();
-      accessToken = d.accessToken; refreshToken = d.refreshToken;
-      localStorage.setItem('fhr_refresh', refreshToken);
-      localStorage.setItem('fhr_access', accessToken);
+    try {
+      if (!refreshLock) {
+        refreshLock = (async () => {
+          const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
+          if (!rr.ok) throw new Error('refresh_failed');
+          const d = await rr.json();
+          accessToken = d.accessToken; refreshToken = d.refreshToken;
+          localStorage.setItem('fhr_refresh', refreshToken);
+          localStorage.setItem('fhr_access', accessToken);
+        })();
+      }
+      await refreshLock;
       opts.headers['Authorization'] = `Bearer ${accessToken}`;
       res = await fetch(API + path, opts);
-    } else { doLogout(); return null; }
+    } catch { doLogout(); return null; }
+    finally { refreshLock = null; }
   }
   if (!res.ok) { const err = await res.json().catch(()=>({error:'Ошибка'})); throw new Error(err.error || 'Ошибка'); }
   return res.json();

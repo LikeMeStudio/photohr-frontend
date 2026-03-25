@@ -44,8 +44,9 @@
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,myShifts=[],scanner=null;
+let refreshLock=null;
 
-async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(x.ok){const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}else{doLogout();return null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
+async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){try{if(!refreshLock){refreshLock=(async()=>{const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(!x.ok)throw new Error('refresh_failed');const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);})();}await refreshLock;o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',3000);}
 
