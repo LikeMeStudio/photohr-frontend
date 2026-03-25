@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhotoHR — Площадка</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;
+  --border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;
+  --accent:#7c6cff;--accent2:#9b8dff;
+  --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}
+.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.nav-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Golos Text',sans-serif;transition:all .15s}
+.nav-btn:hover{color:var(--text);border-color:var(--border2)}
+.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.user-pill{padding:5px 10px;border-radius:16px;background:var(--bg3);border:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px;margin-left:auto}
+.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Golos Text',sans-serif}
+
+.main{max-width:1200px;margin:0 auto;padding:20px 24px}
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
+.section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:rgba(242,85,85,.15);color:var(--rank3);border:1px solid rgba(242,85,85,.3)}
+.btn-success{background:rgba(62,207,142,.15);color:var(--rank1);border:1px solid rgba(62,207,142,.3)}
+.fin{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none}
+.fin:focus{border-color:var(--accent)}
+.fselect{padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none;cursor:pointer}
+.fselect option{background:var(--bg2)}
+
+/* Venue header */
+.venue-header{display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.venue-name{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600}
+.venue-date{font-size:14px;color:var(--text2)}
+.venue-status{padding:4px 12px;border-radius:8px;font-size:12px;font-weight:500}
+.vs-active{background:rgba(62,207,142,.15);color:var(--rank1);border:1px solid rgba(62,207,142,.3)}
+.vs-draft{background:rgba(245,166,35,.15);color:var(--rank2);border:1px solid rgba(245,166,35,.3)}
+
+/* QR section */
+.qr-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.qr-box{width:200px;height:200px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.qr-box canvas,.qr-box img{width:200px!important;height:200px!important}
+.qr-info{flex:1;min-width:200px}
+.qr-timer{font-family:'Unbounded',sans-serif;font-size:28px;font-weight:600;color:var(--accent2)}
+.qr-hint{font-size:12px;color:var(--text3);margin-top:4px}
+
+/* Roster */
+.roster{display:flex;flex-direction:column;gap:6px}
+.roster-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
+.roster-name{font-size:13px;font-weight:500;flex:1}
+.roster-role{font-size:11px;color:var(--text3);padding:2px 8px;border-radius:4px;background:var(--bg)}
+.roster-status{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:500}
+.rs-arrived{background:rgba(62,207,142,.15);color:var(--rank1)}
+.rs-late{background:rgba(242,85,85,.15);color:var(--rank3)}
+.rs-waiting{background:rgba(144,144,168,.15);color:var(--text3)}
+.rs-manual{background:rgba(124,108,255,.15);color:var(--accent2)}
+
+/* Sales table */
+.sales-table{width:100%;border-collapse:collapse;font-size:12px;overflow-x:auto;display:block}
+.sales-table th,.sales-table td{padding:8px 6px;border:1px solid var(--border);text-align:center;white-space:nowrap}
+.sales-table th{background:var(--bg3);font-weight:600;color:var(--text2);position:sticky;top:0;z-index:1}
+.sales-table td:first-child{text-align:left;font-weight:500;position:sticky;left:0;background:var(--bg2);z-index:1;min-width:120px}
+.sales-table th:first-child{position:sticky;left:0;z-index:2;background:var(--bg3)}
+.sales-table input{width:50px;padding:4px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;text-align:center;outline:none}
+.sales-table input:focus{border-color:var(--accent)}
+.sales-table .row-total{font-weight:600;color:var(--accent2);background:var(--bg3)}
+
+/* Footer actions */
+.footer-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);margin-top:12px}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+.loading{text-align:center;padding:40px;color:var(--text3)}
+
+@media(max-width:768px){
+  .main{padding:12px}
+  .section{padding:14px}
+  .qr-wrap{flex-direction:column;align-items:center}
+  .sales-table input{width:40px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="logo" href="index.html">Photo<span>HR</span></a>
+  <div class="nav-links">
+    <a class="nav-btn" href="index.html">Сотрудники</a>
+    <a class="nav-btn" href="recruiting.html">Рекрутинг</a>
+    <a class="nav-btn active" href="venue.html">Площадка</a>
+  </div>
+  <div class="user-pill" id="user-pill"></div>
+  <button class="logout-btn" onclick="doLogout()">Выйти</button>
+</div>
+
+<div class="main">
+  <!-- Venue selector -->
+  <div class="venue-header" id="venue-header">
+    <div>
+      <select class="fselect" id="venue-select" onchange="loadShift()" style="font-size:14px;padding:8px 12px">
+        <option value="">Выберите площадку...</option>
+      </select>
+    </div>
+    <div>
+      <input class="fin" type="date" id="shift-date" onchange="loadShift()" style="width:auto"/>
+    </div>
+    <div id="shift-status"></div>
+  </div>
+
+  <div id="content">
+    <div class="loading">Выберите площадку и дату</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.hostname === 'localhost'
+  ? 'http://localhost:3001/api'
+  : 'https://fotohr-server-production.up.railway.app/api';
+
+let accessToken = localStorage.getItem('fhr_access') || null;
+let refreshToken = localStorage.getItem('fhr_refresh') || null;
+let currentUser = null;
+let venues = [];
+let currentShift = null;
+let currentAssignments = [];
+let currentProducts = [];
+let reportData = {};
+let qrInterval = null;
+
+// ── API ──
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
+  if (body) opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  if (res.status === 401 && refreshToken) {
+    const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
+    if (rr.ok) {
+      const d = await rr.json();
+      accessToken = d.accessToken; refreshToken = d.refreshToken;
+      localStorage.setItem('fhr_refresh', refreshToken);
+      localStorage.setItem('fhr_access', accessToken);
+      opts.headers['Authorization'] = `Bearer ${accessToken}`;
+      res = await fetch(API + path, opts);
+    } else { doLogout(); return null; }
+  }
+  if (!res.ok) { const err = await res.json().catch(()=>({error:'Ошибка'})); throw new Error(err.error || 'Ошибка'); }
+  return res.json();
+}
+
+function doLogout() { localStorage.removeItem('fhr_refresh'); localStorage.removeItem('fhr_access'); window.location.href = 'index.html'; }
+function showToast(msg, err) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' error' : ''); setTimeout(() => t.className = 'toast', 2500); }
+
+// ── INIT ──
+(async function init() {
+  if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
+  try {
+    currentUser = await api('GET', '/auth/me');
+    document.getElementById('user-pill').innerHTML = `<span>${currentUser.name}</span>`;
+    document.getElementById('shift-date').value = new Date().toISOString().split('T')[0];
+    venues = await api('GET', '/venues');
+    const sel = document.getElementById('venue-select');
+    sel.innerHTML = '<option value="">Выберите площадку...</option>' +
+      venues.map(v => `<option value="${v.id}">${v.name}${v.city ? ' · ' + v.city : ''}</option>`).join('');
+  } catch { doLogout(); }
+})();
+
+// ── LOAD SHIFT ──
+async function loadShift() {
+  const venueId = document.getElementById('venue-select').value;
+  const date = document.getElementById('shift-date').value;
+  if (!venueId || !date) return;
+
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  try {
+    // Загружаем мероприятия на эту дату и площадку
+    const events = await api('GET', `/events?venue_id=${venueId}&from=${date}&to=${date}`);
+    if (!events.length) {
+      content.innerHTML = `<div class="loading">Нет мероприятий на ${new Date(date).toLocaleDateString('ru-RU')}. <button class="btn btn-primary" style="margin-left:8px" onclick="createEventForToday()">+ Создать</button></div>`;
+      return;
+    }
+
+    const event = events[0];
+
+    // Загружаем смены для этого мероприятия
+    const shifts = await api('GET', `/shifts?event_id=${event.id}`);
+    currentShift = shifts[0] || null;
+
+    if (!currentShift) {
+      content.innerHTML = `<div class="loading">Мероприятие есть, но смена не создана</div>`;
+      return;
+    }
+
+    // Загружаем назначения
+    currentAssignments = await api('GET', `/shifts/${currentShift.id}/assignments`);
+
+    // Загружаем товары площадки
+    currentProducts = await api('GET', `/venues/${venueId}/products`).catch(() => []);
+
+    // Загружаем существующий отчёт (если есть)
+    const reports = await api('GET', `/daily-reports?shift_id=${currentShift.id}`).catch(() => []);
+    const report = Array.isArray(reports) ? reports[0] : reports;
+
+    renderVenuePage(event, report);
+  } catch (e) {
+    content.innerHTML = `<div class="loading" style="color:var(--rank3)">${e.message}</div>`;
+  }
+}
+
+// ── RENDER ──
+function renderVenuePage(event, report) {
+  const venue = venues.find(v => v.id === event.venue_id);
+  const venueName = venue?.name || 'Площадка';
+  const date = new Date(event.event_date).toLocaleDateString('ru-RU', {day:'numeric',month:'long',weekday:'long'});
+  const statusLabel = report?.status === 'approved' ? '✅ Проведён' : report?.status === 'submitted' ? '📤 Отправлен' : report?.status === 'returned' ? '↩ Возвращён' : '📝 Черновик';
+  const statusClass = report?.status === 'approved' ? 'vs-active' : 'vs-draft';
+
+  document.getElementById('shift-status').innerHTML = `<span class="venue-status ${statusClass}">${statusLabel}</span>`;
+
+  const photographers = currentAssignments.filter(a => a.status !== 'cancelled');
+
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <!-- QR Checkin -->
+    <div class="section">
+      <div class="section-title">📱 QR-чекин <span style="font-size:11px;color:var(--text3);font-weight:400">· обновляется каждые 30 сек</span></div>
+      <div class="qr-wrap">
+        <div class="qr-box" id="qr-box"></div>
+        <div class="qr-info">
+          <div class="qr-timer" id="qr-timer">--</div>
+          <div class="qr-hint">Сотрудники сканируют этот код для отметки прихода</div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="startQR()">Запустить QR</button>
+            <button class="btn btn-ghost" onclick="stopQR()">Остановить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roster -->
+    <div class="section">
+      <div class="section-title">👥 Состав смены (${photographers.length})</div>
+      <div class="roster">
+        ${photographers.length ? photographers.map(a => {
+          const checkedIn = a.checkin_at || a.checked_in;
+          const isLate = a.is_late;
+          let statusHtml = '';
+          if (checkedIn) {
+            statusHtml = isLate
+              ? `<span class="roster-status rs-late">⏰ Опоздал ${a.late_minutes || ''}мин</span>`
+              : `<span class="roster-status rs-arrived">✅ Пришёл</span>`;
+          } else {
+            statusHtml = `<span class="roster-status rs-waiting">⏳ Ожидается</span>
+              <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="manualCheckin('${a.id}')">Вручную</button>`;
+          }
+          return `<div class="roster-row">
+            <div class="roster-name">${a.photographer_name || 'Сотрудник'}</div>
+            <div class="roster-role">${a.role_in_shift || 'фотограф'}</div>
+            ${statusHtml}
+          </div>`;
+        }).join('') : '<div style="padding:12px;color:var(--text3);text-align:center">Никто не назначен на смену</div>'}
+      </div>
+    </div>
+
+    <!-- Sales Report -->
+    <div class="section">
+      <div class="section-title">📊 Отчёт продаж <span style="font-size:11px;color:var(--text3);font-weight:400">${date}</span></div>
+      ${photographers.length && currentProducts.length ? renderSalesTable(photographers, report) : '<div style="padding:12px;color:var(--text3);text-align:center">Нет данных для отчёта (нужны назначенные сотрудники и товары площадки)</div>'}
+      <div class="footer-actions">
+        <button class="btn btn-ghost" onclick="saveDraft()">💾 Сохранить черновик</button>
+        <button class="btn btn-primary" onclick="submitReport()">📤 Отправить отчёт</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSalesTable(photographers, report) {
+  const existingLines = report?.sale_lines || [];
+
+  let html = '<div style="overflow-x:auto"><table class="sales-table"><thead><tr><th>Сотрудник</th>';
+  currentProducts.forEach(p => {
+    html += `<th>${p.product_name || p.name}<br><span style="font-size:10px;color:var(--text3)">${p.price}₽</span></th>`;
+  });
+  html += '<th class="row-total">Итого</th></tr></thead><tbody>';
+
+  photographers.forEach(a => {
+    const phId = a.photographer_id;
+    html += `<tr><td>${a.photographer_name || 'Сотрудник'}</td>`;
+    let rowTotal = 0;
+    currentProducts.forEach(p => {
+      const pId = p.product_id || p.id;
+      const existing = existingLines.find(l => l.photographer_id === phId && l.product_id === pId);
+      const qty = existing?.quantity || 0;
+      rowTotal += qty * parseFloat(p.price);
+      html += `<td><input type="number" min="0" value="${qty}" data-ph="${phId}" data-prod="${pId}" data-price="${p.price}" onchange="recalcRow(this)"/></td>`;
+    });
+    html += `<td class="row-total" id="total-${phId}">${rowTotal.toLocaleString('ru-RU')}₽</td></tr>`;
+  });
+
+  // Grand total row
+  html += '<tr><td class="row-total">ИТОГО</td>';
+  currentProducts.forEach(p => {
+    html += `<td class="row-total" id="col-total-${p.product_id || p.id}">0</td>`;
+  });
+  html += '<td class="row-total" id="grand-total">0₽</td></tr>';
+  html += '</tbody></table></div>';
+
+  // Trigger recalc after render
+  setTimeout(recalcAll, 100);
+
+  return html;
+}
+
+function recalcRow(input) {
+  recalcAll();
+}
+
+function recalcAll() {
+  const inputs = document.querySelectorAll('.sales-table input[type=number]');
+  const totals = {};
+  const colTotals = {};
+  let grandTotal = 0;
+
+  inputs.forEach(inp => {
+    const phId = inp.dataset.ph;
+    const prodId = inp.dataset.prod;
+    const price = parseFloat(inp.dataset.price);
+    const qty = parseInt(inp.value) || 0;
+    const subtotal = qty * price;
+
+    totals[phId] = (totals[phId] || 0) + subtotal;
+    colTotals[prodId] = (colTotals[prodId] || 0) + qty;
+    grandTotal += subtotal;
+  });
+
+  Object.entries(totals).forEach(([phId, total]) => {
+    const el = document.getElementById('total-' + phId);
+    if (el) el.textContent = total.toLocaleString('ru-RU') + '₽';
+  });
+
+  Object.entries(colTotals).forEach(([prodId, qty]) => {
+    const el = document.getElementById('col-total-' + prodId);
+    if (el) el.textContent = qty;
+  });
+
+  const gt = document.getElementById('grand-total');
+  if (gt) gt.textContent = grandTotal.toLocaleString('ru-RU') + '₽';
+}
+
+// ── QR CHECKIN ──
+async function startQR() {
+  if (qrInterval) clearInterval(qrInterval);
+  await generateQR();
+  qrInterval = setInterval(generateQR, 30000);
+}
+
+function stopQR() {
+  if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
+  document.getElementById('qr-box').innerHTML = '<div style="color:#999;font-size:12px">Остановлен</div>';
+  document.getElementById('qr-timer').textContent = '--';
+}
+
+async function generateQR() {
+  if (!currentShift) return;
+  try {
+    const data = await api('POST', `/shifts/${currentShift.id}/generate-qr`);
+    const box = document.getElementById('qr-box');
+    box.innerHTML = '';
+    new QRCode(box, { text: data.qr_code, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+
+    // Timer countdown
+    let sec = data.expires_in || 30;
+    document.getElementById('qr-timer').textContent = sec + 'с';
+    const timer = setInterval(() => {
+      sec--;
+      const el = document.getElementById('qr-timer');
+      if (el) el.textContent = sec + 'с';
+      if (sec <= 0) clearInterval(timer);
+    }, 1000);
+  } catch (e) {
+    document.getElementById('qr-box').innerHTML = `<div style="color:#f55;font-size:11px;padding:20px">${e.message}</div>`;
+  }
+}
+
+async function manualCheckin(assignmentId) {
+  try {
+    await api('POST', '/checkins', { assignment_id: assignmentId, checkin_type: 'arrival', method: 'manual' });
+    showToast('Отмечен вручную');
+    loadShift();
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ── SAVE / SUBMIT REPORT ──
+function collectSalesData() {
+  const inputs = document.querySelectorAll('.sales-table input[type=number]');
+  const lines = [];
+  inputs.forEach(inp => {
+    const qty = parseInt(inp.value) || 0;
+    if (qty > 0) {
+      lines.push({
+        photographer_id: inp.dataset.ph,
+        product_id: inp.dataset.prod,
+        quantity: qty,
+        price: parseFloat(inp.dataset.price),
+      });
+    }
+  });
+  return lines;
+}
+
+async function saveDraft() {
+  if (!currentShift) { showToast('Нет смены', true); return; }
+  const lines = collectSalesData();
+  try {
+    await api('POST', '/daily-reports', {
+      shift_id: currentShift.id,
+      venue_id: document.getElementById('venue-select').value,
+      report_date: document.getElementById('shift-date').value,
+      status: 'draft',
+      sale_lines: lines,
+    });
+    showToast('Черновик сохранён');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function submitReport() {
+  if (!currentShift) { showToast('Нет смены', true); return; }
+  const lines = collectSalesData();
+  if (!lines.length) { showToast('Заполните хотя бы одну строку', true); return; }
+  try {
+    await api('POST', '/daily-reports', {
+      shift_id: currentShift.id,
+      venue_id: document.getElementById('venue-select').value,
+      report_date: document.getElementById('shift-date').value,
+      status: 'submitted',
+      sale_lines: lines,
+    });
+    showToast('📤 Отчёт отправлен');
+    loadShift();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function createEventForToday() {
+  const venueId = document.getElementById('venue-select').value;
+  const date = document.getElementById('shift-date').value;
+  try {
+    await api('POST', '/events', { venue_id: venueId, event_date: date, event_type: 'regular' });
+    showToast('Мероприятие создано');
+    loadShift();
+  } catch (e) { showToast(e.message, true); }
+}
+</script>
+</body>
+</html>

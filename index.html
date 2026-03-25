@@ -1109,6 +1109,9 @@ function setupToolbarActions() {
   if (can('hr_director') || currentUser.role === 'recruiter') {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Рекрутинг</a>');
   }
+  if (can('venue_admin') || can('manager')) {
+    navBtns.push('<a class="f-btn" href="venue.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Площадка</a>');
+  }
   nav.innerHTML = navBtns.join('');
 
   // Toolbar actions
