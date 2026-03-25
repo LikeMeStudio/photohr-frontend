@@ -547,6 +547,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <option value="stock_manager">stock_manager — складской менеджер</option>
       <option value="controller">controller — контролёр</option>
       <option value="photographer_user">photographer_user — фотограф (ЛК)</option>
+      <option value="recruiter">recruiter — рекрутер</option>
     </select>
   </div>
   <div class="field" style="margin-bottom:12px"><div class="fl">Временный пароль *</div><input class="fin" type="password" id="nu-pass" placeholder="Минимум 8 символов" autocomplete="new-password"/></div>
@@ -632,11 +633,17 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="field" style="margin-bottom:12px">
     <div class="fl">Роль</div>
     <select class="fselect" id="eu-role">
-      <option value="viewer">viewer — только свои комментарии</option>
-      <option value="manager">manager — видит все комментарии</option>
-      <option value="editor">editor — редактирует карточки</option>
-      <option value="hr_director">hr_director — редактор + паспортные данные</option>
+      <option value="viewer">viewer — линейный менеджер</option>
+      <option value="manager">manager — менеджер</option>
+      <option value="editor">editor — редактор карточек</option>
+      <option value="hr_director">hr_director — HR-директор</option>
       <option value="admin">admin — полный доступ</option>
+      <option value="venue_admin">venue_admin — админ площадки</option>
+      <option value="print_operator">print_operator — оператор печати</option>
+      <option value="stock_manager">stock_manager — складской менеджер</option>
+      <option value="controller">controller — контролёр</option>
+      <option value="photographer_user">photographer_user — фотограф (ЛК)</option>
+      <option value="recruiter">recruiter — рекрутер</option>
     </select>
   </div>
   <div class="field" style="margin-bottom:12px">
@@ -2476,17 +2483,32 @@ function renderAdminUsers(){
     </div>
     <div style="height:1px;background:var(--border);margin-bottom:16px"></div>
     ` : ''}
-    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewUserModal()">+ Добавить пользователя</button>
-    ${active.map(u=>`
-      <div class="user-row" style="cursor:pointer" onclick="openEditUser('${u.id}')">
-        <div style="flex:1">
-          <div class="user-row-name">${u.name}</div>
-          <div class="user-row-email">${u.email}</div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:12px" onclick="openNewUserModal()">+ Добавить пользователя</button>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <input class="search-in" id="admin-user-search" placeholder="🔍 Поиск..." oninput="renderAdminUsers()" style="flex:1;min-width:150px;max-width:250px"/>
+      <button class="f-btn ${!window._adminUserFilter ? 'active' : ''}" onclick="window._adminUserFilter=null;renderAdminUsers()">Все</button>
+      <button class="f-btn ${window._adminUserFilter==='staff' ? 'active' : ''}" onclick="window._adminUserFilter='staff';renderAdminUsers()">👤 Управление</button>
+      <button class="f-btn ${window._adminUserFilter==='photo' ? 'active' : ''}" onclick="window._adminUserFilter='photo';renderAdminUsers()">📷 Фотографы</button>
+    </div>
+    ${(() => {
+      const search = (document.getElementById('admin-user-search')?.value || '').toLowerCase();
+      const filter = window._adminUserFilter;
+      const staffRoles = ['viewer','manager','editor','hr_director','admin','venue_admin','print_operator','stock_manager','controller','recruiter'];
+      let filtered = active;
+      if (search) filtered = filtered.filter(u => u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
+      if (filter === 'staff') filtered = filtered.filter(u => staffRoles.includes(u.role) && u.role !== 'photographer_user');
+      if (filter === 'photo') filtered = filtered.filter(u => u.role === 'photographer_user');
+      return filtered.map(u => `
+        <div class="user-row" style="cursor:pointer" onclick="openEditUser('${u.id}')">
+          <div style="flex:1">
+            <div class="user-row-name">${u.name}</div>
+            <div class="user-row-email">${u.email}</div>
+          </div>
+          <div class="role-badge rb-${u.role}">${ROLE_LABELS[u.role] || u.role}</div>
+          ${u.id === currentUser.id ? '<span style="font-size:12px;color:var(--text3);margin-left:4px">(вы)</span>' : ''}
         </div>
-        <div class="role-badge rb-${u.role}">${u.role}</div>
-        ${u.id === currentUser.id ? '<span style="font-size:12px;color:var(--text3);margin-left:4px">(вы)</span>' : ''}
-      </div>
-    `).join('')}
+      `).join('') || '<div style="text-align:center;padding:20px;color:var(--text3)">Не найдено</div>';
+    })()}
   `;
 }
 
