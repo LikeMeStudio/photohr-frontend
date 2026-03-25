@@ -44,8 +44,10 @@ a{color:inherit;text-decoration:none}
 .btn-danger{background:rgba(242,85,85,.15);color:var(--rank3);border:1px solid rgba(242,85,85,.3)}.btn-danger:hover{background:rgba(242,85,85,.25)}
 
 /* Kanban */
-.kanban{display:flex;gap:10px;padding:14px 24px;overflow-x:auto;align-items:flex-start;min-height:calc(100vh - 130px)}
-.kanban-col{min-width:250px;width:250px;flex-shrink:0;background:var(--bg2);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(100vh - 150px)}
+.funnel-section{padding:10px 24px 0}
+.funnel-label{font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;padding-left:4px}
+.kanban-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.kanban-col{min-width:210px;width:210px;flex-shrink:0;background:var(--bg2);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(50vh - 80px)}
 .col-header{padding:10px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);border-radius:12px 12px 0 0}
 .col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .col-title{font-size:12px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -148,7 +150,7 @@ textarea.fin{resize:vertical;min-height:50px}
   <button class="btn btn-primary" onclick="openNewCandidate()">+ Кандидат</button>
 </div>
 
-<div id="kanban-container" class="kanban">
+<div id="kanban-container">
   <div class="loading">Загрузка...</div>
 </div>
 
@@ -269,38 +271,54 @@ function setupHeader() {
 }
 
 // ── LOAD ──
+let allStages = [];
 async function loadKanban() {
   try {
     const filterParam = currentFilter !== 'all' ? `?target_role=${currentFilter}` : '';
     kanbanData = await api('GET', '/candidates/kanban' + filterParam);
+    allStages = kanbanData.stages_flat || [];
     renderKanban();
   } catch (e) { document.getElementById('kanban-container').innerHTML = `<div class="loading">${e.message}</div>`; }
 }
 
 // ── RENDER ──
+const FUNNEL_LABELS = { hiring: '📋 Обучение', internship: '🎓 Стажировка и найм' };
+
 function renderKanban() {
   const search = (document.getElementById('search')?.value || '').toLowerCase();
   const container = document.getElementById('kanban-container');
+  const funnels = kanbanData.funnels || {};
 
-  container.innerHTML = kanbanData.map(stage => {
-    let cards = stage.candidates || [];
-    if (search) cards = cards.filter(c => c.name.toLowerCase().includes(search) || (c.phone||'').includes(search));
+  let html = '';
+  for (const [funnelKey, stages] of Object.entries(funnels)) {
+    html += `<div class="funnel-section">
+      <div class="funnel-label">${FUNNEL_LABELS[funnelKey] || funnelKey}</div>
+      <div class="kanban-row">`;
 
-    return `<div class="kanban-col">
-      <div class="col-header">
-        <div class="col-dot" style="background:${stage.color}"></div>
-        <div class="col-title">${stage.name}</div>
-        <div class="col-count">${cards.length}</div>
-      </div>
-      <div class="col-body" data-stage="${stage.id}"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="dropCard(event, '${stage.id}')">
-        ${cards.map(c => renderCard(c)).join('')}
-        ${!cards.length ? '<div style="text-align:center;padding:12px;font-size:11px;color:var(--text3)">Пусто</div>' : ''}
-      </div>
-    </div>`;
-  }).join('');
+    html += stages.map(stage => {
+      let cards = stage.candidates || [];
+      if (search) cards = cards.filter(c => c.name.toLowerCase().includes(search) || (c.phone||'').includes(search));
+
+      return `<div class="kanban-col">
+        <div class="col-header">
+          <div class="col-dot" style="background:${stage.color}"></div>
+          <div class="col-title">${stage.name}</div>
+          <div class="col-count">${cards.length}</div>
+        </div>
+        <div class="col-body" data-stage="${stage.id}"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="dropCard(event, '${stage.id}')">
+          ${cards.map(c => renderCard(c)).join('')}
+          ${!cards.length ? '<div style="text-align:center;padding:12px;font-size:11px;color:var(--text3)">Пусто</div>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    html += `</div></div>`;
+  }
+
+  container.innerHTML = html || '<div class="loading">Нет этапов воронки</div>';
 }
 
 function renderCard(c) {
@@ -422,7 +440,7 @@ async function openCandidate(id) {
       ${!c.is_terminal ? `
       <div class="dr-actions">
         <select class="fselect" id="move-stage" style="width:auto;flex:1">
-          ${kanbanData.map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${s.name}</option>`).join('')}
+          ${allStages.map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${s.name}</option>`).join('')}
         </select>
         <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">Перевести</button>
       </div>` : ''}
