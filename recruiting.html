@@ -421,17 +421,68 @@ async function createCandidate() {
 }
 
 // ── CANDIDATE DRAWER ──
+let currentCandidateId = null;
+let editMode = false;
+
 async function openCandidate(id) {
+  currentCandidateId = id;
+  editMode = false;
   try {
     const c = await api('GET', `/candidates/${id}`);
-    const dc = document.getElementById('drawer-content');
+    renderDrawer(c);
+    document.getElementById('drawer-bg').classList.add('open');
+  } catch (e) { showToast(e.message, true); }
+}
 
-    const stageColor = c.stage_color || '#6C63FF';
-    const srcClass = 'src-' + (c.source || 'manual');
-    const srcLabel = SRC_LABELS[c.source] || c.source;
+function renderDrawer(c) {
+  const dc = document.getElementById('drawer-content');
+  const stageColor = c.stage_color || '#6C63FF';
+  const srcClass = 'src-' + (c.source || 'manual');
+  const srcLabel = SRC_LABELS[c.source] || c.source;
 
+  if (editMode) {
     dc.innerHTML = `
-      <div class="dr-name">${c.name}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div class="dr-name" style="flex:1">Редактирование</div>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="openCandidate('${c.id}')">Отмена</button>
+      </div>
+      <div class="field"><div class="fl">Имя *</div><input class="fin" id="ed-name" value="${c.name || ''}"/></div>
+      <div class="field"><div class="fl">Телефон</div><input class="fin" id="ed-phone" value="${c.phone || ''}" type="tel"/></div>
+      <div class="field"><div class="fl">Email</div><input class="fin" id="ed-email" value="${c.email || ''}" type="email"/></div>
+      <div class="field"><div class="fl">Telegram</div><input class="fin" id="ed-telegram" value="${c.telegram || ''}"/></div>
+      <div class="field"><div class="fl">WhatsApp</div><input class="fin" id="ed-whatsapp" value="${c.whatsapp || ''}"/></div>
+      <div class="field"><div class="fl">Город</div><input class="fin" id="ed-city" value="${c.city || ''}"/></div>
+      <div class="field"><div class="fl">Дата рождения</div><input class="fin" id="ed-birth" type="date" value="${c.birth_date ? c.birth_date.split('T')[0] : ''}"/></div>
+      <div class="field"><div class="fl">Источник</div>
+        <select class="fselect" id="ed-source">
+          ${['manual','hh','avito','referral','telegram','website','other'].map(s => `<option value="${s}" ${c.source===s?'selected':''}>${SRC_LABELS[s]||s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><div class="fl">На роль</div>
+        <select class="fselect" id="ed-role">
+          <option value="photographer" ${c.target_role==='photographer'?'selected':''}>Фотограф</option>
+          <option value="aquagrim" ${c.target_role==='aquagrim'?'selected':''}>Аквагримёр</option>
+        </select>
+      </div>
+      <div class="field"><div class="fl">Приоритет</div>
+        <select class="fselect" id="ed-priority">
+          <option value="normal" ${c.priority==='normal'?'selected':''}>Обычный</option>
+          <option value="high" ${c.priority==='high'?'selected':''}>Высокий</option>
+          <option value="low" ${c.priority==='low'?'selected':''}>Низкий</option>
+        </select>
+      </div>
+      <div class="field"><div class="fl">Следующий контакт</div><input class="fin" id="ed-next-contact" type="datetime-local" value="${c.next_contact_at ? c.next_contact_at.slice(0,16) : ''}"/></div>
+      <div class="field"><div class="fl">Резюме / заметки</div><textarea class="fin" id="ed-resume" rows="3">${c.resume_text || ''}</textarea></div>
+      <div class="modal-footer" style="margin-top:12px">
+        <button class="btn btn-primary" onclick="saveCandidate('${c.id}')">Сохранить</button>
+      </div>
+    `;
+  } else {
+    dc.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div class="dr-name" style="flex:1">${c.name}</div>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="enterEditMode('${c.id}')">✏️ Ред.</button>
+      </div>
       <div class="dr-stage-badge" style="background:${stageColor}22;color:${stageColor};border:1px solid ${stageColor}44">
         <span style="width:6px;height:6px;border-radius:50%;background:${stageColor}"></span>
         ${c.stage_name}
@@ -452,7 +503,9 @@ async function openCandidate(id) {
         ${c.phone ? `<div class="dr-val">📞 <a href="tel:${c.phone}">${c.phone}</a></div>` : ''}
         ${c.email ? `<div class="dr-val">📧 <a href="mailto:${c.email}">${c.email}</a></div>` : ''}
         ${c.telegram ? `<div class="dr-val">💬 ${c.telegram}</div>` : ''}
+        ${c.whatsapp ? `<div class="dr-val">📱 ${c.whatsapp}</div>` : ''}
         ${c.city ? `<div class="dr-val">📍 ${c.city}</div>` : ''}
+        ${c.birth_date ? `<div class="dr-val">🎂 ${new Date(c.birth_date).toLocaleDateString('ru-RU')}</div>` : ''}
         ${!c.phone && !c.email && !c.telegram ? '<div class="dr-val" style="color:var(--text3)">Нет контактов</div>' : ''}
       </div>
 
@@ -461,6 +514,7 @@ async function openCandidate(id) {
         <div class="dr-val"><span class="cc-src ${srcClass}">${srcLabel}</span> · ${c.target_role === 'aquagrim' ? '🎨 Аквагримёр' : '📷 Фотограф'} · ${c.priority === 'high' ? '🔥 Высокий' : c.priority === 'low' ? 'Низкий' : 'Обычный'}</div>
         ${c.assigned_to_name ? `<div class="dr-val" style="margin-top:4px">👤 Ведёт: ${c.assigned_to_name}</div>` : ''}
         ${c.referred_by_name ? `<div class="dr-val" style="margin-top:4px">🔗 Привёл: ${c.referred_by_name}</div>` : ''}
+        ${c.next_contact_at ? `<div class="dr-val" style="margin-top:4px">📅 Контакт: ${new Date(c.next_contact_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>` : ''}
       </div>
 
       ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме</div><div class="dr-val" style="font-size:12px;line-height:1.5;max-height:120px;overflow-y:auto">${c.resume_text}</div></div>` : ''}
@@ -505,8 +559,35 @@ async function openCandidate(id) {
 
       ${c.rejection_reason ? `<div class="dr-section"><div class="dr-label">Причина отказа</div><div class="dr-val" style="color:var(--rank3)">${c.rejection_reason}</div></div>` : ''}
     `;
+  }
+}
 
-    document.getElementById('drawer-bg').classList.add('open');
+async function enterEditMode(id) {
+  editMode = true;
+  const c = await api('GET', `/candidates/${id}`);
+  renderDrawer(c);
+}
+
+async function saveCandidate(id) {
+  try {
+    await api('PATCH', `/candidates/${id}`, {
+      name: document.getElementById('ed-name').value.trim() || undefined,
+      phone: document.getElementById('ed-phone').value.trim() || null,
+      email: document.getElementById('ed-email').value.trim() || null,
+      telegram: document.getElementById('ed-telegram').value.trim() || null,
+      whatsapp: document.getElementById('ed-whatsapp').value.trim() || null,
+      city: document.getElementById('ed-city').value.trim() || null,
+      birth_date: document.getElementById('ed-birth').value || null,
+      source: document.getElementById('ed-source').value,
+      target_role: document.getElementById('ed-role').value,
+      priority: document.getElementById('ed-priority').value,
+      next_contact_at: document.getElementById('ed-next-contact').value || null,
+      resume_text: document.getElementById('ed-resume').value.trim() || null,
+    });
+    showToast('Сохранено');
+    editMode = false;
+    openCandidate(id);
+    loadKanban();
   } catch (e) { showToast(e.message, true); }
 }
 
