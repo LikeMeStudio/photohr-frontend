@@ -149,6 +149,7 @@ textarea.fin{resize:vertical;min-height:50px}
   <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;margin-left:8px;cursor:pointer"><input type="checkbox" id="show-rejected" onchange="renderKanban()"/> Отказы</label>
   <span class="spacer"></span>
   <button class="btn btn-ghost" onclick="openTrainings()">📅 Тренинги</button>
+  <button class="btn btn-ghost" onclick="openInternships()">🎓 Стажировки</button>
   <button class="btn btn-primary" onclick="openNewCandidate()">+ Кандидат</button>
 </div>
 
@@ -278,6 +279,39 @@ textarea.fin{resize:vertical;min-height:50px}
   <div id="training-pick-list" style="margin-bottom:12px"><div class="loading">Загрузка...</div></div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('training-pick-modal').classList.remove('open')">Пропустить</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: стажировки -->
+<div class="overlay" id="internships-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:600px">
+  <div class="modal-title"><span>🎓 Стажировки</span><button class="dr-close" onclick="document.getElementById('internships-modal').classList.remove('open')">×</button></div>
+  <div id="internships-list" style="margin-bottom:16px"><div class="loading">Загрузка...</div></div>
+  <div style="border-top:1px solid var(--border);padding-top:12px">
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Добавить стажировку</div>
+    <div class="field"><div class="fl">Название *</div><input class="fin" id="int-title" placeholder="Стажировка Москва"/></div>
+    <div style="display:flex;gap:8px">
+      <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" id="int-date" type="date"/></div>
+      <div class="field" style="flex:1"><div class="fl">Время</div><input class="fin" id="int-time" type="time" value="10:00"/></div>
+    </div>
+    <div class="field"><div class="fl">Наставник *</div><select class="fselect" id="int-trainer"><option value="">Загрузка...</option></select></div>
+    <div class="field"><div class="fl">Площадка / место</div><input class="fin" id="int-location" placeholder="Океанариум Москвариум"/></div>
+    <div class="field"><div class="fl">Макс. участников</div><input class="fin" id="int-max" type="number" value="3"/></div>
+    <button class="btn btn-primary" style="width:100%" onclick="createInternship()">Создать стажировку</button>
+  </div>
+</div>
+</div>
+
+<!-- Modal: выбор стажировки при переводе -->
+<div class="overlay" id="internship-pick-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>🎓 Выбрать стажировку</span><button class="dr-close" onclick="document.getElementById('internship-pick-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="ip-cand-id"/>
+  <input type="hidden" id="ip-stage-id"/>
+  <div id="internship-pick-list" style="margin-bottom:12px"><div class="loading">Загрузка...</div></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('internship-pick-modal').classList.remove('open');skipInternshipAndMove()">Пропустить</button>
   </div>
 </div>
 </div>
@@ -449,13 +483,23 @@ async function dropCard(e, stageId) {
 
   const stage = allStages.find(s => s.id === stageId);
 
-  // Если этап требует выбора тренинга — показываем пикер
-  if (stage && TRAINING_STAGES.includes(stage.name)) {
+  // Если этап требует выбора тренинга
+  if (stage && TRAINING_PICK_STAGES.includes(stage.name)) {
     document.getElementById('tp-cand-id').value = draggedCard;
     document.getElementById('tp-stage-id').value = stageId;
     draggedCard = null;
     await loadTrainingPicker();
     document.getElementById('training-pick-modal').classList.add('open');
+    return;
+  }
+
+  // Если этап требует выбора стажировки
+  if (stage && INTERNSHIP_PICK_STAGES.includes(stage.name)) {
+    document.getElementById('ip-cand-id').value = draggedCard;
+    document.getElementById('ip-stage-id').value = stageId;
+    draggedCard = null;
+    await loadInternshipPicker();
+    document.getElementById('internship-pick-modal').classList.add('open');
     return;
   }
 
@@ -695,18 +739,26 @@ async function saveCandidate(id) {
 function closeDrawer() { document.getElementById('drawer-bg').classList.remove('open'); }
 
 // Этапы требующие выбора тренинга
-const TRAINING_STAGES = ['Приглашен на обучение', 'Назначена стажировка', 'Ожидает стажировку'];
+const TRAINING_PICK_STAGES = ['Приглашен на обучение'];
+const INTERNSHIP_PICK_STAGES = ['Назначена стажировка', 'Ожидает стажировку'];
 
 async function moveCandidate(id) {
   const stageId = document.getElementById('move-stage').value;
   const stage = allStages.find(s => s.id === stageId);
 
-  // Если этап требует выбора тренинга — показываем пикер
-  if (stage && TRAINING_STAGES.includes(stage.name)) {
+  if (stage && TRAINING_PICK_STAGES.includes(stage.name)) {
     document.getElementById('tp-cand-id').value = id;
     document.getElementById('tp-stage-id').value = stageId;
     await loadTrainingPicker();
     document.getElementById('training-pick-modal').classList.add('open');
+    return;
+  }
+
+  if (stage && INTERNSHIP_PICK_STAGES.includes(stage.name)) {
+    document.getElementById('ip-cand-id').value = id;
+    document.getElementById('ip-stage-id').value = stageId;
+    await loadInternshipPicker();
+    document.getElementById('internship-pick-modal').classList.add('open');
     return;
   }
 
@@ -840,6 +892,7 @@ async function loadTrainingsList() {
   try {
     const from = new Date().toISOString().split('T')[0];
     trainings = await api('GET', `/trainings?from=${from}&status=planned`);
+    trainings = trainings.filter(t => t.training_type !== 'internship');
     const list = document.getElementById('trainings-list');
 
     if (!trainings.length) {
@@ -993,7 +1046,8 @@ async function createTraining() {
 async function loadTrainingPicker() {
   try {
     const from = new Date().toISOString().split('T')[0];
-    const list = await api('GET', `/trainings?from=${from}&status=planned`);
+    const allList = await api('GET', `/trainings?from=${from}&status=planned`);
+    const list = allList.filter(t => t.training_type !== 'internship');
     const container = document.getElementById('training-pick-list');
 
     if (!list.length) {
@@ -1016,6 +1070,155 @@ async function loadTrainingPicker() {
   } catch (e) {
     document.getElementById('training-pick-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
   }
+}
+
+// ── INTERNSHIPS ──
+
+async function openInternships() {
+  document.getElementById('internships-modal').classList.add('open');
+  await Promise.all([loadInternshipsList(), loadInternshipTrainers()]);
+}
+
+async function loadInternshipTrainers() {
+  try {
+    const trainers = await api('GET', '/trainers');
+    const sel = document.getElementById('int-trainer');
+    if (!trainers.length) {
+      sel.innerHTML = '<option value="">Нет наставников</option>';
+    } else {
+      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    }
+  } catch {
+    document.getElementById('int-trainer').innerHTML = '<option value="">Ошибка</option>';
+  }
+}
+
+async function loadInternshipsList() {
+  try {
+    const from = new Date().toISOString().split('T')[0];
+    const list = await api('GET', `/trainings?from=${from}&status=planned`);
+    const internships = list.filter(t => t.training_type === 'internship');
+    const container = document.getElementById('internships-list');
+
+    if (!internships.length) {
+      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет запланированных стажировок</div>';
+      return;
+    }
+
+    const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
+
+    container.innerHTML = internships.map(t => {
+      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
+      const enrolledCands = allCands.filter(c => c.training_id === t.id);
+
+      return `<div style="background:var(--bg3);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
+        <div style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="toggleInternshipDetail('${t.id}')">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">${t.title}</div>
+            <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || '—'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--text2)">${t.trainer_name || ''}</div>
+            <div style="font-size:11px;color:var(--rank1)">${enrolledCands.length}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
+          </div>
+          <span style="font-size:10px;color:var(--text3)">▼</span>
+        </div>
+        <div id="int-detail-${t.id}" style="display:none;padding:0 12px 10px;border-top:1px solid var(--border)">
+          <div style="padding-top:8px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Записанные:</div>
+            ${enrolledCands.length ? enrolledCands.map(c => {
+              const stage = allStages.find(s => s.id === c.stage_id);
+              return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px">
+                <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('internships-modal').classList.remove('open');openCandidate('${c.id}')">${c.name}</span>
+                <span style="font-size:10px;color:var(--text3)">${stage?.name || ''}</span>
+              </div>`;
+            }).join('') : '<div style="font-size:11px;color:var(--text3)">Пока никто</div>'}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('internships-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+  }
+}
+
+function toggleInternshipDetail(id) {
+  const el = document.getElementById('int-detail-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function createInternship() {
+  const title = document.getElementById('int-title').value.trim();
+  const date = document.getElementById('int-date').value;
+  const trainerId = document.getElementById('int-trainer').value;
+  if (!title || !date) { showToast('Название и дата обязательны', true); return; }
+  if (!trainerId) { showToast('Выберите наставника', true); return; }
+
+  try {
+    await api('POST', '/trainings', {
+      title,
+      training_date: date,
+      training_time: document.getElementById('int-time').value || null,
+      location_text: document.getElementById('int-location').value.trim() || null,
+      max_attendees: parseInt(document.getElementById('int-max').value) || null,
+      training_type: 'internship',
+      trainer_id: trainerId,
+    });
+    showToast('Стажировка создана');
+    document.getElementById('int-title').value = '';
+    document.getElementById('int-date').value = '';
+    await loadInternshipsList();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function loadInternshipPicker() {
+  try {
+    const from = new Date().toISOString().split('T')[0];
+    const list = await api('GET', `/trainings?from=${from}&status=planned`);
+    const internships = list.filter(t => t.training_type === 'internship');
+    const container = document.getElementById('internship-pick-list');
+
+    if (!internships.length) {
+      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет стажировок. Создайте через 🎓 Стажировки.</div>';
+      return;
+    }
+
+    container.innerHTML = internships.map(t => {
+      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
+      const full = t.max_attendees && (t.registered_count || 0) >= t.max_attendees;
+      return `<div style="padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;${full ? 'opacity:.5' : 'cursor:pointer'}"
+                   ${full ? '' : `onclick="pickInternshipAndMove('${t.id}')"`}>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${t.title}</div>
+          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || '—'}</div>
+        </div>
+        <div style="font-size:11px;color:${full ? 'var(--rank3)' : 'var(--rank1)'}">${t.registered_count || 0}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('internship-pick-list').innerHTML = `<div style="color:var(--rank3)">${e.message}</div>`;
+  }
+}
+
+async function pickInternshipAndMove(trainingId) {
+  const candId = document.getElementById('ip-cand-id').value;
+  const stageId = document.getElementById('ip-stage-id').value;
+  document.getElementById('internship-pick-modal').classList.remove('open');
+  if (stageId) {
+    await doMove(candId, stageId, trainingId);
+  } else {
+    try {
+      await api('PATCH', `/candidates/${candId}`, { training_id: trainingId });
+      showToast('Записан на стажировку');
+      await loadKanban();
+    } catch (e) { showToast(e.message, true); }
+  }
+}
+
+function skipInternshipAndMove() {
+  const candId = document.getElementById('ip-cand-id').value;
+  const stageId = document.getElementById('ip-stage-id').value;
+  if (stageId && candId) doMove(candId, stageId);
 }
 
 async function addComment(id) {
