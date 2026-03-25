@@ -211,7 +211,7 @@ const API = window.location.hostname === 'localhost'
   ? 'http://localhost:3001/api'
   : 'https://fotohr-server-production.up.railway.app/api';
 
-let accessToken = null;
+let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
 let kanbanData = [];
@@ -230,14 +230,20 @@ async function api(method, path, body) {
   let res = await fetch(API + path, opts);
   if (res.status === 401 && refreshToken) {
     const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
-    if (rr.ok) { const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_refresh', refreshToken); opts.headers['Authorization'] = `Bearer ${accessToken}`; res = await fetch(API + path, opts); }
-    else { doLogout(); return null; }
+    if (rr.ok) {
+      const d = await rr.json();
+      accessToken = d.accessToken; refreshToken = d.refreshToken;
+      localStorage.setItem('fhr_refresh', refreshToken);
+      localStorage.setItem('fhr_access', accessToken);
+      opts.headers['Authorization'] = `Bearer ${accessToken}`;
+      res = await fetch(API + path, opts);
+    } else { doLogout(); return null; }
   }
   if (!res.ok) { const err = await res.json().catch(()=>({error:'Ошибка'})); throw new Error(err.error || 'Ошибка'); }
   return res.json();
 }
 
-function doLogout() { accessToken = null; refreshToken = null; localStorage.removeItem('fhr_refresh'); window.location.href = 'index.html'; }
+function doLogout() { accessToken = null; refreshToken = null; localStorage.removeItem('fhr_refresh'); localStorage.removeItem('fhr_access'); window.location.href = 'index.html'; }
 
 function showToast(msg, err) {
   const t = document.getElementById('toast');
@@ -247,15 +253,15 @@ function showToast(msg, err) {
 
 // ── INIT ──
 (async function init() {
-  if (!refreshToken) { window.location.href = 'index.html'; return; }
+  if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
   try {
-    const rr = await fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
-    if (!rr.ok) { doLogout(); return; }
-    const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_refresh', refreshToken);
+    // Пробуем с текущим accessToken
     currentUser = await api('GET', '/auth/me');
     setupHeader();
     await loadKanban();
-  } catch { doLogout(); }
+  } catch {
+    doLogout();
+  }
 })();
 
 function setupHeader() {

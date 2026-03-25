@@ -672,7 +672,7 @@ const API = window.location.hostname === 'localhost'
   : 'https://fotohr-server-production.up.railway.app/api';
 
 // ── STATE ──
-let accessToken = null;
+let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
 let photographers = [];
@@ -714,6 +714,7 @@ async function api(method, path, body) {
       accessToken = data.accessToken;
       refreshToken = data.refreshToken;
       localStorage.setItem('fhr_refresh', refreshToken);
+      localStorage.setItem('fhr_access', accessToken);
       opts.headers['Authorization'] = `Bearer ${accessToken}`;
       res = await fetch(API + path, opts);
     } else {
@@ -759,6 +760,7 @@ async function login() {
     accessToken = json.accessToken;
     refreshToken = json.refreshToken;
     localStorage.setItem('fhr_refresh', refreshToken);
+    localStorage.setItem('fhr_access', accessToken);
     currentUser = json.user;
     startApp();
   } catch (e) { showLoginErr(e.message); }
@@ -889,6 +891,7 @@ async function handleGoogleToken(credential) {
     accessToken = data.accessToken;
     refreshToken = data.refreshToken;
     localStorage.setItem('fhr_refresh', refreshToken);
+    localStorage.setItem('fhr_access', accessToken);
     currentUser = data.user;
     startApp();
   } catch (e) { showLoginErr(e.message); }
@@ -1009,6 +1012,7 @@ async function tryAutoLogin() {
     accessToken = data.accessToken;
     refreshToken = data.refreshToken;
     localStorage.setItem('fhr_refresh', refreshToken);
+    localStorage.setItem('fhr_access', accessToken);
     currentUser = data.user;
     return true;
   } catch { return false; }
@@ -1021,6 +1025,7 @@ async function logout() {
 function doLogout() {
   accessToken = null; refreshToken = null; currentUser = null;
   localStorage.removeItem('fhr_refresh');
+  localStorage.removeItem('fhr_access');
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
 }
