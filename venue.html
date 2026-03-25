@@ -75,6 +75,7 @@
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null;
+let aqEvent=null, aqShift=null, aqAssigns=[], aqProds=[], aqReport=null;
 let refreshLock=null;
 async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){try{if(!refreshLock){refreshLock=(async()=>{const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(!x.ok)throw new Error('refresh_failed');const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);})();}await refreshLock;o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
@@ -99,6 +100,31 @@ assigns=await api('GET',`/shifts/${shift.id}/assignments`).catch(()=>[]);
 prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
 const reps=await api('GET',`/daily-reports?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
 report=reps.length?await api('GET',`/daily-reports/${reps[0].id}`).catch(()=>null):null;
+
+// Найти venue объект
+const venue = venues.find(v => v.id === vid);
+
+// Сбросить aq-данные
+aqEvent=null; aqShift=null; aqAssigns=[]; aqProds=[]; aqReport=null;
+
+// Если has_aquagrim — загрузить параллельно
+if (venue && venue.has_aquagrim) {
+  try {
+    const aqEvs = await api('GET', `/aq/events?venue_id=${vid}&from=${dt}&to=${dt}`);
+    if (aqEvs && aqEvs.length) {
+      aqEvent = aqEvs[0];
+      const aqSh = await api('GET', `/aq/shifts?event_id=${aqEvent.id}`);
+      aqShift = aqSh?.[0] || null;
+      if (aqShift) {
+        aqAssigns = await api('GET', `/aq/shifts/${aqShift.id}/assignments`).catch(() => []);
+      }
+      aqProds = await api('GET', `/aq/venues/${vid}/products`).catch(() => []);
+      const aqReps = await api('GET', `/aq/daily-reports?venue_id=${vid}&from=${dt}&to=${dt}`).catch(() => []);
+      aqReport = aqReps.length ? await api('GET', `/aq/daily-reports/${aqReps[0].id}`).catch(() => null) : null;
+    }
+  } catch(e) { console.warn('AQ load error:', e.message); }
+}
+
 render(ev[0]);
 }catch(e){document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
@@ -142,6 +168,12 @@ ${report?.review_comment?`<div style="padding:6px;background:rgba(242,85,85,.06)
 <div class="foot">
 ${ed?`<button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
 </div>`;
+
+// После основного innerHTML, добавить aq-блок если есть
+const venueObj = venues.find(v => v.id === document.getElementById('vs').value);
+if (venueObj && venueObj.has_aquagrim) {
+  document.getElementById('C').innerHTML += renderAqSection();
+}
 }
 
 function salesTbl(phs,lines){
@@ -222,13 +254,17 @@ async function openVenueSettings(){
   const c=document.getElementById('vs-content');
   c.innerHTML='<div class="loading">Загрузка...</div>';
   try{
-    const[venueProds, allProds, venue]=await Promise.all([
+    const venue = await api('GET',`/venues/${vid}`).catch(()=>({}));
+    const[venueProds, allProds, aqVenueProds]=await Promise.all([
       api('GET',`/venues/${vid}/products`).catch(()=>[]),
       api('GET','/products').catch(()=>[]),
-      api('GET',`/venues/${vid}`).catch(()=>({})),
+      venue && venue.has_aquagrim ? api('GET',`/aq/venues/${vid}/products`).catch(()=>[]) : Promise.resolve([]),
     ]);
     allProducts=allProds;
     const vpIds=new Set(venueProds.map(p=>p.product_id));
+    const aqVpIds=new Set((aqVenueProds||[]).map(p=>p.product_id));
+    const aqAll=(allProds||[]).filter(p=>['aquagrim','shared'].includes(p.product_category||p.productCategory));
+    const aqPool=(aqAll.length?aqAll:allProds)||[];
 
     c.innerHTML=`
       <div style="margin-bottom:16px">
@@ -278,6 +314,47 @@ async function openVenueSettings(){
           <div><div class="fl">Админов</div><input class="fin" type="number" id="vr-admin" value="${venue.required_admins||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
         </div>
       </div>
+
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="vr-has-aq" ${venue.has_aquagrim?'checked':''} onchange="saveVenueHasAq('${vid}')"/>
+          🎨 Площадка с аквагримом
+        </label>
+      </div>
+
+      ${venue.has_aquagrim ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:#3ecfb4">🎨 Персонал аквагрим</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div><div class="fl">Аквагримёров</div><input class="fin" type="number" id="vr-aq" value="${venue.required_aquagrimers||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+          <div><div class="fl">Старших</div><input class="fin" type="number" id="vr-aq-sr" value="${venue.required_senior_aquagrimers||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+          <div><div class="fl">Менеджеров</div><input class="fin" type="number" id="vr-aq-mgr" value="${venue.required_aq_managers||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#3ecfb4">🎨 Товары аквагрим (${(aqVenueProds||[]).length})</div>
+        ${(aqVenueProds||[]).map(p=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:12px">
+            <span style="flex:1">${esc(p.product_name||p.name)}</span>
+            <span style="color:#3ecfb4;font-weight:600">${p.price}₽</span>
+            <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeAqProduct('${vid}','${p.product_id}')">✕</button>
+          </div>
+        `).join('')||'<div style="color:var(--text3);font-size:12px">Нет товаров аквагрим. Добавьте ниже.</div>'}
+      </div>
+
+      <div style="margin-bottom:0;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:#3ecfb4">➕ Добавить товар аквагрим</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select class="fselect" id="add-aq-prod" style="flex:1;min-width:150px">
+            ${aqPool.filter(p=>!aqVpIds.has(p.id)).map(p=>`<option value="${p.id}">${esc(p.name)} (${p.default_price||0}₽)</option>`).join('')}
+          </select>
+          <input class="fin" type="number" id="add-aq-price" placeholder="Цена" style="width:80px" value="${aqPool[0]?.default_price||0}"/>
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 12px;background:#3ecfb4" onclick="addAqProduct('${vid}')">Добавить</button>
+        </div>
+        ${!aqPool.filter(p=>!aqVpIds.has(p.id)).length?'<div style="font-size:11px;color:var(--text3);margin-top:4px">Все товары аквагрим уже добавлены.</div>':''}
+      </div>
+      ` : ''}
     `;
   }catch(e){c.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
@@ -300,6 +377,27 @@ async function removeProduct(vid,pid){
   try{await api('DELETE',`/venues/${vid}/products/${pid}`);toast('Удалён');openVenueSettings();prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);}catch(e){toast(e.message,1);}
 }
 
+async function addAqProduct(vid){
+  const prodId=document.getElementById('add-aq-prod')?.value;
+  const price=parseFloat(document.getElementById('add-aq-price')?.value);
+  if(!prodId){toast('Выберите товар',1);return;}
+  try{
+    await api('POST',`/aq/venues/${vid}/products`,{product_id:prodId,price:price||0});
+    toast('Товар аквагрим добавлен');
+    openVenueSettings();
+    aqProds=await api('GET',`/aq/venues/${vid}/products`).catch(()=>[]);
+  }catch(e){toast(e.message,1);}
+}
+
+async function removeAqProduct(vid,pid){
+  try{
+    await api('DELETE','/aq/venues/'+vid+'/products/'+pid);
+    toast('Удалён');
+    openVenueSettings();
+    aqProds=await api('GET',`/aq/venues/${vid}/products`).catch(()=>[]);
+  }catch(e){toast(e.message,1);}
+}
+
 async function createProduct(vid){
   const name=document.getElementById('np-name').value.trim();
   const price=parseFloat(document.getElementById('np-price').value);
@@ -319,8 +417,150 @@ async function saveVenueStaff(vid){
       required_photographers:parseInt(document.getElementById('vr-photo').value)||0,
       required_operators:parseInt(document.getElementById('vr-ops').value)||0,
       required_admins:parseInt(document.getElementById('vr-admin').value)||0,
+      required_aquagrimers: parseInt(document.getElementById('vr-aq')?.value) || 0,
+      required_senior_aquagrimers: parseInt(document.getElementById('vr-aq-sr')?.value) || 0,
+      required_aq_managers: parseInt(document.getElementById('vr-aq-mgr')?.value) || 0,
     });
     toast('Сохранено');
+  }catch(e){toast(e.message,1);}
+}
+
+async function saveVenueHasAq(vid) {
+  try {
+    await api('PATCH', `/venues/${vid}`, { has_aquagrim: document.getElementById('vr-has-aq').checked });
+    // Обновить venues массив
+    const v = venues.find(x => x.id === vid);
+    if (v) v.has_aquagrim = document.getElementById('vr-has-aq').checked;
+    toast('Сохранено');
+    openVenueSettings(); // перерисовать
+  } catch(e) { toast(e.message, 1); }
+}
+
+function renderAqSection() {
+  const aqPhs = (aqAssigns||[]).filter(a => a.status !== 'cancelled');
+  const s = aqReport?.status || 'new';
+  const SM = {new:['📝','sb-d'], draft:['📝 Черновик','sb-d'], submitted:['📤 Отправлен','sb-s'], approved:['✅ Проведён','sb-a'], returned:['↩ Возвращён','sb-r']};
+  const [sl, sc] = SM[s] || SM.new;
+  const ed = !aqReport || ['draft','returned'].includes(aqReport.status);
+  const lines = aqReport?.sale_lines || [];
+
+  let html = `
+  <div style="margin:20px 0 14px;padding:12px 16px;background:rgba(62,207,180,.06);border:1px solid rgba(62,207,180,.15);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+    <span style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;color:#3ecfb4">🎨 Аквагрим</span>
+    <span class="sb ${sc}">${sl}</span>
+  </div>
+
+  <div class="sec"><div class="sec-t" style="color:#3ecfb4">👥 Смена аквагрим (${aqPhs.length})</div>
+  ${aqPhs.map(a => {
+    const ch = a.checkin_at || a.checked_in;
+    return `<div class="rr"><div class="rr-name">${esc(a.aquagrimer_name || a.name || '—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch ? (a.is_late ? `<span class="rs rs-late">⏰+${esc(a.late_minutes||'?')}м</span>` : `<span class="rs rs-ok">✅</span>`) : `<span class="rs rs-wait">⏳</span>`}</div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:12px">Нет назначений</div>'}
+  </div>`;
+
+  // Таблица продаж аквагрим
+  if (aqPhs.length && aqProds.length) {
+    html += `<div class="sec"><div class="sec-t" style="color:#3ecfb4">📊 Продажи аквагрим</div>${aqSalesTbl(aqPhs, lines)}</div>`;
+  }
+
+  // Итоги
+  html += `<div class="sec"><div class="sec-t" style="color:#3ecfb4">📝 Итоги аквагрим</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="aqa" value="${esc(aqReport?.admin_name||U?.name||'')}" style="width:100%"/></div>
+    <div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="aqm" value="${esc(aqReport?.manager_name||'')}" style="width:100%"/></div>
+  </div>
+  <div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="aqn" value="${esc(aqReport?.notes_report||'')}" style="width:100%" placeholder="Комментарий..."/></div>
+  ${aqReport?.review_comment ? `<div style="padding:6px;background:rgba(242,85,85,.06);border:1px solid rgba(242,85,85,.15);border-radius:6px;margin-top:6px;font-size:12px"><b style="color:var(--rank3)">Проверяющий:</b> ${esc(aqReport.review_comment)}</div>` : ''}
+  </div>
+
+  <div class="foot">
+  ${ed ? `<button class="btn btn-ghost" onclick="saveAq('draft')">💾 Черновик</button><button class="btn btn-primary" style="background:#3ecfb4" onclick="saveAq('submitted')">📤 Отправить</button>` : `<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
+  </div>`;
+
+  return html;
+}
+
+function aqSalesTbl(aqPhs, lines){
+  let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
+  aqProds.forEach(p=>{h+=`<th>${esc(String((p.product_name||p.name)||'').slice(0,10))}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
+  h+='<th>Брак</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th></tr></thead><tbody>';
+  aqPhs.forEach(a=>{
+    const ph=a.aquagrimer_id||a.photographer_id||a.id;
+    h+=`<tr><td>${esc(String((a.aquagrimer_name||a.name||'')).slice(0,12))}</td>`;
+    aqProds.forEach(p=>{
+      const pid=p.product_id||p.id,ex=lines.find(l=>l.aquagrimer_id===ph&&l.product_id===pid);
+      h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="asq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" onchange="arc()"/></td>`;
+    });
+    const x=lines.find(l=>l.aquagrimer_id===ph);
+    h+=`<td><input type="number" min="0" value="${x?.waste_qty||0}" class="asw" data-ph="${ph}" style="width:34px" onchange="arc()"/></td>`;
+    h+=`<td><input type="number" min="0" value="${x?.flash_qty||0}" class="asfq" data-ph="${ph}" style="width:34px" onchange="arc()"/></td>`;
+    h+=`<td><input type="number" min="0" value="${x?.flash_sum||0}" class="asfs" data-ph="${ph}" style="width:44px" onchange="arc()"/></td>`;
+    h+=`<td><input type="number" min="0" value="${x?.payment_cash||0}" class="asc" data-ph="${ph}" style="width:50px" onchange="arc()"/></td>`;
+    h+=`<td><input type="number" min="0" value="${x?.payment_card||0}" class="ask" data-ph="${ph}" style="width:50px" onchange="arc()"/></td>`;
+    h+=`<td><input type="number" min="0" value="${x?.payment_qr||0}" class="asqr" data-ph="${ph}" style="width:50px" onchange="arc()"/></td>`;
+    h+=`<td class="tot" id="art${ph}">0</td></tr>`;
+  });
+  h+='<tr><td class="tot">ИТОГО</td>';
+  aqProds.forEach(p=>{h+=`<td class="tot" id="act${p.product_id||p.id}">0</td>`;});
+  h+='<td class="tot" id="atw">0</td><td class="tot" id="atfq">0</td><td class="tot" id="atfs">0</td><td class="tot" id="atc">0</td><td class="tot" id="atk">0</td><td class="tot" id="atq">0</td><td class="tot" id="agt">0</td></tr></tbody></table></div>';
+  setTimeout(arc,50);return h;
+}
+
+function arc(){
+  const i=document.querySelectorAll('.asq');const rt={},ct={};let g=0,atw=0,atfq=0,atfs=0,atc=0,atk=0,atq=0;
+  i.forEach(n=>{const ph=n.dataset.ph,p=n.dataset.p,pr=parseFloat(n.dataset.pr),q=parseInt(n.value)||0,s=q*pr;rt[ph]=(rt[ph]||0)+s;ct[p]=(ct[p]||0)+q;g+=s;});
+  Object.entries(rt).forEach(([k,v])=>{const e=document.getElementById('art'+k);if(e)e.textContent=v.toLocaleString('ru-RU');});
+  Object.entries(ct).forEach(([k,v])=>{const e=document.getElementById('act'+k);if(e)e.textContent=v;});
+  document.querySelectorAll('.asw').forEach(n=>atw+=parseInt(n.value)||0);
+  document.querySelectorAll('.asfq').forEach(n=>atfq+=parseInt(n.value)||0);
+  document.querySelectorAll('.asfs').forEach(n=>atfs+=parseFloat(n.value)||0);
+  document.querySelectorAll('.asc').forEach(n=>atc+=parseFloat(n.value)||0);
+  document.querySelectorAll('.ask').forEach(n=>atk+=parseFloat(n.value)||0);
+  document.querySelectorAll('.asqr').forEach(n=>atq+=parseFloat(n.value)||0);
+  const$=id=>document.getElementById(id);
+  if($('agt'))$('agt').textContent=g.toLocaleString('ru-RU');
+  if($('atw'))$('atw').textContent=atw;
+  if($('atfq'))$('atfq').textContent=atfq;
+  if($('atfs'))$('atfs').textContent=atfs;
+  if($('atc'))$('atc').textContent=atc.toLocaleString('ru-RU');
+  if($('atk'))$('atk').textContent=atk.toLocaleString('ru-RU');
+  if($('atq'))$('atq').textContent=atq.toLocaleString('ru-RU');
+}
+
+function collectAq(){
+  const lines=[];
+  document.querySelectorAll('.asq').forEach(n=>{
+    const q=parseInt(n.value)||0,ph=n.dataset.ph;
+    if(q>0)lines.push({
+      aquagrimer_id:ph,
+      product_id:n.dataset.p,
+      quantity:q,
+      price:parseFloat(n.dataset.pr),
+      waste_qty:parseInt(document.querySelector(`.asw[data-ph="${ph}"]`)?.value)||0,
+      flash_qty:parseInt(document.querySelector(`.asfq[data-ph="${ph}"]`)?.value)||0,
+      flash_sum:parseFloat(document.querySelector(`.asfs[data-ph="${ph}"]`)?.value)||0,
+      payment_cash:parseFloat(document.querySelector(`.asc[data-ph="${ph}"]`)?.value)||0,
+      payment_card:parseFloat(document.querySelector(`.ask[data-ph="${ph}"]`)?.value)||0,
+      payment_qr:parseFloat(document.querySelector(`.asqr[data-ph="${ph}"]`)?.value)||0
+    });
+  });
+  return { lines };
+}
+
+async function saveAq(st){
+  if(!aqShift){toast('Нет смены аквагрим',1);return;}
+  const { lines } = collectAq();
+  if(st==='submitted'&&!lines.length){toast('Заполните продажи аквагрим',1);return;}
+  const b={shift_id:aqShift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines,admin_name:document.getElementById('aqa')?.value||null,manager_name:document.getElementById('aqm')?.value||null,notes_report:document.getElementById('aqn')?.value||null};
+  try{
+    if(aqReport?.id){
+      await api('PATCH',`/aq/daily-reports/${aqReport.id}`,b);
+      if(st==='submitted')await api('POST',`/aq/daily-reports/${aqReport.id}/submit`);
+    } else {
+      b.status=st;
+      await api('POST','/aq/daily-reports',b);
+    }
+    toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');
+    load();
   }catch(e){toast(e.message,1);}
 }
 </script>
