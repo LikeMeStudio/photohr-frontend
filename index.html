@@ -1577,9 +1577,9 @@ function selectLikeAmount(n) {
   });
   const el = document.getElementById('like-amt-' + n);
   if (el) {
-    el.style.background = 'rgba(255,107,157,.15)';
-    el.style.color = '#ff6b9d';
-    el.style.borderColor = 'rgba(255,107,157,.3)';
+    el.style.background = 'rgba(229,62,62,.15)';
+    el.style.color = '#e53e3e';
+    el.style.borderColor = 'rgba(229,62,62,.3)';
   }
 }
 
@@ -1592,9 +1592,9 @@ function selectLikeCategory(cat) {
   });
   const el = document.getElementById('like-cat-' + cat);
   if (el) {
-    el.style.background = 'rgba(255,107,157,.1)';
-    el.style.color = '#ff6b9d';
-    el.style.borderColor = 'rgba(255,107,157,.2)';
+    el.style.background = 'rgba(229,62,62,.1)';
+    el.style.color = '#e53e3e';
+    el.style.borderColor = 'rgba(229,62,62,.2)';
   }
 }
 
@@ -1660,14 +1660,14 @@ async function openSendLikeModal(toId, toName) {
 
   ov.innerHTML = `<div class="modal" style="max-width:420px;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;color:#ff6b9d">❤️ Отправить лайк</div>
+      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;color:#e53e3e">❤️ Отправить лайк</div>
       <button class="btn btn-ghost" onclick="document.getElementById('like-modal-overlay').classList.remove('open')" style="font-size:16px">✕</button>
     </div>
 
     <div style="font-size:14px;margin-bottom:16px">Кому: <b>${toName}</b></div>
 
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-      Ваш баланс: <span style="color:#ff6b9d;font-weight:600">${budget.remaining}</span> из ${budget.total} лайков
+      Ваш баланс: <span style="color:#e53e3e;font-weight:600">${budget.remaining}</span> из ${budget.total} лайков
       ${alreadyToThis ? ` · Этому коллеге: ${alreadyToThis.total}/${budget.max_per_person}` : ''}
     </div>
 
@@ -1675,7 +1675,7 @@ async function openSendLikeModal(toId, toName) {
       <div class="fl" style="margin-bottom:6px">Сколько ❤️</div>
       <div style="display:flex;gap:8px" id="like-amount-btns">
         ${[1,2,3,4,5].filter(n => n <= maxAmount).map(n => `
-          <button class="btn btn-ghost" style="flex:1;font-size:16px;padding:8px;${n===1?'background:rgba(255,107,157,.15);color:#ff6b9d;border-color:rgba(255,107,157,.3)':''}"
+          <button class="btn btn-ghost" style="flex:1;font-size:16px;padding:8px;${n===1?'background:rgba(229,62,62,.15);color:#e53e3e;border-color:rgba(229,62,62,.3)':''}"
             onclick="selectLikeAmount(${n})" id="like-amt-${n}">
             ${'❤️'.repeat(n)}
           </button>
@@ -1687,7 +1687,7 @@ async function openSendLikeModal(toId, toName) {
       <div class="fl" style="margin-bottom:6px">За что?</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${Object.entries(CATS).map(([k, v]) => `
-          <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;${k==='general'?'background:rgba(255,107,157,.1);color:#ff6b9d;border-color:rgba(255,107,157,.2)':''}"
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;${k==='general'?'background:rgba(229,62,62,.1);color:#e53e3e;border-color:rgba(229,62,62,.2)':''}"
             onclick="selectLikeCategory('${k}')" id="like-cat-${k}">${v}</button>
         `).join('')}
       </div>
@@ -1698,7 +1698,7 @@ async function openSendLikeModal(toId, toName) {
       <input class="fin" id="like-comment" placeholder="Спасибо за..." style="width:100%"/>
     </div>
 
-    <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg, #ff6b9d, #f5a623);font-size:14px"
+    <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg, #e53e3e, #f5a623);font-size:14px"
       onclick="sendLike('${toId}')">Отправить ❤️</button>
   </div>`;
 }
@@ -1728,9 +1728,9 @@ async function openLikesPanel() {
 
     ov.innerHTML = `<div class="modal" style="max-width:600px;width:95vw;max-height:85vh;overflow-y:auto;padding:0">
 
-      <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,107,157,.15);background:linear-gradient(135deg, rgba(255,107,157,.06), transparent)">
+      <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(229,62,62,.15);background:linear-gradient(135deg, rgba(229,62,62,.06), transparent)">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#ff6b9d">❤️ Любимцы народа</div>
+          <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#e53e3e">❤️ Любимцы народа</div>
           <button class="btn btn-ghost" onclick="document.getElementById('likes-panel-overlay').classList.remove('open')" style="font-size:18px">✕</button>
         </div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">${esc(topData.month || '')}</div>
@@ -1742,7 +1742,7 @@ async function openLikesPanel() {
         <div style="margin-bottom:16px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
           <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Ваш баланс лайков</div>
           <div style="display:flex;align-items:center;gap:12px">
-            <div style="font-family:'Unbounded',sans-serif;font-size:24px;font-weight:700;color:#ff6b9d">${esc(String(budget.remaining))}</div>
+            <div style="font-family:'Unbounded',sans-serif;font-size:24px;font-weight:700;color:#e53e3e">${esc(String(budget.remaining))}</div>
             <div style="font-size:12px;color:var(--text3)">из ${esc(String(budget.total))} осталось в этом месяце</div>
           </div>
           ${budget.by_person && budget.by_person.length ? `
@@ -1751,10 +1751,10 @@ async function openLikesPanel() {
           </div>` : ''}
         </div>` : ''}
 
-        <div style="font-size:13px;font-weight:600;color:#ff6b9d;margin-bottom:12px">🏆 Топ за ${esc(topData.month || 'месяц')}</div>
+        <div style="font-size:13px;font-weight:600;color:#e53e3e;margin-bottom:12px">🏆 Топ за ${esc(topData.month || 'месяц')}</div>
 
         ${topData.top && topData.top.length ? topData.top.map((p, idx) => `
-          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${idx < 3 ? 'linear-gradient(135deg, rgba(255,107,157,.08), transparent)' : 'var(--bg3)'};border:1px solid ${idx < 3 ? 'rgba(255,107,157,.15)' : 'var(--border)'};border-radius:10px;margin-bottom:6px;cursor:pointer"
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${idx < 3 ? 'linear-gradient(135deg, rgba(229,62,62,.08), transparent)' : 'var(--bg3)'};border:1px solid ${idx < 3 ? 'rgba(229,62,62,.15)' : 'var(--border)'};border-radius:10px;margin-bottom:6px;cursor:pointer"
             onclick="document.getElementById('likes-panel-overlay').classList.remove('open'); setTimeout(() => openDrawer('${p.to_id}'), 200)">
             <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:700;color:${idx === 0 ? '#f5a623' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : 'var(--text3)'};width:28px;text-align:center">#${p.position}</div>
             ${p.photo_url
@@ -1765,9 +1765,9 @@ async function openLikesPanel() {
               <div style="font-weight:600;font-size:14px">${esc(p.name)}</div>
               <div style="font-size:11px;color:var(--text3)">${esc(String(p.unique_fans))} фанат(ов)</div>
             </div>
-            <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#ff6b9d">${esc(String(p.total_likes))} ❤️</div>
+            <div style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;color:#e53e3e">${esc(String(p.total_likes))} ❤️</div>
           </div>
-        `).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(255,107,157,.15)">Пока никто не получал лайков в этом месяце</div>'}
+        `).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg3);border-radius:10px;border:1px dashed rgba(229,62,62,.15)">Пока никто не получал лайков в этом месяце</div>'}
 
       </div>
     </div>`;
@@ -2307,25 +2307,50 @@ async function togglePhotographerActive(id, active){
 }
 
 
-function updateDrawerEarned(ph) {
+async function updateDrawerEarned(ph) {
   const el = document.getElementById('dr-earned');
   if (!el) return;
   const earned = ph.achievements || [];
   const myPhotographerId = currentUser?.photographer_id;
   const isOwn = myPhotographerId && currentDrawerId && String(currentDrawerId) === String(myPhotographerId);
   const canSendLike = !isOwn;
+  let _quickLikes = null;
+  try {
+    _quickLikes = await api('GET', `/peer-likes/received?photographer_id=${ph.id}`);
+  } catch (e) {
+    _quickLikes = null;
+  }
+
   const likeBtn = canSendLike
-    ? `<button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#ff6b9d;border-color:rgba(255,107,157,.2)" 
+    ? `<button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:#e53e3e;border-color:rgba(229,62,62,.2)" 
         onclick="openSendLikeModal('${ph.id}', '${esc(ph.name)}')" title="Отправить лайк">
-        ❤️ Лайк
+        ❤️ Like<span style="color:#e53e3e">Me</span>
       </button>`
     : '';
+
+  const quickSummary =
+    _quickLikes && _quickLikes.total_likes > 0
+      ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(229,62,62,.1);border:1px solid rgba(229,62,62,.15);border-radius:16px;font-size:12px;color:#e53e3e;font-weight:600">
+  ${_quickLikes.total_likes} ❤️
+</span>${(_quickLikes.by_category || [])
+          .slice(0, 3)
+          .map(c => {
+            const icons = { help: '💪', professional: '⭐', positive: '😊', result: '🎯', congrats: '🎂', general: '❤️' };
+            return `<span style="font-size:11px;color:var(--text3);padding:2px 6px;background:var(--bg3);border-radius:10px">${icons[c.category] || '❤️'} ${esc(String(c.total))}</span>`;
+          })
+          .join('')}`
+      : '';
+
+  const rowWrap = (inner) =>
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0">${inner}</div>`;
+
+  const rowBlock = canSendLike || quickSummary ? rowWrap(likeBtn + quickSummary) : '';
 
   el.innerHTML = earned.length
     ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin:0 0 8px;padding:6px 10px;background:linear-gradient(135deg, rgba(245,166,35,.08), transparent);border-radius:8px">
         ${earned.map(a => `<span title="${esc(a.name)}" style="font-size:18px">${esc(String(a.icon || '🏅'))}</span>`).join('')}
-      </div>${likeBtn}`
-    : likeBtn;
+      </div>${rowBlock}`
+    : rowBlock;
 }
 
 async function openDrawer(id){
@@ -2333,7 +2358,7 @@ async function openDrawer(id){
   currentTab = 0;
   const ph = await api('GET', `/photographers/${id}`);
   updateDrawerPhoto(ph);
-  updateDrawerEarned(ph);
+  await updateDrawerEarned(ph);
   const age = calcAge(ph.birth_date);
   document.getElementById('dr-name').innerHTML = esc(ph.name) + (age !== null ? ` <span style="font-size:14px;color:var(--text3);font-weight:400">${age} л</span>` : '');
   document.getElementById('dr-role-hint').textContent = canEditCard() ? 'Редактирование карточки' : 'Просмотр';
@@ -2460,9 +2485,9 @@ function closeDrawer(){
 }
 
 function buildTabs(ph){
-  const tabs = [{ label:'Информация' }];
-  tabs.push({ label:'Комментарии' });
-  if(can('admin')) tabs.push({ label:'История' });
+  const tabs = [{ label:'📋 Информация' }];
+  tabs.push({ label:'💬 Комментарии' });
+  if(can('admin')) tabs.push({ label:'📜 История' });
   tabs.push({ label:'👥 Кураторство' });
   tabs.push({ label:'🏆 Достижения' });
 
@@ -3285,7 +3310,13 @@ async function renderAchievementsTab(ph, content) {
       api('GET', `/peer-likes/received?photographer_id=${ph.id}`).catch(() => null),
     ]);
 
-    console.log('LIKES_DATA', JSON.stringify(likesData));
+    const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    let likesMonthLabel = '';
+    if (likesData && likesData.month) {
+      const [y, m] = likesData.month.split('-');
+      const mi = parseInt(m, 10);
+      likesMonthLabel = y && mi >= 1 && mi <= 12 ? monthNames[mi - 1] + ' ' + y : String(likesData.month);
+    }
 
     const catLabels = { sales: 'Продажи', discipline: 'Дисциплина', milestone: 'Стаж', social: 'Команда' };
     const likeCats = { help:'💪 Помощь', professional:'⭐ Профессионализм', positive:'😊 Позитив', result:'🎯 Результат', congrats:'🎂 Поздравление', general:'❤️ Общее' };
@@ -3370,11 +3401,12 @@ async function renderAchievementsTab(ph, content) {
 
       ${likesData && likesData.total_likes > 0 ? `
       <div style="margin-bottom:16px">
-        <div style="font-size:14px;font-weight:600;color:#ff6b9d;margin-top:20px;margin-bottom:10px">❤️ Лайки за ${esc(likesData.month)}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <div style="padding:8px 14px;background:linear-gradient(135deg, rgba(255,107,157,.1), transparent);border:1px solid rgba(255,107,157,.2);border-radius:20px;font-size:13px;color:#ff6b9d;font-weight:600">
+        <div style="font-size:14px;font-weight:600;color:#e53e3e;margin-top:20px;margin-bottom:10px">❤️ Лайки за ${esc(likesMonthLabel)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+          <div style="padding:8px 14px;background:linear-gradient(135deg, rgba(229,62,62,.1), transparent);border:1px solid rgba(229,62,62,.2);border-radius:20px;font-size:13px;color:#e53e3e;font-weight:600">
             ${likesData.total_likes} ❤️
           </div>
+          ${likesData.total_all_time ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">Всего за всё время: ${esc(String(likesData.total_all_time))} ❤️</span>` : ''}
           ${(likesData.by_category || []).map(c => `
             <div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:16px;font-size:11px;color:var(--text2)">
               ${esc(likeCats[c.category] || c.category)}: ${c.total}
@@ -3384,7 +3416,7 @@ async function renderAchievementsTab(ph, content) {
         <div style="margin-top:10px">
         ${(likesData.details || []).slice(0, 10).map(d => `
           <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
-            <div style="color:#ff6b9d;font-size:16px;min-width:20px">${'❤️'.repeat(Math.min(d.amount || 1, 5))}</div>
+            <div style="color:#e53e3e;font-size:16px;min-width:20px">${'❤️'.repeat(Math.min(d.amount || 1, 5))}</div>
             <div style="flex:1">
               <div style="font-size:13px;font-weight:500;color:var(--text)">${esc(d.from_name || 'Аноним')}</div>
               ${d.comment ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;font-style:italic">"${esc(d.comment)}"</div>` : ''}
