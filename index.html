@@ -1705,9 +1705,9 @@ function render(){
           ${dislikes.map(v=>`<span class="vp vp-dis">✕ ${esc(v.venue_name)}</span>`).join('')}
         </div>
       </div>` : ''}
-      ${(p.achievements && p.achievements.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
-        ${(p.achievements || []).slice(0, 6).map(a => `<span title="${esc(a.name)}" style="font-size:14px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
-        ${(p.achievements || []).length > 6 ? `<span style="font-size:10px;color:var(--text3);align-self:center">+${(p.achievements || []).length - 6}</span>` : ''}
+      ${(p.achievements || []).length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;background:linear-gradient(135deg, rgba(245,166,35,.06), transparent);border-radius:8px;border:1px solid rgba(245,166,35,.1)">
+        ${(p.achievements || []).slice(0, 8).map(a => `<span title="${esc(a.name)}" style="font-size:16px;cursor:default">${esc(String(a.icon || '🏅'))}</span>`).join('')}
+        ${(p.achievements || []).length > 8 ? `<span style="font-size:10px;color:#f5a623;align-self:center;font-weight:600">+${p.achievements.length - 8}</span>` : ''}
       </div>` : ''}
       ${p.summary ? `<div class="comment-box" style="border-left-color:var(--rank2);margin-top:8px;font-size:12px">${escHtml(p.summary).slice(0,120)}${p.summary.length>120?'…':''}</div>` : ''}
       ${canManageComments()
