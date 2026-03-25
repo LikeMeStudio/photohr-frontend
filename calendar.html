@@ -118,7 +118,7 @@ a{color:inherit;text-decoration:none}
       </select>
     </div>
     <div class="field" style="flex:1" id="ev-block-wrap"><div class="fl">Блок</div>
-      <select class="fselect" id="ev-block" style="width:100%">
+      <select class="fselect" id="ev-block" style="width:100%" onchange="updateBlockLabels()">
         <option value="photo">Фото</option>
         <option value="aquagrim">Аквагрим</option>
       </select>
@@ -393,7 +393,16 @@ function goToday(){currentMonth=new Date().getMonth();currentYear=new Date().get
 
 function openNewEvent(date){
   document.getElementById('ev-date').value=date||new Date().toISOString().split('T')[0];
+  updateBlockLabels();
   document.getElementById('event-modal').classList.add('open');
+}
+
+function updateBlockLabels() {
+  const block = document.getElementById('ev-block')?.value || 'photo';
+  const lbl1 = document.getElementById('ev-photo')?.parentElement?.querySelector('.fl');
+  const lbl2 = document.getElementById('ev-ops')?.parentElement?.querySelector('.fl');
+  if (lbl1) lbl1.textContent = block === 'aquagrim' ? 'Нужно аквагримёров' : 'Нужно фотографов';
+  if (lbl2) lbl2.textContent = block === 'aquagrim' ? 'Нужно менеджеров' : 'Нужно операторов';
 }
 
 async function createEvent(){
