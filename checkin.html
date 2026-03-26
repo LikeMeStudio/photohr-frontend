@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <title>PhotoHR — Чекин</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
-<!-- QR scanner: native BarcodeDetector API -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 :root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--border:#2e2e3d;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
@@ -179,64 +179,67 @@ async function startVideoScan(){
   const video=document.getElementById('qr-video');
   if(!video)return;
   
+  // Попробовать BarcodeDetector (Chrome, Safari 17.2+)
   let detector=null;
   if('BarcodeDetector' in window){
-    try{detector=new BarcodeDetector({formats:['qr_code']});}catch(e){detector=null;}
+    try{
+      const supported=await BarcodeDetector.getSupportedFormats?.().catch(()=>[]);
+      if(supported?.includes('qr_code'))detector=new BarcodeDetector({formats:['qr_code']});
+    }catch(e){}
   }
   
-  if(!detector){
-    const msg=document.createElement('div');
-    msg.style.cssText='color:var(--rank2);font-size:12px;text-align:center;margin-bottom:8px';
-    msg.textContent='Автосканирование недоступно в этом браузере. Используйте ручной ввод.';
-    video.parentNode.insertBefore(msg,video);
-    video.style.display='none';
-    return;
-  }
-  
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:1280},height:{ideal:960}}
-    });
-    video.srcObject=stream;
-    scannerStream=stream;
-    
-    const track=stream.getVideoTracks()[0];
-    if(track){
-      try{
-        const caps=track.getCapabilities?.();
-        if(caps?.focusMode?.includes('continuous')){
-          await track.applyConstraints({advanced:[{focusMode:'continuous'}]});
-        }
-      }catch(e){}
-    }
-    
-    let scanning=false;
-    async function tick(){
-      if(!scannerStream||!video.srcObject)return;
-      if(video.readyState<video.HAVE_ENOUGH_DATA){requestAnimationFrame(tick);return;}
-      if(scanning){requestAnimationFrame(tick);return;}
-      scanning=true;
-      try{
-        const codes=await detector.detect(video);
-        if(codes.length>0){
-          const result=codes[0].rawValue;
-          stopScanner();
-          try{navigator.vibrate&&navigator.vibrate(200);}catch{}
-          doCheckin(result);
-          return;
-        }
-      }catch(e){}
-      scanning=false;
+  if(detector){
+    // Нативный путь
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:960}}});
+      video.srcObject=stream;
+      scannerStream=stream;
+      const track=stream.getVideoTracks()[0];
+      if(track){try{const caps=track.getCapabilities?.();if(caps?.focusMode?.includes('continuous'))await track.applyConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}}
+      let scanning=false;
+      async function tick(){
+        if(!scannerStream||!video.srcObject)return;
+        if(video.readyState<video.HAVE_ENOUGH_DATA){requestAnimationFrame(tick);return;}
+        if(scanning){requestAnimationFrame(tick);return;}
+        scanning=true;
+        try{const codes=await detector.detect(video);if(codes.length>0){stopScanner();try{navigator.vibrate&&navigator.vibrate(200);}catch{}doCheckin(codes[0].rawValue);return;}}catch(e){}
+        scanning=false;
+        requestAnimationFrame(tick);
+      }
       requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }catch(e){
-    video.style.display='none';
-    const msg=document.createElement('div');
-    msg.style.cssText='color:var(--rank3);font-size:12px;text-align:center;margin-bottom:8px';
-    msg.textContent='Камера недоступна: '+e.message+'. Используйте ручной ввод.';
-    video.parentNode.insertBefore(msg,video.nextSibling);
+      return;
+    }catch(e){}
   }
+  
+  // Fallback: html5-qrcode
+  if(typeof Html5Qrcode!=='undefined'){
+    video.style.display='none';
+    const readerDiv=document.createElement('div');
+    readerDiv.id='reader';
+    readerDiv.style.cssText='width:min(94vw,420px);height:min(94vw,420px);border-radius:16px;overflow:hidden;margin:0 auto 12px';
+    video.parentNode.insertBefore(readerDiv,video);
+    try{
+      scanner=new Html5Qrcode('reader');
+      const w=readerDiv.offsetWidth||300;
+      const qrSize=Math.floor(w*0.8);
+      await scanner.start(
+        {facingMode:'environment'},
+        {fps:10,qrbox:{width:qrSize,height:qrSize},aspectRatio:1.0},
+        (code)=>{stopScanner();try{navigator.vibrate&&navigator.vibrate(200);}catch{}doCheckin(code);},
+        ()=>{}
+      );
+      return;
+    }catch(e){
+      readerDiv.remove();
+    }
+  }
+  
+  // Ничего не сработало
+  video.style.display='none';
+  const msg=document.createElement('div');
+  msg.style.cssText='color:var(--rank2);font-size:12px;text-align:center;margin-bottom:8px';
+  msg.textContent='Камера недоступна. Используйте ручной ввод кода.';
+  video.parentNode.insertBefore(msg,video.nextSibling);
 }
 
 function stopScanner(){

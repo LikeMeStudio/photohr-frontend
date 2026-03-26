@@ -34,8 +34,8 @@
 .qr-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .qr-shift-row{display:flex;gap:16px;align-items:stretch}
 .qr-shift-row>.sec{flex:1;min-width:0}
-.qr-shift-row>.sec:first-child{flex:0 0 480px;max-width:480px}
-.qr-shift-row{min-height:500px;align-items:stretch}
+.qr-shift-row>.sec:first-child{flex:0 0 520px;max-width:520px}
+.qr-shift-row{align-items:flex-start}
 .shift-grid{display:flex;flex-wrap:wrap;gap:0}
 .shift-col{flex:1;min-width:160px;max-width:33.3%}
 .shift-col .rr{padding:3px 6px;font-size:12px}
@@ -489,7 +489,7 @@ ${isEditor()?`
       <button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="stopQR()">⏹</button>
     </div>
   </div>
-  <div class="qr-box" id="qb" style="width:100%;max-width:440px;aspect-ratio:1;margin:0 auto"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
+  <div class="qr-box" id="qb" style="width:100%;max-width:480px;aspect-ratio:1;margin:0 auto"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
   <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:4px">30 сек ротация</div>
 </div>
 `:`
@@ -927,7 +927,7 @@ load();
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
-async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=Math.min(b.offsetWidth||420,440);new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
+async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=Math.min(b.offsetWidth||460,480);new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
 async function cancelCheckin(checkinId,assignId){
 if(!checkinId){toast('ID чекина не найден',1);return;}
