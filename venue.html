@@ -30,6 +30,13 @@
 .fselect{padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px;cursor:pointer}
 .fl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
 .qr-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.qr-shift-row{display:flex;gap:16px;align-items:stretch}
+.qr-shift-row>.sec{flex:1;min-width:0}
+.qr-shift-row>.sec:first-child{flex:0 0 auto;max-width:340px}
+.shift-grid{display:flex;flex-wrap:wrap;gap:0}
+.shift-col{flex:1;min-width:160px;max-width:33.3%}
+.shift-col .rr{padding:3px 6px;font-size:12px}
+.shift-col .rr-name{font-size:12px}
 .qr-box{width:220px;height:220px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr-box canvas,.qr-box img{width:220px!important;height:220px!important}
 .qr-timer{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;color:var(--accent2)}
 .rr{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);margin-bottom:3px;font-size:12px}
@@ -49,7 +56,7 @@
 .foot{display:flex;gap:6px;justify-content:flex-end;padding-top:10px;border-top:1px solid var(--border);margin-top:10px;flex-wrap:wrap}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
-@media(max-width:768px){.main{padding:10px}.qr-wrap{flex-direction:column}.st input{width:36px}}
+@media(max-width:768px){.main{padding:10px}.qr-wrap{flex-direction:column}.st input{width:36px}.qr-shift-row{flex-direction:column}.shift-col{max-width:100%}}
 .venue-card:hover{border-color:var(--accent)!important}
 </style>
 </head>
@@ -404,6 +411,12 @@ const pettyRows=(report?.petty_cash_expenses)||[];
 
 document.getElementById('C').innerHTML=`
 <div style="font-size:16px;font-weight:700;font-family:'Unbounded',sans-serif;margin-bottom:12px">📍 ${esc(venueName)}</div>
+<div style="display:flex;gap:12px;align-items:center;margin-top:-8px;margin-bottom:10px;font-size:12px;color:var(--text2)">
+  <span>🕐 Сбор: <b style="color:var(--text)">${ev.staff_arrival||'не указано'}</b></span>
+  <span>🕐 Админ: <b style="color:var(--text)">${ev.admin_arrival||'не указано'}</b></span>
+  ${isEditor()?`<button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="editArrivalTime()">✏️</button>`:''}
+</div>
+<div class="qr-shift-row">
 ${isEditor()?`
 <div class="sec"><div class="sec-t">📱 QR-чекин</div>
 <div class="qr-wrap"><div class="qr-box" id="qb"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
@@ -422,11 +435,33 @@ ${(()=>{
 `}
 
 <div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
-${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?((a.late_status==='late'?`<span class="rs rs-late">⏰ +${a.late_minutes||'?'}м · штраф 1000₽</span>`:(a.late_status==='almost'||a.is_late?`<span class="rs" style="color:var(--rank2)">⚡ +${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`))+(isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px;margin-left:4px" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕</button>`:'')+((a.late_status==='late'&&a.fine_amount>0&&!a.fine_cancelled&&hasAnyRole(['cashier','exec_director','admin']))?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px;margin-left:4px;color:var(--rank2)" onclick="cancelFine('${a.checkin_id}')">Отменить штраф</button>`:'')+((a.fine_cancelled)?`<span style="font-size:9px;color:var(--text3);margin-left:4px">штраф отменён</span>`:'')):`<span class="rs rs-wait">⏳</span>${isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`:''}`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
+${(()=>{
+  const roleOrder={'admin_venue':0,'venue_manager':0,'mentor':1,'print_operator':1,'photographer':2};
+  const roleLbl={'admin_venue':'Админ','venue_manager':'Менеджер','mentor':'Наставник','print_operator':'Оператор','photographer':'Фото'};
+  const sorted=[...phs].sort((a,b)=>(roleOrder[a.role_in_shift]||2)-(roleOrder[b.role_in_shift]||2));
+  const cols=[[],[],[]];let ci=0;
+  sorted.forEach(a=>{cols[ci].push(a);if(cols[ci].length>=Math.ceil(sorted.length/3))ci=Math.min(ci+1,2);});
+  return`<div class="shift-grid">${cols.map(col=>col.length?`<div class="shift-col">${col.map(a=>{
+    const ch=a.checkin_at||a.checked_in;
+    const rl=roleLbl[a.role_in_shift]||a.role_in_shift||'';
+    const statusHtml=ch
+      ?(a.late_status==='late'
+        ?`<span style="color:var(--rank3);font-size:9px">⏰+${a.late_minutes}м</span>`
+        :(a.late_status==='almost'
+          ?`<span style="color:var(--rank2);font-size:9px">⚡+${a.late_minutes}м</span>`
+          :`<span style="color:var(--rank1);font-size:9px">✅</span>`))
+      +((isEditor()&&a.checkin_id)?`<span style="cursor:pointer;font-size:9px;color:var(--text3);margin-left:2px" onclick="cancelCheckin('${a.checkin_id}','${a.id}')">✕</span>`:'')
+      +((a.late_status==='late'&&a.fine_amount>0&&!a.fine_cancelled&&hasAnyRole(['cashier','exec_director','admin']))?`<span style="cursor:pointer;font-size:9px;color:var(--rank2);margin-left:2px" onclick="cancelFine('${a.checkin_id}')">💸</span>`:'')
+      +((a.fine_cancelled)?`<span style="font-size:9px;color:var(--text3);margin-left:2px">✓штр</span>`:'')
+      :`<span style="color:var(--text3);font-size:9px">⏳</span>`+(isEditor()?`<span style="cursor:pointer;font-size:9px;color:var(--accent2);margin-left:2px" onclick="manCh('${a.id}')">✋</span>`:'');
+    return`<div class="rr"><div class="rr-name">${esc((a.photographer_name||'').split(' ').slice(0,2).join(' '))}</div><span style="font-size:8px;color:var(--text3)">${rl}</span> ${statusHtml}</div>`;
+  }).join('')}</div>`:'').join('')}</div>`;
+})()}
 ${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
 <select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
 <button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
 </div>`:''}
+</div>
 </div>
 
 ${isEditor()?`<div class="sec"><div class="sec-t">🖨 Принтеры</div>
@@ -580,24 +615,25 @@ const ro=!isEditor();
 const dis=()=>ro?' disabled':'';
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
 prods.forEach(p=>{const fn=String(p.product_name||p.name||'');h+=`<th title="${esc(fn)}">${esc(fn)}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
-h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
+h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th><th style="color:var(--rank3)">⚠ Штраф</th></tr></thead><tbody>';
 phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);const wa4=wasteA4FromLines(lines,ph);
 h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>String(l.photographer_id)===String(ph)&&String(l.product_id)===String(pid));
 h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="inputRecalc()"${dis()}/></td>`;});
 const xPay=lines.find(l=>String(l.photographer_id)===String(ph));
 const pc=parseFloat(xPay?.payment_cash)||0,pcrd=parseFloat(xPay?.payment_card)||0,pqr=parseFloat(xPay?.payment_qr)||0;
+const fineDefault=(a.late_status==='late'&&!a.fine_cancelled)?(parseFloat(a.fine_amount)||1000):0;
 const cashVal=pc;
 h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${wa4}" class="swa4" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" readonly style="width:50px;background:var(--bg3);cursor:default;border-color:transparent" title="Рассчитывается автоматически: Выручка − Карта − QR"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="inputRecalc()"${dis()}/></td>`;
-h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
+h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" readonly style="min-width:0;width:64px;background:var(--bg3);cursor:default;border-color:transparent" title="Рассчитывается автоматически: Выручка − Карта − QR"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="min-width:0;width:64px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="min-width:0;width:64px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td><td><input type="number" min="0" value="${fineDefault}" class="sfine" data-ph="${ph}" style="min-width:0;width:60px;color:var(--rank3)" onchange="rc()"${dis()}/></td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
-h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="twa4">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
+h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="twa4">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td><td class="tot" style="color:var(--rank3)" id="tfine">0</td></tr></tbody></table></div>';
 setTimeout(()=>recalcAll(true),50);return h;}
 
 function recalcAll(skipDirty){
@@ -619,12 +655,14 @@ cashInput.value=Math.max(0,Math.round((revenue-card-qr)*100)/100);
 }
 });
 let tw10=0,tw20=0,twa4=0,tc=0,tk=0,tq=0;
+let tfine=0;
 document.querySelectorAll('.sw10').forEach(n=>tw10+=parseInt(n.value)||0);
 document.querySelectorAll('.sw20').forEach(n=>tw20+=parseInt(n.value)||0);
 document.querySelectorAll('.swa4').forEach(n=>twa4+=parseInt(n.value)||0);
 document.querySelectorAll('.sc').forEach(n=>tc+=parseFloat(n.value)||0);
 document.querySelectorAll('.sk').forEach(n=>tk+=parseFloat(n.value)||0);
 document.querySelectorAll('.sqr').forEach(n=>tq+=parseFloat(n.value)||0);
+document.querySelectorAll('.sfine').forEach(n=>tfine+=parseFloat(n.value)||0);
 const $=id=>document.getElementById(id);
 if($('gt'))$('gt').textContent=grandTotal.toLocaleString('ru-RU');
 if($('tw10'))$('tw10').textContent=tw10;
@@ -633,6 +671,7 @@ if($('twa4'))$('twa4').textContent=twa4;
 if($('tc'))$('tc').textContent=tc.toLocaleString('ru-RU');
 if($('tk'))$('tk').textContent=tk.toLocaleString('ru-RU');
 if($('tq'))$('tq').textContent=tq.toLocaleString('ru-RU');
+if($('tfine'))$('tfine').textContent=tfine.toLocaleString('ru-RU');
 let totalCashBonus=0;
 const meta=window.__bonusMeta||{};
 Object.keys(phTotals).forEach(ph=>{
@@ -781,6 +820,23 @@ toast('Штраф отменён');
 load();
 }catch(e){toast(e.message,1);}
 }
+async function editArrivalTime(){
+const vid=document.getElementById('vs').value;
+const dt=document.getElementById('sd').value;
+if(!vid||!dt)return;
+const evs=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
+if(!evs.length){toast('Нет мероприятия',1);return;}
+const ev=evs[0];
+const sa=prompt('Время сбора сотрудников (ЧЧ:ММ):',ev.staff_arrival||'');
+if(sa===null)return;
+const aa=prompt('Время прихода админа (ЧЧ:ММ):',ev.admin_arrival||sa);
+if(aa===null)return;
+try{
+await api('PATCH',`/events/${ev.id}`,{staff_arrival:sa||null,admin_arrival:aa||null});
+toast('Время обновлено');
+load();
+}catch(e){toast(e.message,1);}
+}
 
 function collect(){
 const bonusMap=window.__bonusByPh||{};
@@ -795,6 +851,7 @@ const wsum=w10+w20+wa4;
 const pc=parseFloat(document.querySelector(`.sc[data-ph="${ph}"]`)?.value)||0;
 const pk=parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0;
 const pq=parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0;
+const fine=parseFloat(document.querySelector(`.sfine[data-ph="${ph}"]`)?.value)||0;
 let firstWithQ=-1;
 prods.forEach((p,i)=>{
 const pid=String(p.product_id||p.id);
@@ -824,6 +881,7 @@ payment_cash:payHere?pc:0,
 payment_card:payHere?pk:0,
 payment_qr:payHere?pq:0,
 payment_bonus:pb,
+fine_amount:idx===0?fine:0,
 has_change:false,has_pen:false,check_number:null,photographer_status:null,cash_to_collect:0
 });
 });
