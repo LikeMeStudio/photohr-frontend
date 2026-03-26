@@ -102,7 +102,7 @@
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
-let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[];
+let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[],allPhotographersPool=[],_bonusDebounce=null,_saveDebounce=null;
 window.__bonusMeta={};
 function markDirty(){isDirty=true;}
 function bonusAmountForPh(ph){
@@ -112,36 +112,22 @@ if(raw==null||raw==='')return 0;
 if(typeof raw==='object'&&raw!==null&&'total' in raw)return Number(raw.total)||0;
 return Number(raw)||0;
 }
-function getPrintMultiplier(format){
-if(!format)return 1;
-const f=String(format).toLowerCase().replace(/\s/g,'');
-if(f.includes('15x20')||f.includes('15x21')||f.includes('15х20')||f.includes('15х21')||f.includes('a4')||f.includes('а4'))return 2;
-if(f.includes('10x15')||f.includes('10х15')||f.includes('magn')||f.includes('магн'))return 1;
-return 1;
+function normPrinterFmtSaved(f){
+const x=String(f||'').toLowerCase().replace(/х/g,'x').replace(/\s/g,'');
+if(x.includes('15x21'))return'15x20';
+if(x.includes('10x15')||x.includes('10х15'))return'10x15';
+if(x.includes('15x20')||x.includes('15х20'))return'15x20';
+if(x==='a4'||x.includes('a4')||x.includes('а4'))return'A4';
+return null;
 }
 function getProductPrinterFormat(productName){
 if(!productName)return null;
 const n=String(productName).toLowerCase();
 if(n.includes('пластик'))return null;
-if(n.includes('15x20')||n.includes('15х20'))return'15x20';
-if(n.includes('а4')||n.includes('a4'))return'15x20';
+if(n.includes('а4')||n.includes('a4'))return'A4';
+if(n.includes('15x20')||n.includes('15х20')||n.includes('15x21')||n.includes('15х21'))return'15x20';
 if(n.includes('10x15')||n.includes('10х15')||n.includes('магнит'))return'10x15';
 return null;
-}
-function normPrinterBucket(val){
-const v=String(val||'').toLowerCase().replace(/\s/g,'');
-if(v.includes('10x15')||v.includes('10х15'))return'10x15';
-return'15x20';
-}
-function printerFormatOptionsHtml(p){
-const raw=(p&&p.format||'15x21').toString().toLowerCase().replace(/\s/g,'');
-let sel='15x21';
-if(raw.includes('10x15')||raw.includes('10х15'))sel='10x15';
-else if(raw==='a4'||raw.includes('а4'))sel='A4';
-else if(raw.includes('15x20')||raw.includes('15х20'))sel='15x20';
-else if(raw.includes('15x21')||raw.includes('15х21'))sel='15x21';
-else if(/^#\d/.test(raw))sel='15x21';
-return['15x21','15x20','10x15','A4'].map(o=>`<option value="${o}" ${o===sel?'selected':''}>${o}</option>`).join('');
 }
 function autoCalcCash(ph){
 const cashInput=document.querySelector(`.sc[data-ph="${ph}"]`);
@@ -326,6 +312,12 @@ venueBonusConfigs=await api('GET',`/venues/${vid}/bonus-config`).catch(()=>[]);
 bonusConfigs=venueBonusConfigs;
 const reps=await api('GET',`/daily-reports?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
 report=reps.length?await api('GET',`/daily-reports/${reps[0].id}`).catch(()=>null):null;
+try{
+allPhotographersPool=await api('GET','/photographers').catch(()=>[]);
+if(!Array.isArray(allPhotographersPool))allPhotographersPool=[];
+allPhotographersPool=allPhotographersPool.filter(p=>p.is_active!==false);
+}catch{allPhotographersPool=[];}
+console.log('[load] report:',report?.id,'lines:',report?.lines?.length||report?.sale_lines?.length||0);
 
 // Найти venue объект
 const venue = venues.find(v => v.id === vid);
@@ -364,8 +356,17 @@ const[sl,sc]=SM[s]||SM.new;
 document.getElementById('rstat').innerHTML=`<span class="sb ${sc}">${sl}</span>`;
 const ed=!report||['draft','returned'].includes(report.status);
 window.__venueReportEditable=ed;
-const pd=report?.printer_data||[{format:'15x21'},{format:'10x15'}];
-const lines=report?.sale_lines||[];
+const lines=report?.lines||report?.sale_lines||[];
+const assignedIds=new Set(phs.map(a=>a.photographer_id));
+const avail=(allPhotographersPool||[]).filter(p=>!assignedIds.has(p.id));
+const addPhOpts='<option value="">+ Добавить фотографа...</option>'+avail.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+const printerFormats=['10x15','15x20','A4'];
+const pd=report?.printer_data||[];
+const printersHtml=printerFormats.map((fmt,i)=>{
+const saved=pd.find(p=>normPrinterFmtSaved(p.format)===fmt)||pd[i]||{};
+return`<div class="pr"><span style="min-width:50px;font-weight:600;font-size:13px">${fmt}</span><div><div class="fl">№</div><input class="fin pn" data-i="${i}" data-format="${fmt}" value="${saved.printer_no||''}" style="width:50px" oninput="void inputRecalc()"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" value="${saved.counter_start??''}" oninput="void inputRecalc()"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" value="${saved.counter_end??''}" oninput="void inputRecalc()"/></div><div class="pr-diff" id="pd${i}">-</div><div class="pr-info" id="pi${i}" style="font-size:10px;margin-left:4px"></div></div>`;
+}).join('');
+const staffOpts=phs.map(a=>`<option value="${esc(a.photographer_name)}">`).join('')+`<option value="${esc(U.name)}">`;
 const advRows=(report?.advances)||[];
 const pettyRows=(report?.petty_cash_expenses)||[];
 
@@ -378,15 +379,19 @@ document.getElementById('C').innerHTML=`
 
 <div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
 ${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?(a.is_late?`<span class="rs rs-late">⏰+${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`):`<span class="rs rs-wait">⏳</span><button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
+<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+<select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
+<button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
+</div>
 </div>
 
 <div class="sec"><div class="sec-t">🖨 Принтеры</div>
-<div id="prl">${pd.map((p,i)=>`<div class="pr"><div class="fl" style="min-width:56px">Формат</div><select class="fselect pf" data-i="${i}" style="min-width:72px;font-size:10px;margin-right:4px" onchange="void inputRecalc()">${printerFormatOptionsHtml(p)}</select><div><div class="fl">№</div><input class="fin pn" data-i="${i}" value="${p.printer_no||''}" style="width:60px" oninput="markDirty();scheduleAutoSave()"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" value="${p.counter_start||''}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" value="${p.counter_end||''}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">${p.counter_end&&p.counter_start?Math.max(0,p.counter_end-p.counter_start):'-'}</div></div>`).join('')}</div>
-<button class="btn btn-ghost" style="font-size:10px;margin-top:4px" onclick="addPr()">+ принтер</button></div>
+<div id="prl">${printersHtml}</div>
+</div>
 
 <div class="sec"><div class="sec-t">📊 Продажи</div>
 ${phs.length&&prods.length?salesTbl(phs,lines):'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
-${ed&&phs.length&&prods.length?`<div id="bonus-actions-wrap">${hasPhotographerBonusConfig()?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="button" onclick="calcBonuses(false)" style="font-size:11px">💰 Пересчитать бонусы</button><div id="bonus-results" style="font-size:11px;color:var(--text3)">Нажмите для расчёта ЗП и бонусов по схеме площадки</div></div>`:`<div style="margin-top:10px;font-size:11px;color:var(--text3)">Бонусная схема не настроена для этой площадки (тип дня: ${esc(resolveDayTypeForBonus())})</div>`}</div>`:''}
+${ed&&phs.length&&prods.length?`<div id="bonus-actions-wrap">${hasPhotographerBonusConfig()?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div id="bonus-results" style="font-size:11px;color:var(--text3)">Бонусы пересчитываются автоматически (~2 сек после ввода)</div></div>`:`<div style="margin-top:10px;font-size:11px;color:var(--text3)">Бонусная схема не настроена для этой площадки (тип дня: ${esc(resolveDayTypeForBonus())})</div>`}</div>`:''}
 </div>
 
 ${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
@@ -397,7 +402,7 @@ ${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции
 ${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
 <select class="fselect adv-ph" style="flex:2;font-size:11px" onchange="void inputRecalc()">${phs.map(p=>`<option value="${p.photographer_id}" ${a.photographer_id===p.photographer_id?'selected':''}>${esc(p.photographer_name)}</option>`).join('')}</select>
 <input type="number" class="fin adv-amt" value="${a.amount||0}" style="width:60px;font-size:11px" oninput="void inputRecalc()"/>
-<input class="fin adv-reason" value="${esc(a.reason||'')}" placeholder="причина" style="flex:1;font-size:11px" oninput="markDirty()"/>
+<input class="fin adv-reason" value="${esc(a.reason||'')}" placeholder="причина" style="flex:1;font-size:11px" oninput="void inputRecalc()"/>
 <button class="btn btn-ghost" onclick="this.parentElement.remove();void inputRecalc()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
 </div>`).join('')}
 </div>
@@ -408,7 +413,7 @@ ${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items
 <div id="petty-list">
 ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
 <input type="number" class="fin petty-amt" value="${e.amount||0}" style="width:60px;font-size:11px" oninput="void inputRecalc()"/>
-<input class="fin petty-desc" value="${esc(e.description||'')}" placeholder="на что" style="flex:1;font-size:11px" oninput="markDirty()"/>
+<input class="fin petty-desc" value="${esc(e.description||'')}" placeholder="на что" style="flex:1;font-size:11px" oninput="void inputRecalc()"/>
 <button class="btn btn-ghost" onclick="this.parentElement.remove();void inputRecalc()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
 </div>`).join('')}
 </div>
@@ -425,10 +430,11 @@ ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-ite
 
 <div class="sec"><div class="sec-t">📝 Итоги</div>
 <div style="display:flex;gap:6px;flex-wrap:wrap">
-<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" value="${report?.admin_name||U.name||''}" style="width:100%" oninput="markDirty();scheduleAutoSave()"/></div>
-<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" value="${report?.manager_name||''}" style="width:100%" oninput="markDirty();scheduleAutoSave()"/></div>
+<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" list="staff-list" value="${esc(report?.admin_name||U.name||'')}" style="width:100%" oninput="void inputRecalc()"/></div>
+<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" list="staff-list" value="${esc(report?.manager_name||'')}" style="width:100%" oninput="void inputRecalc()"/></div>
 </div>
-<div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${report?.notes_report||''}" style="width:100%" placeholder="Комментарий..." oninput="markDirty();scheduleAutoSave()"/></div>
+<datalist id="staff-list">${staffOpts}</datalist>
+<div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${esc(report?.notes_report||'')}" style="width:100%" placeholder="Комментарий..." oninput="void inputRecalc()"/></div>
 ${report?.review_comment?`<div style="padding:6px;background:rgba(242,85,85,.06);border:1px solid rgba(242,85,85,.15);border-radius:6px;margin-top:6px;font-size:12px"><b style="color:var(--rank3)">Проверяющий:</b> ${report.review_comment}</div>`:''}
 </div>
 
@@ -444,30 +450,46 @@ if (venueObj && venueObj.has_aquagrim) {
 setTimeout(()=>{applyBonusFromReport();recalcAll(true);},80);
 }
 
+function wasteCellsFromLines(lines,ph){
+const forPh=(lines||[]).filter(l=>String(l.photographer_id)===String(ph));
+if(!forPh.length)return{w10:0,w20:0};
+let w10=0,w20=0,wq=0;
+for(const l of forPh){
+wq=Math.max(wq,parseInt(l.waste_qty,10)||0);
+const t10=parseInt(l.waste_10x15,10);
+const t20=parseInt(l.waste_15x20,10);
+if(Number.isFinite(t10))w10=Math.max(w10,t10);
+if(Number.isFinite(t20))w20=Math.max(w20,t20);
+}
+if(w10||w20)return{w10,w20};
+return{w10:wq,w20:0};
+}
+
 function salesTbl(phs,lines){
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
 prods.forEach(p=>{h+=`<th>${esc(String((p.product_name||p.name)||'').slice(0,10))}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
-h+='<th>Брак</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
-phs.forEach(a=>{const ph=a.photographer_id;h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
-prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>l.photographer_id===ph&&l.product_id===pid);
+h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
+phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);
+h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
+prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>String(l.photographer_id)===String(ph)&&String(l.product_id)===String(pid));
 h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;});
-const x=lines.find(l=>l.photographer_id===ph);
-const xPay=lines.find(l=>l.photographer_id===ph);
+const xPay=lines.find(l=>String(l.photographer_id)===String(ph));
 const pc=parseFloat(xPay?.payment_cash)||0,pcrd=parseFloat(xPay?.payment_card)||0,pqr=parseFloat(xPay?.payment_qr)||0;
 let manual='0';
 if(pc>0)manual='1';
 else if(pc===0&&(pcrd>0||pqr>0))manual='1';
 const cashVal=pc;
-h+=`<td><input type="number" min="0" value="${x?.waste_qty||0}" class="sw" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${xPay?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${xPay?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" data-manual="${manual}" style="width:50px" oninput="onCashManual(this);inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;
 h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
-h+='<td class="tot" id="tw">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
+h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
 setTimeout(()=>recalcAll(true),50);return h;}
 
 function recalcAll(skipDirty){
@@ -486,8 +508,9 @@ phTotals[ph]=(phTotals[ph]||0)+s;prodTotals[p]=(prodTotals[p]||0)+q;grandTotal+=
 });
 Object.entries(phTotals).forEach(([k,v])=>{const el=document.getElementById('rt'+k);if(el)el.textContent=v.toLocaleString('ru-RU');});
 Object.entries(prodTotals).forEach(([k,v])=>{const el=document.getElementById('ct'+k);if(el)el.textContent=v;});
-let tw=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
-document.querySelectorAll('.sw').forEach(n=>tw+=parseInt(n.value)||0);
+let tw10=0,tw20=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
+document.querySelectorAll('.sw10').forEach(n=>tw10+=parseInt(n.value)||0);
+document.querySelectorAll('.sw20').forEach(n=>tw20+=parseInt(n.value)||0);
 document.querySelectorAll('.sfq').forEach(n=>tfq+=parseInt(n.value)||0);
 document.querySelectorAll('.sfs').forEach(n=>tfs+=parseFloat(n.value)||0);
 document.querySelectorAll('.sc').forEach(n=>tc+=parseFloat(n.value)||0);
@@ -495,7 +518,8 @@ document.querySelectorAll('.sk').forEach(n=>tk+=parseFloat(n.value)||0);
 document.querySelectorAll('.sqr').forEach(n=>tq+=parseFloat(n.value)||0);
 const $=id=>document.getElementById(id);
 if($('gt'))$('gt').textContent=grandTotal.toLocaleString('ru-RU');
-if($('tw'))$('tw').textContent=tw;
+if($('tw10'))$('tw10').textContent=tw10;
+if($('tw20'))$('tw20').textContent=tw20;
 if($('tfq'))$('tfq').textContent=tfq;
 if($('tfs'))$('tfs').textContent=tfs;
 if($('tc'))$('tc').textContent=tc.toLocaleString('ru-RU');
@@ -527,47 +551,58 @@ cashEl.style.color=cashToCollect<0?'var(--rank3)':'var(--rank1)';
 const nh=document.getElementById('cash-negative-hint');
 if(nh)nh.style.display=cashToCollect<0&&tc===0&&totalBonusPay>0?'block':'none';
 if(typeof prods!=='undefined'&&prods&&document.getElementById('prl')){
-const expectedByFormat={'15x20':0,'10x15':0};
+const printerFormats=['10x15','15x20','A4'];
+printerFormats.forEach((fmt,i)=>{
+const start=parseInt(document.querySelector(`.ps[data-i="${i}"]`)?.value)||0;
+const end=parseInt(document.querySelector(`.pe[data-i="${i}"]`)?.value)||0;
+const rawDiff=Math.max(0,end-start);
+const diffEl=document.getElementById('pd'+i);
+const infoEl=document.getElementById('pi'+i);
+if(!diffEl)return;
+let expectedPhotos=0;
 prods.forEach(p=>{
-const prodName=p.product_name||p.name||'';
-const format=getProductPrinterFormat(prodName);
-if(!format)return;
-const mult=getPrintMultiplier(format);
+const pf=getProductPrinterFormat(p.product_name||p.name||'');
+if(pf!==fmt)return;
 const prodId=p.product_id||p.id;
 let totalQty=0;
 document.querySelectorAll(`.sq[data-p="${prodId}"]`).forEach(n=>{totalQty+=parseInt(n.value)||0;});
-expectedByFormat[format]=(expectedByFormat[format]||0)+totalQty*mult;
+expectedPhotos+=totalQty;
 });
-let totalWaste=0;
-document.querySelectorAll('.sw').forEach(n=>{totalWaste+=parseInt(n.value)||0;});
-document.querySelectorAll('.pn').forEach(n=>{
-const i=n.dataset.i;
-const fmtEl=document.querySelector(`.pf[data-i="${i}"]`);
-const formatStr=fmtEl?.value||fmtEl?.options?.[fmtEl.selectedIndex]?.text||'';
-const start=parseInt(document.querySelector(`.ps[data-i="${i}"]`)?.value)||0;
-const end=parseInt(document.querySelector(`.pe[data-i="${i}"]`)?.value)||0;
-const diff=Math.max(0,end-start);
-const diffEl=document.getElementById('pd'+i);
-if(!diffEl)return;
-const bucket=normPrinterBucket(formatStr);
-let expected=bucket==='10x15'?(expectedByFormat['10x15']||0):(expectedByFormat['15x20']||0);
-if(bucket==='10x15')expected+=totalWaste;
-if(start>0&&end>0&&expected>0){
-if(diff===expected){
-diffEl.innerHTML=`${diff} <span style="color:var(--rank1);font-size:10px">✓</span>`;
-}else if(Math.abs(diff-expected)<=totalWaste||diff===expected+totalWaste){
-diffEl.innerHTML=`${diff} <span style="color:var(--rank2);font-size:10px">≈${expected}</span>`;
+let w10tot=0,w20tot=0;
+document.querySelectorAll('.sw10').forEach(n=>{w10tot+=parseInt(n.value)||0;});
+document.querySelectorAll('.sw20').forEach(n=>{w20tot+=parseInt(n.value)||0;});
+if(fmt==='10x15')expectedPhotos+=w10tot;
+else if(fmt==='15x20')expectedPhotos+=w20tot;
+if(fmt==='15x20'){
+const realPhotos=rawDiff/2;
+diffEl.innerHTML=`<span style="color:var(--rank1)">${realPhotos}</span>`;
+if(infoEl)infoEl.innerHTML=`<span style="color:var(--rank3);font-size:9px">счётчик: ${rawDiff} (÷2)</span>`;
+if(start>0&&end>0&&expectedPhotos>0){
+if(Math.abs(realPhotos-expectedPhotos)<0.001){
+diffEl.innerHTML+=` <span style="color:var(--rank1);font-size:10px">✓</span>`;
 }else{
-diffEl.innerHTML=`${diff} <span style="color:var(--rank3);font-size:10px">≠${expected} ожид.</span>`;
+diffEl.innerHTML+=` <span style="color:var(--rank3);font-size:10px">≠${expectedPhotos} ожид.</span>`;
+}
 }
 }else{
-diffEl.textContent=diff>0?String(diff):'-';
+diffEl.innerHTML=`<span style="color:var(--rank1)">${rawDiff}</span>`;
+if(infoEl)infoEl.innerHTML='';
+if(start>0&&end>0&&expectedPhotos>0){
+if(Math.abs(rawDiff-expectedPhotos)<0.001){
+diffEl.innerHTML+=` <span style="color:var(--rank1);font-size:10px">✓</span>`;
+}else{
+diffEl.innerHTML+=` <span style="color:var(--rank3);font-size:10px">≠${expectedPhotos} ожид.</span>`;
+}
+}
 }
 });
 }
 if(!skipDirty){
 isDirty=true;
-scheduleAutoSave();
+if(_bonusDebounce)clearTimeout(_bonusDebounce);
+_bonusDebounce=setTimeout(()=>{void calcBonuses(true);},2000);
+if(_saveDebounce)clearTimeout(_saveDebounce);
+_saveDebounce=setTimeout(()=>{void autoSave();},3000);
 }
 }
 async function inputRecalc(){
@@ -597,8 +632,20 @@ const collected=collect();
 return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
 }
 
-function cpd(i){void inputRecalc();}
-function addPr(){markDirty();const l=document.getElementById('prl'),i=l.children.length,d=document.createElement('div');d.className='pr';d.innerHTML=`<div class="fl" style="min-width:56px">Формат</div><select class="fselect pf" data-i="${i}" style="min-width:72px;font-size:10px;margin-right:4px" onchange="void inputRecalc()">${printerFormatOptionsHtml({format:'15x21'})}</select><div><div class="fl">№</div><input class="fin pn" data-i="${i}" style="width:60px" oninput="markDirty();scheduleAutoSave()"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">-</div>`;l.appendChild(d);void inputRecalc();}
+async function addPhotographerToShift(){
+const sel=document.getElementById('add-ph-select');
+const phId=sel&&sel.value;
+if(!phId||!shift?.id)return;
+try{
+await api('POST',`/shifts/${shift.id}/assignments`,{
+photographer_id:phId,
+role_in_shift:'photographer',
+assignment_type:'manual'
+});
+toast('Фотограф добавлен');
+load();
+}catch(e){toast(e.message,1);}
+}
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
@@ -607,22 +654,59 @@ async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,chec
 
 function collect(){
 const bonusMap=window.__bonusByPh||{};
-const firstPayForPh={};
 const lines=[];
-document.querySelectorAll('.sq').forEach(n=>{const q=parseInt(n.value)||0,ph=n.dataset.ph;
-if(q<=0)return;
-const isFirst=!firstPayForPh[ph];firstPayForPh[ph]=true;
-const pb=(isFirst&&(bonusMap[ph]!=null&&bonusMap[ph]!==''))?bonusAmountForPh(ph):0;
-lines.push({photographer_id:ph,product_id:n.dataset.p,quantity:q,price:parseFloat(n.dataset.pr),
-waste_qty:parseInt(document.querySelector(`.sw[data-ph="${ph}"]`)?.value)||0,
-flash_qty:parseInt(document.querySelector(`.sfq[data-ph="${ph}"]`)?.value)||0,
-flash_sum:parseFloat(document.querySelector(`.sfs[data-ph="${ph}"]`)?.value)||0,
-payment_cash:parseFloat(document.querySelector(`.sc[data-ph="${ph}"]`)?.value)||0,
-payment_card:parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0,
-payment_qr:parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0,
+const phsList=assigns.filter(a=>a.status!=='cancelled');
+phsList.forEach(a=>{
+const ph=a.photographer_id;
+const w10=parseInt(document.querySelector(`.sw10[data-ph="${ph}"]`)?.value)||0;
+const w20=parseInt(document.querySelector(`.sw20[data-ph="${ph}"]`)?.value)||0;
+const wsum=w10+w20;
+const fq=parseInt(document.querySelector(`.sfq[data-ph="${ph}"]`)?.value)||0;
+const fs=parseFloat(document.querySelector(`.sfs[data-ph="${ph}"]`)?.value)||0;
+const pc=parseFloat(document.querySelector(`.sc[data-ph="${ph}"]`)?.value)||0;
+const pk=parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0;
+const pq=parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0;
+let firstWithQ=-1;
+prods.forEach((p,i)=>{
+const pid=String(p.product_id||p.id);
+const q=parseInt(document.querySelector(`.sq[data-ph="${ph}"][data-p="${pid}"]`)?.value)||0;
+if(q>0&&firstWithQ<0)firstWithQ=i;
+});
+const payOn=firstWithQ>=0?firstWithQ:0;
+prods.forEach((p,idx)=>{
+const pid=String(p.product_id||p.id);
+const inp=document.querySelector(`.sq[data-ph="${ph}"][data-p="${pid}"]`);
+const q=parseInt(inp?.value)||0;
+const pr=parseFloat(p.price)||0;
+const payHere=idx===payOn;
+const pb=(payHere&&(bonusMap[ph]!=null&&bonusMap[ph]!==''))?bonusAmountForPh(ph):0;
+lines.push({
+photographer_id:ph,
+product_id:pid,
+quantity:q,
+price:pr,
+waste_qty:idx===0?wsum:0,
+waste_10x15:idx===0?w10:0,
+waste_15x20:idx===0?w20:0,
+flash_qty:idx===0?fq:0,
+flash_sum:idx===0?fs:0,
+payment_cash:payHere?pc:0,
+payment_card:payHere?pk:0,
+payment_qr:payHere?pq:0,
 payment_bonus:pb,
-has_change:false,has_pen:false,check_number:null,photographer_status:null,cash_to_collect:0});});
-const pr=[];document.querySelectorAll('.pn').forEach(n=>{const i=n.dataset.i;pr.push({printer_no:n.value,counter_start:parseInt(document.querySelector(`.ps[data-i="${i}"]`)?.value)||0,counter_end:parseInt(document.querySelector(`.pe[data-i="${i}"]`)?.value)||0,format:document.querySelector(`.pf[data-i="${i}"]`)?.value||null});});
+has_change:false,has_pen:false,check_number:null,photographer_status:null,cash_to_collect:0
+});
+});
+});
+const pr=[];
+['10x15','15x20','A4'].forEach((fmt,i)=>{
+pr.push({
+format:fmt,
+printer_no:document.querySelector(`.pn[data-i="${i}"]`)?.value||'',
+counter_start:parseInt(document.querySelector(`.ps[data-i="${i}"]`)?.value)||0,
+counter_end:parseInt(document.querySelector(`.pe[data-i="${i}"]`)?.value)||0
+});
+});
 return{lines,printer_data:pr};}
 
 function collectAdvances(){
@@ -654,14 +738,14 @@ function addAdvanceRow(){
 const phs=assigns.filter(a=>a.status!=='cancelled');
 const div=document.createElement('div');
 div.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
-div.innerHTML=`<select class="fselect adv-ph" style="flex:2;font-size:11px" onchange="void inputRecalc()">${phs.map(p=>`<option value="${p.photographer_id}">${esc(p.photographer_name)}</option>`).join('')}</select><input type="number" class="fin adv-amt" value="0" style="width:60px;font-size:11px" oninput="void inputRecalc()"/><input class="fin adv-reason" value="" placeholder="причина" style="flex:1;font-size:11px" oninput="markDirty();scheduleAutoSave()"/><button class="btn btn-ghost" onclick="this.parentElement.remove();void inputRecalc()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
+div.innerHTML=`<select class="fselect adv-ph" style="flex:2;font-size:11px" onchange="void inputRecalc()">${phs.map(p=>`<option value="${p.photographer_id}">${esc(p.photographer_name)}</option>`).join('')}</select><input type="number" class="fin adv-amt" value="0" style="width:60px;font-size:11px" oninput="void inputRecalc()"/><input class="fin adv-reason" value="" placeholder="причина" style="flex:1;font-size:11px" oninput="void inputRecalc()"/><button class="btn btn-ghost" onclick="this.parentElement.remove();void inputRecalc()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
 document.getElementById('adv-list').appendChild(div);
 }
 
 function addPettyRow(){
 const div=document.createElement('div');
 div.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
-div.innerHTML=`<input type="number" class="fin petty-amt" value="0" style="width:60px;font-size:11px" oninput="void inputRecalc()"/><input class="fin petty-desc" value="" placeholder="на что" style="flex:1;font-size:11px" oninput="markDirty();scheduleAutoSave()"/><button class="btn btn-ghost" onclick="this.parentElement.remove();void inputRecalc()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
+div.innerHTML=`<input type="number" class="fin petty-amt" value="0" style="width:60px;font-size:11px" oninput="void inputRecalc()"/><input class="fin petty-desc" value="" placeholder="на что" style="flex:1;font-size:11px" oninput="void inputRecalc()"/><button class="btn btn-ghost" onclick="this.parentElement.remove();void inputRecalc()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
 document.getElementById('petty-list').appendChild(div);
 }
 
@@ -704,7 +788,9 @@ finally{_calcLock=false;}
 }
 
 function applyBonusFromReport(){
-if(!report?.sale_lines)return;
+if(!report)return;
+const rl=report.lines||report.sale_lines||[];
+if(!Array.isArray(rl))return;
 window.__bonusByPh={};
 window.__bonusMeta={};
 assigns.filter(a=>a.status!=='cancelled').forEach(a=>{
@@ -712,7 +798,7 @@ const el=document.getElementById('bon'+a.photographer_id);
 if(el){el.textContent='—';el.title='';el.style.color='var(--text3)';}
 });
 const byPh={};
-for(const l of report.sale_lines){
+for(const l of rl){
 const ph=l.photographer_id;
 const pb=parseFloat(l.payment_bonus)||0;
 const se=parseFloat(l.salary_earned)||0;
@@ -940,10 +1026,12 @@ openBonusSchemesModal();
 
 async function save(st){
 if(autoSaveTimeout){clearTimeout(autoSaveTimeout);autoSaveTimeout=null;}
+if(_saveDebounce){clearTimeout(_saveDebounce);_saveDebounce=null;}
+if(_bonusDebounce){clearTimeout(_bonusDebounce);_bonusDebounce=null;}
 if(!shift){toast('Нет смены',1);return;}
 const collected=collect();
 const{lines,printer_data}=collected;
-if(st==='submitted'&&!lines.length){toast('Заполните продажи',1);return;}
+if(st==='submitted'&&!lines.some(l=>(parseInt(l.quantity)||0)>0)){toast('Заполните продажи',1);return;}
 if(st==='submitted'){
 const msgs=[];
 if(!lines.some(l=>(parseInt(l.quantity)||0)>0))msgs.push('нет строк продаж с количеством > 0');
@@ -970,8 +1058,7 @@ toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');await 
 }catch(e){toast(e.message,1);}}
 
 function scheduleAutoSave(){
-if(autoSaveTimeout)clearTimeout(autoSaveTimeout);
-autoSaveTimeout=setTimeout(()=>{autoSaveTimeout=null;void autoSave();},5000);
+void inputRecalc();
 }
 function showAutoSaveStatus(text){
 const el=document.getElementById('autosave-status');
