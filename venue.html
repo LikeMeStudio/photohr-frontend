@@ -422,7 +422,7 @@ ${(()=>{
 `}
 
 <div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
-${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?(a.is_late?`<span class="rs rs-late">⏰+${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`):`<span class="rs rs-wait">⏳</span>${isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`:''}`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
+${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?((a.late_status==='late'?`<span class="rs rs-late">⏰ +${a.late_minutes||'?'}м · штраф 1000₽</span>`:(a.late_status==='almost'||a.is_late?`<span class="rs" style="color:var(--rank2)">⚡ +${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`))+(isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px;margin-left:4px" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕</button>`:'')):`<span class="rs rs-wait">⏳</span>${isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`:''}`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
 ${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
 <select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
 <button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
@@ -762,6 +762,15 @@ async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
 async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';new QRCode(b,{text:d.qr_code,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
+async function cancelCheckin(checkinId,assignId){
+if(!checkinId){toast('ID чекина не найден',1);return;}
+if(!confirm('Отменить чекин этого сотрудника?'))return;
+try{
+await api('DELETE',`/checkins/${checkinId}`);
+toast('Чекин отменён');
+load();
+}catch(e){toast(e.message,1);}
+}
 
 function collect(){
 const bonusMap=window.__bonusByPh||{};

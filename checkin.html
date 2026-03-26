@@ -135,7 +135,7 @@ async function loadMyShifts(){
         <div class="shift-meta">${esc(s.role_in_shift||'фотограф')} · ${s.start_time?s.start_time.slice(0,5):''}</div>
         <div style="margin-top:8px">
           ${s.checkin_at
-            ?`<span style="color:var(--rank1);font-size:13px">✅ Отмечен в ${new Date(s.checkin_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${s.is_late?' · ⏰ +'+s.late_minutes+'м':''}</span>`
+            ?`<span style="color:var(--rank1);font-size:13px">✅ Отмечен в ${new Date(s.checkin_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${s.late_status==='late'?' · ⏰ +'+s.late_minutes+'м · штраф':(s.late_status==='almost'?' · ⚡+'+s.late_minutes+'м':'')}</span>`
             :`<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="startScanForShift(${i})">📷 Сканировать QR</button>`}
         </div>
       </div>
@@ -243,7 +243,7 @@ async function doCheckin(qrCode){
       <div class="result result-ok">
         <div class="result-icon">✅</div>
         <div class="result-title">Отмечен!</div>
-        <div class="result-sub">${result.is_late?'⏰ Опоздание '+result.late_minutes+' мин':'Вовремя'}</div>
+        <div class="result-sub">${result.late_status==='late'?'⏰ Опоздание '+result.late_minutes+' мин · Штраф '+result.fine_amount+'₽':(result.late_status==='almost'?'⚡ Почти вовремя (+'+result.late_minutes+' мин)':'✅ Вовремя')}</div>
         ${result.venue_name?`<div class="result-sub" style="margin-top:4px">📍 ${esc(result.venue_name)}</div>`:''}
         <div class="result-sub" style="margin-top:4px">${new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>
       </div>
