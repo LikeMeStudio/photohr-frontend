@@ -118,9 +118,9 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <!-- Movement modal -->
-<div class="overlay" id="move-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="move-modal" onclick="if(event.target===this)safeCloseModal('move-modal')">
 <div class="modal">
-  <div class="modal-title"><span>Новое движение</span><button class="dr-close" onclick="document.getElementById('move-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span>Новое движение</span><button class="dr-close" onclick="safeCloseModal('move-modal')">×</button></div>
   <div class="field"><div class="fl">Тип *</div>
     <select class="fselect" id="mv-type" onchange="updateMoveFields()">
       <option value="purchase">Закупка</option>
@@ -135,16 +135,16 @@ a{color:inherit;text-decoration:none}
   <div class="field"><div class="fl">Количество *</div><input class="fin" type="number" id="mv-qty" min="1" value="1"/></div>
   <div class="field"><div class="fl">Примечание</div><input class="fin" id="mv-notes" placeholder="Причина..."/></div>
   <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('move-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-ghost" onclick="safeCloseModal('move-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="createMovement()">Создать</button>
   </div>
 </div>
 </div>
 
 <!-- Warehouse modal -->
-<div class="overlay" id="wh-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="wh-modal" onclick="if(event.target===this)safeCloseModal('wh-modal')">
 <div class="modal" style="max-width:500px">
-  <div class="modal-title"><span id="wh-modal-title">Новый склад</span><button class="dr-close" onclick="document.getElementById('wh-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span id="wh-modal-title">Новый склад</span><button class="dr-close" onclick="safeCloseModal('wh-modal')">×</button></div>
   <input type="hidden" id="wh-id"/>
   <div class="field"><div class="fl">Название *</div><input class="fin" id="wh-name" placeholder="Центральный склад"/></div>
   <div class="field"><div class="fl">Тип *</div>
@@ -160,16 +160,16 @@ a{color:inherit;text-decoration:none}
   <div class="field"><div class="fl">Ответственный</div><select class="fselect" id="wh-responsible"><option value="">— не назначен —</option></select></div>
   <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="wh-notes" rows="2" placeholder="Произвольные заметки..."></textarea></div>
   <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('wh-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-ghost" onclick="safeCloseModal('wh-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="saveWarehouse()">Сохранить</button>
   </div>
 </div>
 </div>
 
 <!-- Item modal -->
-<div class="overlay" id="item-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="item-modal" onclick="if(event.target===this)safeCloseModal('item-modal')">
 <div class="modal" style="max-width:480px">
-  <div class="modal-title"><span id="item-modal-title">Новая позиция</span><button class="dr-close" onclick="document.getElementById('item-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span id="item-modal-title">Новая позиция</span><button class="dr-close" onclick="safeCloseModal('item-modal')">×</button></div>
   <input type="hidden" id="item-id"/>
   <div class="field"><div class="fl">Название *</div><input class="fin" id="item-name" placeholder="Бумага DNP 10x15"/></div>
   <div class="field"><div class="fl">Тип *</div>
@@ -185,7 +185,7 @@ a{color:inherit;text-decoration:none}
   <div class="field"><div class="fl">Порог пополнения (предупреждение)</div><input class="fin" type="number" id="item-reorder" placeholder="0" min="0"/></div>
   <div class="field"><div class="fl">Последняя цена закупки (₽)</div><input class="fin" type="number" id="item-price" placeholder="0" min="0"/></div>
   <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('item-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-ghost" onclick="safeCloseModal('item-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="saveItem()">Сохранить</button>
   </div>
 </div>
@@ -202,9 +202,9 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <!-- Purchase Order Modal -->
-<div class="overlay" id="po-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="po-modal" onclick="if(event.target===this)safeCloseModal('po-modal')">
 <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto">
-  <div class="modal-title"><span>Новая закупка</span><button class="dr-close" onclick="document.getElementById('po-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span>Новая закупка</span><button class="dr-close" onclick="safeCloseModal('po-modal')">×</button></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="field"><div class="fl">Склад *</div><select class="fselect" id="po-warehouse"></select></div>
     <div class="field"><div class="fl">Поставщик</div><input class="fin" id="po-supplier" placeholder="DNP, Fuji..."/></div>
@@ -217,16 +217,16 @@ a{color:inherit;text-decoration:none}
   <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:12px" onclick="addPoLine()">+ Добавить позицию</button>
   <div style="margin-top:10px;text-align:right;font-size:13px;color:var(--text2)">Итого: <span id="po-total" style="font-weight:600;color:var(--text)">0 ₽</span></div>
   <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('po-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-ghost" onclick="safeCloseModal('po-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="savePurchaseOrder()">Создать закупку</button>
   </div>
 </div>
 </div>
 
 <!-- Transfer Modal -->
-<div class="overlay" id="tr-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="tr-modal" onclick="if(event.target===this)safeCloseModal('tr-modal')">
 <div class="modal" style="max-width:520px">
-  <div class="modal-title"><span>Перемещение между складами</span><button class="dr-close" onclick="document.getElementById('tr-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span>Перемещение между складами</span><button class="dr-close" onclick="safeCloseModal('tr-modal')">×</button></div>
   <div class="field"><div class="fl">Со склада *</div><select class="fselect" id="tr-from"></select></div>
   <div class="field"><div class="fl">На склад *</div><select class="fselect" id="tr-to"></select></div>
   <div class="field"><div class="fl">Заметки</div><input class="fin" id="tr-notes" placeholder="Причина перемещения..."/></div>
@@ -234,21 +234,21 @@ a{color:inherit;text-decoration:none}
   <div id="tr-lines"></div>
   <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:12px" onclick="addTrLine()">+ Добавить позицию</button>
   <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('tr-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-ghost" onclick="safeCloseModal('tr-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="saveTransfer()">Создать перемещение</button>
   </div>
 </div>
 </div>
 
 <!-- Inventory Session Modal -->
-<div class="overlay" id="inv-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="inv-modal" onclick="if(event.target===this)safeCloseInvModal()">
 <div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto">
   <div class="modal-title">
     <span id="inv-modal-title">Инвентаризация</span>
     <div style="display:flex;gap:6px">
       <button class="btn btn-ghost" style="font-size:12px" onclick="saveInvDraft()">💾 Сохранить</button>
       <button class="btn btn-primary" style="font-size:12px" onclick="completeInvSession()">✅ Завершить</button>
-      <button class="dr-close" onclick="document.getElementById('inv-modal').classList.remove('open')">×</button>
+      <button class="dr-close" onclick="safeCloseInvModal()">×</button>
     </div>
   </div>
   <div id="inv-session-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
@@ -263,9 +263,9 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <!-- Equipment Modal -->
-<div class="overlay" id="eq-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="eq-modal" onclick="if(event.target===this)safeCloseModal('eq-modal')">
 <div class="modal" style="max-width:500px">
-  <div class="modal-title"><span id="eq-modal-title">Новое оборудование</span><button class="dr-close" onclick="document.getElementById('eq-modal').classList.remove('open')">×</button></div>
+  <div class="modal-title"><span id="eq-modal-title">Новое оборудование</span><button class="dr-close" onclick="safeCloseModal('eq-modal')">×</button></div>
   <input type="hidden" id="eq-id"/>
   <div class="field"><div class="fl">Тип оборудования *</div>
     <select class="fselect" id="eq-item"></select>
@@ -291,7 +291,7 @@ a{color:inherit;text-decoration:none}
   <div class="field"><div class="fl">Плановая замена</div><input class="fin" type="date" id="eq-replacement-date"/></div>
   <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="eq-notes" rows="2" placeholder="Произвольные заметки..."></textarea></div>
   <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('eq-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-ghost" onclick="safeCloseModal('eq-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="saveEquipment()">Сохранить</button>
   </div>
 </div>
@@ -361,6 +361,40 @@ function showToast(m,e){const t=document.getElementById('toast');t.textContent=m
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function isDirtyForm(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return false;
+  const inputs = modal.querySelectorAll('input, textarea, select');
+  for (const el of inputs) {
+    if (el.type === 'hidden') continue;
+    if (el.tagName === 'SELECT') continue;
+    if (el.value && el.value.trim() !== '' && el.value !== '0') return true;
+  }
+  return false;
+}
+
+function safeCloseModal(modalId) {
+  if (isDirtyForm(modalId)) {
+    if (!confirm('Закрыть форму? Введённые данные будут потеряны.')) return;
+  }
+  document.getElementById(modalId).classList.remove('open');
+}
+
+function isDirtyInvModal() {
+  const inputs = document.querySelectorAll('[id^="inv-actual-"]');
+  for (const el of inputs) {
+    if (el.value !== '') return true;
+  }
+  return false;
+}
+
+function safeCloseInvModal() {
+  if (isDirtyInvModal()) {
+    if (!confirm('Закрыть инвентаризацию? Несохранённые данные будут потеряны.')) return;
+  }
+  document.getElementById('inv-modal').classList.remove('open');
 }
 
 (async function init(){
