@@ -89,11 +89,11 @@
 </div>
 
 <!-- Bonus schemes manager (above venue settings z-index) -->
-<div class="overlay" id="bs-modal" onclick="if(event.target===this){this.style.display='none'}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;align-items:center;justify-content:center;flex-wrap:wrap">
+<div class="overlay" id="bs-modal" onclick="if(event.target===this)closeBsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;align-items:center;justify-content:center;flex-wrap:wrap">
 <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">📝 Бонусные схемы</span>
-    <button class="dr-close" onclick="document.getElementById('bs-modal').style.display='none'" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    <button class="dr-close" onclick="closeBsModal()" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
   </div>
   <div id="bs-content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -153,20 +153,6 @@ if(n.includes('а4')||n.includes('a4'))return'A4';
 if(n.includes('15x20')||n.includes('15х20')||n.includes('15x21')||n.includes('15х21'))return'15x20';
 if(n.includes('10x15')||n.includes('10х15')||n.includes('магнит'))return'10x15';
 return null;
-}
-function autoCalcCash(ph){
-const cashInput=document.querySelector(`.sc[data-ph="${ph}"]`);
-if(!cashInput||cashInput.dataset.manual==='1')return;
-let revenue=0;
-document.querySelectorAll(`.sq[data-ph="${ph}"]`).forEach(n=>{
-revenue+=(parseInt(n.value)||0)*(parseFloat(n.dataset.pr)||0);
-});
-const card=parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0;
-const qr=parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0;
-cashInput.value=Math.max(0,Math.round((revenue-card-qr)*100)/100);
-}
-function onCashManual(el){
-el.dataset.manual='1';
 }
 function resolveDayTypeForBonus(){
 const dt=(report&&report.report_date)||document.getElementById('sd')?.value;
@@ -559,21 +545,18 @@ h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Ф�
 phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);const wa4=wasteA4FromLines(lines,ph);
 h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>String(l.photographer_id)===String(ph)&&String(l.product_id)===String(pid));
-h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="autoCalcCash('${ph}');inputRecalc()"${dis()}/></td>`;});
+h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="inputRecalc()"${dis()}/></td>`;});
 const xPay=lines.find(l=>String(l.photographer_id)===String(ph));
 const pc=parseFloat(xPay?.payment_cash)||0,pcrd=parseFloat(xPay?.payment_card)||0,pqr=parseFloat(xPay?.payment_qr)||0;
-let manual='0';
-if(pc>0)manual='1';
-else if(pc===0&&(pcrd>0||pqr>0))manual='1';
 const cashVal=pc;
 h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${wa4}" class="swa4" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${xPay?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${xPay?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" data-manual="${manual}" style="width:50px" oninput="onCashManual(this);inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" readonly style="width:50px;background:var(--bg3);cursor:default;border-color:transparent" title="Рассчитывается автоматически: Выручка − Карта − QR"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
@@ -581,13 +564,6 @@ h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="t
 setTimeout(()=>recalcAll(true),50);return h;}
 
 function recalcAll(skipDirty){
-const phSeen=new Set();
-document.querySelectorAll('.sc').forEach(el=>{
-const ph=el.dataset.ph;
-if(!ph||phSeen.has(ph))return;
-phSeen.add(ph);
-if(el.dataset.manual!=='1')autoCalcCash(ph);
-});
 const phTotals={},prodTotals={};
 let grandTotal=0;
 document.querySelectorAll('.sq').forEach(n=>{
@@ -596,6 +572,15 @@ phTotals[ph]=(phTotals[ph]||0)+s;prodTotals[p]=(prodTotals[p]||0)+q;grandTotal+=
 });
 Object.entries(phTotals).forEach(([k,v])=>{const el=document.getElementById('rt'+k);if(el)el.textContent=v.toLocaleString('ru-RU');});
 Object.entries(prodTotals).forEach(([k,v])=>{const el=document.getElementById('ct'+k);if(el)el.textContent=v;});
+Object.keys(phTotals).forEach(ph=>{
+const revenue=phTotals[ph]||0;
+const card=parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0;
+const qr=parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0;
+const cashInput=document.querySelector(`.sc[data-ph="${ph}"]`);
+if(cashInput){
+cashInput.value=Math.max(0,Math.round((revenue-card-qr)*100)/100);
+}
+});
 let tw10=0,tw20=0,twa4=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
 document.querySelectorAll('.sw10').forEach(n=>tw10+=parseInt(n.value)||0);
 document.querySelectorAll('.sw20').forEach(n=>tw20+=parseInt(n.value)||0);
