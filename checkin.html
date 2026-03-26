@@ -97,7 +97,18 @@ function esc(s) {
 }
 
 (async()=>{
-  if(!AT&&!RT){location.href='index.html';return;}
+  // Проверяем URL параметр qr для прямого чекина
+  const urlParams=new URLSearchParams(window.location.search);
+  const qrFromUrl=urlParams.get('qr');
+  
+  if(!AT&&!RT){
+    // Не залогинен — перенаправить на логин с сохранением qr параметра
+    if(qrFromUrl){
+      localStorage.setItem('fhr_pending_qr',qrFromUrl);
+    }
+    location.href='index.html';
+    return;
+  }
   try{
     U=await api('GET','/auth/me');
     currentUser=U;
@@ -109,6 +120,15 @@ function esc(s) {
       return;
     }
     await loadMyShifts();
+    // Автоматический чекин если пришли по QR-ссылке
+    const pendingQr=qrFromUrl||localStorage.getItem('fhr_pending_qr');
+    if(pendingQr){
+      localStorage.removeItem('fhr_pending_qr');
+      // Убрать параметр из URL чтобы не чекиниться повторно при обновлении
+      window.history.replaceState({},'',window.location.pathname);
+      // Небольшая задержка для отрисовки
+      setTimeout(()=>doCheckin(pendingQr),500);
+    }
   }catch(e){document.getElementById('content').innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
 
@@ -256,11 +276,23 @@ async function onScanSuccess(code){
 }
 
 function manualScan(){
-  const code=document.getElementById('manual-code')?.value?.trim();
-  if(code)doCheckin(code);
+  let code=document.getElementById('manual-code')?.value?.trim();
+  if(!code)return;
+  // Если вставили полный URL — извлечь qr параметр
+  if(code.includes('checkin.html?qr=')){
+    try{const u=new URL(code);code=u.searchParams.get('qr')||code;}catch{}
+  }
+  // Если URL-encoded — декодировать
+  try{if(code.includes('%'))code=decodeURIComponent(code);}catch{}
+  doCheckin(code);
 }
 
 async function doCheckin(qrCode){
+  // Извлечь raw код если передан URL
+  if(qrCode&&qrCode.includes('checkin.html?qr=')){
+    try{const u=new URL(qrCode);qrCode=u.searchParams.get('qr')||qrCode;}catch{}
+  }
+  try{if(qrCode&&qrCode.includes('%'))qrCode=decodeURIComponent(qrCode);}catch{}
   const c=document.getElementById('content');
   c.innerHTML='<div style="color:var(--text3)">Отправка...</div>';
   
