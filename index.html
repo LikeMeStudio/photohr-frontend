@@ -314,14 +314,17 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
       <button class="login-tab" onclick="switchAuthTab('register')">Регистрация</button>
     </div>
     <!-- ВХОД -->
-    <div id="auth-login">
+    <div id="auth-login" autocomplete="off">
+      <!-- Honeypot для отключения автозаполнения Safari -->
+      <input type="text" name="prevent_autofill" id="prevent_autofill" style="display:none" tabindex="-1" autocomplete="off"/>
+      <input type="password" name="prevent_autofill_pass" id="prevent_autofill_pass" style="display:none" tabindex="-1" autocomplete="off"/>
       <div style="margin-bottom:14px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Email</div>
-        <input class="fin" type="email" id="l-email" placeholder="your@email.ru" style="width:100%"/>
+        <input class="fin" type="email" id="l-email" placeholder="your@email.ru" style="width:100%" autocomplete="email"/>
       </div>
       <div style="margin-bottom:20px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Пароль</div>
-        <input class="fin" type="password" id="l-pass" placeholder="••••••••" style="width:100%" onkeydown="if(event.key==='Enter')login()"/>
+        <input class="fin" type="password" id="l-pass" placeholder="••••••••" style="width:100%" autocomplete="new-password" onkeydown="if(event.key==='Enter')login()"/>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="login()" id="login-btn">Войти</button>
       <div style="text-align:center;margin-top:10px">
@@ -334,7 +337,10 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
       </button>
     </div>
     <!-- РЕГИСТРАЦИЯ -->
-    <div id="auth-register" style="display:none">
+    <div id="auth-register" style="display:none" autocomplete="off">
+      <!-- Honeypot для отключения автозаполнения Safari -->
+      <input type="text" name="prevent_autofill_reg" id="prevent_autofill_reg" style="display:none" tabindex="-1" autocomplete="off"/>
+      <input type="password" name="prevent_autofill_reg_pass" id="prevent_autofill_reg_pass" style="display:none" tabindex="-1" autocomplete="off"/>
       <div style="margin-bottom:14px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Я регистрируюсь как</div>
         <div style="display:flex;gap:6px">
@@ -345,15 +351,15 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
       </div>
       <div style="margin-bottom:14px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Имя и фамилия</div>
-        <input class="fin" type="text" id="r-name" placeholder="Иван Иванов" style="width:100%"/>
+        <input class="fin" type="text" id="r-name" placeholder="Иван Иванов" style="width:100%" autocomplete="off"/>
       </div>
       <div style="margin-bottom:14px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Email</div>
-        <input class="fin" type="email" id="r-email" placeholder="your@email.ru" style="width:100%"/>
+        <input class="fin" type="email" id="r-email" placeholder="your@email.ru" style="width:100%" autocomplete="email"/>
       </div>
       <div style="margin-bottom:20px">
         <div style="font-size:12px;color:var(--text3);margin-bottom:5px">Пароль (минимум 8 символов)</div>
-        <input class="fin" type="password" id="r-pass" placeholder="••••••••" style="width:100%" onkeydown="if(event.key==='Enter')register()"/>
+        <input class="fin" type="password" id="r-pass" placeholder="••••••••" style="width:100%" autocomplete="new-password" onkeydown="if(event.key==='Enter')register()"/>
       </div>
       <div id="reg-hint" style="font-size:12px;color:var(--text3);margin-bottom:12px">📷 Если ваш email совпадает с карточкой в системе — аккаунт привяжется автоматически</div>
       <button class="btn btn-primary" style="width:100%" onclick="register()" id="register-btn">Зарегистрироваться</button>
