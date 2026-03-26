@@ -303,7 +303,6 @@ loadDashboard();
 }catch(e){toast(e.message,1);}
 }
 
-let _prevVid='',_prevSd='';
 async function load(){
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
 if(!vid||!dt){loadDashboard();return;}
