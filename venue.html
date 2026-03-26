@@ -40,7 +40,7 @@
 .pr .fin{width:70px}
 .pr-diff{font-weight:600;color:var(--rank1);min-width:40px;text-align:center}
 .st{width:100%;border-collapse:collapse;font-size:11px}.st th,.st td{padding:5px 4px;border:1px solid var(--border);text-align:center;white-space:nowrap}
-.st th{background:var(--bg3);font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase}.st td:first-child{text-align:left;font-weight:500;background:var(--bg2);min-width:90px}
+.st th{background:var(--bg3);font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase}.st td:first-child{text-align:left;font-weight:500;background:var(--bg2);min-width:90px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st input{width:44px;padding:2px;border-radius:3px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;text-align:center;outline:none}.st input:focus{border-color:var(--accent)}
 .st .tot{font-weight:600;background:var(--bg3);color:var(--accent2)}
 .sb{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:500}
@@ -75,11 +75,11 @@
 </div>
 
 <!-- Venue Settings Modal -->
-<div class="overlay" id="vs-modal" onclick="if(event.target===this)this.classList.remove('open')" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center">
+<div class="overlay" id="vs-modal" onclick="if(event.target===this)closeVenueSettings()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center">
 <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">⚙️ Настройки площадки</span>
-    <button class="dr-close" onclick="document.getElementById('vs-modal').style.display='none'" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    <button class="dr-close" onclick="closeVenueSettings()" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
   </div>
   <div id="vs-content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -100,6 +100,20 @@
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null;
+let isDirty=false,settingsChanged=false,autoSaveTimer=null,venueBonusConfigs=[],calcBonusesRunning=false,calcBonusesPending=false,allSchemes=[],bonusConfigs=[];
+function markDirty(){isDirty=true;}
+function resolveDayTypeForBonus(){
+const dt=(report&&report.report_date)||document.getElementById('sd')?.value;
+if(!dt)return'weekday';
+if(report&&report.day_type==='holiday')return'holiday';
+const d=new Date(dt+'T12:00:00');
+const dow=d.getDay();
+return dow===0||dow===6?'weekend':'weekday';
+}
+function hasPhotographerBonusConfig(){
+const dt=resolveDayTypeForBonus();
+return(venueBonusConfigs||[]).some(c=>c.role_type==='photographer'&&c.day_type===dt&&c.scheme_id);
+}
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4};
@@ -125,16 +139,27 @@ function esc(s) {
 
 (async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;setupUserPill();setupNav('venue');fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');}catch{doLogout();}})();
 
+let _prevVid='',_prevSd='';
 async function load(){
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;if(!vid||!dt)return;
+if(isDirty&&(_prevVid&&_prevSd)&&((vid!==_prevVid)||(dt!==_prevSd))){
+if(!confirm('Есть несохранённые данные. Перезагрузить?')){
+document.getElementById('vs').value=_prevVid;
+document.getElementById('sd').value=_prevSd;
+return;
+}
+}
+isDirty=false;
 document.getElementById('C').innerHTML='<div class="loading">Загрузка...</div>';
 try{
 const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`);
-if(!ev.length){document.getElementById('C').innerHTML=`<div class="loading">Нет мероприятий <button class="btn btn-primary" style="margin-left:6px" onclick="mkEvent()">+ Создать</button></div>`;return;}
+if(!ev.length){document.getElementById('C').innerHTML=`<div class="loading">Нет мероприятий <button class="btn btn-primary" style="margin-left:6px" onclick="mkEvent()">+ Создать</button></div>`;_prevVid=vid;_prevSd=dt;return;}
 const sh=await api('GET',`/shifts?event_id=${ev[0].id}`);shift=sh[0]||null;
-if(!shift){document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';return;}
+if(!shift){document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';_prevVid=vid;_prevSd=dt;return;}
 assigns=await api('GET',`/shifts/${shift.id}/assignments`).catch(()=>[]);
 prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
+venueBonusConfigs=await api('GET',`/venues/${vid}/bonus-config`).catch(()=>[]);
+bonusConfigs=venueBonusConfigs;
 const reps=await api('GET',`/daily-reports?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
 report=reps.length?await api('GET',`/daily-reports/${reps[0].id}`).catch(()=>null):null;
 
@@ -163,6 +188,7 @@ if (venue && venue.has_aquagrim) {
 }
 
 render(ev[0]);
+_prevVid=vid;_prevSd=dt;
 }catch(e){document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
@@ -189,12 +215,12 @@ ${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div cl
 </div>
 
 <div class="sec"><div class="sec-t">🖨 Принтеры</div>
-<div id="prl">${pd.map((p,i)=>`<div class="pr"><span style="min-width:40px">${p.format||'#'+(i+1)}</span><div><div class="fl">№</div><input class="fin pn" data-i="${i}" value="${p.printer_no||''}" style="width:60px"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" value="${p.counter_start||''}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" value="${p.counter_end||''}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">${p.counter_end&&p.counter_start?Math.max(0,p.counter_end-p.counter_start):'-'}</div></div>`).join('')}</div>
+<div id="prl">${pd.map((p,i)=>`<div class="pr"><span style="min-width:40px">${p.format||'#'+(i+1)}</span><div><div class="fl">№</div><input class="fin pn" data-i="${i}" value="${p.printer_no||''}" style="width:60px" oninput="markDirty()"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" value="${p.counter_start||''}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" value="${p.counter_end||''}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">${p.counter_end&&p.counter_start?Math.max(0,p.counter_end-p.counter_start):'-'}</div></div>`).join('')}</div>
 <button class="btn btn-ghost" style="font-size:10px;margin-top:4px" onclick="addPr()">+ принтер</button></div>
 
 <div class="sec"><div class="sec-t">📊 Продажи</div>
 ${phs.length&&prods.length?salesTbl(phs,lines):'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
-${ed&&phs.length&&prods.length?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="button" onclick="calcBonuses(false)" style="font-size:11px">💰 Пересчитать бонусы</button><div id="bonus-results" style="font-size:11px;color:var(--text3)">Нажмите для расчёта ЗП и бонусов по схеме площадки</div></div>`:''}
+${ed&&phs.length&&prods.length?`<div id="bonus-actions-wrap">${hasPhotographerBonusConfig()?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="button" onclick="calcBonuses(false)" style="font-size:11px">💰 Пересчитать бонусы</button><div id="bonus-results" style="font-size:11px;color:var(--text3)">Нажмите для расчёта ЗП и бонусов по схеме площадки</div></div>`:`<div style="margin-top:10px;font-size:11px;color:var(--text3)">Бонусная схема не настроена для этой площадки (тип дня: ${esc(resolveDayTypeForBonus())})</div>`}</div>`:''}
 </div>
 
 ${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
@@ -203,10 +229,10 @@ ${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции
 <div class="fl">Авансы фотографам</div>
 <div id="adv-list">
 ${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
-<select class="fselect adv-ph" style="flex:2;font-size:11px">${phs.map(p=>`<option value="${p.photographer_id}" ${a.photographer_id===p.photographer_id?'selected':''}>${esc(p.photographer_name)}</option>`).join('')}</select>
-<input type="number" class="fin adv-amt" value="${a.amount||0}" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/>
-<input class="fin adv-reason" value="${esc(a.reason||'')}" placeholder="причина" style="flex:1;font-size:11px"/>
-<button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
+<select class="fselect adv-ph" style="flex:2;font-size:11px" onchange="markDirty()">${phs.map(p=>`<option value="${p.photographer_id}" ${a.photographer_id===p.photographer_id?'selected':''}>${esc(p.photographer_name)}</option>`).join('')}</select>
+<input type="number" class="fin adv-amt" value="${a.amount||0}" style="width:60px;font-size:11px" oninput="markDirty();updateCashDisplay()"/>
+<input class="fin adv-reason" value="${esc(a.reason||'')}" placeholder="причина" style="flex:1;font-size:11px" oninput="markDirty()"/>
+<button class="btn btn-ghost" onclick="this.parentElement.remove();markDirty();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
 </div>`).join('')}
 </div>
 <button class="btn btn-ghost" style="font-size:10px" onclick="addAdvanceRow()">+ Аванс</button>
@@ -215,9 +241,9 @@ ${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items
 <div class="fl">Мелкие расходы из кассы</div>
 <div id="petty-list">
 ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
-<input type="number" class="fin petty-amt" value="${e.amount||0}" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/>
-<input class="fin petty-desc" value="${esc(e.description||'')}" placeholder="на что" style="flex:1;font-size:11px"/>
-<button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
+<input type="number" class="fin petty-amt" value="${e.amount||0}" style="width:60px;font-size:11px" oninput="markDirty();updateCashDisplay()"/>
+<input class="fin petty-desc" value="${esc(e.description||'')}" placeholder="на что" style="flex:1;font-size:11px" oninput="markDirty()"/>
+<button class="btn btn-ghost" onclick="this.parentElement.remove();markDirty();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
 </div>`).join('')}
 </div>
 <button class="btn btn-ghost" style="font-size:10px" onclick="addPettyRow()">+ Расход</button>
@@ -228,19 +254,20 @@ ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-ite
 <span id="cash-to-collect" style="font-size:18px;font-weight:700;color:var(--rank1)">0 ₽</span>
 </div>
 <div style="font-size:10px;color:var(--text3);margin-top:4px">= Наличные − Выплаты (ЗП+бонус) − Авансы − Расходы</div>
+<div id="cash-negative-hint" style="display:none;font-size:10px;color:var(--rank3);margin-top:4px">Недостаточно нала для выплаты бонусов</div>
 </div>`:''}
 
 <div class="sec"><div class="sec-t">📝 Итоги</div>
 <div style="display:flex;gap:6px;flex-wrap:wrap">
-<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" value="${report?.admin_name||U.name||''}" style="width:100%"/></div>
-<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" value="${report?.manager_name||''}" style="width:100%"/></div>
+<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" value="${report?.admin_name||U.name||''}" style="width:100%" oninput="markDirty()"/></div>
+<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" value="${report?.manager_name||''}" style="width:100%" oninput="markDirty()"/></div>
 </div>
-<div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${report?.notes_report||''}" style="width:100%" placeholder="Комментарий..."/></div>
+<div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${report?.notes_report||''}" style="width:100%" placeholder="Комментарий..." oninput="markDirty()"/></div>
 ${report?.review_comment?`<div style="padding:6px;background:rgba(242,85,85,.06);border:1px solid rgba(242,85,85,.15);border-radius:6px;margin-top:6px;font-size:12px"><b style="color:var(--rank3)">Проверяющий:</b> ${report.review_comment}</div>`:''}
 </div>
 
-<div class="foot">
-${ed?`<button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
+<div class="foot" style="align-items:center">
+${ed?`<button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button><span id="autosave-status" style="font-size:10px;color:var(--text3);margin-left:8px"></span>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
 </div>`;
 
 // После основного innerHTML, добавить aq-блок если есть
@@ -248,14 +275,20 @@ const venueObj = venues.find(v => v.id === document.getElementById('vs').value);
 if (venueObj && venueObj.has_aquagrim) {
   document.getElementById('C').innerHTML += renderAqSection();
 }
-setTimeout(()=>{applyBonusFromReport();updateCashDisplay();},80);
+setTimeout(()=>{
+applyBonusFromReport();updateCashDisplay();
+if(autoSaveTimer)clearInterval(autoSaveTimer);
+autoSaveTimer=null;
+const edR=!report||['draft','returned'].includes(report?.status);
+if(report?.id&&edR)startAutoSave();
+},80);
 }
 
 function salesTbl(phs,lines){
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
 prods.forEach(p=>{h+=`<th>${esc(String((p.product_name||p.name)||'').slice(0,10))}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
 h+='<th>Брак</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
-phs.forEach(a=>{const ph=a.photographer_id;h+=`<tr><td>${esc(String((a.photographer_name||'')).slice(0,12))}</td>`;
+phs.forEach(a=>{const ph=a.photographer_id;h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>l.photographer_id===ph&&l.product_id===pid);
 h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="rc()"/></td>`;});
 const x=lines.find(l=>l.photographer_id===ph);
@@ -268,10 +301,15 @@ h+=`<td><input type="number" min="0" value="${x?.payment_qr||0}" class="sqr" dat
 h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
-h+='<td class="tot" id="tw">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">0</td></tr></tbody></table></div>';
-setTimeout(rc,50);return h;}
+h+='<td class="tot" id="tw">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
+setTimeout(()=>rc(),50);return h;}
 
-function rc(){const i=document.querySelectorAll('.sq');const rt={},ct={};let g=0,tw=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
+async function rc(){
+markDirty();
+if(window.__venueReportEditable&&shift&&!report?.id){
+await ensureReportDraftSilent();
+}
+const i=document.querySelectorAll('.sq');const rt={},ct={};let g=0,tw=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
 i.forEach(n=>{const ph=n.dataset.ph,p=n.dataset.p,pr=parseFloat(n.dataset.pr),q=parseInt(n.value)||0,s=q*pr;rt[ph]=(rt[ph]||0)+s;ct[p]=(ct[p]||0)+q;g+=s;});
 Object.entries(rt).forEach(([k,v])=>{const e=document.getElementById('rt'+k);if(e)e.textContent=v.toLocaleString('ru-RU');});
 Object.entries(ct).forEach(([k,v])=>{const e=document.getElementById('ct'+k);if(e)e.textContent=v;});
@@ -286,12 +324,31 @@ if($('gt'))$('gt').textContent=g.toLocaleString('ru-RU');
 if($('tw'))$('tw').textContent=tw;if($('tfq'))$('tfq').textContent=tfq;
 if($('tfs'))$('tfs').textContent=tfs;if($('tc'))$('tc').textContent=tc.toLocaleString('ru-RU');
 if($('tk'))$('tk').textContent=tk.toLocaleString('ru-RU');if($('tq'))$('tq').textContent=tq.toLocaleString('ru-RU');
-if(window.__venueReportEditable&&report?.id){clearTimeout(_bonusCalcTimer);_bonusCalcTimer=setTimeout(()=>calcBonuses(true),650);}
+if(window.__venueReportEditable&&report?.id&&hasPhotographerBonusConfig()){clearTimeout(_bonusCalcTimer);_bonusCalcTimer=setTimeout(()=>calcBonuses(true),1500);}
 updateCashDisplay();
 }
 
-function cpd(i){const s=document.querySelector(`.ps[data-i="${i}"]`),e=document.querySelector(`.pe[data-i="${i}"]`),d=document.getElementById('pd'+i);if(s&&e&&d)d.textContent=Math.max(0,(parseInt(e.value)||0)-(parseInt(s.value)||0));}
-function addPr(){const l=document.getElementById('prl'),i=l.children.length,d=document.createElement('div');d.className='pr';d.innerHTML=`<span style="min-width:40px">#${i+1}</span><div><div class="fl">№</div><input class="fin pn" data-i="${i}" style="width:60px"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">-</div>`;l.appendChild(d);}
+async function ensureReportDraftSilent(){
+if(report?.id||!shift)return;
+const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
+if(!vid||!dt)return;
+const collected=collect();
+const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
+try{
+const created=await api('POST','/daily-reports',body);
+report=created;
+await api('PATCH',`/daily-reports/${created.id}/lines`,body);
+isDirty=false;
+}catch(e){console.warn('[draft]',e.message);}
+}
+
+function buildReportBody(){
+const collected=collect();
+return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
+}
+
+function cpd(i){markDirty();const s=document.querySelector(`.ps[data-i="${i}"]`),e=document.querySelector(`.pe[data-i="${i}"]`),d=document.getElementById('pd'+i);if(s&&e&&d)d.textContent=Math.max(0,(parseInt(e.value)||0)-(parseInt(s.value)||0));}
+function addPr(){markDirty();const l=document.getElementById('prl'),i=l.children.length,d=document.createElement('div');d.className='pr';d.innerHTML=`<span style="min-width:40px">#${i+1}</span><div><div class="fl">№</div><input class="fin pn" data-i="${i}" style="width:60px" oninput="markDirty()"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">-</div>`;l.appendChild(d);}
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
@@ -347,14 +404,14 @@ function addAdvanceRow(){
 const phs=assigns.filter(a=>a.status!=='cancelled');
 const div=document.createElement('div');
 div.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
-div.innerHTML=`<select class="fselect adv-ph" style="flex:2;font-size:11px">${phs.map(p=>`<option value="${p.photographer_id}">${esc(p.photographer_name)}</option>`).join('')}</select><input type="number" class="fin adv-amt" value="0" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/><input class="fin adv-reason" value="" placeholder="причина" style="flex:1;font-size:11px"/><button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
+div.innerHTML=`<select class="fselect adv-ph" style="flex:2;font-size:11px" onchange="markDirty()">${phs.map(p=>`<option value="${p.photographer_id}">${esc(p.photographer_name)}</option>`).join('')}</select><input type="number" class="fin adv-amt" value="0" style="width:60px;font-size:11px" oninput="markDirty();updateCashDisplay()"/><input class="fin adv-reason" value="" placeholder="причина" style="flex:1;font-size:11px" oninput="markDirty()"/><button class="btn btn-ghost" onclick="this.parentElement.remove();markDirty();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
 document.getElementById('adv-list').appendChild(div);
 }
 
 function addPettyRow(){
 const div=document.createElement('div');
 div.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
-div.innerHTML=`<input type="number" class="fin petty-amt" value="0" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/><input class="fin petty-desc" value="" placeholder="на что" style="flex:1;font-size:11px"/><button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
+div.innerHTML=`<input type="number" class="fin petty-amt" value="0" style="width:60px;font-size:11px" oninput="markDirty();updateCashDisplay()"/><input class="fin petty-desc" value="" placeholder="на что" style="flex:1;font-size:11px" oninput="markDirty()"/><button class="btn btn-ghost" onclick="this.parentElement.remove();markDirty();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
 document.getElementById('petty-list').appendChild(div);
 }
 
@@ -364,12 +421,15 @@ const cashEl=document.getElementById('cash-to-collect');
 if(!tcEl||!cashEl)return;
 const totalCash=parseFloat(String(tcEl.textContent||'').replace(/\s/g,'').replace(/[^\d.,-]/g,'').replace(',','.')||'0')||0;
 const tbonEl=document.getElementById('tbon');
-const totalBonus=bonusOverride!=null?bonusOverride:(parseFloat(tbonEl?.textContent?.replace(/\s/g,'').replace(/[^\d.,-]/g,'').replace(',','.')||'0')||0);
+const tbRaw=(tbonEl?.textContent||'').trim();
+const totalBonus=bonusOverride!=null?bonusOverride:(tbRaw==='—'||tbRaw===''?0:(parseFloat(tbRaw.replace(/\s/g,'').replace(/[^\d.,-]/g,'').replace(',','.')||'0')||0));
 const advances=collectAdvances().reduce((s,a)=>s+a.amount,0);
 const petty=collectPettyCash().reduce((s,e)=>s+e.amount,0);
 const result=totalCash-totalBonus-advances-petty;
 cashEl.textContent=result.toLocaleString('ru-RU')+' ₽';
 cashEl.style.color=result<0?'var(--rank3)':'var(--rank1)';
+const nh=document.getElementById('cash-negative-hint');
+if(nh)nh.style.display=result<0&&totalCash===0&&totalBonus>0?'block':'none';
 }
 
 function updateCashDisplay(){updateCashToCollect();}
@@ -377,11 +437,17 @@ function updateCashDisplay(){updateCashToCollect();}
 let _bonusCalcTimer=null;
 async function calcBonuses(silent){
 if(!shift){if(!silent)toast('Нет смены',1);return;}
-if(!report?.id){
-await save('draft');
-if(!report?.id){if(!silent)toast('Сначала сохраните отчёт',1);return;}
+if(!hasPhotographerBonusConfig()){
+if(!silent)toast('Бонусная схема не настроена для этой площадки',1);
+return;
 }
+if(calcBonusesRunning){calcBonusesPending=true;return;}
+calcBonusesRunning=true;
 try{
+if(!report?.id){
+await ensureReportDraftSilent();
+if(!report?.id){if(!silent)toast('Не удалось создать черновик',1);return;}
+}
 const{lines,printer_data}=collect();
 await api('PATCH',`/daily-reports/${report.id}/lines`,{
 lines,printer_data,
@@ -391,6 +457,7 @@ notes_report:document.getElementById('rn')?.value||null,
 advances:collectAdvances(),
 petty_cash_expenses:collectPettyCash()
 });
+isDirty=false;
 const result=await api('POST',`/daily-reports/${report.id}/calc-bonuses`);
 const rows=result.results||[];
 window.__bonusByPh={};
@@ -406,19 +473,32 @@ el.style.color=(r.total>0)?'var(--rank1)':'var(--text3)';
 totalPayout+=r.total||0;
 });
 const tbon=document.getElementById('tbon');
-if(tbon)tbon.textContent=totalPayout.toLocaleString('ru-RU');
+if(tbon)tbon.textContent=totalPayout>0?totalPayout.toLocaleString('ru-RU'):'—';
 const ctc=document.getElementById('cash-to-collect');
 if(ctc&&result.cash_to_collect!=null){
 ctc.textContent=Number(result.cash_to_collect).toLocaleString('ru-RU')+' ₽';
 ctc.style.color=parseFloat(result.cash_to_collect)<0?'var(--rank3)':'var(--rank1)';
+const nh=document.getElementById('cash-negative-hint');
+if(nh){const tc=parseFloat(String(document.getElementById('tc')?.textContent||'').replace(/\s/g,'').replace(/[^\d.,-]/g,'').replace(',','.')||'0')||0;nh.style.display=parseFloat(result.cash_to_collect)<0&&tc===0&&totalPayout>0?'block':'none';}
 }else updateCashToCollect(totalPayout);
 if(!silent)toast('💰 Бонусы рассчитаны');
 }catch(e){if(!silent)toast(e.message,1);}
+finally{
+calcBonusesRunning=false;
+if(calcBonusesPending){
+calcBonusesPending=false;
+setTimeout(()=>calcBonuses(true),500);
+}
+}
 }
 
 function applyBonusFromReport(){
 if(!report?.sale_lines)return;
 window.__bonusByPh={};
+assigns.filter(a=>a.status!=='cancelled').forEach(a=>{
+const el=document.getElementById('bon'+a.photographer_id);
+if(el){el.textContent='—';el.title='';el.style.color='var(--text3)';}
+});
 const byPh={};
 for(const l of report.sale_lines){
 const ph=l.photographer_id;
@@ -427,6 +507,7 @@ const se=parseFloat(l.salary_earned)||0;
 if(!byPh[ph]||pb>byPh[ph].total)byPh[ph]={total:pb,salary:se};
 }
 let sum=0;
+const hadAnyBonus=(report.sale_lines||[]).some(l=>parseFloat(l.payment_bonus)>0||parseFloat(l.salary_earned)>0);
 for(const ph of Object.keys(byPh)){
 const pb=byPh[ph].total,se=byPh[ph].salary;
 if(pb>0||se>0){
@@ -441,7 +522,33 @@ el.style.color=pb>0?'var(--rank1)':'var(--text3)';
 }
 }
 const tbon=document.getElementById('tbon');
-if(tbon)tbon.textContent=sum.toLocaleString('ru-RU');
+if(tbon)tbon.textContent=(sum>0||hadAnyBonus)?(sum.toLocaleString('ru-RU')):'—';
+}
+
+async function refreshBonusSelects(vid){
+const el=document.getElementById('vs-bonus-section');
+if(!el)return;
+try{
+allSchemes=await api('GET','/bonus-schemes').catch(()=>[]);
+bonusConfigs=await api('GET',`/venues/${vid}/bonus-config`).catch(()=>[]);
+venueBonusConfigs=bonusConfigs;
+if(hasAnyRole(['hr_director','exec_director','admin'])){
+el.innerHTML=renderBonusVenueSelectors(vid,Array.isArray(allSchemes)?allSchemes:[],bonusConfigs);
+}else{
+el.innerHTML='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">💰 Настройка бонусных схем доступна ролям HR+</div>';
+}
+}catch(e){console.warn('refreshBonusSelects',e.message);}
+}
+
+function closeVenueSettings(){
+document.getElementById('vs-modal').style.display='none';
+if(!settingsChanged)return;
+if(isDirty&&!confirm('Обновить данные площадки? Несохранённые правки черновика в отчёте будут потеряны.')){
+settingsChanged=false;
+return;
+}
+settingsChanged=false;
+load();
 }
 
 async function saveBonusConfig(vid,dayType,roleType,schemeId){
@@ -453,7 +560,9 @@ if(existing)await api('DELETE',`/venues/${vid}/bonus-config/${existing.id}`);
 }else{
 await api('POST',`/venues/${vid}/bonus-config`,{day_type:dayType,role_type:roleType,scheme_id:schemeId});
 }
+settingsChanged=true;
 toast('Схема привязана');
+await refreshBonusSelects(vid);
 }catch(e){toast(e.message,1);}
 }
 
@@ -612,13 +721,23 @@ const r=await api('POST','/bonus-schemes',body);
 window.__bsEditingId=r.id;
 toast('Создано');
 }
+settingsChanged=true;
+const vid=document.getElementById('vs').value;
+if(document.getElementById('vs-modal').style.display!=='none'&&vid)await refreshBonusSelects(vid);
 openBonusSchemesModal();
 }catch(e){toast(e.message,1);}
 }
 
 async function deleteBsScheme(id){
 if(!confirm('Деактивировать схему?'))return;
-try{await api('DELETE',`/bonus-schemes/${id}`);toast('Схема отключена');openBonusSchemesModal();}catch(e){toast(e.message,1);}
+try{
+await api('DELETE',`/bonus-schemes/${id}`);
+toast('Схема отключена');
+settingsChanged=true;
+const vid=document.getElementById('vs').value;
+if(document.getElementById('vs-modal').style.display!=='none'&&vid)await refreshBonusSelects(vid);
+openBonusSchemesModal();
+}catch(e){toast(e.message,1);}
 }
 
 async function save(st){
@@ -626,12 +745,17 @@ if(!shift){toast('Нет смены',1);return;}
 const collected=collect();
 const{lines,printer_data}=collected;
 if(st==='submitted'&&!lines.length){toast('Заполните продажи',1);return;}
-const advances=collectAdvances();
-const petty_cash_expenses=collectPettyCash();
-const body={
-shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,
-lines,printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,
-advances,petty_cash_expenses};
+if(st==='submitted'){
+const msgs=[];
+if(!lines.some(l=>(parseInt(l.quantity)||0)>0))msgs.push('нет строк продаж с количеством > 0');
+const prs=collect().printer_data||[];
+if(!prs.some(p=>(parseInt(p.counter_end)||0)>(parseInt(p.counter_start)||0)))msgs.push('не заполнены счётчики принтеров (хотя бы один с печатью)');
+const ra=(document.getElementById('ra')?.value||'').trim();
+const rm=(document.getElementById('rm')?.value||'').trim();
+if(!ra&&!rm)msgs.push('не указаны админ и менеджер');
+if(msgs.length&&!confirm('Перед отправкой проверьте:\n• '+msgs.join('\n• ')+'\n\nВсё равно отправить?'))return;
+}
+const body=buildReportBody();
 try{
 if(report?.id){
 await api('PATCH',`/daily-reports/${report.id}/lines`,body);
@@ -642,8 +766,29 @@ report=created;
 await api('PATCH',`/daily-reports/${created.id}/lines`,body);
 if(st==='submitted')await api('POST',`/daily-reports/${created.id}/submit`);
 }
+isDirty=false;
 toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');await load();
 }catch(e){toast(e.message,1);}}
+
+function startAutoSave(){
+if(autoSaveTimer)clearInterval(autoSaveTimer);
+autoSaveTimer=null;
+const ed=!report||['draft','returned'].includes(report?.status);
+if(!report?.id||!ed)return;
+autoSaveTimer=setInterval(async()=>{
+if(!isDirty||!report?.id)return;
+if(report.status!=='draft'&&report.status!=='returned')return;
+const asEl=document.getElementById('autosave-status');
+if(asEl)asEl.textContent='Автосохранение...';
+try{
+const body=buildReportBody();
+await api('PATCH',`/daily-reports/${report.id}/lines`,body);
+isDirty=false;
+if(asEl)asEl.textContent='Сохранено в '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+console.log('[autosave] OK',new Date().toLocaleTimeString());
+}catch(e){if(asEl)asEl.textContent='Ошибка автосохранения';console.warn('[autosave] fail:',e.message);}
+},30000);
+}
 
 async function mkEvent(){const v=document.getElementById('vs').value,d=document.getElementById('sd').value;try{await api('POST','/events',{venue_id:v,event_date:d,event_type:'regular'});toast('Создано');load();}catch(e){toast(e.message,1);}}
 
@@ -665,6 +810,9 @@ async function openVenueSettings(){
       api('GET',`/venues/${vid}/bonus-config`).catch(()=>[]),
     ]);
     allProducts=allProds;
+    allSchemes=bonusSchemes;
+    bonusConfigs=bonusCfg;
+    venueBonusConfigs=bonusCfg;
     const vpIds=new Set(venueProds.map(p=>p.product_id));
     const aqVpIds=new Set((aqVenueProds||[]).map(p=>p.product_id));
     const aqAll=(allProds||[]).filter(p=>['aquagrim','shared'].includes(p.product_category||p.productCategory));
@@ -719,7 +867,7 @@ async function openVenueSettings(){
         </div>
       </div>
 
-      ${hasAnyRole(['hr_director','exec_director','admin'])&&(Array.isArray(bonusSchemes)||Array.isArray(bonusCfg))?renderBonusVenueSelectors(vid,Array.isArray(bonusSchemes)?bonusSchemes:[],Array.isArray(bonusCfg)?bonusCfg:[]):'<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">💰 Настройка бонусных схем доступна ролям HR+</div>'}
+      <div id="vs-bonus-section">${hasAnyRole(['hr_director','exec_director','admin'])&&(Array.isArray(bonusSchemes)||Array.isArray(bonusCfg))?renderBonusVenueSelectors(vid,Array.isArray(bonusSchemes)?bonusSchemes:[],Array.isArray(bonusCfg)?bonusCfg:[]):'<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">💰 Настройка бонусных схем доступна ролям HR+</div>'}</div>
 
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
@@ -773,6 +921,7 @@ async function addProduct(vid){
   if(!prodId){toast('Выберите товар',1);return;}
   try{
     await api('POST',`/venues/${vid}/products`,{product_id:prodId,price:price||0});
+    settingsChanged=true;
     toast('Товар добавлен');
     openVenueSettings();
     prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
@@ -780,7 +929,7 @@ async function addProduct(vid){
 }
 
 async function removeProduct(vid,pid){
-  try{await api('DELETE',`/venues/${vid}/products/${pid}`);toast('Удалён');openVenueSettings();prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);}catch(e){toast(e.message,1);}
+  try{await api('DELETE',`/venues/${vid}/products/${pid}`);settingsChanged=true;toast('Удалён');openVenueSettings();prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);}catch(e){toast(e.message,1);}
 }
 
 async function addAqProduct(vid){
@@ -811,6 +960,7 @@ async function createProduct(vid){
   try{
     const p=await api('POST','/products',{name,category:document.getElementById('np-cat').value,default_price:price||0});
     await api('POST',`/venues/${vid}/products`,{product_id:p.id,price:price||0});
+    settingsChanged=true;
     toast('Товар создан и добавлен');
     openVenueSettings();
     prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
