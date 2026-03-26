@@ -422,7 +422,7 @@ ${(()=>{
 `}
 
 <div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
-${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?((a.late_status==='late'?`<span class="rs rs-late">⏰ +${a.late_minutes||'?'}м · штраф 1000₽</span>`:(a.late_status==='almost'||a.is_late?`<span class="rs" style="color:var(--rank2)">⚡ +${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`))+(isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px;margin-left:4px" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕</button>`:'')):`<span class="rs rs-wait">⏳</span>${isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`:''}`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
+${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?((a.late_status==='late'?`<span class="rs rs-late">⏰ +${a.late_minutes||'?'}м · штраф 1000₽</span>`:(a.late_status==='almost'||a.is_late?`<span class="rs" style="color:var(--rank2)">⚡ +${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`))+(isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px;margin-left:4px" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕</button>`:'')+((a.late_status==='late'&&a.fine_amount>0&&!a.fine_cancelled&&hasAnyRole(['cashier','exec_director','admin']))?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px;margin-left:4px;color:var(--rank2)" onclick="cancelFine('${a.checkin_id}')">Отменить штраф</button>`:'')+((a.fine_cancelled)?`<span style="font-size:9px;color:var(--text3);margin-left:4px">штраф отменён</span>`:'')):`<span class="rs rs-wait">⏳</span>${isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`:''}`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
 ${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
 <select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
 <button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
@@ -768,6 +768,16 @@ if(!confirm('Отменить чекин этого сотрудника?'))retu
 try{
 await api('DELETE',`/checkins/${checkinId}`);
 toast('Чекин отменён');
+load();
+}catch(e){toast(e.message,1);}
+}
+async function cancelFine(checkinId){
+if(!checkinId){toast('ID чекина не найден',1);return;}
+const reason=prompt('Причина отмены штрафа:');
+if(reason===null)return;
+try{
+await api('POST',`/checkins/${checkinId}/cancel-fine`,{reason:reason||'Без указания причины'});
+toast('Штраф отменён');
 load();
 }catch(e){toast(e.message,1);}
 }
