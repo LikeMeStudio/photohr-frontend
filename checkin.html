@@ -104,34 +104,23 @@ function esc(s) {
 })();
 
 async function loadMyShifts(){
-  const today=new Date().toISOString().split('T')[0];
   const c=document.getElementById('content');
-  
-  // Пробуем найти смены через events
   try{
-    const events=await api('GET',`/events?from=${today}&to=${today}`);
-    myShifts=[];
-    for(const ev of events){
-      const shifts=await api('GET',`/shifts?event_id=${ev.id}`).catch(()=>[]);
-      for(const sh of shifts){
-        const assigns=await api('GET',`/shifts/${sh.id}/assignments`).catch(()=>[]);
-        const myAssign=assigns.find(a=>a.photographer_id===U.photographer_id&&a.status!=='cancelled');
-        if(myAssign){
-          myShifts.push({...myAssign, shift:sh, event:ev, venue_name:ev.venue_name||ev.venue_id});
-        }
-      }
-    }
-  }catch{}
+    myShifts=await api('GET','/my-shifts');
+  }catch(e){
+    c.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;
+    return;
+  }
 
   if(!myShifts.length){
     c.innerHTML=`
       <div class="title">📍 Чекин</div>
       <div class="sub">У вас нет смен на сегодня (${new Date().toLocaleDateString('ru-RU')})</div>
-      <div style="margin-bottom:20px">
+      <div style="margin-top:12px">
         <div class="sub">Или отсканируйте QR-код площадки:</div>
         <button class="btn btn-primary" onclick="startScanner()">📷 Сканировать QR</button>
       </div>
-      <a href="my.html" class="btn btn-ghost">← Мой профиль</a>
+      <a href="my.html" class="btn btn-ghost" style="margin-top:12px">← Мой профиль</a>
     `;
     return;
   }
@@ -141,10 +130,12 @@ async function loadMyShifts(){
     <div class="sub">Ваши смены на сегодня</div>
     ${myShifts.map((s,i)=>`
       <div class="shift-card">
-        <div class="shift-venue">${esc(s.venue_name||'Площадка')}</div>
-        <div class="shift-meta">${esc(s.role_in_shift||'фотограф')} · ${esc(s.event?.event_date||'')}</div>
+        <div class="shift-venue">📍 ${esc(s.venue_name||'Площадка')}</div>
+        <div class="shift-meta">${esc(s.role_in_shift||'фотограф')} · ${s.start_time?s.start_time.slice(0,5):''}</div>
         <div style="margin-top:8px">
-          ${s.checkin_at?`<span style="color:var(--rank1);font-size:13px">✅ Вы отмечены (${new Date(s.checkin_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})})</span>`:`<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="startScanForShift(${i})">📷 Сканировать QR</button>`}
+          ${s.checkin_at
+            ?`<span style="color:var(--rank1);font-size:13px">✅ Отмечен в ${new Date(s.checkin_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${s.is_late?' · ⏰ +'+s.late_minutes+'м':''}</span>`
+            :`<button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="startScanForShift(${i})">📷 Сканировать QR</button>`}
         </div>
       </div>
     `).join('')}
@@ -218,20 +209,28 @@ async function doCheckin(qrCode){
         ${result.venue_name?`<div class="result-sub" style="margin-top:4px">📍 ${esc(result.venue_name)}</div>`:''}
         <div class="result-sub" style="margin-top:4px">${new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div>
       </div>
-      <div style="margin-top:16px"><a href="my.html" class="btn btn-primary">← Мой профиль</a></div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-primary" onclick="loadMyShifts()">← К сменам</button>
+        <a href="my.html" class="btn btn-ghost">Мой профиль</a>
+      </div>
     `;
+    pendingAssignmentId=null;
   }catch(e){
+    // Обработка 409 — уже отмечен
+    const msg=e.message||'Ошибка';
+    const isDup=msg.includes('уже отмечен');
     c.innerHTML=`
-      <div class="result result-fail">
-        <div class="result-icon">❌</div>
-        <div class="result-title">Ошибка</div>
-        <div class="result-sub">${esc(e.message)}</div>
+      <div class="result ${isDup?'result-ok':'result-fail'}">
+        <div class="result-icon">${isDup?'ℹ️':'❌'}</div>
+        <div class="result-title">${isDup?'Уже отмечены':'Ошибка'}</div>
+        <div class="result-sub">${esc(msg)}</div>
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;justify-content:center">
-        <button class="btn btn-primary" onclick="startScanner()">Повторить</button>
-        <a href="my.html" class="btn btn-ghost">← Назад</a>
+        ${isDup?'':`<button class="btn btn-primary" onclick="startScanner()">Повторить</button>`}
+        <button class="btn btn-ghost" onclick="loadMyShifts()">← К сменам</button>
       </div>
     `;
+    pendingAssignmentId=null;
   }
 }
 </script>
