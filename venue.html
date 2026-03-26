@@ -510,15 +510,13 @@ const advFor=(pid)=>{const a=advances.find(x=>String(x.photographer_id)===String
 const phBlocks=(r.results||[]).map(x=>{
 const sal=parseFloat(x.salary)||0;
 const bon=parseFloat(x.bonus)||0;
-const fromC=x.from_cash!=null?parseFloat(x.from_cash):bon;
+const fromC=x.from_cash!=null?parseFloat(x.from_cash):0;
 const adv=advFor(x.photographer_id);
 const net=Math.round((sal+bon-fromC-adv)*100)/100;
 const parts=[];
 if(sal>0)parts.push(`<span style="color:var(--rank1)">+${sal.toLocaleString('ru-RU')}₽</span> ЗП за продукцию`);
-if(bon>0){
-parts.push(`<span style="color:var(--rank1)">+${bon.toLocaleString('ru-RU')}₽</span> бонус`);
-parts.push(`<span style="color:var(--rank3)">−${bon.toLocaleString('ru-RU')}₽</span> выдан нал`);
-}
+if(bon>0)parts.push(`<span style="color:var(--rank1)">+${bon.toLocaleString('ru-RU')}₽</span> бонус`);
+if(fromC>0)parts.push(`<span style="color:var(--rank3)">−${fromC.toLocaleString('ru-RU')}₽</span> выдан нал`);
 if(adv>0)parts.push(`<span style="color:var(--rank3)">−${adv.toLocaleString('ru-RU')}₽</span> аванс`);
 const line=parts.length?parts.join(' · '):'<span style="color:var(--text3)">—</span>';
 return`<div style="margin-bottom:6px;padding:6px;background:var(--bg2);border-radius:6px">
@@ -931,7 +929,7 @@ for(const ph of Object.keys(byPh)){
 const {pb,se}=byPh[ph];
 if(pb>0||se>0){
 window.__bonusByPh[ph]=pb;
-window.__bonusMeta[ph]={salary:se,bonus:pb-se,from_cash:pb};
+window.__bonusMeta[ph]={salary:se,bonus:pb,from_cash:pb};
 }
 }
 }
