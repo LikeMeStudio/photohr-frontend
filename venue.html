@@ -1011,7 +1011,6 @@ bc.innerHTML='<div class="loading">Загрузка...</div>';
 const vid=document.getElementById('vs')?.value||'';
 let venueProds=[],allProds=[];
 try{
-if(vid)venueProds=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
 allProds=await api('GET','/products').catch(()=>[]);
 }catch(e){toast(e.message,1);return;}
 if(id){
@@ -1019,31 +1018,116 @@ try{
 const s=await api('GET',`/bonus-schemes/${id}`);
 window.__bsEditingId=id;
 if(parseInt(s.scheme_version,10)===2){
-bc.innerHTML=renderBsFormV2(s,venueProds,allProds,vid);
+bc.innerHTML=renderBsFormV2(s,allProds);
+setTimeout(()=>refreshBsAddProductSelect(),0);
 }else{
 bc.innerHTML=renderBsFormV1(s);
 }
 }catch(e){toast(e.message,1);return;}
 }else{
 window.__bsEditingId=null;
-bc.innerHTML=renderBsFormV2({name:'',scheme_version:2,rules:{photographer:{thresholds:[],progressive:[]},admin:{base_salary:0,thresholds:[],progressive:[]},manager:{base_salary:0,thresholds:[],progressive:[]},product_rates:{}}},venueProds,allProds,vid);
+bc.innerHTML=renderBsFormV2({name:'',scheme_version:2,rules:{photographer:{thresholds:[],progressive:[]},admin:{base_salary:0,thresholds:[],progressive:[]},manager:{base_salary:0,thresholds:[],progressive:[]},product_rates:[]}},allProds);
+setTimeout(()=>refreshBsAddProductSelect(),0);
 }
 }
 
-function buildProductRowsForBs(s,venueProds,allProds,vid){
+function schemeProductsFromRules(s,allProds){
 const rules=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
-const prMap=rules.product_rates||{};
-const src=(vid&&venueProds&&venueProds.length)?venueProds:allProds;
-if(!src||!src.length)return[];
-return src.map(p=>{
-const pid=String(p.product_id||p.id);
-const rate=prMap[pid]||prMap[String(pid)]||{};
-let salary=rate.salary;
-if(salary==null||salary==='')salary=p.salary_per_unit!=null?p.salary_per_unit:'';
-const printer=rate.printer_format||p.printer_format||'';
-const name=p.name||p.product_name||'';
-return{pid,name,salary,printer};
+const pr=rules.product_rates;
+const catalog=Array.isArray(allProds)?allProds:[];
+if(Array.isArray(pr)&&pr.length){
+return pr.map(p=>({
+pid:String(p.product_id),
+name:p.name||'',
+price:p.price!=null&&p.price!==''?p.price:'',
+salary:p.salary!=null&&p.salary!==''?p.salary:'',
+printer:p.printer_format||''
+}));
+}
+if(pr&&typeof pr==='object'&&!Array.isArray(pr)){
+return Object.keys(pr).map(k=>{
+const rate=pr[k]||{};
+const p=catalog.find(x=>String(x.id)===String(k));
+return{
+pid:k,
+name:rate.name||p?.name||'',
+price:rate.price!=null&&rate.price!==''?rate.price:(p?.default_price??''),
+salary:rate.salary!=null&&rate.salary!==''?rate.salary:(p?.salary_per_unit??''),
+printer:rate.printer_format||p?.printer_format||''
+};
 });
+}
+return[];
+}
+
+function bsProductRowHtml(pid,name,price,salary,pf){
+const pfs=String(pf||'');
+const pv=price===''||price==null?'':price;
+const sv=salary===''||salary==null?'':salary;
+return`<tr data-product-id="${String(pid)}"><td style="text-align:left;padding:4px 6px"><span class="bsp-name">${esc(name)}</span></td><td><input type="number" class="fin bsp-price" value="${pv}" style="width:64px" step="0.01"/></td><td><input type="number" class="fin bsp-salary" value="${sv}" style="width:64px" step="0.01"/></td><td><select class="fselect bsp-format" style="width:72px;font-size:11px"><option value="" ${!pfs?'selected':''}>—</option><option value="10x15" ${pfs==='10x15'?'selected':''}>10×15</option><option value="15x20" ${pfs==='15x20'?'selected':''}>15×20</option><option value="A4" ${pfs==='A4'?'selected':''}>А4</option></select></td><td><button type="button" class="btn btn-ghost" onclick="removeBsProductRow(this)" style="color:var(--rank3);font-size:11px;padding:2px 6px">✕</button></td></tr>`;
+}
+
+function removeBsProductRow(btn){
+const tbody=document.getElementById('bs-products');
+btn.closest('tr')?.remove();
+if(tbody&&!tbody.querySelector('tr[data-product-id]')){
+tbody.innerHTML='<tr><td colspan="5" style="padding:8px;color:var(--text3)">Добавьте товары из справочника или создайте новый</td></tr>';
+}
+refreshBsAddProductSelect();
+}
+
+function refreshBsAddProductSelect(){
+const sel=document.getElementById('bs-add-product');
+if(!sel||!window.__bsCatalogProducts)return;
+const used=new Set();
+document.querySelectorAll('#bs-products tr[data-product-id]').forEach(tr=>{used.add(String(tr.getAttribute('data-product-id')));});
+const opts=['<option value="">+ Добавить товар...</option>'].concat(
+window.__bsCatalogProducts.filter(p=>!used.has(String(p.id))).map(p=>`<option value="${p.id}">${esc(p.name)} (${p.default_price||0}₽)</option>`)
+).join('');
+sel.innerHTML=opts;
+}
+
+function addBsProductFromSelect(){
+const sel=document.getElementById('bs-add-product');
+const opt=sel?.selectedOptions?.[0];
+if(!opt||!opt.value)return;
+const productId=opt.value;
+const p=window.__bsCatalogProducts.find(x=>String(x.id)===String(productId));
+const name=p?p.name:'';
+const price=p?parseFloat(p.default_price)||0:0;
+const tbody=document.getElementById('bs-products');
+if(!tbody)return;
+tbody.querySelectorAll('tr:not([data-product-id])').forEach(r=>r.remove());
+tbody.insertAdjacentHTML('beforeend',bsProductRowHtml(productId,name,price,0,''));
+refreshBsAddProductSelect();
+sel.value='';
+}
+
+function showNewProductInScheme(){
+const el=document.getElementById('bs-new-product');
+if(el)el.style.display=el.style.display==='block'?'none':'block';
+}
+
+async function createAndAddBsProduct(){
+const name=document.getElementById('bsnp-name')?.value.trim();
+const price=parseFloat(document.getElementById('bsnp-price')?.value)||0;
+const salary=parseFloat(document.getElementById('bsnp-salary')?.value)||0;
+const format=document.getElementById('bsnp-format')?.value||'';
+if(!name){toast('Введите название',1);return;}
+try{
+const product=await api('POST','/products',{name,default_price:price,category:'photo'});
+if(window.__bsCatalogProducts)window.__bsCatalogProducts.push(product);
+const tbody=document.getElementById('bs-products');
+if(tbody)tbody.querySelectorAll('tr:not([data-product-id])').forEach(r=>r.remove());
+if(tbody)tbody.insertAdjacentHTML('beforeend',bsProductRowHtml(product.id,name,price,salary,format));
+refreshBsAddProductSelect();
+document.getElementById('bsnp-name').value='';
+document.getElementById('bsnp-price').value='';
+document.getElementById('bsnp-salary').value='';
+const np=document.getElementById('bs-new-product');
+if(np)np.style.display='none';
+toast('Товар создан и добавлен');
+}catch(e){toast(e.message,1);}
 }
 
 function bsRenderThRows(arr){
@@ -1089,12 +1173,14 @@ out.push({above:parseFloat(row.querySelector('.bs-pr-a').value)||0,every:parseFl
 });
 return out;
 }
-const product_rates={};
-document.querySelectorAll('#bs-prod-rows tr[data-pid]').forEach(tr=>{
-const pid=tr.getAttribute('data-pid');
-const sal=parseFloat(tr.querySelector('.bs-pr-sal')?.value);
-const pf=(tr.querySelector('.bs-pr-pf')?.value||'').trim();
-product_rates[pid]={salary:Number.isFinite(sal)?sal:0,printer_format:pf||null};
+const product_rates=[];
+document.querySelectorAll('#bs-products tr[data-product-id]').forEach(tr=>{
+const id=tr.getAttribute('data-product-id');
+const name=tr.querySelector('.bsp-name')?.textContent?.trim()||'';
+const price=parseFloat(tr.querySelector('.bsp-price')?.value)||0;
+const salary=parseFloat(tr.querySelector('.bsp-salary')?.value)||0;
+const format=(tr.querySelector('.bsp-format')?.value||'').trim();
+if(id)product_rates.push({product_id:id,name,price,salary,printer_format:format||null});
 });
 return{
 product_rates,
@@ -1111,7 +1197,7 @@ let rules;
 try{rules=collectSchemeRulesV2();}catch(e){toast(e.message,1);return;}
 const phBonus=calcBonusLocal(rules.photographer,personalRev);
 let estSal=0;
-Object.values(rules.product_rates||{}).forEach(v=>{estSal+=parseFloat(v.salary)||0;});
+(rules.product_rates||[]).forEach((x)=>{estSal+=parseFloat(x.salary)||0;});
 const adminFix=parseFloat(rules.admin?.base_salary)||0;
 const adminBonus=calcBonusLocal(rules.admin,totalRev);
 const mgrFix=parseFloat(rules.manager?.base_salary)||0;
@@ -1124,25 +1210,41 @@ if(out)out.innerHTML=`<div>📷 Фотограф: ЗП ${estSal.toLocaleString('
 <div style="margin-top:6px;font-size:10px;color:var(--text3)">ЗП в предпросмотре — сумма ставок «как по 1 шт. каждого товара»; в отчёте считается по факту продаж.</div>`;
 }
 
-function renderBsFormV2(s,venueProds,allProds,vid){
+function renderBsFormV2(s,allProds){
+window.__bsCatalogProducts=Array.isArray(allProds)?allProds:[];
 const rules=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
 const ph=rules.photographer||{thresholds:[],progressive:[]};
 const adm=rules.admin||{base_salary:0,thresholds:[],progressive:[]};
 const mgr=rules.manager||{base_salary:0,thresholds:[],progressive:[]};
-const rows=buildProductRowsForBs(s,venueProds,allProds,vid);
-const prodRowsHtml=rows.map(row=>{
-const pf=String(row.printer||'');
-return`<tr data-pid="${row.pid}"><td style="text-align:left;padding:4px 6px">${esc(row.name)}</td><td><input type="number" class="fin bs-pr-sal" value="${row.salary===''||row.salary==null?'':row.salary}" style="width:72px" step="0.01"/></td><td><select class="fselect bs-pr-pf" style="font-size:11px;width:88px"><option value="" ${!pf?'selected':''}>—</option><option value="10x15" ${pf==='10x15'?'selected':''}>10×15</option><option value="15x20" ${pf==='15x20'?'selected':''}>15×20</option><option value="A4" ${pf==='A4'?'selected':''}>А4</option></select></td></tr>`;
-}).join('');
-const srcHint=(vid&&venueProds&&venueProds.length)?'Товары площадки':'Все товары (площадка не выбрана или пусто)';
+const rows=schemeProductsFromRules(s,window.__bsCatalogProducts);
+const used=new Set(rows.map(r=>r.pid));
+const addOptions=['<option value="">+ Добавить товар...</option>'].concat(
+window.__bsCatalogProducts.filter(p=>!used.has(String(p.id))).map(p=>`<option value="${p.id}">${esc(p.name)} (${p.default_price||0}₽)</option>`)
+).join('');
+const prodRowsHtml=rows.length?rows.map(row=>bsProductRowHtml(row.pid,row.name,row.price,row.salary,row.printer)).join(''):'';
 return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBonusSchemesModal()">← К списку</button></div>
 <div id="bs-v2-wrap" style="display:grid;gap:12px">
 <div><div class="fl">Название</div><input class="fin" id="bs-name" value="${esc(s.name||'')}" style="width:100%"/></div>
-<div style="font-size:11px;font-weight:600">📸 ЗП за продукцию (фотографам)</div>
-<div style="font-size:10px;color:var(--text3);margin:-6px 0 0">${esc(srcHint)}</div>
+<div style="font-size:13px;font-weight:600">📸 Товары и ЗП</div>
+<div style="font-size:10px;color:var(--text3);margin:-6px 0 0">Цены и ставки задаются в схеме; в отчёте используются эти данные.</div>
 <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
-<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px">ЗП/шт</th><th style="padding:6px">Принтер</th></tr></thead>
-<tbody id="bs-prod-rows">${prodRowsHtml||'<tr><td colspan="3" style="padding:8px;color:var(--text3)">Нет товаров в справочнике</td></tr>'}</tbody></table></div>
+<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px">Цена</th><th style="padding:6px">ЗП/шт</th><th style="padding:6px">Принтер</th><th></th></tr></thead>
+<tbody id="bs-products">${prodRowsHtml||'<tr><td colspan="5" style="padding:8px;color:var(--text3)">Добавьте товары из справочника или создайте новый</td></tr>'}</tbody></table></div>
+<div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
+<select id="bs-add-product" class="fselect" style="flex:1;min-width:140px;font-size:11px">${addOptions}</select>
+<button type="button" class="btn btn-ghost" style="font-size:11px" onclick="addBsProductFromSelect()">Добавить</button>
+<button type="button" class="btn btn-ghost" style="font-size:11px" onclick="showNewProductInScheme()">Создать новый</button>
+</div>
+<div id="bs-new-product" style="display:none;margin-top:8px;padding:8px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+<input class="fin" id="bsnp-name" placeholder="Название товара" style="flex:2;min-width:120px"/>
+<input class="fin" type="number" id="bsnp-price" placeholder="Цена" style="width:70px"/>
+<input class="fin" type="number" id="bsnp-salary" placeholder="ЗП/шт" style="width:70px"/>
+<select class="fselect" id="bsnp-format" style="width:78px;font-size:11px">
+<option value="">—</option><option value="10x15">10×15</option><option value="15x20">15×20</option><option value="A4">А4</option>
+</select>
+<button type="button" class="btn btn-primary" onclick="createAndAddBsProduct()" style="font-size:11px">Создать</button>
+</div></div>
 <div style="font-size:11px;font-weight:600">📷 Бонусы фотографа (от личной выручки, из кассы)</div>
 <div><div class="fl">Пороги</div><div id="bs-ph-th">${bsRenderThRows(ph.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('ph')">+ Порог</button></div>
 <div><div class="fl">Прогрессивные</div><div id="bs-ph-pr">${bsRenderPrRows(ph.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('ph')">+ Правило</button></div>
@@ -1424,14 +1526,17 @@ async function openVenueSettings(){
     const aqVpIds=new Set((aqVenueProds||[]).map(p=>p.product_id));
     const aqAll=(allProds||[]).filter(p=>['aquagrim','shared'].includes(p.product_category||p.productCategory));
     const aqPool=(aqAll.length?aqAll:allProds)||[];
-
-    c.innerHTML=`
-      <div style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📍 ${esc(venue.name||'Площадка')}</div>
-        <div style="font-size:11px;color:var(--text3)">${esc(venue.address||'')} ${esc(venue.city||'')}</div>
-        ${venue.checkin_radius_m?`<div style="font-size:11px;color:var(--text3)">Радиус чекина: ${venue.checkin_radius_m}м</div>`:''}
-      </div>
-
+    const hasV2Scheme=(bonusCfg||[]).some(c=>Number(c.scheme_version)===2);
+    let productsBlock='';
+    if(hasV2Scheme){
+    productsBlock=`<div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">🛒 Товары площадки</div>
+        <div style="font-size:12px;color:var(--text3);padding:8px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        📦 Товары и цены определяются бонусной схемой (v2). Настройте их в «Управление схемами».
+        </div>
+      </div>`;
+    }else{
+    productsBlock=`
       <div style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">🛒 Товары площадки (${venueProds.length})</div>
         ${venueProds.map(p=>`
@@ -1470,7 +1575,17 @@ async function openVenueSettings(){
           <input class="fin" type="number" id="np-price" placeholder="Цена" style="width:70px"/>
           <button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="createProduct('${vid}')">Создать</button>
         </div>
+      </div>`;
+    }
+
+    c.innerHTML=`
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📍 ${esc(venue.name||'Площадка')}</div>
+        <div style="font-size:11px;color:var(--text3)">${esc(venue.address||'')} ${esc(venue.city||'')}</div>
+        ${venue.checkin_radius_m?`<div style="font-size:11px;color:var(--text3)">Радиус чекина: ${venue.checkin_radius_m}м</div>`:''}
       </div>
+
+      ${productsBlock}
 
       <div style="padding-top:12px;border-top:1px solid var(--border)">
         <div style="font-size:12px;font-weight:600;margin-bottom:6px">👥 Требуемый персонал</div>
