@@ -64,6 +64,28 @@ a{color:inherit;text-decoration:none}
   .overlay{align-items:flex-end;padding:0}
   .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
 }
+
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:4px}
+.wh-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
+.wh-card:hover{border-color:var(--accent)}
+.wh-type{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.wh-type-central{background:#2a1f60;color:#9b8dff}
+.wh-type-venue{background:#1a2a20;color:#3ecf8e}
+.wh-type-mobile{background:#2a2200;color:#f5a623}
+.drawer{position:fixed;right:0;top:0;height:100vh;width:420px;max-width:95vw;background:var(--bg2);border-left:1px solid var(--border);z-index:300;transform:translateX(100%);transition:transform .25s;overflow-y:auto;padding:20px}
+.drawer.open{transform:translateX(0)}
+.drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:299}
+.drawer-backdrop.open{display:block}
+.drawer-title{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.info-row:last-child{border-bottom:none}
+.info-label{color:var(--text3);font-size:11px}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.stat-box-num{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600}
+.stat-box-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px}
+@media(max-width:768px){.drawer{width:100%;max-width:100%}.card-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -84,9 +106,12 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab(0)">📦 Остатки</button>
-    <button class="tab" onclick="switchTab(1)">🔄 Движения</button>
-    <button class="tab" onclick="switchTab(2)">⚠️ Дефицит</button>
-    <button class="tab" onclick="switchTab(3)">🖨 Оборудование</button>
+    <button class="tab" onclick="switchTab(1)">🏢 Склады</button>
+    <button class="tab" onclick="switchTab(2)">📋 Справочник</button>
+    <button class="tab" onclick="switchTab(3)">🔄 Движения</button>
+    <button class="tab" onclick="switchTab(4)">⚠️ Дефицит</button>
+    <button class="tab" onclick="switchTab(5)">🖨 Оборудование</button>
+    <button class="tab" onclick="switchTab(6)">📊 Инвентаризация</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -115,6 +140,127 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
+<!-- Warehouse modal -->
+<div class="overlay" id="wh-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:500px">
+  <div class="modal-title"><span id="wh-modal-title">Новый склад</span><button class="dr-close" onclick="document.getElementById('wh-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="wh-id"/>
+  <div class="field"><div class="fl">Название *</div><input class="fin" id="wh-name" placeholder="Центральный склад"/></div>
+  <div class="field"><div class="fl">Тип *</div>
+    <select class="fselect" id="wh-type">
+      <option value="central">Центральный</option>
+      <option value="venue">На площадке</option>
+      <option value="mobile">Мобильный</option>
+    </select>
+  </div>
+  <div class="field"><div class="fl">Город</div><input class="fin" id="wh-city" placeholder="Москва"/></div>
+  <div class="field"><div class="fl">Площадка</div><select class="fselect" id="wh-venue"><option value="">— не привязан —</option></select></div>
+  <div class="field"><div class="fl">Адрес</div><input class="fin" id="wh-address" placeholder="ул. Пушкина, 1"/></div>
+  <div class="field"><div class="fl">Ответственный</div><select class="fselect" id="wh-responsible"><option value="">— не назначен —</option></select></div>
+  <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="wh-notes" rows="2" placeholder="Произвольные заметки..."></textarea></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('wh-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="saveWarehouse()">Сохранить</button>
+  </div>
+</div>
+</div>
+
+<!-- Item modal -->
+<div class="overlay" id="item-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:480px">
+  <div class="modal-title"><span id="item-modal-title">Новая позиция</span><button class="dr-close" onclick="document.getElementById('item-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="item-id"/>
+  <div class="field"><div class="fl">Название *</div><input class="fin" id="item-name" placeholder="Бумага DNP 10x15"/></div>
+  <div class="field"><div class="fl">Тип *</div>
+    <select class="fselect" id="item-type">
+      <option value="consumable">Расходник</option>
+      <option value="equipment">Оборудование</option>
+    </select>
+  </div>
+  <div class="field"><div class="fl">Единица измерения</div><input class="fin" id="item-unit" placeholder="шт, рулон, пачка..."/></div>
+  <div class="field"><div class="fl">Категория</div><input class="fin" id="item-category" placeholder="бумага, краска, принтер..."/></div>
+  <div class="field"><div class="fl">Описание</div><textarea class="fin" id="item-desc" rows="2" placeholder="Описание позиции..."></textarea></div>
+  <div class="field"><div class="fl">Поставщик</div><input class="fin" id="item-supplier" placeholder="DNP, Fuji..."/></div>
+  <div class="field"><div class="fl">Порог пополнения (предупреждение)</div><input class="fin" type="number" id="item-reorder" placeholder="0" min="0"/></div>
+  <div class="field"><div class="fl">Последняя цена закупки (₽)</div><input class="fin" type="number" id="item-price" placeholder="0" min="0"/></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('item-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="saveItem()">Сохранить</button>
+  </div>
+</div>
+</div>
+
+<!-- Warehouse Drawer -->
+<div class="drawer-backdrop" id="wh-drawer-backdrop" onclick="closeWhDrawer()"></div>
+<div class="drawer" id="wh-drawer">
+  <div class="drawer-title">
+    <span id="wh-drawer-name">Склад</span>
+    <button class="dr-close" onclick="closeWhDrawer()">×</button>
+  </div>
+  <div id="wh-drawer-body">Загрузка...</div>
+</div>
+
+<!-- Purchase Order Modal -->
+<div class="overlay" id="po-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto">
+  <div class="modal-title"><span>Новая закупка</span><button class="dr-close" onclick="document.getElementById('po-modal').classList.remove('open')">×</button></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="field"><div class="fl">Склад *</div><select class="fselect" id="po-warehouse"></select></div>
+    <div class="field"><div class="fl">Поставщик</div><input class="fin" id="po-supplier" placeholder="DNP, Fuji..."/></div>
+    <div class="field"><div class="fl">Дата заказа</div><input class="fin" type="date" id="po-date"/></div>
+    <div class="field"><div class="fl">Ожидаемая доставка</div><input class="fin" type="date" id="po-delivery"/></div>
+  </div>
+  <div class="field"><div class="fl">Заметки</div><input class="fin" id="po-notes" placeholder="Контракт, условия..."/></div>
+  <div style="margin:10px 0 6px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Позиции</div>
+  <div id="po-lines"></div>
+  <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:12px" onclick="addPoLine()">+ Добавить позицию</button>
+  <div style="margin-top:10px;text-align:right;font-size:13px;color:var(--text2)">Итого: <span id="po-total" style="font-weight:600;color:var(--text)">0 ₽</span></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('po-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="savePurchaseOrder()">Создать закупку</button>
+  </div>
+</div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="overlay" id="tr-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:520px">
+  <div class="modal-title"><span>Перемещение между складами</span><button class="dr-close" onclick="document.getElementById('tr-modal').classList.remove('open')">×</button></div>
+  <div class="field"><div class="fl">Со склада *</div><select class="fselect" id="tr-from"></select></div>
+  <div class="field"><div class="fl">На склад *</div><select class="fselect" id="tr-to"></select></div>
+  <div class="field"><div class="fl">Заметки</div><input class="fin" id="tr-notes" placeholder="Причина перемещения..."/></div>
+  <div style="margin:10px 0 6px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Позиции</div>
+  <div id="tr-lines"></div>
+  <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:12px" onclick="addTrLine()">+ Добавить позицию</button>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('tr-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="saveTransfer()">Создать перемещение</button>
+  </div>
+</div>
+</div>
+
+<!-- Inventory Session Modal -->
+<div class="overlay" id="inv-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto">
+  <div class="modal-title">
+    <span id="inv-modal-title">Инвентаризация</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-ghost" style="font-size:12px" onclick="saveInvDraft()">💾 Сохранить</button>
+      <button class="btn btn-primary" style="font-size:12px" onclick="completeInvSession()">✅ Завершить</button>
+      <button class="dr-close" onclick="document.getElementById('inv-modal').classList.remove('open')">×</button>
+    </div>
+  </div>
+  <div id="inv-session-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+  <div class="table-wrap">
+    <table class="tbl" id="inv-lines-table">
+      <thead><tr><th>Позиция</th><th>Ед.</th><th>По системе</th><th>Фактически</th><th>Расхождение</th><th>Заметка</th></tr></thead>
+      <tbody id="inv-lines-body"></tbody>
+    </table>
+  </div>
+  <input type="hidden" id="inv-session-id"/>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -124,6 +270,7 @@ const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e'
 const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4};
 const roleNow=()=>currentUser?.role||'photographer_user';
 const hasAnyRole=(roles)=>roles.includes(roleNow());
+function can(role){return roleNow()===role;}
 function openProfile(){window.location.href='index.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
@@ -132,6 +279,7 @@ function openAchievementsPanel(){window.location.href='index.html#achievements';
 function openBirthdaysPanel(){window.location.href='index.html#birthdays';}
 function openLikesPanel(){window.location.href='index.html#likes';}
 let warehouses=[],items=[],currentTabIdx=0;
+let venues=[],users=[],currentWhId=null;
 let refreshLock=null;
 
 async function api(m,p,b){
@@ -175,6 +323,7 @@ function esc(s) {
     setupUserPill();
     setupNav('stock');
     fillPlaceholderStats();
+    loadSummary();
     [warehouses,items]=await Promise.all([api('GET','/warehouses').catch(()=>[]),api('GET','/inventory-items').catch(()=>[])]);
     switchTab(0);
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
@@ -183,10 +332,221 @@ function esc(s) {
 function switchTab(idx){
   currentTabIdx=idx;
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  if(idx===0)loadStock();
-  if(idx===1)loadMovements();
-  if(idx===2)loadDeficit();
-  if(idx===3)loadEquipment();
+  const fns=[loadStock,loadWarehouses,loadItems,loadMovements,loadDeficit,loadEquipment,loadInventory];
+  if(fns[idx]) fns[idx]();
+}
+
+// ── БЛОК 1: Склады и Справочник ──
+
+async function loadSummary() {
+  try {
+    const s = await api('GET', '/stock/summary');
+    const el = document.getElementById('hstats');
+    if (!el) return;
+    const critColor = s.critical_count > 0 ? 'var(--rank3)' : 'var(--text3)';
+    el.innerHTML = `
+      <div class="stat"><div class="stat-num">${s.warehouses_count}</div><div class="stat-lbl">складов</div></div>
+      <div class="stat"><div class="stat-num">${s.items_count}</div><div class="stat-lbl">позиций</div></div>
+      <div class="stat"><div class="stat-num" style="color:${critColor}">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>
+      <div class="stat"><div class="stat-num">${s.equipment_active}</div><div class="stat-lbl">оборудования</div></div>
+      ${s.total_stock_value > 0 ? `<div class="stat"><div class="stat-num" style="font-size:13px">${s.total_stock_value.toLocaleString('ru-RU')} ₽</div><div class="stat-lbl">стоимость</div></div>` : ''}
+    `;
+  } catch(e) { /* не критично */ }
+}
+
+async function loadWarehouses() {
+  try {
+    const [whs, vens, usrs] = await Promise.all([
+      api('GET', '/warehouses'),
+      api('GET', '/venues').catch(() => []),
+      api('GET', '/users').catch(() => []),
+    ]);
+    venues = vens; users = usrs;
+    const c = document.getElementById('content');
+    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
+    const TYPE_CLS = { central: 'wh-type-central', venue: 'wh-type-venue', mobile: 'wh-type-mobile' };
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title">🏢 Склады
+          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
+        </div>
+        ${whs.length ? `<div class="card-grid">
+          ${whs.filter(w => w.is_active).map(w => `
+            <div class="wh-card" onclick="openWhDrawer('${w.id}')">
+              <div><span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span></div>
+              <div style="font-weight:600;margin-bottom:4px">${esc(w.name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${w.city ? esc(w.city) + ' · ' : ''}${esc(w.venue_name || '—')}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || 'Не назначен')}</div>
+            </div>
+          `).join('')}
+        </div>` : '<div style="color:var(--text3)">Нет складов. Создайте первый.</div>'}
+      </div>`;
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function openWhModal(wh) {
+  document.getElementById('wh-modal-title').textContent = wh ? 'Редактировать склад' : 'Новый склад';
+  document.getElementById('wh-id').value = wh?.id || '';
+  document.getElementById('wh-name').value = wh?.name || '';
+  document.getElementById('wh-type').value = wh?.warehouse_type || 'central';
+  document.getElementById('wh-city').value = wh?.city || '';
+  document.getElementById('wh-address').value = wh?.address || '';
+  document.getElementById('wh-notes').value = wh?.notes || '';
+
+  // Заполнить площадки
+  const vSel = document.getElementById('wh-venue');
+  vSel.innerHTML = '<option value="">— не привязан —</option>' +
+    venues.map(v => `<option value="${v.id}" ${wh?.venue_id === v.id ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+
+  // Заполнить ответственных
+  const uSel = document.getElementById('wh-responsible');
+  uSel.innerHTML = '<option value="">— не назначен —</option>' +
+    users.filter(u => u.is_active).map(u => `<option value="${u.id}" ${wh?.responsible_user_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
+
+  document.getElementById('wh-modal').classList.add('open');
+}
+
+async function saveWarehouse() {
+  const id = document.getElementById('wh-id').value;
+  const body = {
+    name: document.getElementById('wh-name').value.trim(),
+    warehouse_type: document.getElementById('wh-type').value,
+    city: document.getElementById('wh-city').value.trim() || null,
+    venue_id: document.getElementById('wh-venue').value || null,
+    address: document.getElementById('wh-address').value.trim() || null,
+    responsible_user_id: document.getElementById('wh-responsible').value || null,
+    notes: document.getElementById('wh-notes').value.trim() || null,
+  };
+  if (!body.name) { showToast('Введите название', true); return; }
+  try {
+    if (id) await api('PATCH', `/warehouses/${id}`, body);
+    else await api('POST', '/warehouses', body);
+    document.getElementById('wh-modal').classList.remove('open');
+    showToast(id ? 'Склад обновлён' : 'Склад создан');
+    loadWarehouses(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function openWhDrawer(id) {
+  currentWhId = id;
+  document.getElementById('wh-drawer-backdrop').classList.add('open');
+  document.getElementById('wh-drawer').classList.add('open');
+  document.getElementById('wh-drawer-body').innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>';
+  try {
+    const [whs, stock] = await Promise.all([
+      api('GET', '/warehouses'),
+      api('GET', `/stock?warehouse_id=${id}`),
+    ]);
+    const wh = whs.find(w => w.id === id);
+    if (!wh) return;
+    document.getElementById('wh-drawer-name').textContent = wh.name;
+    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
+    const stockRows = stock.length ? stock.map(s => `
+      <tr>
+        <td>${esc(s.item_name)}</td>
+        <td style="font-weight:600;color:${s.is_low ? 'var(--rank3)' : 'var(--text)'}">${s.quantity} ${esc(s.unit || '')}</td>
+        <td style="color:var(--text3)">${s.min_quantity || '—'}</td>
+        <td><span style="color:${s.is_low ? 'var(--rank3)' : 'var(--rank1)'}">${s.is_low ? '⚠️' : '✅'}</span></td>
+      </tr>`).join('') : '<tr><td colspan="4" style="color:var(--text3);padding:8px">Нет остатков</td></tr>';
+    document.getElementById('wh-drawer-body').innerHTML = `
+      <div class="info-row"><span class="info-label">Тип</span><span>${TYPE_LABELS[wh.warehouse_type] || wh.warehouse_type}</span></div>
+      ${wh.city ? `<div class="info-row"><span class="info-label">Город</span><span>${esc(wh.city)}</span></div>` : ''}
+      ${wh.address ? `<div class="info-row"><span class="info-label">Адрес</span><span>${esc(wh.address)}</span></div>` : ''}
+      <div class="info-row"><span class="info-label">Ответственный</span><span>${esc(wh.responsible_name || 'Не назначен')}</span></div>
+      ${wh.notes ? `<div class="info-row"><span class="info-label">Заметки</span><span style="color:var(--text2)">${esc(wh.notes)}</span></div>` : ''}
+      <div style="margin-top:16px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Остатки (${stock.length})</div>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Мин.</th><th></th></tr></thead><tbody>${stockRows}</tbody></table></div>
+      ${canEdit ? `<div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-ghost" style="flex:1;font-size:12px" onclick="openWhModal(${JSON.stringify(wh).replace(/"/g,'&quot;')})">✏️ Редактировать</button>
+        <button class="btn btn-ghost" style="font-size:12px;border-color:var(--rank3);color:var(--rank3)" onclick="deactivateWarehouse('${wh.id}')">Деактивировать</button>
+      </div>` : ''}
+    `;
+  } catch(e) { document.getElementById('wh-drawer-body').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function closeWhDrawer() {
+  document.getElementById('wh-drawer-backdrop').classList.remove('open');
+  document.getElementById('wh-drawer').classList.remove('open');
+  currentWhId = null;
+}
+
+async function deactivateWarehouse(id) {
+  if (!confirm('Деактивировать склад? Это действие нельзя отменить из интерфейса.')) return;
+  try {
+    await api('DELETE', `/warehouses/${id}`);
+    closeWhDrawer();
+    showToast('Склад деактивирован');
+    loadWarehouses(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function loadItems() {
+  try {
+    const items_all = await api('GET', '/inventory-items');
+    const c = document.getElementById('content');
+    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование' };
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title">📋 Справочник позиций
+          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
+        </div>
+        ${items_all.length ? `<div class="table-wrap"><table class="tbl">
+          <thead><tr><th>Название</th><th>Тип</th><th>Ед.</th><th>Категория</th><th>Поставщик</th><th>Мин.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
+          <tbody>
+          ${items_all.map(it => `<tr style="${it.is_active ? '' : 'opacity:.4'}">
+            <td>${esc(it.name)}</td>
+            <td style="font-size:11px">${TYPE_LABELS[it.item_type] || it.item_type}</td>
+            <td style="color:var(--text3)">${esc(it.unit || 'шт')}</td>
+            <td style="color:var(--text3);font-size:11px">${esc(it.category || '—')}</td>
+            <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
+            <td>${it.min_quantity ?? '—'}</td>
+            <td>${it.reorder_point > 0 ? it.reorder_point : '—'}</td>
+            <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
+            <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it)})'>✏️</button>` : ''}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table></div>` : '<div style="color:var(--text3)">Нет позиций. Добавьте первую.</div>'}
+      </div>`;
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function openItemModal(it) {
+  document.getElementById('item-modal-title').textContent = it ? 'Редактировать позицию' : 'Новая позиция';
+  document.getElementById('item-id').value = it?.id || '';
+  document.getElementById('item-name').value = it?.name || '';
+  document.getElementById('item-type').value = it?.item_type || 'consumable';
+  document.getElementById('item-unit').value = it?.unit || '';
+  document.getElementById('item-category').value = it?.category || '';
+  document.getElementById('item-desc').value = it?.description || '';
+  document.getElementById('item-supplier').value = it?.supplier || '';
+  document.getElementById('item-reorder').value = it?.reorder_point || 0;
+  document.getElementById('item-price').value = it?.last_purchase_price || '';
+  document.getElementById('item-modal').classList.add('open');
+}
+
+async function saveItem() {
+  const id = document.getElementById('item-id').value;
+  const body = {
+    name: document.getElementById('item-name').value.trim(),
+    item_type: document.getElementById('item-type').value,
+    unit: document.getElementById('item-unit').value.trim() || 'шт',
+    category: document.getElementById('item-category').value.trim() || null,
+    description: document.getElementById('item-desc').value.trim() || null,
+    supplier: document.getElementById('item-supplier').value.trim() || null,
+    reorder_point: parseFloat(document.getElementById('item-reorder').value) || 0,
+    last_purchase_price: parseFloat(document.getElementById('item-price').value) || null,
+  };
+  if (!body.name) { showToast('Введите название', true); return; }
+  try {
+    if (id) await api('PATCH', `/inventory-items/${id}`, body);
+    else await api('POST', '/inventory-items', body);
+    document.getElementById('item-modal').classList.remove('open');
+    showToast(id ? 'Позиция обновлена' : 'Позиция создана');
+    loadItems(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
 }
 
 async function loadStock(){
@@ -209,26 +569,216 @@ async function loadStock(){
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
-async function loadMovements(){
-  try{
-    const moves=await api('GET','/stock-movements?limit=50');
-    const c=document.getElementById('content');
-    const TYPE_LABELS={purchase:'📥 Закупка',transfer:'🔄 Перемещение',writeoff:'📤 Списание',adjustment:'📝 Корректировка',report_writeoff:'📊 По отчёту'};
-    c.innerHTML=`<div class="section">
-      <div class="section-title">🔄 Последние движения <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button></div>
-      ${moves.length?`<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Кто</th></tr></thead><tbody>
-      ${moves.map(m=>`<tr>
-        <td>${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
-        <td>${TYPE_LABELS[m.movement_type]||m.movement_type}</td>
-        <td>${esc(m.item_name)}</td>
-        <td style="font-weight:600">${m.quantity} ${esc(m.unit||'')}</td>
-        <td>${esc(m.from_warehouse_name||'—')}</td>
-        <td>${esc(m.to_warehouse_name||'—')}</td>
-        <td style="color:var(--text3)">${esc(m.created_by_name||'')}</td>
-      </tr>`).join('')}
-      </tbody></table></div>`:'<div style="color:var(--text3)">Нет движений</div>'}
-    </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+// ── БЛОК 2: Закупки и перемещения ──
+let poLineCount = 0, trLineCount = 0;
+
+function openPoModal() {
+  poLineCount = 0;
+  document.getElementById('po-lines').innerHTML = '';
+  document.getElementById('po-supplier').value = '';
+  document.getElementById('po-notes').value = '';
+  document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('po-delivery').value = '';
+  document.getElementById('po-total').textContent = '0 ₽';
+  const whSel = document.getElementById('po-warehouse');
+  whSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  addPoLine();
+  document.getElementById('po-modal').classList.add('open');
+}
+
+function addPoLine() {
+  const n = poLineCount++;
+  const div = document.createElement('div');
+  div.id = `po-line-${n}`;
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML = `
+    <select class="fselect" id="po-item-${n}" style="font-size:11px">
+      ${items.filter(i=>i.item_type==='consumable').map(i=>`<option value="${i.id}" data-price="${i.last_purchase_price||0}">${esc(i.name)}</option>`).join('')}
+    </select>
+    <input class="fin" type="number" id="po-qty-${n}" placeholder="Кол-во" min="1" oninput="updatePoTotal()" style="font-size:11px"/>
+    <input class="fin" type="number" id="po-price-${n}" placeholder="Цена" min="0" oninput="updatePoTotal()" style="font-size:11px"/>
+    <button class="dr-close" onclick="document.getElementById('po-line-${n}').remove();updatePoTotal()" title="Удалить">×</button>
+  `;
+  document.getElementById('po-lines').appendChild(div);
+}
+
+function updatePoTotal() {
+  let total = 0;
+  document.querySelectorAll('[id^="po-line-"]').forEach(row => {
+    const n = row.id.split('-')[2];
+    const qty = parseFloat(document.getElementById(`po-qty-${n}`)?.value) || 0;
+    const price = parseFloat(document.getElementById(`po-price-${n}`)?.value) || 0;
+    total += qty * price;
+  });
+  document.getElementById('po-total').textContent = total.toLocaleString('ru-RU') + ' ₽';
+}
+
+async function savePurchaseOrder() {
+  const warehouse_id = document.getElementById('po-warehouse').value;
+  if (!warehouse_id) { showToast('Выберите склад', true); return; }
+  const lines = [];
+  document.querySelectorAll('[id^="po-line-"]').forEach(row => {
+    const n = row.id.split('-')[2];
+    const item_id = document.getElementById(`po-item-${n}`)?.value;
+    const qty = parseFloat(document.getElementById(`po-qty-${n}`)?.value);
+    const price = parseFloat(document.getElementById(`po-price-${n}`)?.value) || 0;
+    if (item_id && qty > 0) lines.push({ item_id, quantity: qty, unit_price: price });
+  });
+  if (!lines.length) { showToast('Добавьте хотя бы одну позицию', true); return; }
+  try {
+    await api('POST', '/purchase-orders', {
+      warehouse_id,
+      supplier: document.getElementById('po-supplier').value.trim() || null,
+      order_date: document.getElementById('po-date').value,
+      delivery_date: document.getElementById('po-delivery').value || null,
+      notes: document.getElementById('po-notes').value.trim() || null,
+      lines,
+    });
+    document.getElementById('po-modal').classList.remove('open');
+    showToast('Закупка создана');
+    loadMovements();
+  } catch(e) { showToast(e.message, true); }
+}
+
+function openTrModal() {
+  trLineCount = 0;
+  document.getElementById('tr-lines').innerHTML = '';
+  document.getElementById('tr-notes').value = '';
+  const whOpts = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  document.getElementById('tr-from').innerHTML = whOpts;
+  document.getElementById('tr-to').innerHTML = whOpts;
+  addTrLine();
+  document.getElementById('tr-modal').classList.add('open');
+}
+
+function addTrLine() {
+  const n = trLineCount++;
+  const div = document.createElement('div');
+  div.id = `tr-line-${n}`;
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML = `
+    <select class="fselect" id="tr-item-${n}" style="font-size:11px">
+      ${items.map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('')}
+    </select>
+    <input class="fin" type="number" id="tr-qty-${n}" placeholder="Кол-во" min="1" style="font-size:11px"/>
+    <button class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить">×</button>
+  `;
+  document.getElementById('tr-lines').appendChild(div);
+}
+
+async function saveTransfer() {
+  const from_warehouse_id = document.getElementById('tr-from').value;
+  const to_warehouse_id = document.getElementById('tr-to').value;
+  if (!from_warehouse_id || !to_warehouse_id) { showToast('Выберите оба склада', true); return; }
+  if (from_warehouse_id === to_warehouse_id) { showToast('Склады должны быть разными', true); return; }
+  const lines = [];
+  document.querySelectorAll('[id^="tr-line-"]').forEach(row => {
+    const n = row.id.split('-')[2];
+    const item_id = document.getElementById(`tr-item-${n}`)?.value;
+    const qty = parseFloat(document.getElementById(`tr-qty-${n}`)?.value);
+    if (item_id && qty > 0) lines.push({ item_id, quantity: qty });
+  });
+  if (!lines.length) { showToast('Добавьте позиции', true); return; }
+  try {
+    await api('POST', '/stock-transfers', {
+      from_warehouse_id, to_warehouse_id,
+      notes: document.getElementById('tr-notes').value.trim() || null,
+      lines,
+    });
+    document.getElementById('tr-modal').classList.remove('open');
+    showToast('Перемещение создано');
+    loadMovements();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function deliverPurchaseOrder(id) {
+  if (!confirm('Провести приход по закупке? Остатки на складе будут обновлены.')) return;
+  try {
+    await api('POST', `/purchase-orders/${id}/deliver`);
+    showToast('Приход проведён, остатки обновлены');
+    loadMovements(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function confirmTransfer(id) {
+  if (!confirm('Подтвердить получение? Остатки будут обновлены на обоих складах.')) return;
+  try {
+    await api('POST', `/stock-transfers/${id}/confirm`);
+    showToast('Перемещение подтверждено');
+    loadMovements(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function loadMovements() {
+  try {
+    const c = document.getElementById('content');
+    c.innerHTML = `<div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>`;
+    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const [moves, purchases, transfers] = await Promise.all([
+      api('GET', '/stock-movements?limit=50'),
+      api('GET', '/purchase-orders?limit=20').catch(() => []),
+      api('GET', '/stock-transfers?limit=20').catch(() => []),
+    ]);
+    const TYPE_LABELS = { purchase: '📥 Закупка', transfer: '🔄 Перемещение', writeoff: '📤 Списание', adjustment: '📝 Корректировка', report_writeoff: '📊 По отчёту' };
+    const STATUS_LABELS = { draft: 'Черновик', ordered: 'Заказано', delivered: '✅ Получено', cancelled: '❌ Отменено', pending: '⏳ Ожидает', confirmed: '✅ Подтверждено' };
+
+    c.innerHTML = `
+      <div class="section" style="margin-bottom:12px">
+        <div class="section-title">🔄 Движения
+          ${canManage ? `<div style="margin-left:auto;display:flex;gap:6px">
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openMoveModal()">+ Ручное</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openTrModal()">🔄 Перемещение</button>
+            <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="openPoModal()">📥 Закупка</button>
+          </div>` : ''}
+        </div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Цена</th><th>Кто</th></tr></thead><tbody>
+        ${moves.map(m=>`<tr>
+          <td style="font-size:11px;color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+          <td>${TYPE_LABELS[m.movement_type]||m.movement_type}</td>
+          <td>${esc(m.item_name)}</td>
+          <td style="font-weight:600">${m.quantity} ${esc(m.unit||'')}</td>
+          <td style="color:var(--text3);font-size:11px">${esc(m.from_warehouse_name||'—')}</td>
+          <td style="color:var(--text3);font-size:11px">${esc(m.to_warehouse_name||'—')}</td>
+          <td style="color:var(--text3);font-size:11px">${m.unit_price ? m.unit_price.toLocaleString('ru-RU')+'₽' : '—'}</td>
+          <td style="color:var(--text3);font-size:11px">${esc(m.created_by_name||'')}</td>
+        </tr>`).join('')}
+        </tbody></table></div>
+      </div>
+
+      ${purchases.length ? `<div class="section">
+        <div class="section-title">📦 Закупки</div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Поставщик</th><th>Склад</th><th>Сумма</th><th>Позиций</th><th>Статус</th><th></th></tr></thead><tbody>
+        ${purchases.map(po=>`<tr>
+          <td style="font-size:11px">${new Date(po.order_date).toLocaleDateString('ru-RU')}</td>
+          <td>${esc(po.supplier||'—')}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(po.warehouse_name)}</td>
+          <td style="font-weight:600">${po.total_amount?.toLocaleString('ru-RU')||0} ₽</td>
+          <td style="color:var(--text3)">${po.lines_count}</td>
+          <td><span style="font-size:11px">${STATUS_LABELS[po.status]||po.status}</span></td>
+          <td>${canManage && po.status !== 'delivered' && po.status !== 'cancelled' ?
+            `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank1)" onclick="deliverPurchaseOrder('${po.id}')">Провести</button>` : ''
+          }</td>
+        </tr>`).join('')}
+        </tbody></table></div>
+      </div>` : ''}
+
+      ${transfers.length ? `<div class="section">
+        <div class="section-title">🔄 Перемещения</div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Откуда</th><th>Куда</th><th>Позиций</th><th>Статус</th><th></th></tr></thead><tbody>
+        ${transfers.map(tr=>`<tr>
+          <td style="font-size:11px">${new Date(tr.created_at).toLocaleDateString('ru-RU')}</td>
+          <td>${esc(tr.from_warehouse_name)}</td>
+          <td>${esc(tr.to_warehouse_name)}</td>
+          <td style="color:var(--text3)">${tr.lines_count}</td>
+          <td><span style="font-size:11px">${STATUS_LABELS[tr.status]||tr.status}</span></td>
+          <td>${canManage && tr.status === 'pending' ?
+            `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank1)" onclick="confirmTransfer('${tr.id}')">Подтвердить</button>` : ''
+          }</td>
+        </tr>`).join('')}
+        </tbody></table></div>
+      </div>` : ''}
+    `;
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
 
 async function loadDeficit(){
@@ -268,6 +818,142 @@ async function loadEquipment(){
       </tbody></table></div>`:'<div style="color:var(--text3)">Нет оборудования</div>'}
     </div>`;
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+// ── БЛОК 3: Инвентаризация ──
+
+async function loadInventory() {
+  try {
+    const c = document.getElementById('content');
+    const [sessions] = await Promise.all([
+      api('GET', '/inventory-sessions'),
+    ]);
+    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const STATUS_LABELS = { open: '🟡 Открыта', completed: '✅ Завершена', cancelled: '⚫ Отменена' };
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title">📊 Инвентаризации
+          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openNewInvSession()">+ Начать инвентаризацию</button>` : ''}
+        </div>
+        ${sessions.length ? `<div class="table-wrap"><table class="tbl">
+          <thead><tr><th>Дата</th><th>Склад</th><th>Позиций</th><th>Расхождений</th><th>Создал</th><th>Статус</th><th></th></tr></thead>
+          <tbody>
+          ${sessions.map(s => `<tr>
+            <td>${new Date(s.session_date).toLocaleDateString('ru-RU')}</td>
+            <td>${esc(s.warehouse_name)}</td>
+            <td style="color:var(--text3)">${s.lines_count}</td>
+            <td style="font-weight:600;color:${parseInt(s.discrepancies_count) > 0 ? 'var(--rank3)' : 'var(--rank1)'}">${s.discrepancies_count || 0}</td>
+            <td style="color:var(--text3);font-size:11px">${esc(s.created_by_name||'')}</td>
+            <td>${STATUS_LABELS[s.status]||s.status}</td>
+            <td>
+              ${s.status === 'open' ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="openInvSession('${s.id}')">Открыть</button>` : ''}
+              ${s.status === 'completed' ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="openInvSession('${s.id}', true)">Просмотр</button>` : ''}
+            </td>
+          </tr>`).join('')}
+          </tbody>
+        </table></div>` : '<div style="color:var(--text3)">Нет инвентаризаций</div>'}
+      </div>`;
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function openNewInvSession() {
+  const whs = warehouses.filter(w => w.is_active);
+  if (!whs.length) { showToast('Нет активных складов', true); return; }
+  const opts = whs.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
+  const choice = prompt(`Выберите склад (введите номер):\n${opts}`);
+  const idx = parseInt(choice) - 1;
+  if (isNaN(idx) || !whs[idx]) return;
+  try {
+    const sess = await api('POST', '/inventory-sessions', { warehouse_id: whs[idx].id });
+    showToast('Инвентаризация открыта');
+    await openInvSession(sess.id);
+    loadInventory();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function openInvSession(id, readOnly = false) {
+  try {
+    const sess = await api('GET', `/inventory-sessions/${id}`);
+    document.getElementById('inv-session-id').value = id;
+    document.getElementById('inv-modal-title').textContent = `Инвентаризация: ${esc(sess.warehouse_name)} — ${new Date(sess.session_date).toLocaleDateString('ru-RU')}`;
+    document.getElementById('inv-session-info').textContent = `Позиций: ${sess.lines?.length || 0} · Создал: ${sess.created_by_name || '—'} · Статус: ${sess.status}`;
+
+    const lines = sess.lines || [];
+    document.getElementById('inv-lines-body').innerHTML = lines.map(l => {
+      const expected = parseFloat(l.expected_qty) || 0;
+      const actual = l.actual_qty != null ? parseFloat(l.actual_qty) : null;
+      const delta = actual != null ? actual - expected : null;
+      const deltaColor = delta == null ? '' : delta > 0 ? 'var(--rank1)' : delta < 0 ? 'var(--rank3)' : 'var(--text3)';
+      return `<tr id="inv-row-${l.id}">
+        <td>${esc(l.item_name)}</td>
+        <td style="color:var(--text3)">${esc(l.unit || 'шт')}</td>
+        <td style="color:var(--text3)">${expected}</td>
+        <td>${readOnly || sess.status !== 'open'
+          ? `<span style="font-weight:600">${actual != null ? actual : '—'}</span>`
+          : `<input class="fin" type="number" id="inv-actual-${l.id}" value="${actual != null ? actual : ''}" placeholder="Введите..." min="0" oninput="updateInvDelta('${l.id}', ${expected})" style="width:80px;font-size:12px"/>`
+        }</td>
+        <td id="inv-delta-${l.id}" style="font-weight:600;color:${deltaColor}">${delta != null ? (delta > 0 ? '+' + delta : delta) : '—'}</td>
+        <td>${readOnly || sess.status !== 'open'
+          ? `<span style="color:var(--text3);font-size:11px">${esc(l.notes || '')}</span>`
+          : `<input class="fin" id="inv-note-${l.id}" value="${esc(l.notes || '')}" placeholder="Заметка..." style="font-size:11px"/>`
+        }</td>
+      </tr>`;
+    }).join('');
+
+    const btnSave = document.querySelector('#inv-modal .btn-ghost');
+    const btnComplete = document.querySelector('#inv-modal .btn-primary');
+    if (btnSave) btnSave.style.display = (readOnly || sess.status !== 'open') ? 'none' : '';
+    if (btnComplete) btnComplete.style.display = (readOnly || sess.status !== 'open') ? 'none' : '';
+
+    document.getElementById('inv-modal').classList.add('open');
+  } catch(e) { showToast(e.message, true); }
+}
+
+function updateInvDelta(lineId, expected) {
+  const actualEl = document.getElementById(`inv-actual-${lineId}`);
+  const deltaEl = document.getElementById(`inv-delta-${lineId}`);
+  if (!actualEl || !deltaEl) return;
+  const actual = parseFloat(actualEl.value);
+  if (isNaN(actual)) { deltaEl.textContent = '—'; deltaEl.style.color = ''; return; }
+  const delta = actual - expected;
+  deltaEl.textContent = delta > 0 ? '+' + delta : delta;
+  deltaEl.style.color = delta > 0 ? 'var(--rank1)' : delta < 0 ? 'var(--rank3)' : 'var(--text3)';
+}
+
+async function saveInvDraft() {
+  const id = document.getElementById('inv-session-id').value;
+  const lines = collectInvLines();
+  if (!lines.length) { showToast('Нет изменений', true); return; }
+  try {
+    await api('PATCH', `/inventory-sessions/${id}/lines`, { lines });
+    showToast('Сохранено');
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function completeInvSession() {
+  const id = document.getElementById('inv-session-id').value;
+  const lines = collectInvLines();
+  if (lines.length) {
+    await api('PATCH', `/inventory-sessions/${id}/lines`, { lines }).catch(() => {});
+  }
+  if (!confirm('Завершить инвентаризацию? Все расхождения будут скорректированы в складских остатках.')) return;
+  try {
+    const result = await api('POST', `/inventory-sessions/${id}/complete`);
+    document.getElementById('inv-modal').classList.remove('open');
+    showToast(`Инвентаризация завершена. Корректировок: ${result.adjustments}`);
+    loadInventory(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
+}
+
+function collectInvLines() {
+  const lines = [];
+  document.querySelectorAll('[id^="inv-actual-"]').forEach(el => {
+    const lineId = el.id.replace('inv-actual-', '');
+    const actual = el.value !== '' ? parseFloat(el.value) : null;
+    const notes = document.getElementById(`inv-note-${lineId}`)?.value || null;
+    if (actual !== null) lines.push({ line_id: lineId, actual_qty: actual, notes });
+  });
+  return lines;
 }
 
 function openMoveModal(){
