@@ -85,6 +85,17 @@
 </div>
 </div>
 
+<!-- Bonus schemes manager (above venue settings z-index) -->
+<div class="overlay" id="bs-modal" onclick="if(event.target===this){this.style.display='none'}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;align-items:center;justify-content:center;flex-wrap:wrap">
+<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">📝 Бонусные схемы</span>
+    <button class="dr-close" onclick="document.getElementById('bs-modal').style.display='none'" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+  </div>
+  <div id="bs-content"><div class="loading">Загрузка...</div></div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -161,8 +172,11 @@ const SM={new:['📝','sb-d'],draft:['📝 Черновик','sb-d'],submitted:[
 const[sl,sc]=SM[s]||SM.new;
 document.getElementById('rstat').innerHTML=`<span class="sb ${sc}">${sl}</span>`;
 const ed=!report||['draft','returned'].includes(report.status);
+window.__venueReportEditable=ed;
 const pd=report?.printer_data||[{format:'15x21'},{format:'10x15'}];
 const lines=report?.sale_lines||[];
+const advRows=(report?.advances)||[];
+const pettyRows=(report?.petty_cash_expenses)||[];
 
 document.getElementById('C').innerHTML=`
 <div class="sec"><div class="sec-t">📱 QR-чекин</div>
@@ -180,7 +194,41 @@ ${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div cl
 
 <div class="sec"><div class="sec-t">📊 Продажи</div>
 ${phs.length&&prods.length?salesTbl(phs,lines):'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
+${ed&&phs.length&&prods.length?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="button" onclick="calcBonuses(false)" style="font-size:11px">💰 Пересчитать бонусы</button><div id="bonus-results" style="font-size:11px;color:var(--text3)">Нажмите для расчёта ЗП и бонусов по схеме площадки</div></div>`:''}
 </div>
+
+${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+<div style="flex:1;min-width:200px">
+<div class="fl">Авансы фотографам</div>
+<div id="adv-list">
+${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
+<select class="fselect adv-ph" style="flex:2;font-size:11px">${phs.map(p=>`<option value="${p.photographer_id}" ${a.photographer_id===p.photographer_id?'selected':''}>${esc(p.photographer_name)}</option>`).join('')}</select>
+<input type="number" class="fin adv-amt" value="${a.amount||0}" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/>
+<input class="fin adv-reason" value="${esc(a.reason||'')}" placeholder="причина" style="flex:1;font-size:11px"/>
+<button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
+</div>`).join('')}
+</div>
+<button class="btn btn-ghost" style="font-size:10px" onclick="addAdvanceRow()">+ Аванс</button>
+</div>
+<div style="flex:1;min-width:200px">
+<div class="fl">Мелкие расходы из кассы</div>
+<div id="petty-list">
+${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
+<input type="number" class="fin petty-amt" value="${e.amount||0}" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/>
+<input class="fin petty-desc" value="${esc(e.description||'')}" placeholder="на что" style="flex:1;font-size:11px"/>
+<button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>
+</div>`).join('')}
+</div>
+<button class="btn btn-ghost" style="font-size:10px" onclick="addPettyRow()">+ Расход</button>
+</div>
+</div>
+<div style="margin-top:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:13px;font-weight:600">💵 К сдаче (нал):</span>
+<span id="cash-to-collect" style="font-size:18px;font-weight:700;color:var(--rank1)">0 ₽</span>
+</div>
+<div style="font-size:10px;color:var(--text3);margin-top:4px">= Наличные − Выплаты (ЗП+бонус) − Авансы − Расходы</div>
+</div>`:''}
 
 <div class="sec"><div class="sec-t">📝 Итоги</div>
 <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -200,26 +248,27 @@ const venueObj = venues.find(v => v.id === document.getElementById('vs').value);
 if (venueObj && venueObj.has_aquagrim) {
   document.getElementById('C').innerHTML += renderAqSection();
 }
+setTimeout(()=>{applyBonusFromReport();updateCashDisplay();},80);
 }
 
 function salesTbl(phs,lines){
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
 prods.forEach(p=>{h+=`<th>${esc(String((p.product_name||p.name)||'').slice(0,10))}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
-h+='<th>Брак</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th></tr></thead><tbody>';
+h+='<th>Брак</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
 phs.forEach(a=>{const ph=a.photographer_id;h+=`<tr><td>${esc(String((a.photographer_name||'')).slice(0,12))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>l.photographer_id===ph&&l.product_id===pid);
-h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" onchange="rc()"/></td>`;});
+h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="rc()"/></td>`;});
 const x=lines.find(l=>l.photographer_id===ph);
-h+=`<td><input type="number" min="0" value="${x?.waste_qty||0}" class="sw" data-ph="${ph}" style="width:34px"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.payment_cash||0}" class="sc" data-ph="${ph}" style="width:50px" onchange="rc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.payment_card||0}" class="sk" data-ph="${ph}" style="width:50px" onchange="rc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${x?.payment_qr||0}" class="sqr" data-ph="${ph}" style="width:50px" onchange="rc()"/></td>`;
-h+=`<td class="tot" id="rt${ph}">0</td></tr>`;});
+h+=`<td><input type="number" min="0" value="${x?.waste_qty||0}" class="sw" data-ph="${ph}" style="width:34px" oninput="rc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${x?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="rc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${x?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="rc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${x?.payment_cash||0}" class="sc" data-ph="${ph}" style="width:50px" oninput="rc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${x?.payment_card||0}" class="sk" data-ph="${ph}" style="width:50px" oninput="rc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${x?.payment_qr||0}" class="sqr" data-ph="${ph}" style="width:50px" oninput="rc()"/></td>`;
+h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
-h+='<td class="tot" id="tw">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td></tr></tbody></table></div>';
+h+='<td class="tot" id="tw">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">0</td></tr></tbody></table></div>';
 setTimeout(rc,50);return h;}
 
 function rc(){const i=document.querySelectorAll('.sq');const rt={},ct={};let g=0,tw=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
@@ -236,7 +285,10 @@ const$=id=>document.getElementById(id);
 if($('gt'))$('gt').textContent=g.toLocaleString('ru-RU');
 if($('tw'))$('tw').textContent=tw;if($('tfq'))$('tfq').textContent=tfq;
 if($('tfs'))$('tfs').textContent=tfs;if($('tc'))$('tc').textContent=tc.toLocaleString('ru-RU');
-if($('tk'))$('tk').textContent=tk.toLocaleString('ru-RU');if($('tq'))$('tq').textContent=tq.toLocaleString('ru-RU');}
+if($('tk'))$('tk').textContent=tk.toLocaleString('ru-RU');if($('tq'))$('tq').textContent=tq.toLocaleString('ru-RU');
+if(window.__venueReportEditable&&report?.id){clearTimeout(_bonusCalcTimer);_bonusCalcTimer=setTimeout(()=>calcBonuses(true),650);}
+updateCashDisplay();
+}
 
 function cpd(i){const s=document.querySelector(`.ps[data-i="${i}"]`),e=document.querySelector(`.pe[data-i="${i}"]`),d=document.getElementById('pd'+i);if(s&&e&&d)d.textContent=Math.max(0,(parseInt(e.value)||0)-(parseInt(s.value)||0));}
 function addPr(){const l=document.getElementById('prl'),i=l.children.length,d=document.createElement('div');d.className='pr';d.innerHTML=`<span style="min-width:40px">#${i+1}</span><div><div class="fl">№</div><input class="fin pn" data-i="${i}" style="width:60px"/></div><div><div class="fl">Нач</div><input class="fin ps" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div><div class="fl">Кон</div><input class="fin pe" type="number" data-i="${i}" oninput="cpd(${i})"/></div><div class="pr-diff" id="pd${i}">-</div>`;l.appendChild(d);}
@@ -247,26 +299,350 @@ async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${sh
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
 
 function collect(){
-const lines=[];document.querySelectorAll('.sq').forEach(n=>{const q=parseInt(n.value)||0,ph=n.dataset.ph;
-if(q>0)lines.push({photographer_id:ph,product_id:n.dataset.p,quantity:q,price:parseFloat(n.dataset.pr),
+const bonusMap=window.__bonusByPh||{};
+const firstPayForPh={};
+const lines=[];
+document.querySelectorAll('.sq').forEach(n=>{const q=parseInt(n.value)||0,ph=n.dataset.ph;
+if(q<=0)return;
+const isFirst=!firstPayForPh[ph];firstPayForPh[ph]=true;
+const pb=(isFirst&&bonusMap[ph])?bonusMap[ph].total:0;
+lines.push({photographer_id:ph,product_id:n.dataset.p,quantity:q,price:parseFloat(n.dataset.pr),
 waste_qty:parseInt(document.querySelector(`.sw[data-ph="${ph}"]`)?.value)||0,
 flash_qty:parseInt(document.querySelector(`.sfq[data-ph="${ph}"]`)?.value)||0,
 flash_sum:parseFloat(document.querySelector(`.sfs[data-ph="${ph}"]`)?.value)||0,
 payment_cash:parseFloat(document.querySelector(`.sc[data-ph="${ph}"]`)?.value)||0,
 payment_card:parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0,
-payment_qr:parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0});});
+payment_qr:parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0,
+payment_bonus:pb,
+has_change:false,has_pen:false,check_number:null,photographer_status:null,cash_to_collect:0});});
 const pr=[];document.querySelectorAll('.pn').forEach(n=>{const i=n.dataset.i;pr.push({printer_no:n.value,counter_start:parseInt(document.querySelector(`.ps[data-i="${i}"]`)?.value)||0,counter_end:parseInt(document.querySelector(`.pe[data-i="${i}"]`)?.value)||0});});
 return{lines,printer_data:pr};}
 
+function collectAdvances(){
+const list=[];
+const advRoot=document.getElementById('adv-list');
+if(!advRoot)return list;
+advRoot.querySelectorAll(':scope > div').forEach(row=>{
+const ph=row.querySelector('.adv-ph')?.value;
+const amt=parseFloat(row.querySelector('.adv-amt')?.value)||0;
+const reason=row.querySelector('.adv-reason')?.value||'';
+if(amt>0&&ph)list.push({photographer_id:ph,amount:amt,reason});
+});
+return list;
+}
+
+function collectPettyCash(){
+const list=[];
+const pr=document.getElementById('petty-list');
+if(!pr)return list;
+pr.querySelectorAll(':scope > div').forEach(row=>{
+const amt=parseFloat(row.querySelector('.petty-amt')?.value)||0;
+const desc=row.querySelector('.petty-desc')?.value||'';
+if(amt>0)list.push({amount:amt,description:desc});
+});
+return list;
+}
+
+function addAdvanceRow(){
+const phs=assigns.filter(a=>a.status!=='cancelled');
+const div=document.createElement('div');
+div.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
+div.innerHTML=`<select class="fselect adv-ph" style="flex:2;font-size:11px">${phs.map(p=>`<option value="${p.photographer_id}">${esc(p.photographer_name)}</option>`).join('')}</select><input type="number" class="fin adv-amt" value="0" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/><input class="fin adv-reason" value="" placeholder="причина" style="flex:1;font-size:11px"/><button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
+document.getElementById('adv-list').appendChild(div);
+}
+
+function addPettyRow(){
+const div=document.createElement('div');
+div.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
+div.innerHTML=`<input type="number" class="fin petty-amt" value="0" style="width:60px;font-size:11px" oninput="updateCashDisplay()"/><input class="fin petty-desc" value="" placeholder="на что" style="flex:1;font-size:11px"/><button class="btn btn-ghost" onclick="this.parentElement.remove();updateCashDisplay()" style="font-size:9px;padding:2px 4px;color:var(--rank3)">✕</button>`;
+document.getElementById('petty-list').appendChild(div);
+}
+
+function updateCashToCollect(bonusOverride){
+const tcEl=document.getElementById('tc');
+const cashEl=document.getElementById('cash-to-collect');
+if(!tcEl||!cashEl)return;
+const totalCash=parseFloat(String(tcEl.textContent||'').replace(/\s/g,'').replace(/[^\d.,-]/g,'').replace(',','.')||'0')||0;
+const tbonEl=document.getElementById('tbon');
+const totalBonus=bonusOverride!=null?bonusOverride:(parseFloat(tbonEl?.textContent?.replace(/\s/g,'').replace(/[^\d.,-]/g,'').replace(',','.')||'0')||0);
+const advances=collectAdvances().reduce((s,a)=>s+a.amount,0);
+const petty=collectPettyCash().reduce((s,e)=>s+e.amount,0);
+const result=totalCash-totalBonus-advances-petty;
+cashEl.textContent=result.toLocaleString('ru-RU')+' ₽';
+cashEl.style.color=result<0?'var(--rank3)':'var(--rank1)';
+}
+
+function updateCashDisplay(){updateCashToCollect();}
+
+let _bonusCalcTimer=null;
+async function calcBonuses(silent){
+if(!shift){if(!silent)toast('Нет смены',1);return;}
+if(!report?.id){
+await save('draft');
+if(!report?.id){if(!silent)toast('Сначала сохраните отчёт',1);return;}
+}
+try{
+const{lines,printer_data}=collect();
+await api('PATCH',`/daily-reports/${report.id}/lines`,{
+lines,printer_data,
+admin_name:document.getElementById('ra')?.value||null,
+manager_name:document.getElementById('rm')?.value||null,
+notes_report:document.getElementById('rn')?.value||null,
+advances:collectAdvances(),
+petty_cash_expenses:collectPettyCash()
+});
+const result=await api('POST',`/daily-reports/${report.id}/calc-bonuses`);
+const rows=result.results||[];
+window.__bonusByPh={};
+let totalPayout=0;
+rows.forEach(r=>{
+window.__bonusByPh[r.photographer_id]={total:r.total||0,salary:r.salary||0,bonus:r.bonus||0};
+const el=document.getElementById('bon'+r.photographer_id);
+if(el){
+el.textContent=(r.total||0).toLocaleString('ru-RU');
+el.title=`ЗП: ${r.salary||0}₽ + Бонус: ${r.bonus||0}₽ (${r.calc_mode||''})`;
+el.style.color=(r.total>0)?'var(--rank1)':'var(--text3)';
+}
+totalPayout+=r.total||0;
+});
+const tbon=document.getElementById('tbon');
+if(tbon)tbon.textContent=totalPayout.toLocaleString('ru-RU');
+const ctc=document.getElementById('cash-to-collect');
+if(ctc&&result.cash_to_collect!=null){
+ctc.textContent=Number(result.cash_to_collect).toLocaleString('ru-RU')+' ₽';
+ctc.style.color=parseFloat(result.cash_to_collect)<0?'var(--rank3)':'var(--rank1)';
+}else updateCashToCollect(totalPayout);
+if(!silent)toast('💰 Бонусы рассчитаны');
+}catch(e){if(!silent)toast(e.message,1);}
+}
+
+function applyBonusFromReport(){
+if(!report?.sale_lines)return;
+window.__bonusByPh={};
+const byPh={};
+for(const l of report.sale_lines){
+const ph=l.photographer_id;
+const pb=parseFloat(l.payment_bonus)||0;
+const se=parseFloat(l.salary_earned)||0;
+if(!byPh[ph]||pb>byPh[ph].total)byPh[ph]={total:pb,salary:se};
+}
+let sum=0;
+for(const ph of Object.keys(byPh)){
+const pb=byPh[ph].total,se=byPh[ph].salary;
+if(pb>0||se>0){
+window.__bonusByPh[ph]={total:pb,salary:se,bonus:pb-se};
+sum+=pb;
+const el=document.getElementById('bon'+ph);
+if(el){
+el.textContent=pb.toLocaleString('ru-RU');
+el.title=`ЗП: ${se}₽ + Бонус: ${(pb-se)}₽`;
+el.style.color=pb>0?'var(--rank1)':'var(--text3)';
+}
+}
+}
+const tbon=document.getElementById('tbon');
+if(tbon)tbon.textContent=sum.toLocaleString('ru-RU');
+}
+
+async function saveBonusConfig(vid,dayType,roleType,schemeId){
+try{
+if(!schemeId){
+const configs=await api('GET',`/venues/${vid}/bonus-config`);
+const existing=configs.find(c=>c.day_type===dayType&&c.role_type===roleType);
+if(existing)await api('DELETE',`/venues/${vid}/bonus-config/${existing.id}`);
+}else{
+await api('POST',`/venues/${vid}/bonus-config`,{day_type:dayType,role_type:roleType,scheme_id:schemeId});
+}
+toast('Схема привязана');
+}catch(e){toast(e.message,1);}
+}
+
+function renderBonusVenueSelectors(vid,schemes,cfg){
+const dayTypes=['weekday','weekend','holiday'];
+const dayLabels=['Будни','Выходные','Праздники'];
+const roles=[{key:'photographer',label:'Фотографы'},{key:'operator',label:'Оператор печати'},{key:'manager',label:'Менеджер'}];
+const pick=(dt,rt)=>cfg.find(c=>c.day_type===dt&&c.role_type===rt);
+let html='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">💰 Бонусные схемы</div><button type="button" class="btn btn-ghost" style="font-size:11px;margin-bottom:8px" onclick="openBonusSchemesModal()">📝 Управление схемами</button>';
+roles.forEach(({key,label})=>{
+html+=`<div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px">${esc(label)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">`;
+dayTypes.forEach((dt,idx)=>{
+const cur=pick(dt,key);
+const filtered=schemes.filter(s=>s.scheme_type===key);
+const options=['<option value="">Не выбрана</option>'].concat(filtered.map(s=>`<option value="${s.id}" ${cur?.scheme_id===s.id?'selected':''}>${esc(s.name)}</option>`)).join('');
+html+=`<div style="flex:1;min-width:140px"><div class="fl">${dayLabels[idx]}</div><select class="fselect" onchange="saveBonusConfig('${vid}','${dt}','${key}',this.value)" style="width:100%;font-size:11px">${options}</select></div>`;
+});
+html+='</div>';
+});
+html+='</div>';
+return html;
+}
+
+function bsSummarizeRules(s){
+try{const r=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
+return`Пороги: ${(r.thresholds||[]).length}, прогрессивных: ${(r.progressive||[]).length}`;
+}catch(e){return'';}
+}
+
+async function openBonusSchemesModal(){
+const m=document.getElementById('bs-modal');
+if(!m)return;
+m.style.display='flex';
+const bc=document.getElementById('bs-content');
+bc.innerHTML='<div class="loading">Загрузка...</div>';
+try{
+if(!hasAnyRole(['hr_director','exec_director','admin'])){bc.innerHTML='<div style="color:var(--text3);font-size:12px">Нет доступа к справочнику схем</div>';return;}
+const schemes=await api('GET','/bonus-schemes');
+const isAdmin=hasAnyRole(['admin']);
+let h=`<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">${isAdmin?'<button type="button" class="btn btn-primary" style="font-size:11px" onclick="openBsEdit(null)">+ Новая схема</button>':''}</div>`;
+h+=schemes.map(s=>`<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px">
+<div style="font-weight:600">${esc(s.name)} <span style="font-size:10px;color:var(--text3)">${esc(s.scheme_type)} · ${esc(s.calc_mode)}</span></div>
+<div style="font-size:10px;color:var(--text3);margin-top:4px">${esc(bsSummarizeRules(s))}</div>
+${isAdmin?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBsEdit('${s.id}')">Изменить</button><button type="button" class="btn btn-ghost" style="font-size:10px;color:var(--rank3)" onclick="deleteBsScheme('${s.id}')">Удалить</button></div>`:''}
+</div>`).join('');
+bc.innerHTML=h||'<div style="color:var(--text3)">Нет схем</div>';
+}catch(e){bc.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+window.__bsEditingId=null;
+async function openBsEdit(id){
+const bc=document.getElementById('bs-content');
+if(!hasAnyRole(['admin'])){toast('Только администратор',1);return;}
+if(id){
+try{
+const s=await api('GET',`/bonus-schemes/${id}`);
+window.__bsEditingId=id;
+bc.innerHTML=renderBsForm(s);
+}catch(e){toast(e.message,1);return;}
+}else{
+window.__bsEditingId=null;
+bc.innerHTML=renderBsForm({name:'',scheme_type:'photographer',calc_mode:'standard',percentage_rate:0.25,base_salary:0,rules:{thresholds:[],progressive:[]}});
+}
+}
+
+function renderBsForm(s){
+const rules=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
+const th=rules.thresholds||[];
+const pr=rules.progressive||[];
+const pct=(parseFloat(s.percentage_rate)!=null&&!isNaN(parseFloat(s.percentage_rate)))?(parseFloat(s.percentage_rate)*100):25;
+const cm=s.calc_mode==='percentage'?'percentage':'standard';
+return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBonusSchemesModal()">← К списку</button></div>
+<div style="display:grid;gap:10px">
+<div><div class="fl">Название</div><input class="fin" id="bs-name" value="${esc(s.name||'')}" style="width:100%"/></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<div><div class="fl">Тип</div><select class="fselect" id="bs-stype"><option value="photographer" ${(s.scheme_type||'')==='photographer'?'selected':''}>photographer</option><option value="operator" ${(s.scheme_type||'')==='operator'?'selected':''}>operator</option><option value="manager" ${(s.scheme_type||'')==='manager'?'selected':''}>manager</option></select></div>
+<div><div class="fl">Режим</div><select class="fselect" id="bs-cmode" onchange="bsToggleMode()"><option value="standard" ${cm==='standard'?'selected':''}>standard</option><option value="percentage" ${cm==='percentage'?'selected':''}>percentage</option></select></div>
+</div>
+<div id="bs-pct-wrap" style="display:${cm==='percentage'?'block':'none'}"><div class="fl">% от выручки (25 = 25%)</div><input class="fin" type="number" id="bs-pct" value="${pct}" step="0.01"/></div>
+<div id="bs-std-wrap" style="display:${cm==='percentage'?'none':'block'}">
+<div><div class="fl">Фикс. ставка (base_salary)</div><input class="fin" type="number" id="bs-bases" value="${s.base_salary||0}" step="0.01"/></div>
+<div style="margin-top:8px"><div class="fl">Пороги</div><div id="bs-th">${th.map((t,i)=>`<div class="bs-th-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center"><span style="font-size:10px;color:var(--text3)">от</span><input type="number" class="fin bs-th-from" value="${t.from||0}" style="width:80px"/><span style="font-size:10px;color:var(--text3)">бонус</span><input type="number" class="fin bs-th-bonus" value="${t.bonus||0}" style="width:80px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('')}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddTh()">+ Порог</button>
+<div style="margin-top:8px"><div class="fl">Прогрессивные</div><div id="bs-pr">${pr.map((p,i)=>`<div class="bs-pr-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px"><span>сверх</span><input type="number" class="fin bs-pr-a" value="${p.above||0}" style="width:70px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="${p.every||1}" style="width:50px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="${p.add||0}" style="width:60px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('')}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPr()">+ Правило</button>
+</div>
+<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px">
+<div><div class="fl">Выручка для теста</div><input class="fin" type="number" id="bs-prev-rev" value="15000"/></div>
+<button type="button" class="btn btn-ghost" onclick="bsPreview()">Предпросмотр</button>
+</div>
+<div id="bs-prev-out" style="font-size:11px;color:var(--accent2);margin-top:4px"></div>
+<div style="margin-top:10px"><button type="button" class="btn btn-primary" onclick="bsSave()">Сохранить</button></div>
+</div>`;
+}
+
+function bsToggleMode(){
+const cm=document.getElementById('bs-cmode').value;
+document.getElementById('bs-pct-wrap').style.display=cm==='percentage'?'block':'none';
+document.getElementById('bs-std-wrap').style.display=cm==='percentage'?'none':'block';
+}
+
+function bsAddTh(){
+const d=document.createElement('div');
+d.className='bs-th-row';
+d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
+d.innerHTML='<span style="font-size:10px;color:var(--text3)">от</span><input type="number" class="fin bs-th-from" value="0" style="width:80px"/><span style="font-size:10px;color:var(--text3)">бонус</span><input type="number" class="fin bs-th-bonus" value="0" style="width:80px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
+document.getElementById('bs-th').appendChild(d);
+}
+
+function bsAddPr(){
+const d=document.createElement('div');
+d.className='bs-pr-row';
+d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px';
+d.innerHTML='<span>сверх</span><input type="number" class="fin bs-pr-a" value="0" style="width:70px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="1" style="width:50px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="0" style="width:60px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
+document.getElementById('bs-pr').appendChild(d);
+}
+
+async function bsPreview(){
+const rev=parseFloat(document.getElementById('bs-prev-rev').value);
+if(!window.__bsEditingId){toast('Сохраните схему, затем предпросмотр',1);return;}
+try{
+const out=await api('POST',`/bonus-schemes/${window.__bsEditingId}/preview`,{revenue:rev});
+document.getElementById('bs-prev-out').textContent=`Выручка ${out.revenue} → бонус ${out.bonus}, база ${out.salary}, итого ${out.total}`;
+}catch(e){toast(e.message,1);}
+}
+
+function bsGatherPayload(){
+const name=document.getElementById('bs-name').value.trim();
+if(!name)throw new Error('Укажите название');
+const scheme_type=document.getElementById('bs-stype').value;
+const calc_mode=document.getElementById('bs-cmode').value;
+const thresholds=[];
+document.querySelectorAll('#bs-th .bs-th-row').forEach(row=>{
+thresholds.push({from:parseFloat(row.querySelector('.bs-th-from').value)||0,bonus:parseFloat(row.querySelector('.bs-th-bonus').value)||0});
+});
+const progressive=[];
+document.querySelectorAll('#bs-pr .bs-pr-row').forEach(row=>{
+progressive.push({above:parseFloat(row.querySelector('.bs-pr-a').value)||0,every:parseFloat(row.querySelector('.bs-pr-e').value)||1,add:parseFloat(row.querySelector('.bs-pr-ad').value)||0});
+});
+const rules={thresholds,progressive};
+let percentage_rate=0.25,base_salary=parseFloat(document.getElementById('bs-bases').value)||0;
+if(calc_mode==='percentage'){
+const p=parseFloat(document.getElementById('bs-pct').value);
+percentage_rate=Number.isFinite(p)?p/100:0.25;
+base_salary=0;
+}
+return{name,description:null,scheme_type,calc_mode,percentage_rate,base_salary,rules};
+}
+
+async function bsSave(){
+try{
+const body=bsGatherPayload();
+if(window.__bsEditingId){
+await api('PATCH',`/bonus-schemes/${window.__bsEditingId}`,body);
+toast('Сохранено');
+}else{
+const r=await api('POST','/bonus-schemes',body);
+window.__bsEditingId=r.id;
+toast('Создано');
+}
+openBonusSchemesModal();
+}catch(e){toast(e.message,1);}
+}
+
+async function deleteBsScheme(id){
+if(!confirm('Деактивировать схему?'))return;
+try{await api('DELETE',`/bonus-schemes/${id}`);toast('Схема отключена');openBonusSchemesModal();}catch(e){toast(e.message,1);}
+}
+
 async function save(st){
 if(!shift){toast('Нет смены',1);return;}
-const{lines,printer_data}=collect();
+const collected=collect();
+const{lines,printer_data}=collected;
 if(st==='submitted'&&!lines.length){toast('Заполните продажи',1);return;}
-const b={shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines,printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null};
+const advances=collectAdvances();
+const petty_cash_expenses=collectPettyCash();
+const body={
+shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,
+lines,printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,
+advances,petty_cash_expenses};
 try{
-if(report?.id){await api('PATCH',`/daily-reports/${report.id}`,b);if(st==='submitted')await api('POST',`/daily-reports/${report.id}/submit`);}
-else{b.status=st;await api('POST','/daily-reports',b);}
-toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');load();
+if(report?.id){
+await api('PATCH',`/daily-reports/${report.id}/lines`,body);
+if(st==='submitted')await api('POST',`/daily-reports/${report.id}/submit`);
+}else{
+const created=await api('POST','/daily-reports',body);
+report=created;
+await api('PATCH',`/daily-reports/${created.id}/lines`,body);
+if(st==='submitted')await api('POST',`/daily-reports/${created.id}/submit`);
+}
+toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');await load();
 }catch(e){toast(e.message,1);}}
 
 async function mkEvent(){const v=document.getElementById('vs').value,d=document.getElementById('sd').value;try{await api('POST','/events',{venue_id:v,event_date:d,event_type:'regular'});toast('Создано');load();}catch(e){toast(e.message,1);}}
@@ -281,10 +657,12 @@ async function openVenueSettings(){
   c.innerHTML='<div class="loading">Загрузка...</div>';
   try{
     const venue = await api('GET',`/venues/${vid}`).catch(()=>({}));
-    const[venueProds, allProds, aqVenueProds]=await Promise.all([
+    const[venueProds, allProds, aqVenueProds, bonusSchemes, bonusCfg]=await Promise.all([
       api('GET',`/venues/${vid}/products`).catch(()=>[]),
       api('GET','/products').catch(()=>[]),
       venue && venue.has_aquagrim ? api('GET',`/aq/venues/${vid}/products`).catch(()=>[]) : Promise.resolve([]),
+      api('GET','/bonus-schemes').catch(()=>[]),
+      api('GET',`/venues/${vid}/bonus-config`).catch(()=>[]),
     ]);
     allProducts=allProds;
     const vpIds=new Set(venueProds.map(p=>p.product_id));
@@ -340,6 +718,8 @@ async function openVenueSettings(){
           <div><div class="fl">Админов</div><input class="fin" type="number" id="vr-admin" value="${venue.required_admins||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
         </div>
       </div>
+
+      ${hasAnyRole(['hr_director','exec_director','admin'])&&(Array.isArray(bonusSchemes)||Array.isArray(bonusCfg))?renderBonusVenueSelectors(vid,Array.isArray(bonusSchemes)?bonusSchemes:[],Array.isArray(bonusCfg)?bonusCfg:[]):'<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">💰 Настройка бонусных схем доступна ролям HR+</div>'}
 
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
