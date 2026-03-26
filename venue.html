@@ -541,7 +541,7 @@ const ro=!isEditor();
 const dis=()=>ro?' disabled':'';
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
 prods.forEach(p=>{const fn=String(p.product_name||p.name||'');h+=`<th title="${esc(fn)}">${esc(fn)}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
-h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
+h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
 phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);const wa4=wasteA4FromLines(lines,ph);
 h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>String(l.photographer_id)===String(ph)&&String(l.product_id)===String(pid));
@@ -552,15 +552,13 @@ const cashVal=pc;
 h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${wa4}" class="swa4" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${xPay?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
-h+=`<td><input type="number" min="0" value="${xPay?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" readonly style="width:50px;background:var(--bg3);cursor:default;border-color:transparent" title="Рассчитывается автоматически: Выручка − Карта − QR"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="inputRecalc()"${dis()}/></td>`;
 h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
-h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="twa4">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
+h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="twa4">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
 setTimeout(()=>recalcAll(true),50);return h;}
 
 function recalcAll(skipDirty){
@@ -581,12 +579,10 @@ if(cashInput){
 cashInput.value=Math.max(0,Math.round((revenue-card-qr)*100)/100);
 }
 });
-let tw10=0,tw20=0,twa4=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
+let tw10=0,tw20=0,twa4=0,tc=0,tk=0,tq=0;
 document.querySelectorAll('.sw10').forEach(n=>tw10+=parseInt(n.value)||0);
 document.querySelectorAll('.sw20').forEach(n=>tw20+=parseInt(n.value)||0);
 document.querySelectorAll('.swa4').forEach(n=>twa4+=parseInt(n.value)||0);
-document.querySelectorAll('.sfq').forEach(n=>tfq+=parseInt(n.value)||0);
-document.querySelectorAll('.sfs').forEach(n=>tfs+=parseFloat(n.value)||0);
 document.querySelectorAll('.sc').forEach(n=>tc+=parseFloat(n.value)||0);
 document.querySelectorAll('.sk').forEach(n=>tk+=parseFloat(n.value)||0);
 document.querySelectorAll('.sqr').forEach(n=>tq+=parseFloat(n.value)||0);
@@ -595,8 +591,6 @@ if($('gt'))$('gt').textContent=grandTotal.toLocaleString('ru-RU');
 if($('tw10'))$('tw10').textContent=tw10;
 if($('tw20'))$('tw20').textContent=tw20;
 if($('twa4'))$('twa4').textContent=twa4;
-if($('tfq'))$('tfq').textContent=tfq;
-if($('tfs'))$('tfs').textContent=tfs;
 if($('tc'))$('tc').textContent=tc.toLocaleString('ru-RU');
 if($('tk'))$('tk').textContent=tk.toLocaleString('ru-RU');
 if($('tq'))$('tq').textContent=tq.toLocaleString('ru-RU');
@@ -740,8 +734,6 @@ const w10=parseInt(document.querySelector(`.sw10[data-ph="${ph}"]`)?.value)||0;
 const w20=parseInt(document.querySelector(`.sw20[data-ph="${ph}"]`)?.value)||0;
 const wa4=parseInt(document.querySelector(`.swa4[data-ph="${ph}"]`)?.value)||0;
 const wsum=w10+w20+wa4;
-const fq=parseInt(document.querySelector(`.sfq[data-ph="${ph}"]`)?.value)||0;
-const fs=parseFloat(document.querySelector(`.sfs[data-ph="${ph}"]`)?.value)||0;
 const pc=parseFloat(document.querySelector(`.sc[data-ph="${ph}"]`)?.value)||0;
 const pk=parseFloat(document.querySelector(`.sk[data-ph="${ph}"]`)?.value)||0;
 const pq=parseFloat(document.querySelector(`.sqr[data-ph="${ph}"]`)?.value)||0;
@@ -768,8 +760,8 @@ waste_qty:idx===0?wsum:0,
 waste_10x15:idx===0?w10:0,
 waste_15x20:idx===0?w20:0,
 waste_a4:idx===0?wa4:0,
-flash_qty:idx===0?fq:0,
-flash_sum:idx===0?fs:0,
+flash_qty:0,
+flash_sum:0,
 payment_cash:payHere?pc:0,
 payment_card:payHere?pk:0,
 payment_qr:payHere?pq:0,
