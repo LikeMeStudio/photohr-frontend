@@ -34,12 +34,12 @@
 .qr-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .qr-shift-row{display:flex;gap:16px;align-items:stretch}
 .qr-shift-row>.sec{flex:1;min-width:0}
-.qr-shift-row>.sec:first-child{flex:0 0 auto;max-width:340px}
+.qr-shift-row>.sec:first-child{flex:0 0 420px;max-width:420px}
 .shift-grid{display:flex;flex-wrap:wrap;gap:0}
 .shift-col{flex:1;min-width:160px;max-width:33.3%}
 .shift-col .rr{padding:3px 6px;font-size:12px}
 .shift-col .rr-name{font-size:12px}
-.qr-box{background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr-box canvas,.qr-box img{width:100%!important;height:100%!important}
+.qr-box{width:100%;max-width:380px;aspect-ratio:1;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr-box canvas,.qr-box img{width:100%!important;height:auto!important;max-height:100%}
 .qr-timer{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;color:var(--accent2)}
 .rr{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);margin-bottom:3px;font-size:12px}
 .rr-name{flex:1;font-weight:500}
@@ -479,7 +479,7 @@ document.getElementById('C').innerHTML=`
 </div>
 <div class="qr-shift-row">
 ${isEditor()?`
-<div class="sec" style="flex:0 0 auto;max-width:360px">
+<div class="sec" style="flex:0 0 auto;max-width:420px">
   <div class="sec-t" style="justify-content:space-between">
     <span>📱 QR-чекин</span>
     <div style="display:flex;gap:4px;align-items:center">
@@ -488,7 +488,7 @@ ${isEditor()?`
       <button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="stopQR()">⏹</button>
     </div>
   </div>
-  <div class="qr-box" id="qb" style="width:100%;max-width:300px;height:auto;aspect-ratio:1;margin:0 auto"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
+  <div class="qr-box" id="qb" style="width:100%;max-width:380px;aspect-ratio:1;margin:0 auto"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
   <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:4px">30 сек ротация</div>
 </div>
 `:`
@@ -505,56 +505,52 @@ ${(()=>{
 
 <div class="sec" style="flex:1"><div class="sec-t">👥 Смена (${phs.length})</div>
 ${isEditor()?`
-<div style="margin-bottom:10px">
-  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Админ площадки</div>
-  <div id="shift-admins">
-  ${phs.filter(a=>a.role_in_shift==='admin_venue').map(a=>{
-    const ch=a.checkin_at||a.checked_in;
-    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      <span style="font-size:12px">${esc(a.photographer_name)}</span>
-      ${ch?`<span style="color:var(--rank1);font-size:9px">✅</span>`:`<span style="color:var(--text3);font-size:9px">⏳</span>`}
-      ${ch?`<span style="cursor:pointer;font-size:9px;color:var(--text3)" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕чек</span>`:`<span style="cursor:pointer;font-size:9px;color:var(--accent2)" onclick="manCh('${a.id}')">✋</span>`}
-      <span style="cursor:pointer;font-size:9px;color:var(--rank3)" onclick="removeAssign('${a.id}')">🗑</span>
-    </div>`;
-  }).join('')||'<span style="font-size:11px;color:var(--text3)">—</span>'}
+<div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+  <div style="flex:1;min-width:120px">
+    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Админ</div>
+    ${(()=>{
+      const admins=phs.filter(a=>a.role_in_shift==='admin_venue');
+      return admins.length?admins.map(a=>{
+        const ch=a.checkin_at||a.checked_in;
+        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px">
+          <span>${esc((a.photographer_name||'').split(' ')[0])}</span>
+          ${ch?(a.late_status==='late'?`<span style="color:var(--rank3)">⏰</span>`:(a.late_status==='almost'?`<span style="color:var(--rank2)">⚡</span>`:`<span style="color:var(--rank1)">✅</span>`)):`<span style="color:var(--text3)">⏳</span>`}
+          <span style="cursor:pointer;font-size:8px;color:var(--rank3)" onclick="removeAssign('${a.id}')">✕</span>
+        </div>`;
+      }).join(''):`<span style="font-size:10px;color:var(--text3)">—</span>`;
+    })()}
+    <select class="fin" id="add-admin" style="font-size:9px;padding:1px 4px;margin-top:2px;width:100%;max-width:140px"><option value="">+ добавить</option></select>
   </div>
-  <select class="fin" id="add-admin" style="font-size:10px;padding:2px 6px;margin-top:2px;width:auto">
-    <option value="">+ добавить</option>
-  </select>
-</div>
-<div style="margin-bottom:10px">
-  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Менеджер</div>
-  <div id="shift-managers">
-  ${phs.filter(a=>a.role_in_shift==='venue_manager').map(a=>{
-    const ch=a.checkin_at||a.checked_in;
-    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      <span style="font-size:12px">${esc(a.photographer_name)}</span>
-      ${ch?`<span style="color:var(--rank1);font-size:9px">✅</span>`:`<span style="color:var(--text3);font-size:9px">⏳</span>`}
-      ${ch?`<span style="cursor:pointer;font-size:9px;color:var(--text3)" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕чек</span>`:`<span style="cursor:pointer;font-size:9px;color:var(--accent2)" onclick="manCh('${a.id}')">✋</span>`}
-      <span style="cursor:pointer;font-size:9px;color:var(--rank3)" onclick="removeAssign('${a.id}')">🗑</span>
-    </div>`;
-  }).join('')||'<span style="font-size:11px;color:var(--text3)">—</span>'}
+  <div style="flex:1;min-width:120px">
+    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Менеджер</div>
+    ${(()=>{
+      const mgrs=phs.filter(a=>a.role_in_shift==='venue_manager');
+      return mgrs.length?mgrs.map(a=>{
+        const ch=a.checkin_at||a.checked_in;
+        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px">
+          <span>${esc((a.photographer_name||'').split(' ')[0])}</span>
+          ${ch?(a.late_status==='late'?`<span style="color:var(--rank3)">⏰</span>`:(a.late_status==='almost'?`<span style="color:var(--rank2)">⚡</span>`:`<span style="color:var(--rank1)">✅</span>`)):`<span style="color:var(--text3)">⏳</span>`}
+          <span style="cursor:pointer;font-size:8px;color:var(--rank3)" onclick="removeAssign('${a.id}')">✕</span>
+        </div>`;
+      }).join(''):`<span style="font-size:10px;color:var(--text3)">—</span>`;
+    })()}
+    <select class="fin" id="add-manager" style="font-size:9px;padding:1px 4px;margin-top:2px;width:100%;max-width:140px"><option value="">+ добавить</option></select>
   </div>
-  <select class="fin" id="add-manager" style="font-size:10px;padding:2px 6px;margin-top:2px;width:auto">
-    <option value="">+ добавить</option>
-  </select>
-</div>
-<div style="margin-bottom:10px">
-  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Наставник</div>
-  <div id="shift-mentors">
-  ${phs.filter(a=>a.role_in_shift==='mentor').map(a=>{
-    const ch=a.checkin_at||a.checked_in;
-    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      <span style="font-size:12px">${esc(a.photographer_name)}</span>
-      ${ch?`<span style="color:var(--rank1);font-size:9px">✅</span>`:`<span style="color:var(--text3);font-size:9px">⏳</span>`}
-      ${ch?`<span style="cursor:pointer;font-size:9px;color:var(--text3)" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕чек</span>`:`<span style="cursor:pointer;font-size:9px;color:var(--accent2)" onclick="manCh('${a.id}')">✋</span>`}
-      <span style="cursor:pointer;font-size:9px;color:var(--rank3)" onclick="removeAssign('${a.id}')">🗑</span>
-    </div>`;
-  }).join('')||'<span style="font-size:11px;color:var(--text3)">—</span>'}
+  <div style="flex:1;min-width:120px">
+    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Наставник</div>
+    ${(()=>{
+      const mentors=phs.filter(a=>a.role_in_shift==='mentor');
+      return mentors.length?mentors.map(a=>{
+        const ch=a.checkin_at||a.checked_in;
+        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px">
+          <span>${esc((a.photographer_name||'').split(' ')[0])}</span>
+          ${ch?(a.late_status==='late'?`<span style="color:var(--rank3)">⏰</span>`:(a.late_status==='almost'?`<span style="color:var(--rank2)">⚡</span>`:`<span style="color:var(--rank1)">✅</span>`)):`<span style="color:var(--text3)">⏳</span>`}
+          <span style="cursor:pointer;font-size:8px;color:var(--rank3)" onclick="removeAssign('${a.id}')">✕</span>
+        </div>`;
+      }).join(''):`<span style="font-size:10px;color:var(--text3)">—</span>`;
+    })()}
+    <select class="fin" id="add-mentor" style="font-size:9px;padding:1px 4px;margin-top:2px;width:100%;max-width:140px"><option value="">+ добавить</option></select>
   </div>
-  <select class="fin" id="add-mentor" style="font-size:10px;padding:2px 6px;margin-top:2px;width:auto">
-    <option value="">+ добавить</option>
-  </select>
 </div>
 <div style="border-top:1px solid var(--border);padding-top:8px;margin-bottom:4px">
   <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Фотографы</div>
@@ -591,8 +587,6 @@ ${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center
 <select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
 <button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
 </div>`:''}
-<input type="hidden" id="ra" value="${esc((phs.find(a=>a.role_in_shift==='admin_venue')?.photographer_name)||report?.admin_name||U.name||'')}"/>
-<input type="hidden" id="rm" value="${esc((phs.find(a=>a.role_in_shift==='venue_manager')?.photographer_name)||report?.manager_name||'')}"/>
 </div>
 </div>
 
@@ -890,8 +884,9 @@ if(window.__venueReportEditable&&shift&&!report?.id)await ensureReportDraftSilen
 recalcAll();
 }
 function rc(){void inputRecalc();}
-function getRoleLeadName(role,fallbackId){
-return(phs.find(a=>a.role_in_shift===role)?.photographer_name)||document.getElementById(fallbackId)?.value||null;
+function getRoleLeadName(role){
+const phs=assigns.filter(a=>a.status!=='cancelled');
+return phs.find(a=>a.role_in_shift===role)?.photographer_name||null;
 }
 
 async function ensureReportDraftSilent(){
@@ -899,7 +894,7 @@ if(report?.id||!shift)return;
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
 if(!vid||!dt)return;
 const collected=collect();
-const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue','ra'),manager_name:getRoleLeadName('venue_manager','rm'),notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
+const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue'),manager_name:getRoleLeadName('venue_manager'),notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
 try{
 const created=await api('POST','/daily-reports',body);
 report=created;
@@ -911,7 +906,7 @@ recalcAll(true);
 
 function buildReportBody(){
 const collected=collect();
-return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue','ra'),manager_name:getRoleLeadName('venue_manager','rm'),notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
+return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue'),manager_name:getRoleLeadName('venue_manager'),notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
 }
 
 async function addPhotographerToShift(){
@@ -931,7 +926,7 @@ load();
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
-async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=b.offsetWidth||280;new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
+async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=Math.min(b.offsetWidth||350,380);new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
 async function cancelCheckin(checkinId,assignId){
 if(!checkinId){toast('ID чекина не найден',1);return;}
@@ -1169,8 +1164,8 @@ if(!report?.id){if(!silent)toast('Нет данных для расчёта',1);
 const{lines,printer_data}=collect();
 await api('PATCH',`/daily-reports/${report.id}/lines`,{
 lines,printer_data,
-admin_name:getRoleLeadName('admin_venue','ra'),
-manager_name:getRoleLeadName('venue_manager','rm'),
+admin_name:getRoleLeadName('admin_venue'),
+manager_name:getRoleLeadName('venue_manager'),
 notes_report:document.getElementById('rn')?.value||null,
 advances:collectAdvances(),
 petty_cash_expenses:collectPettyCash()
