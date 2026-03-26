@@ -438,6 +438,10 @@ document.getElementById('C').innerHTML=`
   <span>🕐 Админ: <b style="color:var(--text)">${ev.admin_arrival||'не указано'}</b></span>
   ${isEditor()?`<button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="editArrivalTime()">✏️</button>`:''}
 </div>
+<div style="display:flex;gap:8px;margin-top:-4px;margin-bottom:10px;align-items:center">
+  <div style="flex:1;max-width:220px"><span style="font-size:10px;color:var(--text3)">АДМИН</span><input class="fin" id="ra" value="${report?.admin_name||U.name||''}" style="width:100%;font-size:12px;padding:4px 8px" ${isEditor()?'':'disabled'}/></div>
+  <div style="flex:1;max-width:220px"><span style="font-size:10px;color:var(--text3)">МЕНЕДЖЕР</span><input class="fin" id="rm" value="${report?.manager_name||''}" style="width:100%;font-size:12px;padding:4px 8px" ${isEditor()?'':'disabled'}/></div>
+</div>
 <div class="qr-shift-row">
 ${isEditor()?`
 <div class="sec"><div class="sec-t">📱 QR-чекин</div>
@@ -530,11 +534,7 @@ ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-ite
 <div id="cash-negative-hint" style="display:none;font-size:10px;color:var(--rank3);margin-top:4px">Недостаточно нала для выплаты бонусов</div>
 </div>`:''}
 
-<div class="sec"><div class="sec-t">📝 Итоги</div>
-<div style="display:flex;gap:6px;flex-wrap:wrap">
-<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" list="staff-list" value="${esc(report?.admin_name||U.name||'')}" style="width:100%" oninput="void inputRecalc()" ${isEditor()?'':'disabled'}/></div>
-<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" list="staff-list" value="${esc(report?.manager_name||'')}" style="width:100%" oninput="void inputRecalc()" ${isEditor()?'':'disabled'}/></div>
-</div>
+<div class="sec"><div class="sec-t">📝 Примечание</div>
 <datalist id="staff-list">${staffOpts}</datalist>
 <div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${esc(report?.notes_report||'')}" style="width:100%" placeholder="Комментарий..." oninput="void inputRecalc()" ${isEditor()?'':'disabled'}/></div>
 ${report?.review_comment?`<div style="padding:6px;background:rgba(242,85,85,.06);border:1px solid rgba(242,85,85,.15);border-radius:6px;margin-top:6px;font-size:12px"><b style="color:var(--rank3)">Проверяющий:</b> ${report.review_comment}</div>`:''}
