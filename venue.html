@@ -132,6 +132,7 @@
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
+let checkinPollInterval=null;
 let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[],allPhotographersPool=[],_bonusDebounce=null,_saveDebounce=null;
 window.__bonusMeta={};
 window.__calcResult=null;
@@ -312,6 +313,7 @@ function backToDashboard(){
 if(isDirty){
 if(!confirm('Есть несохранённые данные. Вернуться к списку?'))return;
 }
+if(checkinPollInterval){clearInterval(checkinPollInterval);checkinPollInterval=null;}
 viewMode='dashboard';
 document.getElementById('btn-settings').style.display='none';
 document.getElementById('btn-back').style.display='none';
@@ -332,6 +334,7 @@ loadDashboard();
 }
 
 async function load(){
+if(checkinPollInterval){clearInterval(checkinPollInterval);checkinPollInterval=null;}
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
 if(!vid||!dt){loadDashboard();return;}
 if(isDirty&&(_prevVid&&_prevSd)&&((vid!==_prevVid)||(dt!==_prevSd))){
@@ -404,8 +407,44 @@ if (venue && venue.has_aquagrim) {
 }
 
 render(ev[0]);
+if(checkinPollInterval)clearInterval(checkinPollInterval);
+checkinPollInterval=setInterval(pollCheckins,15000);
 _prevVid=vid;_prevSd=dt;
 }catch(e){document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+async function pollCheckins(){
+if(!shift)return;
+try{
+const freshAssigns=await api('GET',`/shifts/${shift.id}/assignments`).catch(()=>null);
+if(!freshAssigns)return;
+let changed=false;
+for(const fa of freshAssigns){
+const old=assigns.find(a=>a.id===fa.id);
+if(!old)continue;
+const oldCh=old.checkin_at||old.checked_in;
+const newCh=fa.checkin_at||fa.checked_in;
+if((!oldCh&&newCh)||(oldCh&&!newCh)||(old.late_status!==fa.late_status)){
+changed=true;
+break;
+}
+}
+if(changed){
+assigns=freshAssigns;
+const vid=document.getElementById('vs').value;
+const dt=document.getElementById('sd').value;
+const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
+if(ev.length){
+render(ev[0]);
+const shiftSec=document.querySelector('.qr-shift-row .sec:nth-child(2)');
+if(shiftSec){
+shiftSec.style.transition='box-shadow 0.3s';
+shiftSec.style.boxShadow='0 0 12px rgba(62,207,142,0.4)';
+setTimeout(()=>{shiftSec.style.boxShadow='none';},1500);
+}
+}
+}
+}catch(e){}
 }
 
 function render(ev){
