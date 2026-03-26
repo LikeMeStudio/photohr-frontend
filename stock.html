@@ -261,6 +261,51 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
+<!-- Equipment Modal -->
+<div class="overlay" id="eq-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:500px">
+  <div class="modal-title"><span id="eq-modal-title">Новое оборудование</span><button class="dr-close" onclick="document.getElementById('eq-modal').classList.remove('open')">×</button></div>
+  <input type="hidden" id="eq-id"/>
+  <div class="field"><div class="fl">Тип оборудования *</div>
+    <select class="fselect" id="eq-item"></select>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="field"><div class="fl">Серийный номер</div><input class="fin" id="eq-serial" placeholder="SN-001"/></div>
+    <div class="field"><div class="fl">Инвентарный номер</div><input class="fin" id="eq-inventory" placeholder="ИНВ-001"/></div>
+    <div class="field"><div class="fl">Склад/Площадка</div><select class="fselect" id="eq-warehouse"></select></div>
+    <div class="field"><div class="fl">Статус</div>
+      <select class="fselect" id="eq-status">
+        <option value="active">🟢 Активно</option>
+        <option value="repair">🟡 В ремонте</option>
+        <option value="written_off">⚫ Списано</option>
+        <option value="lost">🔴 Утеряно</option>
+      </select>
+    </div>
+    <div class="field"><div class="fl">Дата покупки</div><input class="fin" type="date" id="eq-purchase-date"/></div>
+    <div class="field"><div class="fl">Цена покупки (₽)</div><input class="fin" type="number" id="eq-purchase-price" placeholder="0"/></div>
+    <div class="field"><div class="fl">Ресурс (отпечатков)</div><input class="fin" type="number" id="eq-resource" placeholder="50000"/></div>
+    <div class="field"><div class="fl">Последнее ТО</div><input class="fin" type="date" id="eq-service-date"/></div>
+  </div>
+  <div class="field"><div class="fl">Заметки по обслуживанию</div><textarea class="fin" id="eq-service-notes" rows="2" placeholder="История ТО, замены..."></textarea></div>
+  <div class="field"><div class="fl">Плановая замена</div><input class="fin" type="date" id="eq-replacement-date"/></div>
+  <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="eq-notes" rows="2" placeholder="Произвольные заметки..."></textarea></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="document.getElementById('eq-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="saveEquipment()">Сохранить</button>
+  </div>
+</div>
+</div>
+
+<!-- Equipment Drawer -->
+<div class="drawer-backdrop" id="eq-drawer-backdrop" onclick="closeEqDrawer()"></div>
+<div class="drawer" id="eq-drawer" data-eq-id="">
+  <div class="drawer-title">
+    <span id="eq-drawer-name">Оборудование</span>
+    <button class="dr-close" onclick="closeEqDrawer()">×</button>
+  </div>
+  <div id="eq-drawer-body">Загрузка...</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -280,6 +325,7 @@ function openBirthdaysPanel(){window.location.href='index.html#birthdays';}
 function openLikesPanel(){window.location.href='index.html#likes';}
 let warehouses=[],items=[],currentTabIdx=0;
 let venues=[],users=[],currentWhId=null;
+let equipmentListCache=[];
 let refreshLock=null;
 
 async function api(m,p,b){
@@ -801,23 +847,163 @@ async function loadDeficit(){
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
-async function loadEquipment(){
-  try{
-    const equip=await api('GET','/equipment');
-    const c=document.getElementById('content');
-    const STATUS={active:'🟢 Активно',repair:'🟡 Ремонт',written_off:'⚫ Списано',lost:'🔴 Утеряно'};
-    c.innerHTML=`<div class="section">
-      <div class="section-title">🖨 Оборудование (${equip.length})</div>
-      ${equip.length?`<div class="table-wrap"><table class="tbl"><thead><tr><th>Название</th><th>Серийный</th><th>Склад/Площадка</th><th>Статус</th></tr></thead><tbody>
-      ${equip.map(e=>`<tr>
-        <td>${esc(e.item_name)} <span style="color:var(--text3);font-size:10px">${esc(e.item_category||'')}</span></td>
-        <td style="font-family:monospace;font-size:11px">${e.serial_number||'—'}</td>
-        <td>${esc(e.warehouse_name||'—')}${e.venue_name?' · '+esc(e.venue_name):''}</td>
-        <td>${STATUS[e.status]||e.status}</td>
-      </tr>`).join('')}
-      </tbody></table></div>`:'<div style="color:var(--text3)">Нет оборудования</div>'}
-    </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+async function loadEquipment() {
+  try {
+    const equip = await api('GET', '/equipment');
+    equipmentListCache = equip;
+    const c = document.getElementById('content');
+    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const STATUS = { active: { label: '🟢 Активно', color: 'var(--rank1)' }, repair: { label: '🟡 Ремонт', color: 'var(--rank2)' }, written_off: { label: '⚫ Списано', color: 'var(--text3)' }, lost: { label: '🔴 Утеряно', color: 'var(--rank3)' } };
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title">🖨 Оборудование (${equip.length})
+          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openEqModal()">+ Добавить</button>` : ''}
+        </div>
+        ${equip.length ? `<div class="card-grid">
+          ${equip.map(e => {
+            const st = STATUS[e.status] || { label: e.status, color: 'var(--text2)' };
+            const resourcePct = e.resource_limit && e.total_printed != null ? Math.min(100, Math.round((parseFloat(e.total_printed) || 0) / parseFloat(e.resource_limit) * 100)) : null;
+            const resourceColor = resourcePct == null ? '' : resourcePct > 80 ? 'var(--rank3)' : resourcePct > 50 ? 'var(--rank2)' : 'var(--rank1)';
+            return `<div class="wh-card" onclick="openEqDrawer('${e.id}')">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+                <span style="font-size:20px">🖨</span>
+                <span style="font-size:11px;color:${st.color}">${st.label}</span>
+              </div>
+              <div style="font-weight:600;margin-bottom:2px">${esc(e.item_name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${e.serial_number ? 'SN: ' + esc(e.serial_number) : '—'}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">📍 ${esc(e.warehouse_name || '—')}${e.venue_name ? ' · ' + esc(e.venue_name) : ''}</div>
+              ${resourcePct != null ? `<div style="margin-top:8px">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Ресурс: ${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
+                <div style="height:4px;background:var(--border);border-radius:2px">
+                  <div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:2px;transition:width .3s"></div>
+                </div>
+              </div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>` : '<div style="color:var(--text3)">Нет оборудования</div>'}
+      </div>`;
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+// ── БЛОК 4: Оборудование ──
+
+function openEqModal(eq) {
+  document.getElementById('eq-modal-title').textContent = eq ? 'Редактировать оборудование' : 'Новое оборудование';
+  document.getElementById('eq-id').value = eq?.id || '';
+  const itemSel = document.getElementById('eq-item');
+  const eqItems = items.filter(i => i.item_type === 'equipment');
+  itemSel.innerHTML = eqItems.length
+    ? eqItems.map(i => `<option value="${i.id}" ${eq?.item_id === i.id ? 'selected' : ''}>${esc(i.name)}</option>`).join('')
+    : '<option value="">— нет позиций типа «Оборудование» —</option>';
+  const whSel = document.getElementById('eq-warehouse');
+  whSel.innerHTML = '<option value="">— не привязан —</option>' + warehouses.filter(w => w.is_active).map(w => `<option value="${w.id}" ${eq?.warehouse_id === w.id ? 'selected' : ''}>${esc(w.name)}</option>`).join('');
+  document.getElementById('eq-serial').value = eq?.serial_number || '';
+  document.getElementById('eq-inventory').value = eq?.inventory_number || '';
+  document.getElementById('eq-status').value = eq?.status || 'active';
+  document.getElementById('eq-purchase-date').value = eq?.purchase_date?.split('T')[0] || '';
+  document.getElementById('eq-purchase-price').value = eq?.purchase_price ?? '';
+  document.getElementById('eq-resource').value = eq?.resource_limit ?? '';
+  document.getElementById('eq-service-date').value = eq?.last_service_date?.split('T')[0] || '';
+  document.getElementById('eq-service-notes').value = eq?.service_notes || '';
+  document.getElementById('eq-replacement-date').value = eq?.planned_replacement_date?.split('T')[0] || '';
+  document.getElementById('eq-notes').value = eq?.notes || '';
+  document.getElementById('eq-modal').classList.add('open');
+}
+
+async function saveEquipment() {
+  const id = document.getElementById('eq-id').value;
+  const body = {
+    item_id: document.getElementById('eq-item').value,
+    warehouse_id: document.getElementById('eq-warehouse').value || null,
+    serial_number: document.getElementById('eq-serial').value.trim() || null,
+    inventory_number: document.getElementById('eq-inventory').value.trim() || null,
+    status: document.getElementById('eq-status').value,
+    purchase_date: document.getElementById('eq-purchase-date').value || null,
+    purchase_price: parseFloat(document.getElementById('eq-purchase-price').value) || null,
+    resource_limit: parseFloat(document.getElementById('eq-resource').value) || null,
+    last_service_date: document.getElementById('eq-service-date').value || null,
+    service_notes: document.getElementById('eq-service-notes').value.trim() || null,
+    planned_replacement_date: document.getElementById('eq-replacement-date').value || null,
+    notes: document.getElementById('eq-notes').value.trim() || null,
+  };
+  if (!body.item_id) { showToast('Выберите тип оборудования', true); return; }
+  try {
+    if (id) await api('PATCH', `/equipment/${id}`, body);
+    else await api('POST', '/equipment', body);
+    document.getElementById('eq-modal').classList.remove('open');
+    showToast(id ? 'Оборудование обновлено' : 'Оборудование добавлено');
+    loadEquipment(); loadSummary();
+    if (id) { closeEqDrawer(); }
+  } catch(e) { showToast(e.message, true); }
+}
+
+function openEqModalFromDrawer() {
+  const dr = document.getElementById('eq-drawer');
+  const eid = dr?.dataset?.eqId;
+  if (!eid) return;
+  const eq = equipmentListCache.find(e => e.id === eid);
+  if (eq) openEqModal(eq);
+}
+
+async function openEqDrawer(id) {
+  document.getElementById('eq-drawer').dataset.eqId = id;
+  document.getElementById('eq-drawer-backdrop').classList.add('open');
+  document.getElementById('eq-drawer').classList.add('open');
+  document.getElementById('eq-drawer-body').innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">Загрузка...</div>';
+  try {
+    const [equip_list, history] = await Promise.all([
+      api('GET', '/equipment'),
+      api('GET', `/equipment/${id}/counter-history?limit=20`),
+    ]);
+    equipmentListCache = equip_list;
+    const eq = equip_list.find(e => e.id === id);
+    if (!eq) return;
+    document.getElementById('eq-drawer-name').textContent = eq.item_name;
+    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const STATUS = { active: '🟢 Активно', repair: '🟡 В ремонте', written_off: '⚫ Списано', lost: '🔴 Утеряно' };
+    const totalP = history.total_printed != null ? parseFloat(history.total_printed) : 0;
+    const resourcePct = eq.resource_limit && totalP >= 0 ? Math.min(100, Math.round(totalP / parseFloat(eq.resource_limit) * 100)) : null;
+    const counterRows = history.logs?.length
+      ? history.logs.map(l => `<tr>
+          <td style="font-size:11px">${new Date(l.log_date).toLocaleDateString('ru-RU')}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(l.format)}</td>
+          <td style="font-family:monospace;font-size:11px">${l.counter_start} → ${l.counter_end}</td>
+          <td style="font-weight:600;color:var(--rank1)">${l.printed_qty}</td>
+          <td style="color:var(--text3);font-size:10px">${esc(l.venue_name || '')}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" style="color:var(--text3);padding:8px">Нет истории счётчиков</td></tr>';
+    document.getElementById('eq-drawer-body').innerHTML = `
+      <div class="info-row"><span class="info-label">Серийный</span><span style="font-family:monospace;font-size:12px">${esc(eq.serial_number || '—')}</span></div>
+      <div class="info-row"><span class="info-label">Инвентарный</span><span>${esc(eq.inventory_number || '—')}</span></div>
+      <div class="info-row"><span class="info-label">Статус</span><span>${STATUS[eq.status] || eq.status}</span></div>
+      <div class="info-row"><span class="info-label">Место</span><span>${esc(eq.warehouse_name || '—')}${eq.venue_name ? ' · ' + esc(eq.venue_name) : ''}</span></div>
+      ${eq.purchase_date ? `<div class="info-row"><span class="info-label">Дата покупки</span><span>${new Date(eq.purchase_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
+      ${eq.purchase_price ? `<div class="info-row"><span class="info-label">Цена покупки</span><span>${parseFloat(eq.purchase_price).toLocaleString('ru-RU')} ₽</span></div>` : ''}
+      ${eq.last_service_date ? `<div class="info-row"><span class="info-label">Последнее ТО</span><span>${new Date(eq.last_service_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
+      ${eq.planned_replacement_date ? `<div class="info-row"><span class="info-label">Плановая замена</span><span>${new Date(eq.planned_replacement_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
+      ${resourcePct != null ? `
+        <div style="margin-top:12px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ресурс принтера</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px">${totalP.toLocaleString('ru-RU')} / ${parseFloat(eq.resource_limit).toLocaleString('ru-RU')} отпечатков</div>
+          <div style="height:6px;background:var(--border);border-radius:3px">
+            <div style="height:100%;width:${resourcePct}%;background:${resourcePct > 80 ? 'var(--rank3)' : resourcePct > 50 ? 'var(--rank2)' : 'var(--rank1)'};border-radius:3px"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">${resourcePct}% использовано</div>
+        </div>` : ''}
+      ${eq.service_notes ? `<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2)">${esc(eq.service_notes)}</div>` : ''}
+      <div style="margin-top:16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">История счётчиков</div>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Формат</th><th>Счётчики</th><th>Напечатано</th><th>Площадка</th></tr></thead>
+      <tbody>${counterRows}</tbody></table></div>
+      ${canEdit ? `<div style="margin-top:16px">
+        <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="openEqModalFromDrawer()">✏️ Редактировать</button>
+      </div>` : ''}
+    `;
+  } catch(e) { document.getElementById('eq-drawer-body').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function closeEqDrawer() {
+  document.getElementById('eq-drawer-backdrop').classList.remove('open');
+  document.getElementById('eq-drawer').classList.remove('open');
 }
 
 // ── БЛОК 3: Инвентаризация ──
