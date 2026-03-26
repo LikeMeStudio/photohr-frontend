@@ -434,13 +434,9 @@ const pettyRows=(report?.petty_cash_expenses)||[];
 document.getElementById('C').innerHTML=`
 <div style="font-size:16px;font-weight:700;font-family:'Unbounded',sans-serif;margin-bottom:12px">📍 ${esc(venueName)}</div>
 <div style="display:flex;gap:12px;align-items:center;margin-top:-8px;margin-bottom:10px;font-size:12px;color:var(--text2)">
-  <span>🕐 Сбор: <b style="color:var(--text)">${ev.staff_arrival||'не указано'}</b></span>
-  <span>🕐 Админ: <b style="color:var(--text)">${ev.admin_arrival||'не указано'}</b></span>
+  <span>🕐 Сбор: <b style="color:var(--text)">${(ev.staff_arrival||'не указано').slice(0,5)}</b></span>
+  <span>🕐 Админ: <b style="color:var(--text)">${(ev.admin_arrival||'не указано').slice(0,5)}</b></span>
   ${isEditor()?`<button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="editArrivalTime()">✏️</button>`:''}
-</div>
-<div style="display:flex;gap:8px;margin-top:-4px;margin-bottom:10px;align-items:center">
-  <div style="flex:1;max-width:220px"><span style="font-size:10px;color:var(--text3)">АДМИН</span><input class="fin" id="ra" value="${report?.admin_name||U.name||''}" style="width:100%;font-size:12px;padding:4px 8px" ${isEditor()?'':'disabled'}/></div>
-  <div style="flex:1;max-width:220px"><span style="font-size:10px;color:var(--text3)">МЕНЕДЖЕР</span><input class="fin" id="rm" value="${report?.manager_name||''}" style="width:100%;font-size:12px;padding:4px 8px" ${isEditor()?'':'disabled'}/></div>
 </div>
 <div class="qr-shift-row">
 ${isEditor()?`
@@ -460,7 +456,29 @@ ${(()=>{
 </div>
 `}
 
-<div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
+<div class="sec" style="flex:1"><div class="sec-t">👥 Смена (${phs.length})</div>
+${isEditor()?`
+<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+  <div style="flex:1;min-width:140px">
+    <span style="font-size:9px;color:var(--text3)">АДМИН ПЛОЩАДКИ</span>
+    <select class="fin" id="ra" style="width:100%;font-size:11px;padding:4px 6px">
+      <option value="">— не выбран —</option>
+      ${phs.map(a=>`<option value="${esc(a.photographer_name||'')}" ${(report?.admin_name||U.name||'')===a.photographer_name?'selected':''}>${esc(a.photographer_name||'')}</option>`).join('')}
+    </select>
+  </div>
+  <div style="flex:1;min-width:140px">
+    <span style="font-size:9px;color:var(--text3)">МЕНЕДЖЕР</span>
+    <select class="fin" id="rm" style="width:100%;font-size:11px;padding:4px 6px">
+      <option value="">— не выбран —</option>
+      ${phs.map(a=>`<option value="${esc(a.photographer_name||'')}" ${(report?.manager_name||'')===a.photographer_name?'selected':''}>${esc(a.photographer_name||'')}</option>`).join('')}
+    </select>
+  </div>
+</div>
+`:`
+<div style="font-size:11px;color:var(--text2);margin-bottom:6px">
+  Админ: <b>${esc(report?.admin_name||'—')}</b> · Менеджер: <b>${esc(report?.manager_name||'—')}</b>
+</div>
+`}
 ${(()=>{
   const roleOrder={'admin_venue':0,'venue_manager':0,'mentor':1,'print_operator':1,'photographer':2};
   const roleLbl={'admin_venue':'Админ','venue_manager':'Менеджер','mentor':'Наставник','print_operator':'Оператор','photographer':'Фото'};
@@ -480,7 +498,7 @@ ${(()=>{
       +((a.late_status==='late'&&a.fine_amount>0&&!a.fine_cancelled&&hasAnyRole(['cashier','exec_director','admin']))?`<span style="cursor:pointer;font-size:9px;color:var(--rank2);margin-left:2px" onclick="cancelFine('${a.checkin_id}')">💸</span>`:'')
       +((a.fine_cancelled)?`<span style="font-size:9px;color:var(--text3);margin-left:2px">✓штр</span>`:'')
       :`<span style="color:var(--text3);font-size:9px">⏳</span>`+(isEditor()?`<span style="cursor:pointer;font-size:9px;color:var(--accent2);margin-left:2px" onclick="manCh('${a.id}')">✋</span>`:'');
-    return`<div class="rr"><div class="rr-name">${esc((a.photographer_name||'').split(' ').slice(0,2).join(' '))}</div><span style="font-size:8px;color:var(--text3)">${rl}</span> ${statusHtml}</div>`;
+    return`<div class="rr"><div class="rr-name">${esc((a.photographer_name||'').split(' ').slice(0,2).join(' '))}</div><span style="font-size:8px;color:var(--text3)">${rl}</span> ${statusHtml}${isEditor()?`<span style="cursor:pointer;font-size:9px;color:var(--rank3);margin-left:3px" title="Снять со смены" onclick="removeAssign('${a.id}')">🗑</span>`:''}</div>`;
   }).join('')}</div>`:'').join('')}</div>`;
 })()}
 ${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
@@ -842,22 +860,71 @@ toast('Штраф отменён');
 load();
 }catch(e){toast(e.message,1);}
 }
+async function removeAssign(assignId){
+if(!confirm('Снять этого сотрудника со смены?'))return;
+try{
+await api('DELETE',`/shift-assignments/${assignId}`);
+toast('Снят со смены');
+load();
+}catch(e){toast(e.message,1);}
+}
 async function editArrivalTime(){
 const vid=document.getElementById('vs').value;
 const dt=document.getElementById('sd').value;
 if(!vid||!dt)return;
-const evs=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
-if(!evs.length){toast('Нет мероприятия',1);return;}
-const ev=evs[0];
-const sa=prompt('Время сбора сотрудников (ЧЧ:ММ):',ev.staff_arrival||'');
-if(sa===null)return;
-const aa=prompt('Время прихода админа (ЧЧ:ММ):',ev.admin_arrival||sa);
-if(aa===null)return;
-try{
-await api('PATCH',`/events/${ev.id}`,{staff_arrival:sa||null,admin_arrival:aa||null});
-toast('Время обновлено');
-load();
-}catch(e){toast(e.message,1);}
+  const evs=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
+  if(!evs.length){toast('Нет мероприятия',1);return;}
+  const ev=evs[0];
+
+  // Генерируем опции времени (07:00 — 23:45, шаг 15 мин)
+  const timeOpts=[];
+  for(let h=7;h<=23;h++){
+    for(let m=0;m<60;m+=15){
+      const t=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+      timeOpts.push(t);
+    }
+  }
+  const optHtml=(sel)=>timeOpts.map(t=>`<option value="${t}" ${t===(sel||'').slice(0,5)?'selected':''}>${t}</option>`).join('');
+
+  // Создаём модальное окно
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;min-width:300px;max-width:400px">
+      <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:16px">🕐 Время сбора</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Сбор сотрудников</div>
+        <select id="tp-staff" class="fin" style="width:100%;font-size:14px;padding:8px 10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px">
+          <option value="">Не указано</option>
+          ${optHtml(ev.staff_arrival)}
+        </select>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Приход админа</div>
+        <select id="tp-admin" class="fin" style="width:100%;font-size:14px;padding:8px 10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px">
+          <option value="">Не указано</option>
+          ${optHtml(ev.admin_arrival)}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="this.closest('div[style*=fixed]').remove()">Отмена</button>
+        <button class="btn btn-primary" onclick="saveArrivalTime('${ev.id}')">Сохранить</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+}
+
+async function saveArrivalTime(eventId){
+  const staff=document.getElementById('tp-staff')?.value||null;
+  const admin=document.getElementById('tp-admin')?.value||null;
+  try{
+    await api('PATCH',`/events/${eventId}`,{staff_arrival:staff,admin_arrival:admin});
+    document.querySelector('div[style*="position:fixed"][style*="z-index:999"]')?.remove();
+    toast('Время обновлено');
+    load();
+  }catch(e){toast(e.message,1);}
 }
 
 function collect(){
