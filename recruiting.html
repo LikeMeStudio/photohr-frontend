@@ -377,7 +377,7 @@ const ROLES = {
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (roles) => roles.includes(roleNow());
 
-function openProfile() { window.location.href = 'index.html'; }
+function openProfile() { window.location.href = 'index.html?profile=1'; }
 
 function openAchievementsPanel() { window.location.href = 'index.html#achievements'; }
 function openBirthdaysPanel() { window.location.href = 'index.html#birthdays'; }

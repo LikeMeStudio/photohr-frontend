@@ -18,7 +18,7 @@
 body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 
 /* ── LOGIN ── */
-#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+#login-screen{display:none;align-items:center;justify-content:center;min-height:100vh;padding:20px}
 .login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:400px}
 .login-logo{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;margin-bottom:8px}
 .login-logo span{color:var(--accent2)}
@@ -294,6 +294,13 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </style>
 </head>
 <body>
+
+<script>
+// Если нет токенов — сразу показываем логин, иначе login-screen остаётся скрытым до tryAutoLogin
+if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access')) {
+  document.addEventListener('DOMContentLoaded', function () { document.getElementById('login-screen').style.display = 'flex'; });
+}
+</script>
 
 <!-- ── LOGIN ── -->
 <div id="login-screen">
@@ -1232,6 +1239,11 @@ async function startApp() {
   await Promise.all([loadPhotographers(), loadVenues()]);
   if (can('admin')) loadUsers();
   render();
+  const _sp = new URLSearchParams(window.location.search);
+  if (_sp.get('profile') === '1') {
+    window.history.replaceState({}, '', window.location.pathname);
+    openProfile();
+  }
 }
 
 function setupUserPill() {
@@ -4340,7 +4352,8 @@ document.addEventListener('keydown', e=>{
   if (checkGoogleOAuthReturn()) return;
   await checkEmailVerification();
   const ok = await tryAutoLogin();
-  if(ok) startApp();
+  if (ok) startApp();
+  else document.getElementById('login-screen').style.display = 'flex';
 })();
 </script>
 </body>

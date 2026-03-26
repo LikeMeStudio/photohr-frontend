@@ -592,7 +592,7 @@ const ROLE_COLORS = {
   archived: '#5a5a72',
 };
 
-function openProfile() { location.href = 'index.html'; }
+function openProfile() { window.location.href = 'index.html?profile=1'; }
 
 function setupUserPill() {
   const color = ROLE_COLORS[currentUser.role] || '#9090a8';
