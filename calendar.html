@@ -19,6 +19,7 @@ a{color:inherit;text-decoration:none}
 .header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
 .user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
 .role-dot{width:7px;height:7px;border-radius:50%}
+.nav-links{display:flex;gap:6px;margin-left:12px}
 .f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
 .f-btn:hover{color:var(--text)}
 .f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -34,6 +35,7 @@ a{color:inherit;text-decoration:none}
 .fselect{padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer}
 .spacer{flex:1}
 .week-label{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
+.cal-grid-wrap{overflow-x:auto}
 
 /* Calendar grid */
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
@@ -70,13 +72,27 @@ a{color:inherit;text-decoration:none}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
-@media(max-width:768px){.cal-grid{grid-template-columns:repeat(7,1fr);gap:3px}.cal-day{min-height:60px;padding:4px}.cal-event{font-size:9px}}
+@media(max-width:768px){
+  .header{padding:10px 14px;gap:8px}
+  .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+  .nav-links::-webkit-scrollbar{display:none}
+  .header-stats{display:none}
+  .logo{font-size:16px}
+  .toolbar{padding-left:12px;padding-right:12px;flex-wrap:wrap}
+  .toolbar-unified{padding-left:12px;padding-right:12px;flex-wrap:wrap}
+  .cal-grid-wrap{overflow-x:auto}
+  .cal-grid{grid-template-columns:repeat(7,1fr);gap:3px;min-width:560px}
+  .cal-day{min-height:60px;padding:4px}
+  .cal-event{font-size:9px}
+  .overlay{align-items:flex-end;padding:0}
+  .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
+}
 </style>
 </head>
 <body>
 <div class="header">
   <div class="logo">Photo<span>HR</span></div>
-  <div style="display:flex;gap:6px;margin-left:12px" id="nav-links"></div>
+  <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
@@ -105,7 +121,7 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
     </span>
   </div>
-  <div class="cal-grid" id="cal-grid"></div>
+  <div class="cal-grid-wrap"><div class="cal-grid" id="cal-grid"></div></div>
   <div id="event-detail"></div>
 </div>
 

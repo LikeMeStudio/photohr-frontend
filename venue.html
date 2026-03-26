@@ -18,10 +18,12 @@
 .header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
 .user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
 .role-dot{width:7px;height:7px;border-radius:50%}
+.nav-links{display:flex;gap:6px;margin-left:12px}
 .f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
 .f-btn:hover{color:var(--text)}
 .f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .main{max-width:1200px;margin:0 auto;padding:20px 24px}
+.table-wrap{overflow-x:auto}
 .sec{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
 .sec-t{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .btn{padding:7px 14px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:12px;font-weight:500;cursor:pointer}.btn-primary{background:var(--accent);color:#fff}.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
@@ -56,14 +58,34 @@
 .foot{display:flex;gap:6px;justify-content:flex-end;padding-top:10px;border-top:1px solid var(--border);margin-top:10px;flex-wrap:wrap}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
-@media(max-width:768px){.main{padding:10px}.qr-wrap{flex-direction:column}.st input{width:36px}.qr-shift-row{flex-direction:column}.shift-col{max-width:100%}}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.overlay .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-height:90vh;overflow-y:auto}
+@media(max-width:768px){
+  .header{padding:10px 14px;gap:8px}
+  .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+  .nav-links::-webkit-scrollbar{display:none}
+  .header-stats{display:none}
+  .logo{font-size:16px}
+  .toolbar-unified{padding-left:12px;padding-right:12px;flex-wrap:wrap}
+  .main{padding:10px 12px}
+  .qr-wrap{flex-direction:column}
+  .st input{width:36px}
+  .qr-shift-row{flex-direction:column}
+  .shift-col{max-width:100%}
+  .pr{flex-direction:column;align-items:stretch}
+  .pr .fin{width:100%}
+  .table-wrap{overflow-x:auto}
+  .foot .btn{width:100%}
+  .overlay{align-items:flex-end;padding:0}
+  .overlay .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
+}
 .venue-card:hover{border-color:var(--accent)!important}
 </style>
 </head>
 <body>
 <div class="header">
   <div class="logo">Photo<span>HR</span></div>
-  <div style="display:flex;gap:6px;margin-left:12px" id="nav-links"></div>
+  <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
@@ -85,8 +107,8 @@
 </div>
 
 <!-- Venue Settings Modal -->
-<div class="overlay" id="vs-modal" onclick="if(event.target===this)closeVenueSettings()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center">
-<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto">
+<div class="overlay" id="vs-modal" onclick="if(event.target===this)closeVenueSettings()" style="display:none">
+<div class="modal" style="max-width:600px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">⚙️ Настройки площадки</span>
     <button class="dr-close" onclick="closeVenueSettings()" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
@@ -96,8 +118,8 @@
 </div>
 
 <!-- Bonus schemes manager (above venue settings z-index) -->
-<div class="overlay" id="bs-modal" onclick="if(event.target===this)closeBsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;align-items:center;justify-content:center;flex-wrap:wrap">
-<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto">
+<div class="overlay" id="bs-modal" onclick="if(event.target===this)closeBsModal()" style="display:none;z-index:210;flex-wrap:wrap">
+<div class="modal" style="max-width:860px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">📝 Бонусные схемы</span>
     <button class="dr-close" onclick="closeBsModal()" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
