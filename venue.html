@@ -504,11 +504,52 @@ if(!r||r.scheme_version!==2){
 w.innerHTML='';
 return;
 }
-w.innerHTML=`<div style="margin-top:8px;padding:8px;background:var(--bg3);border-radius:8px;font-size:12px;border:1px solid var(--border)">
-<div style="font-weight:600;margin-bottom:4px">📊 Начисления (на счёт)</div>
-${r.admin?`<div>👔 Админ: ${esc(r.admin.name||'—')} — ${(r.admin.total||0).toLocaleString('ru-RU')}₽ (фикс ${r.admin.base_salary||0} + бонус ${r.admin.bonus||0})</div>`:''}
-${r.manager?`<div>📋 Менеджер: ${esc(r.manager.name||'—')} — ${(r.manager.total||0).toLocaleString('ru-RU')}₽ (фикс ${r.manager.base_salary||0} + бонус ${r.manager.bonus||0})</div>`:''}
-<div style="margin-top:4px;color:var(--text3)">ЗП фотографов за продукцию: ${(r.results||[]).reduce((s,x)=>s+(parseFloat(x.salary)||0),0).toLocaleString('ru-RU')}₽</div>
+const advSrc=(typeof collectAdvances==='function')?collectAdvances():(report?.advances)||[];
+const advances=Array.isArray(advSrc)?advSrc:[];
+const advFor=(pid)=>{const a=advances.find(x=>String(x.photographer_id)===String(pid));return a?Math.round((parseFloat(a.amount)||0)*100)/100:0;};
+const phBlocks=(r.results||[]).map(x=>{
+const sal=parseFloat(x.salary)||0;
+const bon=parseFloat(x.bonus)||0;
+const fromC=x.from_cash!=null?parseFloat(x.from_cash):bon;
+const adv=advFor(x.photographer_id);
+const net=Math.round((sal+bon-fromC-adv)*100)/100;
+const parts=[];
+if(sal>0)parts.push(`<span style="color:var(--rank1)">+${sal.toLocaleString('ru-RU')}₽</span> ЗП за продукцию`);
+if(bon>0){
+parts.push(`<span style="color:var(--rank1)">+${bon.toLocaleString('ru-RU')}₽</span> бонус`);
+parts.push(`<span style="color:var(--rank3)">−${bon.toLocaleString('ru-RU')}₽</span> выдан нал`);
+}
+if(adv>0)parts.push(`<span style="color:var(--rank3)">−${adv.toLocaleString('ru-RU')}₽</span> аванс`);
+const line=parts.length?parts.join(' · '):'<span style="color:var(--text3)">—</span>';
+return`<div style="margin-bottom:6px;padding:6px;background:var(--bg2);border-radius:6px">
+<div style="font-weight:600">${esc(x.name||'—')}</div>
+<div style="color:var(--text3);font-size:11px;margin-top:2px">${line}</div>
+<div style="font-weight:600;margin-top:4px">Итого на счёт: ${net.toLocaleString('ru-RU')}₽</div>
+</div>`;
+}).join('');
+const adm=r.admin;
+const mgr=r.manager;
+const adminHtml=adm?`<div style="margin-bottom:6px;padding:6px;background:var(--bg2);border-radius:6px">
+<div style="font-weight:600">👔 ${esc(adm.name||'—')} <span style="color:var(--text3);font-weight:500">(админ)</span></div>
+<div style="color:var(--text3);font-size:11px;margin-top:2px">
+${(adm.base_salary||0)>0?`<span style="color:var(--rank1)">+${(adm.base_salary||0).toLocaleString('ru-RU')}₽</span> фикс`:'фикс 0'}
+${(adm.bonus||0)>0?` · <span style="color:var(--rank1)">+${(adm.bonus||0).toLocaleString('ru-RU')}₽</span> бонус`:' · бонус 0'}
+</div>
+<div style="font-weight:600;margin-top:4px">На счёт: ${(adm.total||0).toLocaleString('ru-RU')}₽</div>
+</div>`:'';
+const managerHtml=mgr?`<div style="margin-bottom:6px;padding:6px;background:var(--bg2);border-radius:6px">
+<div style="font-weight:600">📋 ${esc(mgr.name||'—')} <span style="color:var(--text3);font-weight:500">(менеджер)</span></div>
+<div style="color:var(--text3);font-size:11px;margin-top:2px">
+${(mgr.base_salary||0)>0?`<span style="color:var(--rank1)">+${(mgr.base_salary||0).toLocaleString('ru-RU')}₽</span> фикс`:'фикс 0'}
+${(mgr.bonus||0)>0?` · <span style="color:var(--rank1)">+${(mgr.bonus||0).toLocaleString('ru-RU')}₽</span> бонус`:' · бонус 0'}
+</div>
+<div style="font-weight:600;margin-top:4px">На счёт: ${(mgr.total||0).toLocaleString('ru-RU')}₽</div>
+</div>`:'';
+w.innerHTML=`<div style="margin-top:8px;padding:10px;background:var(--bg3);border-radius:8px;font-size:12px;border:1px solid var(--border)">
+<div style="font-weight:600;margin-bottom:8px">📊 Начисления за смену</div>
+${phBlocks||'<div style="color:var(--text3);font-size:11px">Нет строк по фотографам</div>'}
+${adminHtml}
+${managerHtml}
 </div>`;
 }
 
