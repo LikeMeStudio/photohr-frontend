@@ -39,8 +39,9 @@
 .pr{display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--bg3);border-radius:7px;margin-bottom:4px;flex-wrap:wrap;font-size:12px}
 .pr .fin{width:70px}
 .pr-diff{font-weight:600;color:var(--rank1);min-width:40px;text-align:center}
-.st{width:100%;border-collapse:collapse;font-size:11px}.st th,.st td{padding:5px 4px;border:1px solid var(--border);text-align:center;white-space:nowrap}
-.st th{background:var(--bg3);font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase}.st td:first-child{text-align:left;font-weight:500;background:var(--bg2);min-width:90px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{width:100%;border-collapse:collapse;font-size:11px}.st th,.st td{padding:5px 4px;border:1px solid var(--border);text-align:center}
+.st th{background:var(--bg3);font-weight:600;color:var(--text3);font-size:10px;text-transform:none;white-space:nowrap;max-width:88px;overflow:hidden;text-overflow:ellipsis}
+.st td:first-child{text-align:left;font-weight:500;background:var(--bg2);min-width:90px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st input{width:44px;padding:2px;border-radius:3px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;text-align:center;outline:none}.st input:focus{border-color:var(--accent)}
 .st .tot{font-weight:600;background:var(--bg3);color:var(--accent2)}
 .sb{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:7px;font-size:11px;font-weight:500}
@@ -89,7 +90,7 @@
 
 <!-- Bonus schemes manager (above venue settings z-index) -->
 <div class="overlay" id="bs-modal" onclick="if(event.target===this){this.style.display='none'}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:210;align-items:center;justify-content:center;flex-wrap:wrap">
-<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto">
+<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">📝 Бонусные схемы</span>
     <button class="dr-close" onclick="document.getElementById('bs-modal').style.display='none'" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
@@ -104,6 +105,7 @@ const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'ht
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
 let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[],allPhotographersPool=[],_bonusDebounce=null,_saveDebounce=null;
 window.__bonusMeta={};
+window.__calcResult=null;
 function markDirty(){isDirty=true;}
 function bonusAmountForPh(ph){
 const m=window.__bonusByPh||{};
@@ -111,6 +113,29 @@ const raw=m[ph];
 if(raw==null||raw==='')return 0;
 if(typeof raw==='object'&&raw!==null&&'total' in raw)return Number(raw.total)||0;
 return Number(raw)||0;
+}
+function bonusCashFromPh(ph){
+const meta=window.__bonusMeta?.[ph];
+if(meta&&meta.from_cash!=null)return Number(meta.from_cash)||0;
+return bonusAmountForPh(ph);
+}
+function calcBonusLocal(block,revenue){
+if(!block||!revenue||revenue<=0)return 0;
+let bonus=0;
+const thresholds=block.thresholds||[];
+const sorted=[...thresholds].sort((a,b)=>(b.from||0)-(a.from||0));
+for(const t of sorted){if(revenue>=(t.from||0)){bonus=parseFloat(t.bonus)||0;break;}}
+for(const p of (block.progressive||[])){
+const above=parseFloat(p.above)||0,every=parseFloat(p.every)||1,add=parseFloat(p.add)||0;
+if(revenue>above&&every>0)bonus+=Math.floor((revenue-above)/every)*add;
+}
+return Math.round(bonus);
+}
+function getProductPrinterFormatForProduct(p){
+if(!p)return null;
+const pf=p.printer_format;
+if(pf&&String(pf).trim())return normPrinterFmtSaved(pf)||String(pf).trim();
+return getProductPrinterFormat(p.product_name||p.name||'');
 }
 function normPrinterFmtSaved(f){
 const x=String(f||'').toLowerCase().replace(/х/g,'x').replace(/\s/g,'');
@@ -153,7 +178,7 @@ return dow===0||dow===6?'weekend':'weekday';
 }
 function hasPhotographerBonusConfig(){
 const dt=resolveDayTypeForBonus();
-return(venueBonusConfigs||[]).some(c=>c.role_type==='photographer'&&c.day_type===dt&&c.scheme_id);
+return(venueBonusConfigs||[]).some(c=>c.day_type===dt&&c.scheme_id);
 }
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
@@ -392,6 +417,7 @@ ${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div cl
 <div class="sec"><div class="sec-t">📊 Продажи</div>
 ${phs.length&&prods.length?salesTbl(phs,lines):'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
 ${ed&&phs.length&&prods.length?`<div id="bonus-actions-wrap">${hasPhotographerBonusConfig()?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div id="bonus-results" style="font-size:11px;color:var(--text3)">Бонусы пересчитываются автоматически (~2 сек после ввода)</div></div>`:`<div style="margin-top:10px;font-size:11px;color:var(--text3)">Бонусная схема не настроена для этой площадки (тип дня: ${esc(resolveDayTypeForBonus())})</div>`}</div>`:''}
+<div id="accruals-wrap"></div>
 </div>
 
 ${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
@@ -424,7 +450,7 @@ ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-ite
 <span style="font-size:13px;font-weight:600">💵 К сдаче (нал):</span>
 <span id="cash-to-collect" style="font-size:18px;font-weight:700;color:var(--rank1)">0 ₽</span>
 </div>
-<div style="font-size:10px;color:var(--text3);margin-top:4px">= Наличные − Выплаты (ЗП+бонус) − Авансы − Расходы</div>
+<div style="font-size:10px;color:var(--text3);margin-top:4px">= Наличные − Бонусы фотографов (из кассы) − Авансы − Расходы</div>
 <div id="cash-negative-hint" style="display:none;font-size:10px;color:var(--rank3);margin-top:4px">Недостаточно нала для выплаты бонусов</div>
 </div>`:''}
 
@@ -447,7 +473,22 @@ const venueObj = venues.find(v => v.id === document.getElementById('vs').value);
 if (venueObj && venueObj.has_aquagrim) {
   document.getElementById('C').innerHTML += renderAqSection();
 }
-setTimeout(()=>{applyBonusFromReport();recalcAll(true);},80);
+setTimeout(()=>{applyBonusFromReport();recalcAll(true);renderAccruals();},80);
+}
+function renderAccruals(){
+const w=document.getElementById('accruals-wrap');
+if(!w)return;
+const r=window.__calcResult;
+if(!r||r.scheme_version!==2){
+w.innerHTML='';
+return;
+}
+w.innerHTML=`<div style="margin-top:8px;padding:8px;background:var(--bg3);border-radius:8px;font-size:12px;border:1px solid var(--border)">
+<div style="font-weight:600;margin-bottom:4px">📊 Начисления (на счёт)</div>
+${r.admin?`<div>👔 Админ: ${esc(r.admin.name||'—')} — ${(r.admin.total||0).toLocaleString('ru-RU')}₽ (фикс ${r.admin.base_salary||0} + бонус ${r.admin.bonus||0})</div>`:''}
+${r.manager?`<div>📋 Менеджер: ${esc(r.manager.name||'—')} — ${(r.manager.total||0).toLocaleString('ru-RU')}₽ (фикс ${r.manager.base_salary||0} + бонус ${r.manager.bonus||0})</div>`:''}
+<div style="margin-top:4px;color:var(--text3)">ЗП фотографов за продукцию: ${(r.results||[]).reduce((s,x)=>s+(parseFloat(x.salary)||0),0).toLocaleString('ru-RU')}₽</div>
+</div>`;
 }
 
 function wasteCellsFromLines(lines,ph){
@@ -464,12 +505,21 @@ if(Number.isFinite(t20))w20=Math.max(w20,t20);
 if(w10||w20)return{w10,w20};
 return{w10:wq,w20:0};
 }
+function wasteA4FromLines(lines,ph){
+const forPh=(lines||[]).filter(l=>String(l.photographer_id)===String(ph));
+let a4=0;
+for(const l of forPh){
+const v=parseInt(l.waste_a4,10);
+if(Number.isFinite(v))a4=Math.max(a4,v);
+}
+return a4;
+}
 
 function salesTbl(phs,lines){
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
-prods.forEach(p=>{h+=`<th>${esc(String((p.product_name||p.name)||'').slice(0,10))}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
-h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
-phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);
+prods.forEach(p=>{const fn=String(p.product_name||p.name||'');h+=`<th title="${esc(fn)}">${esc(fn)}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
+h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
+phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);const wa4=wasteA4FromLines(lines,ph);
 h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>String(l.photographer_id)===String(ph)&&String(l.product_id)===String(pid));
 h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;});
@@ -481,6 +531,7 @@ else if(pc===0&&(pcrd>0||pqr>0))manual='1';
 const cashVal=pc;
 h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${wa4}" class="swa4" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${xPay?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${xPay?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"/></td>`;
 h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" data-manual="${manual}" style="width:50px" oninput="onCashManual(this);inputRecalc()"/></td>`;
@@ -489,7 +540,7 @@ h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" 
 h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
-h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
+h+='<td class="tot" id="tw10">0</td><td class="tot" id="tw20">0</td><td class="tot" id="twa4">0</td><td class="tot" id="tfq">0</td><td class="tot" id="tfs">0</td><td class="tot" id="tc">0</td><td class="tot" id="tk">0</td><td class="tot" id="tq">0</td><td class="tot" id="gt">0</td><td class="tot" id="tbon">—</td></tr></tbody></table></div>';
 setTimeout(()=>recalcAll(true),50);return h;}
 
 function recalcAll(skipDirty){
@@ -508,9 +559,10 @@ phTotals[ph]=(phTotals[ph]||0)+s;prodTotals[p]=(prodTotals[p]||0)+q;grandTotal+=
 });
 Object.entries(phTotals).forEach(([k,v])=>{const el=document.getElementById('rt'+k);if(el)el.textContent=v.toLocaleString('ru-RU');});
 Object.entries(prodTotals).forEach(([k,v])=>{const el=document.getElementById('ct'+k);if(el)el.textContent=v;});
-let tw10=0,tw20=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
+let tw10=0,tw20=0,twa4=0,tfq=0,tfs=0,tc=0,tk=0,tq=0;
 document.querySelectorAll('.sw10').forEach(n=>tw10+=parseInt(n.value)||0);
 document.querySelectorAll('.sw20').forEach(n=>tw20+=parseInt(n.value)||0);
+document.querySelectorAll('.swa4').forEach(n=>twa4+=parseInt(n.value)||0);
 document.querySelectorAll('.sfq').forEach(n=>tfq+=parseInt(n.value)||0);
 document.querySelectorAll('.sfs').forEach(n=>tfs+=parseFloat(n.value)||0);
 document.querySelectorAll('.sc').forEach(n=>tc+=parseFloat(n.value)||0);
@@ -520,12 +572,13 @@ const $=id=>document.getElementById(id);
 if($('gt'))$('gt').textContent=grandTotal.toLocaleString('ru-RU');
 if($('tw10'))$('tw10').textContent=tw10;
 if($('tw20'))$('tw20').textContent=tw20;
+if($('twa4'))$('twa4').textContent=twa4;
 if($('tfq'))$('tfq').textContent=tfq;
 if($('tfs'))$('tfs').textContent=tfs;
 if($('tc'))$('tc').textContent=tc.toLocaleString('ru-RU');
 if($('tk'))$('tk').textContent=tk.toLocaleString('ru-RU');
 if($('tq'))$('tq').textContent=tq.toLocaleString('ru-RU');
-let totalBonusPay=0;
+let totalCashBonus=0;
 const meta=window.__bonusMeta||{};
 Object.keys(phTotals).forEach(ph=>{
 const bonEl=document.getElementById('bon'+ph);
@@ -533,23 +586,24 @@ if(bonEl){
 const b=bonusAmountForPh(ph);
 bonEl.textContent=b>0?b.toLocaleString('ru-RU'):'—';
 const m=meta[ph];
-bonEl.title=m?`ЗП: ${m.salary||0}₽ + Бонус: ${m.bonus!=null?m.bonus:(b-(m.salary||0))}₽${m.calc_mode?' ('+m.calc_mode+')':''}`:'';
+const cashB=bonusCashFromPh(ph);
+bonEl.title=m?`ЗП (продукция): ${m.salary||0}₽ · Бонус из кассы: ${m.bonus!=null?m.bonus:cashB}₽${m.calc_mode?' · '+m.calc_mode:''}`:'';
 bonEl.style.color=b>0?'var(--rank1)':'var(--text3)';
-totalBonusPay+=b;
+totalCashBonus+=cashB;
 }
 });
 const tbon=$('tbon');
-if(tbon)tbon.textContent=totalBonusPay>0?totalBonusPay.toLocaleString('ru-RU'):'—';
+if(tbon)tbon.textContent=totalCashBonus>0?totalCashBonus.toLocaleString('ru-RU'):'—';
 const advances=typeof collectAdvances==='function'?collectAdvances().reduce((s,a)=>s+(a.amount||0),0):0;
 const petty=typeof collectPettyCash==='function'?collectPettyCash().reduce((s,e)=>s+(e.amount||0),0):0;
-const cashToCollect=tc-totalBonusPay-advances-petty;
+const cashToCollect=tc-totalCashBonus-advances-petty;
 const cashEl=$('cash-to-collect');
 if(cashEl){
 cashEl.textContent=cashToCollect.toLocaleString('ru-RU')+' ₽';
 cashEl.style.color=cashToCollect<0?'var(--rank3)':'var(--rank1)';
 }
 const nh=document.getElementById('cash-negative-hint');
-if(nh)nh.style.display=cashToCollect<0&&tc===0&&totalBonusPay>0?'block':'none';
+if(nh)nh.style.display=cashToCollect<0&&tc===0&&totalCashBonus>0?'block':'none';
 if(typeof prods!=='undefined'&&prods&&document.getElementById('prl')){
 const printerFormats=['10x15','15x20','A4'];
 printerFormats.forEach((fmt,i)=>{
@@ -561,18 +615,20 @@ const infoEl=document.getElementById('pi'+i);
 if(!diffEl)return;
 let expectedPhotos=0;
 prods.forEach(p=>{
-const pf=getProductPrinterFormat(p.product_name||p.name||'');
+const pf=getProductPrinterFormatForProduct(p);
 if(pf!==fmt)return;
 const prodId=p.product_id||p.id;
 let totalQty=0;
 document.querySelectorAll(`.sq[data-p="${prodId}"]`).forEach(n=>{totalQty+=parseInt(n.value)||0;});
 expectedPhotos+=totalQty;
 });
-let w10tot=0,w20tot=0;
+let w10tot=0,w20tot=0,w4tot=0;
 document.querySelectorAll('.sw10').forEach(n=>{w10tot+=parseInt(n.value)||0;});
 document.querySelectorAll('.sw20').forEach(n=>{w20tot+=parseInt(n.value)||0;});
+document.querySelectorAll('.swa4').forEach(n=>{w4tot+=parseInt(n.value)||0;});
 if(fmt==='10x15')expectedPhotos+=w10tot;
 else if(fmt==='15x20')expectedPhotos+=w20tot;
+else if(fmt==='A4')expectedPhotos+=w4tot;
 if(fmt==='15x20'){
 const realPhotos=rawDiff/2;
 diffEl.innerHTML=`<span style="color:var(--rank1)">${realPhotos}</span>`;
@@ -660,7 +716,8 @@ phsList.forEach(a=>{
 const ph=a.photographer_id;
 const w10=parseInt(document.querySelector(`.sw10[data-ph="${ph}"]`)?.value)||0;
 const w20=parseInt(document.querySelector(`.sw20[data-ph="${ph}"]`)?.value)||0;
-const wsum=w10+w20;
+const wa4=parseInt(document.querySelector(`.swa4[data-ph="${ph}"]`)?.value)||0;
+const wsum=w10+w20+wa4;
 const fq=parseInt(document.querySelector(`.sfq[data-ph="${ph}"]`)?.value)||0;
 const fs=parseFloat(document.querySelector(`.sfs[data-ph="${ph}"]`)?.value)||0;
 const pc=parseFloat(document.querySelector(`.sc[data-ph="${ph}"]`)?.value)||0;
@@ -688,6 +745,7 @@ price:pr,
 waste_qty:idx===0?wsum:0,
 waste_10x15:idx===0?w10:0,
 waste_15x20:idx===0?w20:0,
+waste_a4:idx===0?wa4:0,
 flash_qty:idx===0?fq:0,
 flash_sum:idx===0?fs:0,
 payment_cash:payHere?pc:0,
@@ -774,20 +832,30 @@ petty_cash_expenses:collectPettyCash()
 });
 isDirty=false;
 const result=await api('POST',`/daily-reports/${report.id}/calc-bonuses`);
+window.__calcResult=result.scheme_version===2?result:null;
 window.__bonusByPh={};
 window.__bonusMeta={};
 const rows=Array.isArray(result?.results)?result.results:Array.isArray(result)?result:[];
+const isV2=result.scheme_version===2;
 rows.forEach(r=>{
-window.__bonusByPh[r.photographer_id]=r.total||0;
-window.__bonusMeta[r.photographer_id]={salary:r.salary||0,bonus:r.bonus||0,calc_mode:r.calc_mode};
+const pid=r.photographer_id;
+if(isV2){
+window.__bonusByPh[pid]=r.bonus!=null?r.bonus:0;
+window.__bonusMeta[pid]={salary:r.salary||0,bonus:r.bonus||0,from_cash:r.from_cash!=null?r.from_cash:r.bonus,calc_mode:r.calc_mode};
+}else{
+window.__bonusByPh[pid]=r.total||0;
+window.__bonusMeta[pid]={salary:r.salary||0,bonus:r.bonus||0,calc_mode:r.calc_mode};
+}
 });
 recalcAll(true);
+renderAccruals();
 if(!silent)toast('💰 Бонусы рассчитаны');
 }catch(e){if(!silent)toast(e.message,1);console.error('[calcBonuses]',e);}
 finally{_calcLock=false;}
 }
 
 function applyBonusFromReport(){
+window.__calcResult=null;
 if(!report)return;
 const rl=report.lines||report.sale_lines||[];
 if(!Array.isArray(rl))return;
@@ -808,7 +876,7 @@ for(const ph of Object.keys(byPh)){
 const {pb,se}=byPh[ph];
 if(pb>0||se>0){
 window.__bonusByPh[ph]=pb;
-window.__bonusMeta[ph]={salary:se,bonus:pb-se};
+window.__bonusMeta[ph]={salary:se,bonus:pb-se,from_cash:pb};
 }
 }
 }
@@ -835,17 +903,17 @@ settingsChanged=false;
 load();
 }
 
-async function saveBonusConfig(vid,dayType,roleType,schemeId){
+async function saveBonusConfig(vid,dayType,schemeId){
 try{
 if(!schemeId){
 const configs=await api('GET',`/venues/${vid}/bonus-config`);
-const existing=configs.find(c=>c.day_type===dayType&&c.role_type===roleType);
+const existing=configs.find(c=>c.day_type===dayType);
 if(existing)await api('DELETE',`/venues/${vid}/bonus-config/${existing.id}`);
 }else{
-await api('POST',`/venues/${vid}/bonus-config`,{day_type:dayType,role_type:roleType,scheme_id:schemeId});
+await api('POST',`/venues/${vid}/bonus-config`,{day_type:dayType,scheme_id:schemeId});
 }
 settingsChanged=true;
-toast('Схема привязана');
+toast('Сохранено');
 await refreshBonusSelects(vid);
 }catch(e){toast(e.message,1);}
 }
@@ -853,25 +921,26 @@ await refreshBonusSelects(vid);
 function renderBonusVenueSelectors(vid,schemes,cfg){
 const dayTypes=['weekday','weekend','holiday'];
 const dayLabels=['Будни','Выходные','Праздники'];
-const roles=[{key:'photographer',label:'Фотографы'},{key:'operator',label:'Оператор печати'},{key:'manager',label:'Менеджер'}];
-const pick=(dt,rt)=>cfg.find(c=>c.day_type===dt&&c.role_type===rt);
-let html='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">💰 Бонусные схемы</div><button type="button" class="btn btn-ghost" style="font-size:11px;margin-bottom:8px" onclick="openBonusSchemesModal()">📝 Управление схемами</button>';
-roles.forEach(({key,label})=>{
-html+=`<div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px">${esc(label)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">`;
+const pick=dt=>cfg.find(c=>c.day_type===dt);
+const v2=schemes.filter(s=>Number(s.scheme_version)===2);
+let html='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">💰 Бонусная схема</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
 dayTypes.forEach((dt,idx)=>{
-const cur=pick(dt,key);
-const filtered=schemes.filter(s=>s.scheme_type===key);
-const options=['<option value="">Не выбрана</option>'].concat(filtered.map(s=>`<option value="${s.id}" ${cur?.scheme_id===s.id?'selected':''}>${esc(s.name)}</option>`)).join('');
-html+=`<div style="flex:1;min-width:140px"><div class="fl">${dayLabels[idx]}</div><select class="fselect" onchange="saveBonusConfig('${vid}','${dt}','${key}',this.value)" style="width:100%;font-size:11px">${options}</select></div>`;
+const cur=pick(dt);
+const options=['<option value="">Не выбрана</option>'].concat(v2.map(s=>`<option value="${s.id}" ${cur?.scheme_id===s.id?'selected':''}>${esc(s.name)}</option>`)).join('');
+html+=`<div style="flex:1;min-width:140px"><div class="fl">${dayLabels[idx]}</div><select class="fselect" onchange="saveBonusConfig('${vid}','${dt}',this.value)" style="width:100%;font-size:11px">${options}</select></div>`;
 });
-html+='</div>';
-});
-html+='</div>';
+html+='</div><button type="button" class="btn btn-ghost" style="font-size:11px" onclick="openBonusSchemesModal()">📝 Управление схемами</button></div>';
 return html;
 }
 
 function bsSummarizeRules(s){
-try{const r=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
+try{
+const r=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
+if(parseInt(s.scheme_version,10)===2){
+const n=Object.keys(r.product_rates||{}).length;
+const pth=(r.photographer&&r.photographer.thresholds)||[];
+return`v2 · ставок: ${n} · пороги фото: ${pth.length}`;
+}
 return`Пороги: ${(r.thresholds||[]).length}, прогрессивных: ${(r.progressive||[]).length}`;
 }catch(e){return'';}
 }
@@ -888,7 +957,7 @@ const schemes=await api('GET','/bonus-schemes');
 const isAdmin=hasAnyRole(['admin']);
 let h=`<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">${isAdmin?'<button type="button" class="btn btn-primary" style="font-size:11px" onclick="openBsEdit(null)">+ Новая схема</button>':''}</div>`;
 h+=schemes.map(s=>`<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px">
-<div style="font-weight:600">${esc(s.name)} <span style="font-size:10px;color:var(--text3)">${esc(s.scheme_type)} · ${esc(s.calc_mode)}</span></div>
+<div style="font-weight:600">${esc(s.name)} <span style="font-size:10px;color:var(--text3)">${parseInt(s.scheme_version,10)===2?'v2':'v1'} · ${esc(s.scheme_type)} · ${esc(s.calc_mode)}</span></div>
 <div style="font-size:10px;color:var(--text3);margin-top:4px">${esc(bsSummarizeRules(s))}</div>
 ${isAdmin?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBsEdit('${s.id}')">Изменить</button><button type="button" class="btn btn-ghost" style="font-size:10px;color:var(--rank3)" onclick="deleteBsScheme('${s.id}')">Удалить</button></div>`:''}
 </div>`).join('');
@@ -900,19 +969,164 @@ window.__bsEditingId=null;
 async function openBsEdit(id){
 const bc=document.getElementById('bs-content');
 if(!hasAnyRole(['admin'])){toast('Только администратор',1);return;}
+bc.innerHTML='<div class="loading">Загрузка...</div>';
+const vid=document.getElementById('vs')?.value||'';
+let venueProds=[],allProds=[];
+try{
+if(vid)venueProds=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
+allProds=await api('GET','/products').catch(()=>[]);
+}catch(e){toast(e.message,1);return;}
 if(id){
 try{
 const s=await api('GET',`/bonus-schemes/${id}`);
 window.__bsEditingId=id;
-bc.innerHTML=renderBsForm(s);
+if(parseInt(s.scheme_version,10)===2){
+bc.innerHTML=renderBsFormV2(s,venueProds,allProds,vid);
+}else{
+bc.innerHTML=renderBsFormV1(s);
+}
 }catch(e){toast(e.message,1);return;}
 }else{
 window.__bsEditingId=null;
-bc.innerHTML=renderBsForm({name:'',scheme_type:'photographer',calc_mode:'standard',percentage_rate:0.25,base_salary:0,rules:{thresholds:[],progressive:[]}});
+bc.innerHTML=renderBsFormV2({name:'',scheme_version:2,rules:{photographer:{thresholds:[],progressive:[]},admin:{base_salary:0,thresholds:[],progressive:[]},manager:{base_salary:0,thresholds:[],progressive:[]},product_rates:{}}},venueProds,allProds,vid);
 }
 }
 
-function renderBsForm(s){
+function buildProductRowsForBs(s,venueProds,allProds,vid){
+const rules=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
+const prMap=rules.product_rates||{};
+const src=(vid&&venueProds&&venueProds.length)?venueProds:allProds;
+if(!src||!src.length)return[];
+return src.map(p=>{
+const pid=String(p.product_id||p.id);
+const rate=prMap[pid]||prMap[String(pid)]||{};
+let salary=rate.salary;
+if(salary==null||salary==='')salary=p.salary_per_unit!=null?p.salary_per_unit:'';
+const printer=rate.printer_format||p.printer_format||'';
+const name=p.name||p.product_name||'';
+return{pid,name,salary,printer};
+});
+}
+
+function bsRenderThRows(arr){
+return(arr||[]).map(t=>`<div class="bs-th-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center"><span style="font-size:10px;color:var(--text3)">от</span><input type="number" class="fin bs-th-from" value="${t.from||0}" style="width:80px"/><span style="font-size:10px;color:var(--text3)">→</span><input type="number" class="fin bs-th-bonus" value="${t.bonus||0}" style="width:72px"/><span style="font-size:10px;color:var(--text3)">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+}
+
+function bsRenderPrRows(arr){
+return(arr||[]).map(p=>`<div class="bs-pr-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px"><span>сверх</span><input type="number" class="fin bs-pr-a" value="${p.above||0}" style="width:70px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="${p.every||1}" style="width:50px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="${p.add||0}" style="width:60px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+}
+
+function bsAddThV2(scope){
+const d=document.createElement('div');
+d.className='bs-th-row';
+d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
+d.innerHTML='<span style="font-size:10px;color:var(--text3)">от</span><input type="number" class="fin bs-th-from" value="0" style="width:80px"/><span style="font-size:10px;color:var(--text3)">→</span><input type="number" class="fin bs-th-bonus" value="0" style="width:72px"/><span style="font-size:10px;color:var(--text3)">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
+document.getElementById('bs-'+scope+'-th').appendChild(d);
+}
+
+function bsAddPrV2(scope){
+const d=document.createElement('div');
+d.className='bs-pr-row';
+d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px';
+d.innerHTML='<span>сверх</span><input type="number" class="fin bs-pr-a" value="0" style="width:70px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="1" style="width:50px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="0" style="width:60px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
+document.getElementById('bs-'+scope+'-pr').appendChild(d);
+}
+
+function collectSchemeRulesV2(){
+function gatherTh(id){
+const el=document.getElementById(id);
+if(!el)return[];
+const out=[];
+el.querySelectorAll('.bs-th-row').forEach(row=>{
+out.push({from:parseFloat(row.querySelector('.bs-th-from').value)||0,bonus:parseFloat(row.querySelector('.bs-th-bonus').value)||0});
+});
+return out;
+}
+function gatherPr(id){
+const el=document.getElementById(id);
+if(!el)return[];
+const out=[];
+el.querySelectorAll('.bs-pr-row').forEach(row=>{
+out.push({above:parseFloat(row.querySelector('.bs-pr-a').value)||0,every:parseFloat(row.querySelector('.bs-pr-e').value)||1,add:parseFloat(row.querySelector('.bs-pr-ad').value)||0});
+});
+return out;
+}
+const product_rates={};
+document.querySelectorAll('#bs-prod-rows tr[data-pid]').forEach(tr=>{
+const pid=tr.getAttribute('data-pid');
+const sal=parseFloat(tr.querySelector('.bs-pr-sal')?.value);
+const pf=(tr.querySelector('.bs-pr-pf')?.value||'').trim();
+product_rates[pid]={salary:Number.isFinite(sal)?sal:0,printer_format:pf||null};
+});
+return{
+product_rates,
+photographer:{thresholds:gatherTh('bs-ph-th'),progressive:gatherPr('bs-ph-pr')},
+admin:{base_salary:parseFloat(document.getElementById('bs-admin-base')?.value)||0,thresholds:gatherTh('bs-admin-th'),progressive:gatherPr('bs-admin-pr')},
+manager:{base_salary:parseFloat(document.getElementById('bs-mgr-base')?.value)||0,thresholds:gatherTh('bs-mgr-th'),progressive:gatherPr('bs-mgr-pr')}
+};
+}
+
+function previewSchemeV2(){
+const personalRev=parseFloat(document.getElementById('bs-preview-personal')?.value)||0;
+const totalRev=parseFloat(document.getElementById('bs-preview-total')?.value)||0;
+let rules;
+try{rules=collectSchemeRulesV2();}catch(e){toast(e.message,1);return;}
+const phBonus=calcBonusLocal(rules.photographer,personalRev);
+let estSal=0;
+Object.values(rules.product_rates||{}).forEach(v=>{estSal+=parseFloat(v.salary)||0;});
+const adminFix=parseFloat(rules.admin?.base_salary)||0;
+const adminBonus=calcBonusLocal(rules.admin,totalRev);
+const mgrFix=parseFloat(rules.manager?.base_salary)||0;
+const mgrBonus=calcBonusLocal(rules.manager,totalRev);
+const phTotal=estSal+phBonus;
+const out=document.getElementById('bs-preview-result');
+if(out)out.innerHTML=`<div>📷 Фотограф: ЗП ${estSal.toLocaleString('ru-RU')}₽ + бонус ${phBonus.toLocaleString('ru-RU')}₽ = <b>${phTotal.toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(бонус из кассы)</span></div>
+<div>👔 Админ: фикс ${adminFix.toLocaleString('ru-RU')}₽ + бонус ${adminBonus.toLocaleString('ru-RU')}₽ = <b>${(adminFix+adminBonus).toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(начисление)</span></div>
+<div>📋 Менеджер: фикс ${mgrFix.toLocaleString('ru-RU')}₽ + бонус ${mgrBonus.toLocaleString('ru-RU')}₽ = <b>${(mgrFix+mgrBonus).toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(начисление)</span></div>
+<div style="margin-top:6px;font-size:10px;color:var(--text3)">ЗП в предпросмотре — сумма ставок «как по 1 шт. каждого товара»; в отчёте считается по факту продаж.</div>`;
+}
+
+function renderBsFormV2(s,venueProds,allProds,vid){
+const rules=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
+const ph=rules.photographer||{thresholds:[],progressive:[]};
+const adm=rules.admin||{base_salary:0,thresholds:[],progressive:[]};
+const mgr=rules.manager||{base_salary:0,thresholds:[],progressive:[]};
+const rows=buildProductRowsForBs(s,venueProds,allProds,vid);
+const prodRowsHtml=rows.map(row=>{
+const pf=String(row.printer||'');
+return`<tr data-pid="${row.pid}"><td style="text-align:left;padding:4px 6px">${esc(row.name)}</td><td><input type="number" class="fin bs-pr-sal" value="${row.salary===''||row.salary==null?'':row.salary}" style="width:72px" step="0.01"/></td><td><select class="fselect bs-pr-pf" style="font-size:11px;width:88px"><option value="" ${!pf?'selected':''}>—</option><option value="10x15" ${pf==='10x15'?'selected':''}>10×15</option><option value="15x20" ${pf==='15x20'?'selected':''}>15×20</option><option value="A4" ${pf==='A4'?'selected':''}>А4</option></select></td></tr>`;
+}).join('');
+const srcHint=(vid&&venueProds&&venueProds.length)?'Товары площадки':'Все товары (площадка не выбрана или пусто)';
+return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBonusSchemesModal()">← К списку</button></div>
+<div id="bs-v2-wrap" style="display:grid;gap:12px">
+<div><div class="fl">Название</div><input class="fin" id="bs-name" value="${esc(s.name||'')}" style="width:100%"/></div>
+<div style="font-size:11px;font-weight:600">📸 ЗП за продукцию (фотографам)</div>
+<div style="font-size:10px;color:var(--text3);margin:-6px 0 0">${esc(srcHint)}</div>
+<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px">ЗП/шт</th><th style="padding:6px">Принтер</th></tr></thead>
+<tbody id="bs-prod-rows">${prodRowsHtml||'<tr><td colspan="3" style="padding:8px;color:var(--text3)">Нет товаров в справочнике</td></tr>'}</tbody></table></div>
+<div style="font-size:11px;font-weight:600">📷 Бонусы фотографа (от личной выручки, из кассы)</div>
+<div><div class="fl">Пороги</div><div id="bs-ph-th">${bsRenderThRows(ph.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('ph')">+ Порог</button></div>
+<div><div class="fl">Прогрессивные</div><div id="bs-ph-pr">${bsRenderPrRows(ph.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('ph')">+ Правило</button></div>
+<div style="font-size:11px;font-weight:600">👔 Администратор (от общей выручки, начисление)</div>
+<div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-admin-base" value="${adm.base_salary||0}" step="0.01" style="width:120px"/></div>
+<div><div class="fl">Пороги</div><div id="bs-admin-th">${bsRenderThRows(adm.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('admin')">+ Порог</button></div>
+<div><div class="fl">Прогрессивные</div><div id="bs-admin-pr">${bsRenderPrRows(adm.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('admin')">+ Правило</button></div>
+<div style="font-size:11px;font-weight:600">📋 Менеджер (от общей выручки, начисление)</div>
+<div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-mgr-base" value="${mgr.base_salary||0}" step="0.01" style="width:120px"/></div>
+<div><div class="fl">Пороги</div><div id="bs-mgr-th">${bsRenderThRows(mgr.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('mgr')">+ Порог</button></div>
+<div><div class="fl">Прогрессивные</div><div id="bs-mgr-pr">${bsRenderPrRows(mgr.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('mgr')">+ Правило</button></div>
+<div style="font-size:11px;font-weight:600">🧪 Предпросмотр</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+<div><div class="fl">Выручка фотографа</div><input class="fin" type="number" id="bs-preview-personal" value="15000" step="0.01" style="width:120px"/></div>
+<div><div class="fl">Общая выручка</div><input class="fin" type="number" id="bs-preview-total" value="45000" step="0.01" style="width:120px"/></div>
+<button type="button" class="btn btn-ghost" onclick="previewSchemeV2()">Предпросмотр</button></div>
+<div id="bs-preview-result" style="font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.45"></div>
+<div style="margin-top:6px"><button type="button" class="btn btn-primary" onclick="bsSave()">Сохранить</button></div>
+</div>`;
+}
+
+function renderBsFormV1(s){
 const rules=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
 const th=rules.thresholds||[];
 const pr=rules.progressive||[];
@@ -994,8 +1208,46 @@ base_salary=0;
 return{name,description:null,scheme_type,calc_mode,percentage_rate,base_salary,rules};
 }
 
+function bsGatherPayloadV2(){
+const name=document.getElementById('bs-name').value.trim();
+if(!name)throw new Error('Укажите название');
+const rules=collectSchemeRulesV2();
+if(!rules.photographer||typeof rules.photographer!=='object')throw new Error('Нужны правила фотографа');
+return{
+name,
+description:null,
+scheme_version:2,
+scheme_type:'unified',
+calc_mode:'standard',
+percentage_rate:0.25,
+base_salary:0,
+rules
+};
+}
+
 async function bsSave(){
 try{
+const isV2=!!document.getElementById('bs-v2-wrap');
+if(isV2){
+const body=bsGatherPayloadV2();
+if(window.__bsEditingId){
+await api('PATCH',`/bonus-schemes/${window.__bsEditingId}`,{
+name:body.name,
+description:body.description,
+scheme_type:body.scheme_type,
+calc_mode:body.calc_mode,
+percentage_rate:body.percentage_rate,
+base_salary:body.base_salary,
+rules:body.rules,
+scheme_version:2
+});
+toast('Сохранено');
+}else{
+const r=await api('POST','/bonus-schemes',body);
+window.__bsEditingId=r.id;
+toast('Создано');
+}
+}else{
 const body=bsGatherPayload();
 if(window.__bsEditingId){
 await api('PATCH',`/bonus-schemes/${window.__bsEditingId}`,body);
@@ -1004,6 +1256,7 @@ toast('Сохранено');
 const r=await api('POST','/bonus-schemes',body);
 window.__bsEditingId=r.id;
 toast('Создано');
+}
 }
 settingsChanged=true;
 const vid=document.getElementById('vs').value;
@@ -1144,10 +1397,17 @@ async function openVenueSettings(){
       <div style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">🛒 Товары площадки (${venueProds.length})</div>
         ${venueProds.map(p=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
             <span style="flex:1">${esc(p.product_name||p.name)}</span>
-            <span style="color:var(--accent2);font-weight:600">${p.price}₽</span>
-            <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeProduct('${vid}','${p.product_id}')">✕</button>
+            <input type="number" value="${p.price}" style="width:70px;font-size:11px" class="fin" onchange="updateVenueProduct('${vid}','${p.product_id}',{price:parseFloat(this.value)})"/>
+            <span style="font-size:10px;color:var(--text3)">₽</span>
+            <select style="font-size:11px;width:78px" class="fselect" onchange="updateVenueProduct('${vid}','${p.product_id}',{printer_format:this.value})">
+              <option value="" ${!p.printer_format?'selected':''}>—</option>
+              <option value="10x15" ${p.printer_format==='10x15'?'selected':''}>10×15</option>
+              <option value="15x20" ${p.printer_format==='15x20'?'selected':''}>15×20</option>
+              <option value="A4" ${p.printer_format==='A4'?'selected':''}>А4</option>
+            </select>
+            <button class="btn btn-ghost" onclick="removeProduct('${vid}','${p.product_id}')" style="color:var(--rank3);font-size:12px;padding:2px 6px">✕</button>
           </div>
         `).join('')||'<div style="color:var(--text3);font-size:12px">Нет товаров. Добавьте ниже.</div>'}
       </div>
@@ -1248,6 +1508,15 @@ async function removeProduct(vid,pid){
   try{await api('DELETE',`/venues/${vid}/products/${pid}`);settingsChanged=true;toast('Удалён');openVenueSettings();prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);}catch(e){toast(e.message,1);}
 }
 
+async function updateVenueProduct(vid,pid,data){
+  try{
+    await api('PATCH',`/venues/${vid}/products/${pid}`,data);
+    toast('Обновлено');
+    settingsChanged=true;
+    prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
+  }catch(e){toast(e.message,1);}
+}
+
 async function addAqProduct(vid){
   const prodId=document.getElementById('add-aq-prod')?.value;
   const price=parseFloat(document.getElementById('add-aq-price')?.value);
@@ -1294,6 +1563,7 @@ async function saveVenueStaff(vid){
       required_aq_managers: parseInt(document.getElementById('vr-aq-mgr')?.value) || 0,
     });
     toast('Сохранено');
+    settingsChanged=true;
   }catch(e){toast(e.message,1);}
 }
 
