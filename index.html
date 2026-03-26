@@ -2814,6 +2814,14 @@ function renderInfoTab(ph){
         <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
           <input type="checkbox" id="edit-ph-can-be-mentor" ${ph.can_be_mentor?'checked':''} style="cursor:pointer"/> Может быть наставником
         </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="edit-ph-can-be-admin" ${ph.can_be_admin?'checked':''} style="cursor:pointer"/>
+          Может быть админом площадки
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="edit-ph-can-be-manager" ${ph.can_be_manager?'checked':''} style="cursor:pointer"/>
+          Может быть менеджером
+        </label>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:12px;color:var(--text2)">Макс. подопечных</span>
           <input type="number" class="fin" id="edit-ph-mentor-max" min="1" max="99" value="${ph.mentor_max_mentees!=null?ph.mentor_max_mentees:3}" style="width:56px;padding:6px 8px;font-size:13px"/>
@@ -3631,6 +3639,8 @@ async function saveCard(){
     const isTrainerEl = document.getElementById('edit-ph-is-trainer');
     const isCuratorEl = document.getElementById('edit-ph-is-curator');
     const canBeMentorEl = document.getElementById('edit-ph-can-be-mentor');
+    const canBeAdminEl = document.getElementById('edit-ph-can-be-admin');
+    const canBeManagerEl = document.getElementById('edit-ph-can-be-manager');
     const mentorMaxEl = document.getElementById('edit-ph-mentor-max');
 
     const _body = {
@@ -3652,6 +3662,8 @@ async function saveCard(){
       employee_role: employeeRoleEl?.value || undefined,
       is_trainer: isTrainerEl?.checked ?? undefined,
       is_curator: isCuratorEl?.checked ?? undefined,
+      can_be_admin: canBeAdminEl?.checked ?? undefined,
+      can_be_manager: canBeManagerEl?.checked ?? undefined,
       ...(canMentorshipHR() && canBeMentorEl ? { can_be_mentor: !!canBeMentorEl.checked } : {}),
       ...(canMentorshipHR() && mentorMaxEl ? { mentor_max_mentees: parseInt(mentorMaxEl.value, 10) || 3 } : {}),
       start_date: document.getElementById('edit-ph-start-date')?.value || null,
