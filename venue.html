@@ -968,9 +968,9 @@ if(!isEditor())return;
 try{
 const allPh=await api('GET','/photographers').catch(()=>[]);
 const activePh=allPh.filter(p=>p.is_active);
-const canAdmin=activePh.filter(p=>p.employee_role==='venue_manager'||(p.employee_roles||[]).includes('venue_manager'));
-const canManager=canAdmin;
-const canMentor=activePh.filter(p=>p.can_be_mentor||p.employee_role==='mentor'||(p.employee_roles||[]).includes('mentor'));
+const canAdmin=activePh.filter(p=>p.can_be_admin);
+const canManager=activePh.filter(p=>p.can_be_manager);
+const canMentor=activePh.filter(p=>p.can_be_mentor);
 const alreadyIds=phs.map(a=>a.photographer_id);
 const selAdmin=document.getElementById('add-admin');
 const selMgr=document.getElementById('add-manager');
