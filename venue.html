@@ -918,7 +918,30 @@ el.innerHTML='<div style="margin-top:14px;padding-top:12px;border-top:1px solid 
 }catch(e){console.warn('refreshBonusSelects',e.message);}
 }
 
+function closeBsModal(){
+const content=document.getElementById('bs-content');
+const isEditing=content&&(content.querySelector('#bs-products')||content.querySelector('.bsp-price')||content.querySelector('#bs-th')||content.querySelector('.pm-name'));
+if(isEditing){
+if(!confirm('Закрыть форму? Несохранённые изменения будут потеряны.'))return false;
+}
+document.getElementById('bs-modal').style.display='none';
+return true;
+}
+
+async function backToBsList(){
+const content=document.getElementById('bs-content');
+const isEditing=content&&(content.querySelector('#bs-products')||content.querySelector('#bs-th'));
+if(isEditing){
+if(!confirm('Вернуться к списку? Несохранённые изменения будут потеряны.'))return;
+}
+await openBonusSchemesModal();
+}
+
 function closeVenueSettings(){
+const bsm=document.getElementById('bs-modal');
+if(bsm&&bsm.style.display==='flex'){
+if(closeBsModal()===false)return;
+}
 document.getElementById('vs-modal').style.display='none';
 if(!settingsChanged)return;
 settingsChanged=false;
@@ -978,7 +1001,7 @@ try{
 if(!hasAnyRole(['hr_director','exec_director','admin'])){bc.innerHTML='<div style="color:var(--text3);font-size:12px">Нет доступа к справочнику схем</div>';return;}
 const schemes=await api('GET','/bonus-schemes');
 const isAdmin=hasAnyRole(['admin']);
-let h=`<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">${isAdmin?'<button type="button" class="btn btn-primary" style="font-size:11px" onclick="openBsEdit(null)">+ Новая схема</button>':''}</div>`;
+let h=`<div style="margin-bottom:12px;display:flex;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:8px">${isAdmin?'<button type="button" class="btn btn-primary" style="font-size:11px" onclick="openBsEdit(null)">+ Новая схема</button><button type="button" class="btn btn-ghost" onclick="openProductsManager()" style="font-size:12px">📦 Справочник товаров</button>':''}</div>`;
 h+=schemes.map(s=>`<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px">
 <div style="font-weight:600">${esc(s.name)} <span style="font-size:10px;color:var(--text3)">${parseInt(s.scheme_version,10)===2?'v2':'v1'} · ${esc(s.scheme_type)} · ${esc(s.calc_mode)}</span></div>
 <div style="font-size:10px;color:var(--text3);margin-top:4px">${esc(bsSummarizeRules(s))}</div>
@@ -986,6 +1009,79 @@ ${isAdmin?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><butt
 </div>`).join('');
 bc.innerHTML=h||'<div style="color:var(--text3)">Нет схем</div>';
 }catch(e){bc.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+async function openProductsManager(){
+if(!hasAnyRole(['admin'])){toast('Только администратор',1);return;}
+const m=document.getElementById('bs-modal');
+if(m)m.style.display='flex';
+const bc=document.getElementById('bs-content');
+bc.innerHTML='<div class="loading">Загрузка...</div>';
+try{
+const prods=await api('GET','/products').catch(()=>[]);
+bc.innerHTML=`
+<button type="button" class="btn btn-ghost" onclick="openBonusSchemesModal()" style="font-size:12px;margin-bottom:12px">← К схемам</button>
+<div style="font-size:14px;font-weight:600;margin-bottom:12px">📦 Справочник товаров (${prods.length})</div>
+<table style="width:100%;font-size:12px;border-collapse:collapse;border:1px solid var(--border);border-radius:8px">
+<thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Название</th><th style="padding:6px">Цена по умолч.</th><th style="padding:6px">Категория</th><th style="padding:6px"></th></tr></thead>
+<tbody>
+${prods.map(p=>`
+<tr data-id="${p.id}">
+<td style="padding:4px"><input class="fin pm-name" value="${esc(p.name)}" style="width:100%;font-size:12px"/></td>
+<td style="padding:4px"><input type="number" class="fin pm-price" value="${p.default_price||0}" style="width:70px;font-size:12px"/></td>
+<td style="padding:4px"><input class="fin pm-cat" value="${esc(p.category||'')}" style="width:80px;font-size:12px"/></td>
+<td style="padding:4px;white-space:nowrap">
+<button type="button" class="btn btn-ghost" onclick="saveProductRow('${p.id}',this)" style="font-size:10px;padding:2px 6px">💾</button>
+<button type="button" class="btn btn-ghost" onclick="deleteProductRow('${p.id}')" style="font-size:10px;padding:2px 6px;color:var(--rank3)">🗑</button>
+</td>
+</tr>`).join('')}
+</tbody>
+</table>
+<div style="margin-top:12px;padding:8px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+<div style="font-size:12px;font-weight:600;margin-bottom:6px">+ Новый товар</div>
+<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+<input class="fin" id="npm-name" placeholder="Название" style="flex:2;min-width:120px;font-size:12px"/>
+<input type="number" class="fin" id="npm-price" placeholder="Цена" style="width:70px;font-size:12px"/>
+<input class="fin" id="npm-cat" placeholder="Категория" value="photo" style="width:80px;font-size:12px"/>
+<button type="button" class="btn btn-primary" onclick="createProductFromManager()" style="font-size:11px">Создать</button>
+</div>
+</div>`;
+}catch(e){bc.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+async function saveProductRow(id,btn){
+const tr=btn.closest('tr');
+const name=tr.querySelector('.pm-name').value.trim();
+const default_price=parseFloat(tr.querySelector('.pm-price').value)||0;
+const category=tr.querySelector('.pm-cat').value.trim()||null;
+if(!name){toast('Название обязательно',1);return;}
+try{
+await api('PATCH',`/products/${id}`,{name,default_price,category});
+toast('Сохранено');
+}catch(e){toast(e.message,1);}
+}
+
+async function deleteProductRow(id){
+const tr=document.querySelector(`tr[data-id="${id}"]`);
+const name=tr?.querySelector('.pm-name')?.value?.trim()||'';
+if(!confirm(`Удалить товар «${name}»?\n\nЕсли он используется в отчётах — удаление может быть невозможно.`))return;
+try{
+await api('DELETE',`/products/${id}`);
+toast('Удалён');
+openProductsManager();
+}catch(e){toast(e.message,1);}
+}
+
+async function createProductFromManager(){
+const name=document.getElementById('npm-name').value.trim();
+const default_price=parseFloat(document.getElementById('npm-price').value)||0;
+const category=document.getElementById('npm-cat').value.trim()||'photo';
+if(!name){toast('Введите название',1);return;}
+try{
+await api('POST','/products',{name,default_price,category});
+toast('Товар создан');
+openProductsManager();
+}catch(e){toast(e.message,1);}
 }
 
 window.__bsEditingId=null;
@@ -1207,7 +1303,7 @@ const addOptions=['<option value="">+ Добавить товар...</option>'].
 window.__bsCatalogProducts.filter(p=>!used.has(String(p.id))).map(p=>`<option value="${p.id}">${esc(p.name)} (${p.default_price||0}₽)</option>`)
 ).join('');
 const prodRowsHtml=rows.length?rows.map(row=>bsProductRowHtml(row.pid,row.name,row.price,row.salary,row.printer)).join(''):'';
-return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBonusSchemesModal()">← К списку</button></div>
+return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="backToBsList()">← К списку</button></div>
 <div id="bs-v2-wrap" style="display:grid;gap:12px">
 <div><div class="fl">Название</div><input class="fin" id="bs-name" value="${esc(s.name||'')}" style="width:100%"/></div>
 <div style="font-size:13px;font-weight:600">📸 Товары и ЗП</div>
@@ -1257,7 +1353,7 @@ const th=rules.thresholds||[];
 const pr=rules.progressive||[];
 const pct=(parseFloat(s.percentage_rate)!=null&&!isNaN(parseFloat(s.percentage_rate)))?(parseFloat(s.percentage_rate)*100):25;
 const cm=s.calc_mode==='percentage'?'percentage':'standard';
-return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBonusSchemesModal()">← К списку</button></div>
+return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="backToBsList()">← К списку</button></div>
 <div style="display:grid;gap:10px">
 <div><div class="fl">Название</div><input class="fin" id="bs-name" value="${esc(s.name||'')}" style="width:100%"/></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap">
