@@ -639,28 +639,22 @@ function parseAchievements(m) {
 
 function updateTeamHeaderStats() {
   const q = (document.getElementById('q').value || '').trim().toLowerCase();
-  let rows = teamList.filter((r) => r.is_active !== false);
-  const totalAll = rows.length;
+  const all = teamList.filter((r) => r.is_active !== false);
+  const totalAll = all.length;
+  let rows = all.slice();
   if (q) rows = rows.filter((r) => (r.name || '').toLowerCase().includes(q));
   if (teamFilters.rank) rows = rows.filter((r) => String(r.rank ?? '') === String(teamFilters.rank));
   if (teamFilters.department) rows = rows.filter((r) => (r.department || '') === teamFilters.department);
   if (teamFilters.gender) rows = rows.filter((r) => r.gender === teamFilters.gender);
   const hasFilter = !!(q || teamFilters.rank || teamFilters.department || teamFilters.gender);
-  const tops = rows.filter((m) => parseAchievements(m).length >= 3).length;
-  let avgSum = 0;
-  let avgN = 0;
-  rows.forEach((m) => {
-    const a = parseAchievements(m);
-    avgSum += a.length;
-    avgN++;
-  });
-  const avg = avgN ? (avgSum / avgN).toFixed(1) : '—';
+  const depts = new Set(all.map((m) => m.department).filter(Boolean)).size;
+  const totalAch = all.reduce((s, m) => s + parseAchievements(m).length, 0);
   const hs = document.getElementById('hstats');
   if (!hs) return;
   hs.innerHTML = `
     <div class="stat"><div class="stat-num" style="color:var(--accent2)">${hasFilter ? rows.length : totalAll}</div><div class="stat-lbl">${hasFilter ? 'Найдено' : 'Всего'}</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--rank1)">${tops}</div><div class="stat-lbl">Топ</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--rank2)">${avg}</div><div class="stat-lbl">Средний балл</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank1)">${depts}</div><div class="stat-lbl">Отделов</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--rank2)">${totalAch}</div><div class="stat-lbl">Достижений</div></div>
   `;
 }
 
