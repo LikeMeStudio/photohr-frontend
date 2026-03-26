@@ -49,6 +49,7 @@
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
 @media(max-width:768px){.main{padding:10px}.qr-wrap{flex-direction:column}.st input{width:36px}}
+.venue-card:hover{border-color:var(--accent)!important}
 </style>
 </head>
 <body>
@@ -63,9 +64,10 @@
 </div>
 <div class="main">
 <div class="toolbar-unified" style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-<select class="fselect" id="vs" onchange="load()" style="min-width:180px"><option value="">Площадка...</option></select>
-<input class="fin" type="date" id="sd" onchange="load()" style="width:auto"/>
-<button class="btn btn-ghost" onclick="openVenueSettings()" title="Настройки площадки" style="font-size:14px;padding:5px 10px">⚙️</button>
+<input class="fin" type="date" id="sd" onchange="onDateChange()" style="width:auto"/>
+<button class="btn btn-ghost" id="btn-settings" onclick="openVenueSettings()" title="Настройки площадки" style="font-size:14px;padding:5px 10px;display:none">⚙️</button>
+<button class="btn btn-ghost" id="btn-back" onclick="backToDashboard()" style="display:none">← К площадкам</button>
+<select class="fselect" id="vs" style="display:none" onchange="load()"><option value="">Площадка...</option></select>
 <div id="rs"></div><div style="flex:1"></div><div id="rstat"></div>
 <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
 <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
@@ -99,7 +101,7 @@
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
-let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null;
+let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
 let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[];
 window.__bonusMeta={};
 function markDirty(){isDirty=true;}
@@ -145,11 +147,121 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;setupUserPill();setupNav('venue');fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');}catch{doLogout();}})();
+(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;setupUserPill();setupNav('venue');fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');loadDashboard();}catch{doLogout();}})();
+
+function onDateChange(){
+if(viewMode==='report')load();
+else loadDashboard();
+}
+
+let _prevVid='',_prevSd='';
+async function loadDashboard(){
+viewMode='dashboard';
+const dt=document.getElementById('sd').value;
+if(!dt)return;
+document.getElementById('btn-settings').style.display='none';
+document.getElementById('btn-back').style.display='none';
+document.getElementById('rstat').innerHTML='';
+document.getElementById('C').innerHTML='<div class="loading">Загрузка площадок...</div>';
+try{
+dashboardData=await api('GET',`/venues/dashboard?date=${dt}`);
+renderDashboard();
+}catch(e){
+document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+}
+}
+
+function renderDashboard(){
+const d=dashboardData;
+if(!d||!d.venues)return;
+const canSeeRevenue=['admin','exec_director','hr_director'].includes(currentUser?.role);
+const withEvents=d.venues.filter(v=>v.event_id);
+const withoutEvents=d.venues.filter(v=>!v.event_id);
+let html='';
+if(canSeeRevenue&&d.summary){
+html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+<div class="stat"><div class="stat-num">${d.summary.with_events}</div><div class="stat-lbl">Работают</div></div>
+<div class="stat"><div class="stat-num">${d.summary.reports_submitted+d.summary.reports_approved}</div><div class="stat-lbl">Отчётов</div></div>
+<div class="stat"><div class="stat-num" style="color:var(--rank1)">${(d.summary.total_revenue!=null?d.summary.total_revenue:0).toLocaleString('ru-RU')}₽</div><div class="stat-lbl">Выручка</div></div>
+</div>`;
+}
+if(withEvents.length){
+html+=`<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">📍 Работают сегодня (${withEvents.length})</div>`;
+html+='<div class="grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px">';
+withEvents.forEach(v=>{
+const RS={draft:['📝 Черновик','var(--text3)'],submitted:['📤 Отправлен','var(--accent)'],approved:['✅ Проведён','var(--rank1)'],returned:['↩ Возвращён','var(--rank3)']};
+const[rLabel,rColor]=RS[v.report_status]||['⬜ Нет отчёта','var(--text3)'];
+const phNames=(v.photographers||[]).slice(0,3).map(p=>(p.name||'').split(' ')[0]).filter(Boolean).join(', ');
+const extra=(v.assigned_count||0)>3?' +'+(v.assigned_count-3):'';
+html+=`<div class="card venue-card" onclick="openVenueReport('${v.id}')" style="cursor:pointer;padding:14px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);transition:border-color .2s">
+<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+<div style="font-weight:600;font-size:14px">${esc(v.name)}</div>
+<span style="font-size:11px;color:${rColor};white-space:nowrap">${rLabel}</span>
+</div>
+<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${esc(v.city||'')}${v.category?' · '+esc(v.category):''}</div>
+<div style="font-size:12px;margin-bottom:4px">
+👥 ${v.assigned_count||0}/${v.required_photographers!=null?v.required_photographers:'?'} фото
+${v.has_aquagrim?'<span style="margin-left:6px">🎨 AQ</span>':''}
+</div>
+${phNames?`<div style="font-size:11px;color:var(--text3)">${esc(phNames)}${extra}</div>`:''}
+${canSeeRevenue&&v.total_revenue!=null&&v.total_revenue>0?`<div style="font-size:13px;font-weight:600;color:var(--rank1);margin-top:6px">${parseFloat(v.total_revenue).toLocaleString('ru-RU')}₽</div>`:''}
+</div>`;
+});
+html+='</div>';
+}
+if(withoutEvents.length){
+html+=`<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text3)">Без мероприятий (${withoutEvents.length})</div>`;
+html+='<div class="grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+withoutEvents.forEach(v=>{
+html+=`<div style="padding:12px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);opacity:0.6">
+<div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(v.name)}</div>
+<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(v.city||'')}${v.category?' · '+esc(v.category):''}</div>
+<button class="btn btn-ghost" style="font-size:11px" onclick="event.stopPropagation();createEventForVenue('${v.id}')">+ Создать мероприятие</button>
+</div>`;
+});
+html+='</div>';
+}
+if(!d.venues.length){
+html='<div class="loading">Нет активных площадок</div>';
+}
+document.getElementById('C').innerHTML=html;
+}
+
+async function openVenueReport(venueId){
+viewMode='report';
+document.getElementById('vs').value=venueId;
+document.getElementById('btn-settings').style.display='';
+document.getElementById('btn-back').style.display='';
+await load();
+}
+
+function backToDashboard(){
+if(isDirty){
+if(!confirm('Есть несохранённые данные. Вернуться к списку?'))return;
+}
+viewMode='dashboard';
+document.getElementById('btn-settings').style.display='none';
+document.getElementById('btn-back').style.display='none';
+document.getElementById('vs').value='';
+isDirty=false;
+loadDashboard();
+}
+
+async function createEventForVenue(venueId){
+const v=dashboardData?.venues?.find(x=>x.id===venueId);
+const label=v?.name||venueId;
+if(!confirm(`Создать мероприятие на ${document.getElementById('sd').value} для «${label}»?`))return;
+try{
+await api('POST','/events',{venue_id:venueId,event_date:document.getElementById('sd').value,event_type:'regular'});
+toast('Мероприятие создано');
+loadDashboard();
+}catch(e){toast(e.message,1);}
+}
 
 let _prevVid='',_prevSd='';
 async function load(){
-const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;if(!vid||!dt)return;
+const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
+if(!vid||!dt){loadDashboard();return;}
 if(isDirty&&(_prevVid&&_prevSd)&&((vid!==_prevVid)||(dt!==_prevSd))){
 if(!confirm('Есть несохранённые данные. Перезагрузить?')){
 document.getElementById('vs').value=_prevVid;
@@ -202,6 +314,7 @@ _prevVid=vid;_prevSd=dt;
 
 function render(ev){
 const phs=assigns.filter(a=>a.status!=='cancelled'),s=report?.status||'new';
+const venueName=venues.find(v=>v.id===document.getElementById('vs').value)?.name||'';
 const SM={new:['📝','sb-d'],draft:['📝 Черновик','sb-d'],submitted:['📤 Отправлен','sb-s'],approved:['✅ Проведён','sb-a'],returned:['↩ Возвращён','sb-r']};
 const[sl,sc]=SM[s]||SM.new;
 document.getElementById('rstat').innerHTML=`<span class="sb ${sc}">${sl}</span>`;
@@ -213,6 +326,7 @@ const advRows=(report?.advances)||[];
 const pettyRows=(report?.petty_cash_expenses)||[];
 
 document.getElementById('C').innerHTML=`
+<div style="font-size:16px;font-weight:700;font-family:'Unbounded',sans-serif;margin-bottom:12px">📍 ${esc(venueName)}</div>
 <div class="sec"><div class="sec-t">📱 QR-чекин</div>
 <div class="qr-wrap"><div class="qr-box" id="qb"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
 <div><div class="qr-timer" id="qt">--</div><div style="font-size:10px;color:var(--text3);margin-bottom:6px">30 сек ротация</div>
