@@ -408,6 +408,7 @@ function setupNav(activeKey){
   if(hasAnyRoleNav(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Площадка'));
   if(hasAnyRoleNav(['tech_director','hr_director','exec_director','admin'])) navBtns.push(a('stock','stock.html','Склад'));
   if(hasAnyRoleNav(['hr_manager','hr_director','exec_director','admin','photographer_user'])) navBtns.push(a('calendar','calendar.html','Календарь'));
+  if(navRoleNow()==='photographer_user'&&currentUser.photographer_id) navBtns.push(a('checkin','checkin.html','📍 Чекин'));
   if(hasAnyRoleNav(['aq_manager','hr_director','exec_director','admin','cashier'])){
     navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
     navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));

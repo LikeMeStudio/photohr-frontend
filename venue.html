@@ -184,11 +184,13 @@ const ROLE_LABELS={admin:'Администратор',exec_director:'Испол�
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4};
 const roleNow=()=>currentUser?.role||'photographer_user';
+const can=(r)=>(ROLES[roleNow()]??-1)>=(ROLES[r]??99);
+const isEditor=()=>can('hr_manager');
 const hasAnyRole=(roles)=>roles.includes(roleNow());
 function openProfile(){location.href='index.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
-function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
+function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('checkin','checkin.html','📍 Чекин'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 function openAchievementsPanel(){window.location.href='index.html#achievements';}
 function openBirthdaysPanel(){window.location.href='index.html#birthdays';}
 function openLikesPanel(){window.location.href='index.html#likes';}
@@ -332,7 +334,25 @@ if(!ev.length){document.getElementById('C').innerHTML=`<div class="loading">Не
 const sh=await api('GET',`/shifts?event_id=${ev[0].id}`);shift=sh[0]||null;
 if(!shift){document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';_prevVid=vid;_prevSd=dt;return;}
 assigns=await api('GET',`/shifts/${shift.id}/assignments`).catch(()=>[]);
+let schemeData=null;
+try{
+schemeData=await api('GET',`/venues/${vid}/active-scheme?date=${encodeURIComponent(dt)}`);
+}catch(e){console.warn('active-scheme:',e.message);}
+if(schemeData&&Array.isArray(schemeData.products)&&schemeData.products.length>0){
+prods=schemeData.products.map(p=>({
+product_id:p.product_id,
+id:p.product_id,
+name:p.name,
+product_name:p.name,
+price:p.price,
+salary_per_unit:p.salary,
+printer_format:p.printer_format
+}));
+window.__activeScheme=schemeData;
+}else{
 prods=await api('GET',`/venues/${vid}/products`).catch(()=>[]);
+window.__activeScheme=null;
+}
 venueBonusConfigs=await api('GET',`/venues/${vid}/bonus-config`).catch(()=>[]);
 bonusConfigs=venueBonusConfigs;
 const reps=await api('GET',`/daily-reports?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
@@ -375,12 +395,13 @@ _prevVid=vid;_prevSd=dt;
 
 function render(ev){
 const phs=assigns.filter(a=>a.status!=='cancelled'),s=report?.status||'new';
+const visiblePhs=isEditor()?phs:phs.filter(a=>a.photographer_id===U.photographer_id);
 const venueName=venues.find(v=>v.id===document.getElementById('vs').value)?.name||'';
 const SM={new:['📝','sb-d'],draft:['📝 Черновик','sb-d'],submitted:['📤 Отправлен','sb-s'],approved:['✅ Проведён','sb-a'],returned:['↩ Возвращён','sb-r']};
 const[sl,sc]=SM[s]||SM.new;
 document.getElementById('rstat').innerHTML=`<span class="sb ${sc}">${sl}</span>`;
 const ed=!report||['draft','returned'].includes(report.status);
-window.__venueReportEditable=ed;
+window.__venueReportEditable=ed&&isEditor();
 const lines=report?.lines||report?.sale_lines||[];
 const assignedIds=new Set(phs.map(a=>a.photographer_id));
 const avail=(allPhotographersPool||[]).filter(p=>!assignedIds.has(p.id));
@@ -397,30 +418,42 @@ const pettyRows=(report?.petty_cash_expenses)||[];
 
 document.getElementById('C').innerHTML=`
 <div style="font-size:16px;font-weight:700;font-family:'Unbounded',sans-serif;margin-bottom:12px">📍 ${esc(venueName)}</div>
+${isEditor()?`
 <div class="sec"><div class="sec-t">📱 QR-чекин</div>
 <div class="qr-wrap"><div class="qr-box" id="qb"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
 <div><div class="qr-timer" id="qt">--</div><div style="font-size:10px;color:var(--text3);margin-bottom:6px">30 сек ротация</div>
 <div style="display:flex;gap:4px"><button class="btn btn-primary" onclick="startQR()">▶</button><button class="btn btn-ghost" onclick="stopQR()">⏹</button></div></div></div></div>
+`:`
+<div class="sec"><div class="sec-t">📍 Мой чекин</div>
+${(()=>{
+  const myA=phs.find(a=>a.photographer_id===U.photographer_id);
+  if(!myA) return '<div style="color:var(--text3);font-size:12px;padding:8px">Вы не назначены на эту смену</div>';
+  const ch=myA.checkin_at||myA.checked_in;
+  if(ch) return '<div style="padding:8px"><span style="color:var(--rank1);font-size:14px">✅ Вы отмечены</span>'+(myA.is_late?' <span style="color:var(--rank2)">⏰ +'+myA.late_minutes+'м</span>':' <span style="color:var(--rank1)">вовремя</span>')+'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+new Date(ch).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+'</div></div>';
+  return '<div style="padding:8px"><span style="color:var(--text2)">⏳ Ещё не отмечены</span><div style="margin-top:8px"><a href="checkin.html" class="btn btn-primary" style="font-size:13px;padding:8px 20px">📷 Сканировать QR</a></div></div>';
+})()}
+</div>
+`}
 
 <div class="sec"><div class="sec-t">👥 Смена (${phs.length})</div>
-${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?(a.is_late?`<span class="rs rs-late">⏰+${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`):`<span class="rs rs-wait">⏳</span><button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
-<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+${phs.map(a=>{const ch=a.checkin_at||a.checked_in;return`<div class="rr"><div class="rr-name">${esc(a.photographer_name||'—')}</div><span style="font-size:9px;color:var(--text3)">${esc(a.role_in_shift||'')}</span>${ch?(a.is_late?`<span class="rs rs-late">⏰+${a.late_minutes||'?'}м</span>`:`<span class="rs rs-ok">✅</span>`):`<span class="rs rs-wait">⏳</span>${isEditor()?`<button class="btn btn-ghost" style="font-size:9px;padding:1px 6px" onclick="manCh('${a.id}')">✋</button>`:''}`}</div>`;}).join('')||'<div style="color:var(--text3);font-size:12px">Пусто</div>'}
+${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
 <select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
 <button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
-</div>
+</div>`:''}
 </div>
 
-<div class="sec"><div class="sec-t">🖨 Принтеры</div>
+${isEditor()?`<div class="sec"><div class="sec-t">🖨 Принтеры</div>
 <div id="prl">${printersHtml}</div>
-</div>
+</div>`:''}
 
 <div class="sec"><div class="sec-t">📊 Продажи</div>
-${phs.length&&prods.length?salesTbl(phs,lines):'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
-${ed&&phs.length&&prods.length?`<div id="bonus-actions-wrap">${hasPhotographerBonusConfig()?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div id="bonus-results" style="font-size:11px;color:var(--text3)">Бонусы пересчитываются автоматически (~2 сек после ввода)</div></div>`:`<div style="margin-top:10px;font-size:11px;color:var(--text3)">Бонусная схема не настроена для этой площадки (тип дня: ${esc(resolveDayTypeForBonus())})</div>`}</div>`:''}
+${visiblePhs.length&&prods.length?salesTbl(visiblePhs,lines):'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
+${ed&&phs.length&&prods.length&&isEditor()?`<div id="bonus-actions-wrap">${hasPhotographerBonusConfig()?`<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div id="bonus-results" style="font-size:11px;color:var(--text3)">Бонусы пересчитываются автоматически (~2 сек после ввода)</div></div>`:`<div style="margin-top:10px;font-size:11px;color:var(--text3)">Бонусная схема не настроена для этой площадки (тип дня: ${esc(resolveDayTypeForBonus())})</div>`}</div>`:''}
 <div id="accruals-wrap"></div>
 </div>
 
-${ed?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
+${ed&&isEditor()?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
 <div style="display:flex;gap:12px;flex-wrap:wrap">
 <div style="flex:1;min-width:200px">
 <div class="fl">Авансы фотографам</div>
@@ -456,28 +489,30 @@ ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-ite
 
 <div class="sec"><div class="sec-t">📝 Итоги</div>
 <div style="display:flex;gap:6px;flex-wrap:wrap">
-<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" list="staff-list" value="${esc(report?.admin_name||U.name||'')}" style="width:100%" oninput="void inputRecalc()"/></div>
-<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" list="staff-list" value="${esc(report?.manager_name||'')}" style="width:100%" oninput="void inputRecalc()"/></div>
+<div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="ra" list="staff-list" value="${esc(report?.admin_name||U.name||'')}" style="width:100%" oninput="void inputRecalc()" ${isEditor()?'':'disabled'}/></div>
+<div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="rm" list="staff-list" value="${esc(report?.manager_name||'')}" style="width:100%" oninput="void inputRecalc()" ${isEditor()?'':'disabled'}/></div>
 </div>
 <datalist id="staff-list">${staffOpts}</datalist>
-<div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${esc(report?.notes_report||'')}" style="width:100%" placeholder="Комментарий..." oninput="void inputRecalc()"/></div>
+<div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="rn" value="${esc(report?.notes_report||'')}" style="width:100%" placeholder="Комментарий..." oninput="void inputRecalc()" ${isEditor()?'':'disabled'}/></div>
 ${report?.review_comment?`<div style="padding:6px;background:rgba(242,85,85,.06);border:1px solid rgba(242,85,85,.15);border-radius:6px;margin-top:6px;font-size:12px"><b style="color:var(--rank3)">Проверяющий:</b> ${report.review_comment}</div>`:''}
 </div>
 
 <div class="foot" style="align-items:center">
-${ed?`<span id="autosave-status" style="font-size:10px;color:var(--text3);opacity:0.5;margin-right:8px"></span><button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
+${ed&&isEditor()?`<span id="autosave-status" style="font-size:10px;color:var(--text3);opacity:0.5;margin-right:8px"></span><button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button>`:ed&&!isEditor()?`<span style="font-size:12px;color:var(--text3)">Черновик редактирует администратор</span>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
 </div>`;
 
 // После основного innerHTML, добавить aq-блок если есть
 const venueObj = venues.find(v => v.id === document.getElementById('vs').value);
-if (venueObj && venueObj.has_aquagrim) {
+if (venueObj && venueObj.has_aquagrim && isEditor()) {
   document.getElementById('C').innerHTML += renderAqSection();
 }
+if(document.getElementById('btn-settings'))document.getElementById('btn-settings').style.display=(viewMode==='report'&&isEditor())?'':'none';
 setTimeout(()=>{applyBonusFromReport();recalcAll(true);renderAccruals();},80);
 }
 function renderAccruals(){
 const w=document.getElementById('accruals-wrap');
 if(!w)return;
+if(!isEditor()){w.innerHTML='';return;}
 const r=window.__calcResult;
 if(!r||r.scheme_version!==2){
 w.innerHTML='';
@@ -516,27 +551,29 @@ return a4;
 }
 
 function salesTbl(phs,lines){
+const ro=!isEditor();
+const dis=()=>ro?' disabled':'';
 let h='<div style="overflow-x:auto"><table class="st"><thead><tr><th>Сотрудник</th>';
 prods.forEach(p=>{const fn=String(p.product_name||p.name||'');h+=`<th title="${esc(fn)}">${esc(fn)}<br><span style="font-size:8px">${p.price}₽</span></th>`;});
 h+='<th>Брак 10×15</th><th>Брак 15×20</th><th>Брак А4</th><th>Фл.шт</th><th>Фл.₽</th><th>Нал</th><th>Карта</th><th>QR</th><th class="tot">Итого</th><th>💰 Бонус</th></tr></thead><tbody>';
 phs.forEach(a=>{const ph=a.photographer_id;const ww=wasteCellsFromLines(lines,ph);const wa4=wasteA4FromLines(lines,ph);
 h+=`<tr><td title="${esc(a.photographer_name||'')}">${esc(String((a.photographer_name||'')).slice(0,16))}</td>`;
 prods.forEach(p=>{const pid=p.product_id||p.id,ex=lines.find(l=>String(l.photographer_id)===String(ph)&&String(l.product_id)===String(pid));
-h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;});
+h+=`<td><input type="number" min="0" value="${ex?.quantity||0}" class="sq" data-ph="${ph}" data-p="${pid}" data-pr="${p.price}" oninput="autoCalcCash('${ph}');inputRecalc()"${dis()}/></td>`;});
 const xPay=lines.find(l=>String(l.photographer_id)===String(ph));
 const pc=parseFloat(xPay?.payment_cash)||0,pcrd=parseFloat(xPay?.payment_card)||0,pqr=parseFloat(xPay?.payment_qr)||0;
 let manual='0';
 if(pc>0)manual='1';
 else if(pc===0&&(pcrd>0||pqr>0))manual='1';
 const cashVal=pc;
-h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${wa4}" class="swa4" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${xPay?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${xPay?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" data-manual="${manual}" style="width:50px" oninput="onCashManual(this);inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;
-h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"/></td>`;
+h+=`<td><input type="number" min="0" value="${ww.w10}" class="sw10" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${ww.w20}" class="sw20" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${wa4}" class="swa4" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${xPay?.flash_qty||0}" class="sfq" data-ph="${ph}" style="width:34px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${xPay?.flash_sum||0}" class="sfs" data-ph="${ph}" style="width:44px" oninput="inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${cashVal}" class="sc" data-ph="${ph}" data-manual="${manual}" style="width:50px" oninput="onCashManual(this);inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${pcrd}" class="sk" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"${dis()}/></td>`;
+h+=`<td><input type="number" min="0" value="${pqr}" class="sqr" data-ph="${ph}" style="width:50px" oninput="autoCalcCash('${ph}');inputRecalc()"${dis()}/></td>`;
 h+=`<td class="tot" id="rt${ph}">0</td><td class="bon" id="bon${ph}" title="">—</td></tr>`;});
 h+='<tr><td class="tot">ИТОГО</td>';
 prods.forEach(p=>{h+=`<td class="tot" id="ct${p.product_id||p.id}">0</td>`;});
@@ -937,9 +974,10 @@ function bsSummarizeRules(s){
 try{
 const r=typeof s.rules==='string'?JSON.parse(s.rules):s.rules||{};
 if(parseInt(s.scheme_version,10)===2){
-const n=Object.keys(r.product_rates||{}).length;
+const pr=r.product_rates;
+const n=Array.isArray(pr)?pr.length:Object.keys(pr||{}).length;
 const pth=(r.photographer&&r.photographer.thresholds)||[];
-return`v2 · ставок: ${n} · пороги фото: ${pth.length}`;
+return`v2 · товаров: ${n} · пороги фото: ${pth.length}`;
 }
 return`Пороги: ${(r.thresholds||[]).length}, прогрессивных: ${(r.progressive||[]).length}`;
 }catch(e){return'';}
