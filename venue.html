@@ -39,7 +39,7 @@
 .shift-col{flex:1;min-width:160px;max-width:33.3%}
 .shift-col .rr{padding:3px 6px;font-size:12px}
 .shift-col .rr-name{font-size:12px}
-.qr-box{width:220px;height:220px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr-box canvas,.qr-box img{width:220px!important;height:220px!important}
+.qr-box{background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr-box canvas,.qr-box img{width:100%!important;height:100%!important}
 .qr-timer{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;color:var(--accent2)}
 .rr{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);margin-bottom:3px;font-size:12px}
 .rr-name{flex:1;font-weight:500}
@@ -440,10 +440,18 @@ document.getElementById('C').innerHTML=`
 </div>
 <div class="qr-shift-row">
 ${isEditor()?`
-<div class="sec"><div class="sec-t">📱 QR-чекин</div>
-<div class="qr-wrap"><div class="qr-box" id="qb"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
-<div><div class="qr-timer" id="qt">--</div><div style="font-size:10px;color:var(--text3);margin-bottom:6px">30 сек ротация</div>
-<div style="display:flex;gap:4px"><button class="btn btn-primary" onclick="startQR()">▶</button><button class="btn btn-ghost" onclick="stopQR()">⏹</button></div></div></div></div>
+<div class="sec" style="flex:0 0 auto;max-width:360px">
+  <div class="sec-t" style="justify-content:space-between">
+    <span>📱 QR-чекин</span>
+    <div style="display:flex;gap:4px;align-items:center">
+      <span class="qr-timer" id="qt" style="font-size:14px;color:var(--accent2);min-width:30px;text-align:center">--</span>
+      <button class="btn btn-primary" style="padding:4px 12px;font-size:11px" onclick="startQR()">▶</button>
+      <button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="stopQR()">⏹</button>
+    </div>
+  </div>
+  <div class="qr-box" id="qb" style="width:100%;max-width:300px;height:auto;aspect-ratio:1;margin:0 auto"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
+  <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:4px">30 сек ротация</div>
+</div>
 `:`
 <div class="sec"><div class="sec-t">📍 Мой чекин</div>
 ${(()=>{
@@ -458,21 +466,59 @@ ${(()=>{
 
 <div class="sec" style="flex:1"><div class="sec-t">👥 Смена (${phs.length})</div>
 ${isEditor()?`
-<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-  <div style="flex:1;min-width:140px">
-    <span style="font-size:9px;color:var(--text3)">АДМИН ПЛОЩАДКИ</span>
-    <select class="fin" id="ra" style="width:100%;font-size:11px;padding:4px 6px">
-      <option value="">— не выбран —</option>
-      ${phs.map(a=>`<option value="${esc(a.photographer_name||'')}" ${(report?.admin_name||U.name||'')===a.photographer_name?'selected':''}>${esc(a.photographer_name||'')}</option>`).join('')}
-    </select>
+<div style="margin-bottom:10px">
+  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Админ площадки</div>
+  <div id="shift-admins">
+  ${phs.filter(a=>a.role_in_shift==='admin_venue').map(a=>{
+    const ch=a.checkin_at||a.checked_in;
+    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <span style="font-size:12px">${esc(a.photographer_name)}</span>
+      ${ch?`<span style="color:var(--rank1);font-size:9px">✅</span>`:`<span style="color:var(--text3);font-size:9px">⏳</span>`}
+      ${ch?`<span style="cursor:pointer;font-size:9px;color:var(--text3)" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕чек</span>`:`<span style="cursor:pointer;font-size:9px;color:var(--accent2)" onclick="manCh('${a.id}')">✋</span>`}
+      <span style="cursor:pointer;font-size:9px;color:var(--rank3)" onclick="removeAssign('${a.id}')">🗑</span>
+    </div>`;
+  }).join('')||'<span style="font-size:11px;color:var(--text3)">—</span>'}
   </div>
-  <div style="flex:1;min-width:140px">
-    <span style="font-size:9px;color:var(--text3)">МЕНЕДЖЕР</span>
-    <select class="fin" id="rm" style="width:100%;font-size:11px;padding:4px 6px">
-      <option value="">— не выбран —</option>
-      ${phs.map(a=>`<option value="${esc(a.photographer_name||'')}" ${(report?.manager_name||'')===a.photographer_name?'selected':''}>${esc(a.photographer_name||'')}</option>`).join('')}
-    </select>
+  <select class="fin" id="add-admin" style="font-size:10px;padding:2px 6px;margin-top:2px;width:auto">
+    <option value="">+ добавить</option>
+  </select>
+</div>
+<div style="margin-bottom:10px">
+  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Менеджер</div>
+  <div id="shift-managers">
+  ${phs.filter(a=>a.role_in_shift==='venue_manager').map(a=>{
+    const ch=a.checkin_at||a.checked_in;
+    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <span style="font-size:12px">${esc(a.photographer_name)}</span>
+      ${ch?`<span style="color:var(--rank1);font-size:9px">✅</span>`:`<span style="color:var(--text3);font-size:9px">⏳</span>`}
+      ${ch?`<span style="cursor:pointer;font-size:9px;color:var(--text3)" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕чек</span>`:`<span style="cursor:pointer;font-size:9px;color:var(--accent2)" onclick="manCh('${a.id}')">✋</span>`}
+      <span style="cursor:pointer;font-size:9px;color:var(--rank3)" onclick="removeAssign('${a.id}')">🗑</span>
+    </div>`;
+  }).join('')||'<span style="font-size:11px;color:var(--text3)">—</span>'}
   </div>
+  <select class="fin" id="add-manager" style="font-size:10px;padding:2px 6px;margin-top:2px;width:auto">
+    <option value="">+ добавить</option>
+  </select>
+</div>
+<div style="margin-bottom:10px">
+  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Наставник</div>
+  <div id="shift-mentors">
+  ${phs.filter(a=>a.role_in_shift==='mentor').map(a=>{
+    const ch=a.checkin_at||a.checked_in;
+    return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <span style="font-size:12px">${esc(a.photographer_name)}</span>
+      ${ch?`<span style="color:var(--rank1);font-size:9px">✅</span>`:`<span style="color:var(--text3);font-size:9px">⏳</span>`}
+      ${ch?`<span style="cursor:pointer;font-size:9px;color:var(--text3)" onclick="cancelCheckin('${a.checkin_id||''}','${a.id}')">✕чек</span>`:`<span style="cursor:pointer;font-size:9px;color:var(--accent2)" onclick="manCh('${a.id}')">✋</span>`}
+      <span style="cursor:pointer;font-size:9px;color:var(--rank3)" onclick="removeAssign('${a.id}')">🗑</span>
+    </div>`;
+  }).join('')||'<span style="font-size:11px;color:var(--text3)">—</span>'}
+  </div>
+  <select class="fin" id="add-mentor" style="font-size:10px;padding:2px 6px;margin-top:2px;width:auto">
+    <option value="">+ добавить</option>
+  </select>
+</div>
+<div style="border-top:1px solid var(--border);padding-top:8px;margin-bottom:4px">
+  <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Фотографы</div>
 </div>
 `:`
 <div style="font-size:11px;color:var(--text2);margin-bottom:6px">
@@ -480,9 +526,10 @@ ${isEditor()?`
 </div>
 `}
 ${(()=>{
+  const photoPhs = phs.filter(a=>!['admin_venue','venue_manager','mentor'].includes(a.role_in_shift));
   const roleOrder={'admin_venue':0,'venue_manager':0,'mentor':1,'print_operator':1,'photographer':2};
   const roleLbl={'admin_venue':'Админ','venue_manager':'Менеджер','mentor':'Наставник','print_operator':'Оператор','photographer':'Фото'};
-  const sorted=[...phs].sort((a,b)=>(roleOrder[a.role_in_shift]||2)-(roleOrder[b.role_in_shift]||2));
+  const sorted=[...photoPhs].sort((a,b)=>(roleOrder[a.role_in_shift]||2)-(roleOrder[b.role_in_shift]||2));
   const cols=[[],[],[]];let ci=0;
   sorted.forEach(a=>{cols[ci].push(a);if(cols[ci].length>=Math.ceil(sorted.length/3))ci=Math.min(ci+1,2);});
   return`<div class="shift-grid">${cols.map(col=>col.length?`<div class="shift-col">${col.map(a=>{
@@ -505,6 +552,8 @@ ${isEditor()?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center
 <select class="fselect" id="add-ph-select" style="flex:1;font-size:11px">${addPhOpts}</select>
 <button class="btn btn-ghost" style="font-size:11px" onclick="addPhotographerToShift()">Добавить</button>
 </div>`:''}
+<input type="hidden" id="ra" value="${esc((phs.find(a=>a.role_in_shift==='admin_venue')?.photographer_name)||report?.admin_name||U.name||'')}"/>
+<input type="hidden" id="rm" value="${esc((phs.find(a=>a.role_in_shift==='venue_manager')?.photographer_name)||report?.manager_name||'')}"/>
 </div>
 </div>
 
@@ -568,6 +617,7 @@ if (venueObj && venueObj.has_aquagrim && isEditor()) {
   document.getElementById('C').innerHTML += renderAqSection();
 }
 if(document.getElementById('btn-settings'))document.getElementById('btn-settings').style.display=(viewMode==='report'&&isEditor())?'':'none';
+fillRoleSelects(phs);
 setTimeout(()=>{applyBonusFromReport();recalcAll(true);renderAccruals();},80);
 }
 function renderAccruals(){
@@ -801,13 +851,16 @@ if(window.__venueReportEditable&&shift&&!report?.id)await ensureReportDraftSilen
 recalcAll();
 }
 function rc(){void inputRecalc();}
+function getRoleLeadName(role,fallbackId){
+return(phs.find(a=>a.role_in_shift===role)?.photographer_name)||document.getElementById(fallbackId)?.value||null;
+}
 
 async function ensureReportDraftSilent(){
 if(report?.id||!shift)return;
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
 if(!vid||!dt)return;
 const collected=collect();
-const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
+const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue','ra'),manager_name:getRoleLeadName('venue_manager','rm'),notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
 try{
 const created=await api('POST','/daily-reports',body);
 report=created;
@@ -819,7 +872,7 @@ recalcAll(true);
 
 function buildReportBody(){
 const collected=collect();
-return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:document.getElementById('ra')?.value||null,manager_name:document.getElementById('rm')?.value||null,notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
+return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue','ra'),manager_name:getRoleLeadName('venue_manager','rm'),notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
 }
 
 async function addPhotographerToShift(){
@@ -839,7 +892,7 @@ load();
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
-async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';new QRCode(b,{text:d.qr_code,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
+async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=b.offsetWidth||280;new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
 async function cancelCheckin(checkinId,assignId){
 if(!checkinId){toast('ID чекина не найден',1);return;}
@@ -867,6 +920,40 @@ await api('DELETE',`/shift-assignments/${assignId}`);
 toast('Снят со смены');
 load();
 }catch(e){toast(e.message,1);}
+}
+async function addRoleAssign(photographerId,role){
+if(!shift)return;
+try{
+await api('POST',`/shifts/${shift.id}/assignments`,{photographer_id:photographerId,role_in_shift:role});
+toast('Назначен');
+load();
+}catch(e){toast(e.message,1);}
+}
+async function fillRoleSelects(phs){
+if(!isEditor())return;
+try{
+const allPh=await api('GET','/photographers').catch(()=>[]);
+const activePh=allPh.filter(p=>p.is_active);
+const canAdmin=activePh.filter(p=>p.employee_role==='venue_manager'||(p.employee_roles||[]).includes('venue_manager'));
+const canManager=canAdmin;
+const canMentor=activePh.filter(p=>p.can_be_mentor||p.employee_role==='mentor'||(p.employee_roles||[]).includes('mentor'));
+const alreadyIds=phs.map(a=>a.photographer_id);
+const selAdmin=document.getElementById('add-admin');
+const selMgr=document.getElementById('add-manager');
+const selMentor=document.getElementById('add-mentor');
+if(selAdmin){
+canAdmin.filter(p=>!alreadyIds.includes(p.id)).forEach(p=>{selAdmin.innerHTML+=`<option value="${p.id}">${esc(p.name)}</option>`;});
+selAdmin.onchange=function(){if(this.value)addRoleAssign(this.value,'admin_venue');};
+}
+if(selMgr){
+canManager.filter(p=>!alreadyIds.includes(p.id)).forEach(p=>{selMgr.innerHTML+=`<option value="${p.id}">${esc(p.name)}</option>`;});
+selMgr.onchange=function(){if(this.value)addRoleAssign(this.value,'venue_manager');};
+}
+if(selMentor){
+canMentor.filter(p=>!alreadyIds.includes(p.id)).forEach(p=>{selMentor.innerHTML+=`<option value="${p.id}">${esc(p.name)}</option>`;});
+selMentor.onchange=function(){if(this.value)addRoleAssign(this.value,'mentor');};
+}
+}catch(e){console.warn('fillRoleSelects error:',e);}
 }
 async function editArrivalTime(){
 const vid=document.getElementById('vs').value;
@@ -1043,8 +1130,8 @@ if(!report?.id){if(!silent)toast('Нет данных для расчёта',1);
 const{lines,printer_data}=collect();
 await api('PATCH',`/daily-reports/${report.id}/lines`,{
 lines,printer_data,
-admin_name:document.getElementById('ra')?.value||null,
-manager_name:document.getElementById('rm')?.value||null,
+admin_name:getRoleLeadName('admin_venue','ra'),
+manager_name:getRoleLeadName('venue_manager','rm'),
 notes_report:document.getElementById('rn')?.value||null,
 advances:collectAdvances(),
 petty_cash_expenses:collectPettyCash()
