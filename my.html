@@ -323,7 +323,12 @@ async function loadSchedulePanel(phId){
       const hl=ds===tomStr?'style="border:2px solid var(--rank2);border-radius:10px;padding:8px"':'';
       return`<div class="pay-row" ${hl}><div><b>${esc(ds)}</b> ${esc(r.venue_name||'')}</div><div style="font-size:11px;color:var(--text3)">${esc(r.staff_arrival||'')}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
-    const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation').map(r=>`<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам назначена обязательная смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите.</div>`).join('');
+    const forcedNotices=(upcoming||[]).filter(r=>r.forced&&['pending_confirmation','confirmed'].includes(r.status)).map(r=>{
+      if(r.status==='pending_confirmation'){
+        return `<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам предложена смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите или отклоните.</div>`;
+      }
+      return `<div style="padding:8px;border:1px solid rgba(242,85,85,.45);border-radius:8px;background:rgba(242,85,85,.12);margin-bottom:6px">Вам назначена обязательная смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}.</div>`;
+    }).join('');
     myPeriods=(status||[]).filter(p=>p.period_status!=='archived');
     const st=(myPeriods.find(x=>x.period_id===mySelectedPeriodId)) || (myPeriods.find(x=>x.period_status==='open')) || myPeriods[0] || null;
     mySelectedPeriodId=st?.period_id||null;

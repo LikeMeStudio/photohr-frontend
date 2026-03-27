@@ -330,6 +330,18 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
+<div class="overlay" id="force-assign-modal" onclick="if(event.target===this)closeForceAssignModal('cancel')">
+<div class="modal" style="max-width:620px">
+  <div class="modal-title"><span>Назначение без заявки</span><button class="dr-close" onclick="closeForceAssignModal('cancel')">×</button></div>
+  <div id="force-assign-body" style="font-size:13px;color:var(--text2);line-height:1.45">—</div>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="closeForceAssignModal('cancel')">Отмена</button>
+    <button class="btn btn-ghost" onclick="closeForceAssignModal('pending_confirmation')">📩 Предложить смену</button>
+    <button class="btn btn-primary" onclick="closeForceAssignModal('confirmed')">⚡ Назначить обязательно</button>
+  </div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -348,7 +360,9 @@ let currentPeriodMeta=null;
 let tetrisEventsByKey={};
 let poolRole='photographer';
 let draggingPoolPhotographerId=null;
+let draggingPoolPhotographerName='';
 let tetrisPeriods=[];
+let forceAssignResolver=null;
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
@@ -892,9 +906,11 @@ async function renderTetris(){
           const asg=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.assigned||0),0);
           const ok=req>0 && asg>=req;
           const firstShift=(sum||[]).find(x=>(x.role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0));
-          return `<div class="tt-pill ${ok?'ok':'bad'}" data-shift-id="${esc(firstShift?.id||'')}">${esc(ev.venue_name||'')}<br>${esc(poolRole)} ${asg}/${req}</div>`;
+          return `<div class="tt-pill ${ok?'ok':'bad'}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')">${esc(ev.venue_name||'')}<br>${esc(poolRole)} ${asg}/${req}</div>`;
         }).join('');
-        row+=`<td><div class="tt-drop" data-key="${key}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event,'${key}')" onclick="openTetrisCell('${key}')">${cells}</div></td>`;
+        const firstEvent=list[0]||{};
+        const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===poolRole) || {}).id || '';
+        row+=`<td><div class="tt-drop" data-key="${key}" data-event-id="${esc(firstEvent.id||'')}" data-shift-id="${esc(firstShift)}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event,'${key}')" onclick="openTetrisCell(this.dataset.key,this.dataset.eventId)">${cells}</div></td>`;
       });
       body+=row+'</tr>';
     });
@@ -914,27 +930,47 @@ async function loadPool(role){
   }catch(e){document.getElementById('ph-pool').innerHTML=esc(e.message);}
 }
 
-function startPoolDrag(ev,id,name){ draggingPoolPhotographerId=id; ev.dataTransfer.setData('text/plain',`${id}|${name||''}`); }
+function startPoolDrag(ev,id,name){ draggingPoolPhotographerId=id; draggingPoolPhotographerName=name||''; ev.dataTransfer.setData('text/plain',`${id}|${name||''}`); }
 async function dropPoolOnCell(ev,key){
   ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
-  const pid=draggingPoolPhotographerId||String((ev.dataTransfer.getData('text/plain')||'').split('|')[0]||'');
+  const data=String(ev.dataTransfer.getData('text/plain')||'');
+  const pid=draggingPoolPhotographerId||String(data.split('|')[0]||'');
+  const pname=draggingPoolPhotographerName||String(data.split('|')[1]||'');
   if(!pid) return;
   const list=tetrisEventsByKey[key]||[];
   if(!list.length) return;
   const evItem=list[0];
-  const shift=(evItem.shifts_summary||[]).find(s=>s.id && (s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+  const dsShift=String(ev.currentTarget?.dataset?.shiftId||'');
+  const shift=(evItem.shifts_summary||[]).find(s=>String(s.id||'')===dsShift)
+    || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
   if(!shift){ showToast('Нет свободной позиции для выбранной роли', true); return; }
-  await assignToShift(shift.id,pid,poolRole,key);
+  await assignToShift(shift.id,pid,poolRole,key,pname);
 }
-async function assignToShift(shiftId,photographerId,role,key){
+function closeForceAssignModal(choice){
+  document.getElementById('force-assign-modal')?.classList.remove('open');
+  if(forceAssignResolver){ const r=forceAssignResolver; forceAssignResolver=null; r(choice||'cancel'); }
+}
+function chooseForceAssignOption(ctx){
+  const body=document.getElementById('force-assign-body');
+  if(body){
+    body.innerHTML=`<div><b>${esc(ctx.name||'Сотрудник')}</b> не подал заявку на ${esc(fmtDate(ctx.date||''))}.</div>
+    <div style="margin-top:10px">Выберите тип назначения:</div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text3)">Предложить: сотрудник получит уведомление и сможет подтвердить или отклонить.</div>
+    <div style="margin-top:4px;font-size:12px;color:var(--text3)">Обязательно: сотрудник получит уведомление об обязательной смене без возможности отказа.</div>`;
+  }
+  document.getElementById('force-assign-modal')?.classList.add('open');
+  return new Promise(resolve=>{ forceAssignResolver=resolve; });
+}
+async function assignToShift(shiftId,photographerId,role,key,photographerName){
   try{
     await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role});
     showToast('Назначено');
   }catch(e){
     if(String(e.message||'').includes('requires_force')||String(e.message||'').includes('принудительное')){
-      if(!confirm('Сотрудник не подал заявку на этот день. Назначить принудительно?')) return;
-      await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role,force:true});
-      showToast('Назначено принудительно');
+      const forceStatus=await chooseForceAssignOption({name:photographerName||'Сотрудник',date:(key||'').split('|')[1]||''});
+      if(forceStatus==='cancel') return;
+      await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role,force:true,force_status:forceStatus});
+      showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
     }else{ showToast(e.message,true); return; }
   }
   await loadPool(poolRole);
@@ -944,16 +980,17 @@ async function assignToShift(shiftId,photographerId,role,key){
 async function removeAssignment(assignmentId,key){
   try{ await api('DELETE',`/shift-assignments/${assignmentId}`); showToast('Назначение снято'); await loadPool(poolRole); await renderTetris(); if(key) openTetrisCell(key); }catch(e){showToast(e.message,true);}
 }
-async function openTetrisCell(key){
+async function openTetrisCell(key,eventId){
   try{
-    const list=tetrisEventsByKey[key]||[];
+    const fullList=tetrisEventsByKey[key]||[];
+    const list=eventId ? fullList.filter(x=>String(x.id||'')===String(eventId)) : fullList;
     if(!list.length) return;
     const d=key.split('|')[1];
     const details=[];
     for(const evItem of list){
       const shifts=(evItem.shifts_summary||[]).filter(s=>(s.role||'photographer')===poolRole);
       for(const sh of shifts){
-        const asg=await api('GET',`/shifts/${sh.shift_id}/assignments`);
+        const asg=await api('GET',`/shifts/${sh.id}/assignments`);
         details.push({event:evItem,shift:sh,assignments:(asg||[]).filter(a=>(a.role_in_shift||'photographer')===poolRole)});
       }
     }
