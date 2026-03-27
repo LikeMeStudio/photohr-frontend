@@ -1021,7 +1021,7 @@ async function renderTetris(){
             || (sum||[]).find(x=>x.id);
           const abbr=esc(ev.venue_short_name||ev.venue_name||'');
           const lines=roleStats.filter(r=>r.req>0||r.asg>0).map(r=>{
-            const color=r.asg<r.req?'var(--rank3)':r.asg===r.req&&r.req>0?'var(--rank1)':'var(--staff-over)';
+            const gap=r.req-r.asg;const color=gap<=0?(r.asg>r.req?'var(--staff-over)':'var(--rank1)'):gap<=2?'var(--rank2)':'var(--rank3)';
             return `<div style="color:${color}">${r.label} ${r.asg}/${r.req}</div>`;
           }).join('');
           return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')" style="cursor:pointer"><div class="tt-vn">${abbr}</div>${lines}${totalDeclined>0?` <span class="tt-decline-mark">❌${totalDeclined}</span>`:''}</div>`;
