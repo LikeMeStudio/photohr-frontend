@@ -1,5 +1,5 @@
 # PhotoHR — MASTER CONTEXT
-# Последнее обновление: 26.03.2026
+# Последнее обновление: 27.03.2026
 # Единственный источник правды. Обновляй после каждой значимой задачи.
 
 ---
@@ -68,13 +68,13 @@ venue_bonus_config. Остальное — уже в продакшен-БД.
 Backend: Node.js, Express, PostgreSQL (pool), JWT, bcrypt, multer, sharp,
          ExcelJS (lazy require в export), helmet, cors, compression,
          express-rate-limit, winston, uuid, crypto (AES-256-GCM)
-Frontend: Vanilla JS, 9 HTML файлов, auth через localStorage
+Frontend: Vanilla JS, 10 HTML файлов, auth через localStorage
 Логгер: winston (не console)
 Шифрование: encrypt/decrypt — AES-256-GCM, только паспортные данные
 
 ---
 
-## СТРАНИЦЫ ФРОНТЕНДА (9 HTML файлов)
+## СТРАНИЦЫ ФРОНТЕНДА (10 HTML файлов)
 
 | Файл           | Раздел                        | Размер   |
 |----------------|-------------------------------|----------|
@@ -84,13 +84,14 @@ Frontend: Vanilla JS, 9 HTML файлов, auth через localStorage
 | recruiting.html| Рекрутинг (канбан, тренинги)  | ~72 KB   |
 | aquagrim.html  | Аквагримёры                   | ~66 KB   |
 | calendar.html  | Календарь                     | ~38 KB   |
+| schedule.html  | Расписание (HR): площадки, заявки, расстановка | ~35 KB |
 | stock.html     | Склад                         | ~22 KB   |
 | checkin.html   | Чекин (QR)                    | ~20 KB   |
 | my.html        | Личный кабинет                | ~19 KB   |
 
 Навигация единая на всех страницах, рендерится через JS в #nav-links:
-  Фотографы | Команда | Рекрутинг | Площадка | Склад | Календарь | [sep] Аквагрим
-При изменении навигации — обновлять ВО ВСЕХ 9 файлах.
+  Фотографы | Команда | Рекрутинг | Площадка | Склад | Календарь | Расписание (hr_manager+) | [sep] Аквагрим
+При изменении навигации — обновлять ВО ВСЕХ 10 файлах.
 
 Тулбар на каждой странице: 🏆 Достижения | 🎂 Дни рождения | ❤️ Лайки
 
@@ -181,7 +182,7 @@ GET /api/photographers/export   — до /api/photographers/:id
 - rank=3 золото:  background:#2a2000; color:#d4b840; border:1px solid #c9a84c
 
 Шрифты: Unbounded (заголовки, font-weight 400/600), Golos Text (основной)
-Подключены через Google Fonts во всех 9 файлах одинаково.
+Подключены через Google Fonts во всех 10 файлах одинаково.
 
 Мобильная адаптация: @media(max-width:768px) во всех файлах.
 nav-links: class="nav-links" во всех файлах (не inline-стиль).
@@ -205,9 +206,10 @@ nav-links: class="nav-links" во всех файлах (не inline-стиль)
 - ✅ Склад: полный модуль — справочники, закупки, перемещения,
   инвентаризация, счётчики принтеров, аналитика, Telegram-алерты
 - ✅ Календарь: события фото + аквагрим, назначения
+- ✅ Расписание: schedule.html, грейды, заявки, автораспределение, публикация (API + UI)
 - ✅ Отчёты: submit/approve/return/reject (эндпоинты есть)
 - ✅ Бонусные схемы: bonus_schemes, venue_bonus_config
-- ✅ Мобильная адаптация: все 9 страниц (коммит aa39a05)
+- ✅ Мобильная адаптация: все 10 страниц
 
 ---
 
@@ -219,8 +221,7 @@ nav-links: class="nav-links" во всех файлах (не inline-стиль)
 3. **Анонимные отзывы** — видны только admin/hr_director/exec_director
 4. **Автоматический рейтинг продаж** — пересчёт после approve отчёта
 5. **Экспорт в Excel** — реализация кнопки "Экспорт" в index.html/team.html
-6. **Личный кабинет (my.html)** — мои смены, рейтинг, статистика
-7. **Telegram-интеграции** — уведомления о назначениях
+6. **Telegram-интеграции** — уведомления о назначениях
 
 ---
 
