@@ -54,6 +54,14 @@ a{color:inherit;text-decoration:none}
 .loading{padding:40px;text-align:center;color:var(--text3)}
 .venue-side{max-height:420px;overflow-y:auto}
 .venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:11px}
+.venue-meta{font-size:10px;color:var(--text3);margin-top:2px}
+.drag-ghost{position:fixed;pointer-events:none;z-index:9999;background:rgba(124,108,255,.2);border:1px dashed var(--accent);border-radius:8px;padding:6px 8px;font-size:11px}
+.shift-sec{padding:8px;border:1px solid var(--border);border-radius:8px;margin-top:8px}
+.shift-sec.event{background:rgba(155,141,255,.08)}
+.shift-sec.photo{background:rgba(124,108,255,.08)}
+.shift-sec.admin{background:rgba(62,207,142,.08)}
+.shift-sec.extra{background:rgba(245,166,35,.08)}
+.shift-row{display:grid;grid-template-columns:1.4fr 84px 84px 58px 28px;gap:6px;align-items:center;margin-top:6px}
 .mini-cal{display:grid;grid-template-columns:repeat(7,36px);gap:4px;justify-content:flex-start}
 .mini-day-h{font-size:10px;color:var(--text3);text-align:center}
 .mini-day{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px}
@@ -145,7 +153,16 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-ghost" onclick="publishSchedule()">✅ Опубликовать</button>
     </div>
     <div class="section tetris-grid"><div id="tetris-placeholder" class="loading">Укажите период и загрузите данные календаря</div></div>
-    <div class="section"><div class="section-title">Пул</div><div class="pool" id="ph-pool"></div></div>
+    <div class="section"><div class="section-title">Пул</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="quick-btn" onclick="loadPool('photographer')">📸 Фотографы</button>
+        <button class="quick-btn" onclick="loadPool('print_operator')">🖨 Операторы</button>
+        <button class="quick-btn" onclick="loadPool('manager')">👔 Менеджеры</button>
+        <button class="quick-btn" onclick="loadPool('mentor')">🎓 Наставники</button>
+        <button class="quick-btn" onclick="loadPool('helper')">🤝 Помощники</button>
+      </div>
+      <div class="pool" id="ph-pool"></div>
+    </div>
   </div>
   <div id="panel-3" class="sched-panel" style="display:none">
     <div class="section"><div class="section-title">Снимки расписания</div><div id="snap-list" class="loading">—</div></div>
@@ -157,20 +174,30 @@ a{color:inherit;text-decoration:none}
   <div class="modal-title"><span>Создание мероприятия</span><button class="dr-close" onclick="document.getElementById('create-modal').classList.remove('open')">×</button></div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:8px" id="create-venue">—</div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="create-daytype">—</div>
-  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-    <div><div class="section-title">Сбор фото</div><input class="fin" id="c-staff" type="time" style="width:100%"></div>
-    <div><div class="section-title">Запуск гостей</div><input class="fin" id="c-guest" type="time" style="width:100%"></div>
-    <div><div class="section-title">Начало</div><input class="fin" id="c-event" type="time" style="width:100%"></div>
-    <div><div class="section-title">Завершение</div><input class="fin" id="c-end" type="time" style="width:100%"></div>
-    <div><div class="section-title">Приход админа</div><input class="fin" id="c-admin" type="time" style="width:100%"></div>
-    <div><div class="section-title">Приход менеджера</div><input class="fin" id="c-manager" type="time" style="width:100%"></div>
+  <div class="shift-sec event">
+    <div class="section-title">🗓️ Мероприятие</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      <div><div class="section-title">Запуск гостей</div><input class="fin" id="c-guest" type="time" style="width:100%"></div>
+      <div><div class="section-title">Начало</div><input class="fin" id="c-event" type="time" style="width:100%"></div>
+      <div><div class="section-title">Завершение</div><input class="fin" id="c-end" type="time" style="width:100%"></div>
+    </div>
   </div>
-  <div class="info-grid" style="margin-top:8px">
-    <div><div class="section-title">Фотографов</div><input class="fin" id="c-ph" type="number" min="0" style="width:100%"></div>
-    <div><div class="section-title">Операторов</div><input class="fin" id="c-op" type="number" min="0" style="width:100%"></div>
-    <div><div class="section-title">Менеджеров</div><input class="fin" id="c-mgr" type="number" min="0" style="width:100%"></div>
-    <div><div class="section-title">Название мероприятия</div><input class="fin" id="c-name" placeholder="Опционально" style="width:100%"></div>
+  <div class="shift-sec photo">
+    <div class="section-title">📸 Фотографы</div>
+    <div id="single-shifts-photo"></div>
+    <button class="btn btn-ghost" style="font-size:11px;margin-top:6px" onclick="addSingleShift('photographer')">+ Добавить смену</button>
   </div>
+  <div class="shift-sec admin">
+    <div class="section-title">🖨️ АдМэны</div>
+    <div id="single-shifts-admin"></div>
+  </div>
+  <div class="shift-sec extra">
+    <div class="section-title">➕ Доп. роли</div>
+    <div id="single-shifts-extra"></div>
+    <button class="btn btn-ghost" style="font-size:11px" onclick="addSingleRole('mentor')">+ Наставник</button>
+    <button class="btn btn-ghost" style="font-size:11px" onclick="addSingleRole('helper')">+ Помощник</button>
+  </div>
+  <div style="margin-top:8px"><div class="section-title">Название мероприятия</div><input class="fin" id="c-name" placeholder="Опционально" style="width:100%"></div>
   <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
     <button class="btn btn-ghost" onclick="document.getElementById('create-modal').classList.remove('open')">Отмена</button>
     <button class="btn btn-primary" onclick="createSingleEvent()">Создать</button>
@@ -217,6 +244,13 @@ a{color:inherit;text-decoration:none}
           </div>
         </div>
       </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text2)">Смены фотографов</div>
+      <div style="display:grid;grid-template-columns:auto 84px 84px 58px;gap:6px;align-items:center;margin-top:4px;font-size:11px">
+        <span>Будни #1</span><input class="fin" id="bws1-start" type="time" style="padding:5px 6px"><input class="fin" id="bws1-end" type="time" style="padding:5px 6px"><input class="fin" id="bws1-req" type="number" min="1" style="padding:5px 6px">
+        <span>Будни #2</span><input class="fin" id="bws2-start" type="time" style="padding:5px 6px"><input class="fin" id="bws2-end" type="time" style="padding:5px 6px"><input class="fin" id="bws2-req" type="number" min="1" style="padding:5px 6px">
+        <span>Выходные #1</span><input class="fin" id="bes1-start" type="time" style="padding:5px 6px"><input class="fin" id="bes1-end" type="time" style="padding:5px 6px"><input class="fin" id="bes1-req" type="number" min="1" style="padding:5px 6px">
+        <span>Выходные #2</span><input class="fin" id="bes2-start" type="time" style="padding:5px 6px"><input class="fin" id="bes2-end" type="time" style="padding:5px 6px"><input class="fin" id="bes2-req" type="number" min="1" style="padding:5px 6px">
+      </div>
     </div>
   </div>
   <div style="margin-top:10px;font-size:12px">Выбрано: <b id="bulk-count">0</b> дат</div>
@@ -251,6 +285,17 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
+<div class="overlay" id="venue-settings-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:760px">
+  <div class="modal-title"><span id="vs-title">Настройки площадки</span><button class="dr-close" onclick="document.getElementById('venue-settings-modal').classList.remove('open')">×</button></div>
+  <div id="vs-body" style="font-size:12px;color:var(--text2)">—</div>
+  <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
+    <button class="btn btn-ghost" onclick="document.getElementById('venue-settings-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="saveVenueSettings()">Сохранить</button>
+  </div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -258,6 +303,10 @@ let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStora
 let refreshLock=null,schMonth=new Date().getMonth(),schYear=new Date().getFullYear(),venuesList=[],calDataCache=null,dragVenueId=null;
 let bulkState={venueId:null,selectedDates:new Set(),existingDates:new Set(),existingMap:{}};
 let singleCreateState={venueId:null,date:''};
+let singleShiftsConfig={};
+let bulkShiftCfg={weekday:[],weekend:[]};
+let ghostEl=null;
+let venueSettingsId=null;
 let scheduleViewStatus='draft';
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
@@ -277,7 +326,7 @@ function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';docume
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};
 navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('checkin','checkin.html','📍 Чекин'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 
-function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2)initTetrisDates();}
+function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2){initTetrisDates();renderTetris();loadPool('photographer');}}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
 function setScheduleStatus(v){
@@ -319,7 +368,15 @@ function renderCalGrid(data){
     const hol=ov.has(ds)?'<span class="holiday-badge">🎄</span>':'';
     const list=(evByDate[ds]||[]).slice(0,4).map(e=>{
       const cat=(e.venue_category||'').slice(0,1)||'a';
-      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name)}">${esc((e.venue_name||'').slice(0,14))}</div>`;
+      const sum=e.shifts_summary||[];
+      const pReq=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.required||0),0);
+      const pAsg=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const aReq=sum.filter(x=>x.role==='admin').reduce((s,x)=>s+Number(x.required||0),0);
+      const aAsg=sum.filter(x=>x.role==='admin').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const mReq=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.required||0),0);
+      const mAsg=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name)}"><div>${esc((e.venue_name||'').slice(0,14))}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}</div></div>`;
     }).join('');
     cells+=`<div class="cal-cell" data-date="${ds}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
     d++;
@@ -334,9 +391,21 @@ function filterVenueList(){
   const grp={};
   venuesList.filter(v=>!city||(v.city||'')===city).filter(v=>!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q)).forEach(v=>{const c=v.category||'—';if(!grp[c])grp[c]=[];grp[c].push(v);});
   let h='';
-  Object.keys(grp).sort().forEach(cat=>{h+=`<div style="font-size:10px;color:var(--text3);margin:6px 0 2px">${esc(cat)}</div>`;grp[cat].forEach(v=>{h+=`<div class="venue-drag" draggable="true" data-vid="${v.id}" ondragstart="dragVenueId='${v.id}'" onclick="openBulkForVenue('${v.id}')">${esc(v.name)}</div>`;});});
+  Object.keys(grp).sort().forEach(cat=>{h+=`<div style="font-size:10px;color:var(--text3);margin:6px 0 2px">${esc(cat)}</div>`;grp[cat].forEach(v=>{const cfg=normalizeCfg(v.default_shifts)||{};const pc=(cfg.photographer||[]).length||1;const ac=(cfg.admin||[]).length;const mc=(cfg.manager||[]).length;h+=`<div class="venue-drag" draggable="true" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')">${esc(v.name)} <span style="float:right;cursor:pointer" onclick="event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span><div class="venue-meta">📸${pc} смены · 🖨${ac} · 👔${mc}</div></div>`;});});
   box.innerHTML=h||'<div style="color:var(--text3)">Нет площадок</div>';
 }
+
+function startVenueDrag(ev,id,name){
+  dragVenueId=id;
+  if(ghostEl) ghostEl.remove();
+  ghostEl=document.createElement('div');
+  ghostEl.className='drag-ghost';
+  ghostEl.textContent=name;
+  document.body.appendChild(ghostEl);
+  document.addEventListener('dragover',moveGhost);
+}
+function moveGhost(e){ if(ghostEl){ ghostEl.style.left=(e.clientX+10)+'px'; ghostEl.style.top=(e.clientY+10)+'px'; } }
+function endVenueDrag(){ dragVenueId=null; document.removeEventListener('dragover',moveGhost); if(ghostEl){ghostEl.remove();ghostEl=null;} }
 
 function initScheduleCityFilter(){
   const sel=document.getElementById('sch-city');
@@ -373,24 +442,48 @@ function getVenueDefaults(venue, dayType){
   };
 }
 
+function normalizeCfg(cfg){
+  if(typeof cfg==='string'){ try{ cfg=JSON.parse(cfg); }catch{ cfg=null; } }
+  return (cfg&&typeof cfg==='object')?cfg:null;
+}
+
+function renderSingleShiftSections(){
+  const mk=(role,idx,s)=>`<div class="shift-row">
+    <input class="fin" value="${esc(s.name||'Смена')}" onchange="singleShiftsConfig['${role}'][${idx}].name=this.value">
+    <input class="fin" type="time" value="${s.start||''}" onchange="singleShiftsConfig['${role}'][${idx}].start=this.value">
+    <input class="fin" type="time" value="${s.end||''}" onchange="singleShiftsConfig['${role}'][${idx}].end=this.value">
+    <input class="fin" type="number" min="0" value="${s.required_count ?? s.required ?? 1}" onchange="singleShiftsConfig['${role}'][${idx}].required_count=Number(this.value||0)">
+    <button class="btn btn-ghost" style="padding:2px 4px;font-size:11px" onclick="removeSingleShift('${role}',${idx})">✕</button>
+  </div>`;
+  document.getElementById('single-shifts-photo').innerHTML=(singleShiftsConfig.photographer||[]).map((s,i)=>mk('photographer',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
+  document.getElementById('single-shifts-admin').innerHTML=(singleShiftsConfig.admin||[]).map((s,i)=>mk('admin',i,s)).join('')+(singleShiftsConfig.manager||[]).map((s,i)=>mk('manager',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
+  document.getElementById('single-shifts-extra').innerHTML=(singleShiftsConfig.mentor||[]).map((s,i)=>mk('mentor',i,s)).join('')+(singleShiftsConfig.helper||[]).map((s,i)=>mk('helper',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет доп. ролей</div>';
+}
+function addSingleShift(role){ if(!singleShiftsConfig[role]) singleShiftsConfig[role]=[]; singleShiftsConfig[role].push({name:`Смена ${singleShiftsConfig[role].length+1}`,start:'10:00',end:'20:00',required_count:1}); renderSingleShiftSections(); }
+function addSingleRole(role){ if(singleShiftsConfig[role]?.length) return; addSingleShift(role); }
+function removeSingleShift(role,idx){ if(!singleShiftsConfig[role]) return; singleShiftsConfig[role].splice(idx,1); if(!singleShiftsConfig[role].length) delete singleShiftsConfig[role]; renderSingleShiftSections(); }
+
 function openSingleCreate(venueId,dateStr){
   const venue=getVenueById(venueId); if(!venue){showToast('Площадка не найдена',true);return;}
   singleCreateState={venueId,date:dateStr};
   const dt=resolveDayType(dateStr);
   const def=getVenueDefaults(venue,dt);
+  const cfg=normalizeCfg((dt==='holiday'?venue.default_shifts_holiday:dt==='weekend'?venue.default_shifts_weekend:venue.default_shifts_weekday)||venue.default_shifts)||{
+    photographer:[{name:'Смена 1',start:def.staff_arrival,end:def.event_end,required_count:def.required_photographers}],
+    admin:[{name:'Админ',start:def.admin_arrival,end:def.event_end,required_count:1}],
+    manager:[{name:'Менеджер',start:def.manager_arrival,end:def.event_end,required_count:1}],
+    mentor:[],
+    helper:[]
+  };
+  singleShiftsConfig=JSON.parse(JSON.stringify(cfg));
   const ruDate=new Date(dateStr+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',weekday:'long'});
   document.getElementById('create-venue').textContent=`Площадка: ${venue.name}`;
   document.getElementById('create-daytype').textContent=`Дата: ${ruDate} · Тип дня: ${dt==='holiday'?'праздник':dt==='weekend'?'выходной':'будни'}`;
-  document.getElementById('c-staff').value=def.staff_arrival;
   document.getElementById('c-event').value=def.event_start;
   document.getElementById('c-guest').value=def.guest_start;
-  document.getElementById('c-admin').value=def.admin_arrival;
   document.getElementById('c-end').value=def.event_end;
-  document.getElementById('c-manager').value=def.manager_arrival;
-  document.getElementById('c-ph').value=def.required_photographers;
-  document.getElementById('c-op').value=def.required_operators;
-  document.getElementById('c-mgr').value=def.required_admins;
   document.getElementById('c-name').value='';
+  renderSingleShiftSections();
   document.getElementById('create-modal').classList.add('open');
 }
 
@@ -399,6 +492,7 @@ function dropVenueOnDate(ev,ds){
   ev.currentTarget.classList.remove('drop-over');
   const vid=dragVenueId; if(!vid)return;
   dragVenueId=null;
+  endVenueDrag();
   openSingleCreate(vid,ds);
 }
 
@@ -411,6 +505,7 @@ async function createSingleEvent(){
     dates:[date],
     event_name:(document.getElementById('c-name').value||'').trim()||null,
     schedule_status:scheduleViewStatus,
+    shifts_config:singleShiftsConfig,
     preview:false
   };
   try{
@@ -418,15 +513,10 @@ async function createSingleEvent(){
     if(!r?.events?.length){showToast('На эту дату уже есть мероприятие',true);return;}
     const e=r.events[0];
     await api('PATCH',`/events/${e.id}`,{
-      staff_arrival:document.getElementById('c-staff').value||null,
       event_start:document.getElementById('c-event').value||null,
       guest_start:document.getElementById('c-guest').value||null,
-      admin_arrival:document.getElementById('c-admin').value||null,
       event_end:document.getElementById('c-end').value||null,
-      manager_arrival:document.getElementById('c-manager').value||null,
-      required_photographers:Number(document.getElementById('c-ph').value||0),
-      required_operators:Number(document.getElementById('c-op').value||0),
-      required_admins:Number(document.getElementById('c-mgr').value||0),
+      shifts_config:singleShiftsConfig,
     });
     document.getElementById('create-modal').classList.remove('open');
     showToast(`Создано: ${venue.name} → ${new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}`);
@@ -457,6 +547,16 @@ function openBulkForVenue(venueId){
   const we=getVenueDefaults(venue,'weekend');
   setBulkTimes('bw', wd);
   setBulkTimes('be', we);
+  const wdcfg=(normalizeCfg(venue.default_shifts_weekday)||normalizeCfg(venue.default_shifts)||{}).photographer||[];
+  const wecfg=(normalizeCfg(venue.default_shifts_weekend)||normalizeCfg(venue.default_shifts)||{}).photographer||[];
+  const ws1=wdcfg[0]||{start:wd.staff_arrival,end:wd.event_end,required_count:wd.required_photographers};
+  const ws2=wdcfg[1]||{start:'',end:'',required_count:0};
+  const es1=wecfg[0]||{start:we.staff_arrival,end:we.event_end,required_count:we.required_photographers};
+  const es2=wecfg[1]||{start:'',end:'',required_count:0};
+  document.getElementById('bws1-start').value=ws1.start||'';document.getElementById('bws1-end').value=ws1.end||'';document.getElementById('bws1-req').value=ws1.required_count||1;
+  document.getElementById('bws2-start').value=ws2.start||'';document.getElementById('bws2-end').value=ws2.end||'';document.getElementById('bws2-req').value=ws2.required_count||0;
+  document.getElementById('bes1-start').value=es1.start||'';document.getElementById('bes1-end').value=es1.end||'';document.getElementById('bes1-req').value=es1.required_count||1;
+  document.getElementById('bes2-start').value=es2.start||'';document.getElementById('bes2-end').value=es2.end||'';document.getElementById('bes2-req').value=es2.required_count||0;
   renderBulkMini();
   document.getElementById('bulk-modal').classList.add('open');
 }
@@ -550,6 +650,12 @@ async function doBulkCreateAction(preview){
   if(!bulkState.venueId){showToast('Не выбрана площадка',true);return;}
   if(!dates.length){showToast('Выберите хотя бы одну дату',true);return;}
   try{
+    const weekdayShifts=[{name:'Смена 1',start:document.getElementById('bws1-start').value||null,end:document.getElementById('bws1-end').value||null,required_count:Number(document.getElementById('bws1-req').value||0)}];
+    const wd2={name:'Смена 2',start:document.getElementById('bws2-start').value||null,end:document.getElementById('bws2-end').value||null,required_count:Number(document.getElementById('bws2-req').value||0)};
+    if(wd2.start||wd2.end||wd2.required_count>0) weekdayShifts.push(wd2);
+    const weekendShifts=[{name:'Смена 1',start:document.getElementById('bes1-start').value||null,end:document.getElementById('bes1-end').value||null,required_count:Number(document.getElementById('bes1-req').value||0)}];
+    const we2={name:'Смена 2',start:document.getElementById('bes2-start').value||null,end:document.getElementById('bes2-end').value||null,required_count:Number(document.getElementById('bes2-req').value||0)};
+    if(we2.start||we2.end||we2.required_count>0) weekendShifts.push(we2);
     const r=await api('POST','/events/bulk-create',{
       venue_id:bulkState.venueId,
       dates,
@@ -557,6 +663,8 @@ async function doBulkCreateAction(preview){
       weekday_times:getBulkTimes('bw'),
       weekend_times:getBulkTimes('be'),
       holiday_times:getBulkTimes('be'),
+      weekday_shifts_config:{photographer:weekdayShifts},
+      weekend_shifts_config:{photographer:weekendShifts},
       schedule_status:scheduleViewStatus,
       preview
     });
@@ -619,6 +727,33 @@ async function createPeriod(){
 
 function initTetrisDates(){const t=new Date();const a=t.toISOString().slice(0,10);const b=new Date(t.getTime()+14*864e5).toISOString().slice(0,10);document.getElementById('tet-from').value=a;document.getElementById('tet-to').value=b;}
 
+async function renderTetris(){
+  const date_from=document.getElementById('tet-from').value;
+  const city=document.getElementById('tet-city').value;
+  if(!date_from) return;
+  try{
+    const d=new Date(date_from+'T12:00:00');
+    const month=d.getMonth()+1, year=d.getFullYear();
+    const data=await api('GET',`/events/calendar-data?month=${month}&year=${year}&city=${encodeURIComponent(city)}&schedule_status=${encodeURIComponent(scheduleViewStatus)}`);
+    const events=(data.events||[]);
+    let html='<div style="font-size:11px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">';
+    events.forEach(e=>{
+      const rows=(e.shifts_summary||[]).map(s=>`${esc(s.shift_name||'Смена')} (${esc(s.role||'')}): ${Number(s.assigned||0)}/${Number(s.required||0)}`).join('<br>');
+      html+=`<div class="tetris-cell"><b>${esc(e.venue_name||'')}</b><div style="color:var(--text3)">${esc(String(e.event_date||'').slice(0,10))}</div><div>${rows||'—'}</div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('tetris-placeholder').innerHTML=html;
+  }catch(e){document.getElementById('tetris-placeholder').innerHTML=esc(e.message);}
+}
+
+async function loadPool(role){
+  const date=document.getElementById('tet-from').value;
+  try{
+    const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=${encodeURIComponent(role)}`);
+    document.getElementById('ph-pool').innerHTML=(rows||[]).map(p=>`<div class="pool-ph avail" draggable="true">${esc(p.name)}</div>`).join('')||'—';
+  }catch(e){document.getElementById('ph-pool').innerHTML=esc(e.message);}
+}
+
 let lastAuto=null;
 async function runAutoAssign(dry){
   const date_from=document.getElementById('tet-from').value;
@@ -631,6 +766,7 @@ async function runAutoAssign(dry){
     el.innerHTML=`<div>Назначений: ${r.assignments?.length||0}, предупреждений: ${r.warnings?.length||0}</div><pre style="font-size:10px;margin-top:8px;white-space:pre-wrap">${esc(JSON.stringify(r,null,2).slice(0,4000))}</pre>`;
     document.getElementById('auto-modal').classList.add('open');
     if(!dry)showToast('Применено');
+    await renderTetris();
   }catch(e){showToast(e.message,true);}
 }
 
@@ -649,6 +785,51 @@ async function publishSchedule(){
 
 async function loadSnapshots(){
   try{const rows=await api('GET','/schedule/snapshots');document.getElementById('snap-list').innerHTML=(rows||[]).map(s=>`<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">${esc(s.period_start)} — ${esc(s.period_end)} <span style="color:var(--text3)">${esc(s.created_at)}</span></div>`).join('')||'—';}catch(e){document.getElementById('snap-list').innerHTML=esc(e.message);}
+}
+
+function openVenueSettings(venueId){
+  const v=getVenueById(venueId); if(!v) return;
+  venueSettingsId=venueId;
+  document.getElementById('vs-title').textContent=`Настройки: ${v.name}`;
+  const cfg=normalizeCfg(v.default_shifts)||{};
+  const tw=normalizeCfg(v.times_weekday)||{};
+  const tww=normalizeCfg(v.times_weekend)||{};
+  const th=normalizeCfg(v.times_holiday)||{};
+  document.getElementById('vs-body').innerHTML=`
+    <div class="section-title">Мероприятие</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <input class="fin" id="vs-wd-start" type="time" value="${tw.event_start||''}" placeholder="Будни начало">
+      <input class="fin" id="vs-we-start" type="time" value="${tww.event_start||''}" placeholder="Выходные начало">
+      <input class="fin" id="vs-h-start" type="time" value="${th.event_start||''}" placeholder="Праздники начало">
+    </div>
+    <div class="section-title" style="margin-top:8px">Смены фотографов (JSON)</div>
+    <textarea class="fin" id="vs-default-shifts" style="width:100%;height:180px">${esc(JSON.stringify(cfg,null,2))}</textarea>
+  `;
+  document.getElementById('venue-settings-modal').classList.add('open');
+}
+
+async function saveVenueSettings(){
+  if(!venueSettingsId) return;
+  try{
+    let cfg={};
+    try{ cfg=JSON.parse(document.getElementById('vs-default-shifts').value||'{}'); }catch{ throw new Error('Некорректный JSON в конфиге смен'); }
+    const v=getVenueById(venueSettingsId)||{};
+    const tw={...(normalizeCfg(v.times_weekday)||{}),event_start:document.getElementById('vs-wd-start').value||null};
+    const te={...(normalizeCfg(v.times_weekend)||{}),event_start:document.getElementById('vs-we-start').value||null};
+    const th={...(normalizeCfg(v.times_holiday)||{}),event_start:document.getElementById('vs-h-start').value||null};
+    await api('PATCH',`/venues/${venueSettingsId}`,{
+      default_shifts:cfg,
+      default_shifts_weekend:cfg,
+      default_shifts_holiday:cfg,
+      times_weekday:tw,
+      times_weekend:te,
+      times_holiday:th,
+    });
+    showToast('Настройки площадки сохранены');
+    document.getElementById('venue-settings-modal').classList.remove('open');
+    venuesList=await api('GET','/venues');
+    filterVenueList();
+  }catch(e){showToast(e.message,true);}
 }
 
 (async function init(){
