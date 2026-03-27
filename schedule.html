@@ -217,6 +217,13 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-ghost" onclick="saveSnapshot()">💾 Снимок</button>
       <button class="btn btn-ghost" onclick="publishSchedule()">✅ Опубликовать</button>
     </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
+      <span style="font-size:12px;color:var(--text2)">Роль:</span>
+      <button type="button" class="btn btn-primary" id="tr-photographer" onclick="switchTetrisRole('photographer')">📸 Фотографы</button>
+      <button type="button" class="btn btn-ghost" id="tr-admin" onclick="switchTetrisRole('admin')">👤 Админы</button>
+      <button type="button" class="btn btn-ghost" id="tr-manager" onclick="switchTetrisRole('manager')">👔 Менеджеры</button>
+      <button type="button" class="btn btn-ghost" id="tr-print_operator" onclick="switchTetrisRole('print_operator')">🖨 Операторы</button>
+    </div>
     <div class="section tetris-grid"><div id="tetris-placeholder" class="loading">Укажите период и загрузите данные календаря</div></div>
     <div class="section"><div class="section-title">Пул сотрудников по городам</div>
       <div id="ph-pool"></div>
@@ -440,7 +447,7 @@ function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';docume
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};
 navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('checkin','checkin.html','📍 Чекин'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 
-async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool('photographer');}}
+async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool(poolRole);updateTetrisRoleButtons();}}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
 function setScheduleStatus(v){
@@ -1019,6 +1026,19 @@ async function renderTetris(){
   }catch(e){document.getElementById('tetris-placeholder').innerHTML=esc(e.message);}
 }
 
+function updateTetrisRoleButtons(){
+  ['photographer','admin','manager','print_operator'].forEach(r=>{
+    const btn=document.getElementById('tr-'+r);
+    if(btn) btn.className='btn '+(r===poolRole?'btn-primary':'btn-ghost');
+  });
+}
+function switchTetrisRole(role){
+  poolRole=role||'photographer';
+  updateTetrisRoleButtons();
+  Object.keys(cityPoolRoles).forEach(k=>{ cityPoolRoles[k]=poolRole; });
+  renderTetris();
+  loadPool(poolRole);
+}
 function setCityPoolRole(cityKey, role){
   cityPoolRoles[cityKey]=role;
   loadPool(poolRole);
@@ -1062,6 +1082,7 @@ async function loadPool(role){
         <div class="pool-city-title">Пул ${esc(city)}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
           ${roleBtn(key,'photographer','📸 Фотографы')}
+          ${roleBtn(key,'admin','👤 Админы')}
           ${roleBtn(key,'print_operator','🖨 Операторы')}
           ${roleBtn(key,'manager','👔 Менеджеры')}
           ${roleBtn(key,'mentor','🎓 Наставники')}
