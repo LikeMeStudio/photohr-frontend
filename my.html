@@ -417,7 +417,6 @@ function renderMyScheduleGrid(from, to, assignments){
         const timeTo=fmtTime(a.event_end||a.shift_end||'');
         const timeStr=timeTo&&timeTo!=='—'?`${timeFrom} → ${timeTo}`:timeFrom;
         const crewParts=[];
-        if(a.admin_names) crewParts.push('👤 '+esc(a.admin_names));
         if(a.manager_names) crewParts.push('👔 '+esc(a.manager_names));
         if(a.operator_names) crewParts.push('🖨 '+esc(a.operator_names));
         inner+=`<div class="venue"><span class="status-dot ${statusCls}"></span>${vName}</div>`;
@@ -450,7 +449,7 @@ async function loadSchedulePanel(phId){
       const t0=fmtTime(r.staff_arrival||r.event_start||'');
       const t1=fmtTime(r.event_end||'');
       const tr=t1&&t1!=='—'?`${t0} → ${t1}`:t0;
-      const crew=[r.manager_names?`👔 ${esc(r.manager_names)}`:null,r.admin_names?`👤 ${esc(r.admin_names)}`:null].filter(Boolean).join(' · ');
+      const crew=[r.manager_names?`👔 ${esc(r.manager_names)}`:null,r.operator_names?`🖨 ${esc(r.operator_names)}`:null].filter(Boolean).join(' · ');
       return`<div class="pay-row" ${hl}><div><b>${esc(fmtDate(ds))}</b> ${esc(r.venue_name||'')}${crew?`<div style="font-size:10px;color:var(--text3);margin-top:3px">${crew}</div>`:''}</div><div style="font-size:11px;color:var(--text3);text-align:right">${esc(tr)}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
     const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation'||(r.forced&&r.status==='confirmed')).map(r=>{

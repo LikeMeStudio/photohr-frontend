@@ -76,19 +76,19 @@ a{color:inherit;text-decoration:none}
 .tetris-grid::-webkit-scrollbar{width:8px;height:8px}
 .tetris-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .tetris-inner{display:grid;gap:2px;min-width:600px}
-.tetris-cell{border:1px solid var(--border);padding:4px;font-size:10px;min-height:48px;background:var(--bg3)}
+.tetris-cell{border:1px solid var(--border);padding:3px;font-size:9px;min-height:40px;background:var(--bg3)}
 .tt-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
 .tt-table{border-collapse:separate;border-spacing:0;min-width:900px;width:max-content}
 .tt-table th,.tt-table td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;vertical-align:top;font-size:11px}
 .tt-table th:first-child,.tt-table td:first-child{position:sticky;left:0;background:var(--bg2);z-index:2}
-.tt-h-day{min-width:92px;text-align:center;color:var(--text2);font-size:10px}
-.tt-venue{min-width:160px;font-weight:600;font-size:11px}
+.tt-h-day{min-width:92px;text-align:center;color:var(--text2);font-size:9px;padding:3px 2px;white-space:nowrap}
+.tt-venue{max-width:70px;font-weight:600;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tt-drop{min-height:62px;border:1px dashed var(--border2);border-radius:8px;padding:4px;cursor:pointer}
 .tt-drop.drop-over{border-color:var(--accent);background:rgba(124,108,255,.08)}
-.tt-pill{display:block;border:1px solid var(--border);border-radius:8px;padding:4px 6px;margin-bottom:4px;background:var(--card);transition:filter .15s}
+.tt-pill{display:block;border:1px solid var(--border);border-radius:8px;padding:3px 4px;margin-bottom:4px;background:var(--card);transition:filter .15s;font-size:9px}
 .tt-pill:hover{filter:brightness(1.06)}
-.tt-vn{font-weight:600;font-size:11px;line-height:1.2}
-.tt-sm{font-size:10px;font-family:Unbounded,sans-serif;margin-top:2px}
+.tt-vn{font-weight:600;font-size:8px;line-height:1.2}
+.tt-sm{font-size:8px;font-family:Unbounded,sans-serif;margin-top:2px}
 .tt-pill--empty{background:rgba(242,85,85,.1);border-left:3px solid var(--rank3)}
 .tt-pill--partial{background:rgba(245,166,35,.1);border-left:3px solid var(--rank2)}
 .tt-pill--full{background:rgba(62,207,142,.1);border-left:3px solid var(--rank1)}
@@ -220,9 +220,8 @@ a{color:inherit;text-decoration:none}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
       <span style="font-size:12px;color:var(--text2)">Роль:</span>
       <button type="button" class="btn btn-primary" id="tr-photographer" onclick="switchTetrisRole('photographer')">📸 Фотографы</button>
-      <button type="button" class="btn btn-ghost" id="tr-admin" onclick="switchTetrisRole('admin')">👤 Админы</button>
+      <button type="button" class="btn btn-ghost" id="tr-print_operator" onclick="switchTetrisRole('print_operator')">🖨 Операторы печати</button>
       <button type="button" class="btn btn-ghost" id="tr-manager" onclick="switchTetrisRole('manager')">👔 Менеджеры</button>
-      <button type="button" class="btn btn-ghost" id="tr-print_operator" onclick="switchTetrisRole('print_operator')">🖨 Операторы</button>
     </div>
     <div class="section tetris-grid"><div id="tetris-placeholder" class="loading">Укажите период и загрузите данные календаря</div></div>
     <div class="section"><div class="section-title">Пул сотрудников по городам</div>
@@ -262,7 +261,7 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" style="font-size:11px;margin-top:6px" onclick="addSingleShift('photographer')">+ Добавить смену</button>
   </div>
   <div class="shift-sec admin">
-    <div class="section-title">🖨️ АдМэны</div>
+    <div class="section-title">🖨 Операторы печати / 👔 Менеджеры</div>
     <div id="single-shifts-admin"></div>
   </div>
   <div class="shift-sec extra">
@@ -419,7 +418,7 @@ let currentSubmissions=[];
 let currentPeriodMeta=null;
 let tetrisEventsByKey={};
 let poolRole='photographer';
-const ROLE_SHORT={photographer:'фото',admin:'админ',manager:'менеджер',print_operator:'оператор',mentor:'наставник',helper:'помощник'};
+const ROLE_SHORT={photographer:'фото',print_operator:'опер.печ.',manager:'менеджер',mentor:'наставник',helper:'помощник'};
 let draggingPoolPhotographerId=null;
 let draggingPoolPhotographerName='';
 let draggingPoolPhotographerCity='';
@@ -493,8 +492,8 @@ function renderCalGrid(data){
       const sum=e.shifts_summary||[];
       const pReq=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.required||0),0);
       const pAsg=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.assigned||0),0);
-      const aReq=sum.filter(x=>x.role==='admin').reduce((s,x)=>s+Number(x.required||0),0);
-      const aAsg=sum.filter(x=>x.role==='admin').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const aReq=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.required||0),0);
+      const aAsg=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.assigned||0),0);
       const mReq=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.required||0),0);
       const mAsg=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.assigned||0),0);
       const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
@@ -515,7 +514,7 @@ function filterVenueList(){
   const grp={};
   venuesList.filter(v=>!city||(v.city||'')===city).filter(v=>!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q)).forEach(v=>{const c=v.category||'—';if(!grp[c])grp[c]=[];grp[c].push(v);});
   let h='';
-  Object.keys(grp).sort().forEach(cat=>{h+=`<div style="font-size:10px;color:var(--text3);margin:6px 0 2px">${esc(cat)}</div>`;grp[cat].forEach(v=>{const cfg=normalizeCfg(v.default_shifts)||{};const pc=(cfg.photographer||[]).length||1;const ac=(cfg.admin||[]).length;const mc=(cfg.manager||[]).length;h+=`<div class="venue-drag" draggable="true" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')">${esc(v.name)} <span style="float:right;cursor:pointer" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span><div class="venue-meta">📸${pc} смены · 🖨${ac} · 👔${mc}</div></div>`;});});
+  Object.keys(grp).sort().forEach(cat=>{h+=`<div style="font-size:10px;color:var(--text3);margin:6px 0 2px">${esc(cat)}</div>`;grp[cat].forEach(v=>{const cfg=normalizeCfg(v.default_shifts)||{};const pc=(cfg.photographer||[]).length||1;const ac=(cfg.print_operator||cfg.admin||[]).length;const mc=(cfg.manager||[]).length;h+=`<div class="venue-drag" draggable="true" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')">${esc(v.name)} <span style="float:right;cursor:pointer" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span><div class="venue-meta">📸${pc} смены · 🖨${ac} · 👔${mc}</div></div>`;});});
   box.innerHTML=h||'<div style="color:var(--text3)">Нет площадок</div>';
 }
 
@@ -597,7 +596,7 @@ function renderSingleShiftSections(){
     <button class="btn btn-ghost" style="padding:2px 4px;font-size:11px" onclick="removeSingleShift('${role}',${idx})">✕</button>
   </div>`;
   document.getElementById('single-shifts-photo').innerHTML=(singleShiftsConfig.photographer||[]).map((s,i)=>mk('photographer',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
-  document.getElementById('single-shifts-admin').innerHTML=(singleShiftsConfig.admin||[]).map((s,i)=>mk('admin',i,s)).join('')+(singleShiftsConfig.manager||[]).map((s,i)=>mk('manager',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
+  document.getElementById('single-shifts-admin').innerHTML=(singleShiftsConfig.print_operator||[]).map((s,i)=>mk('print_operator',i,s)).join('')+(singleShiftsConfig.manager||[]).map((s,i)=>mk('manager',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
   document.getElementById('single-shifts-extra').innerHTML=(singleShiftsConfig.mentor||[]).map((s,i)=>mk('mentor',i,s)).join('')+(singleShiftsConfig.helper||[]).map((s,i)=>mk('helper',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет доп. ролей</div>';
 }
 function addSingleShift(role){ if(!singleShiftsConfig[role]) singleShiftsConfig[role]=[]; singleShiftsConfig[role].push({name:`Смена ${singleShiftsConfig[role].length+1}`,start:'10:00',end:'20:00',required_count:1}); renderSingleShiftSections(); }
@@ -609,13 +608,14 @@ function openSingleCreate(venueId,dateStr){
   singleCreateState={venueId,date:dateStr};
   const dt=resolveDayType(dateStr);
   const def=getVenueDefaults(venue,dt);
-  const cfg=normalizeCfg((dt==='holiday'?venue.default_shifts_holiday:dt==='weekend'?venue.default_shifts_weekend:venue.default_shifts_weekday)||venue.default_shifts)||{
+  let cfg=normalizeCfg((dt==='holiday'?venue.default_shifts_holiday:dt==='weekend'?venue.default_shifts_weekend:venue.default_shifts_weekday)||venue.default_shifts)||{
     photographer:[{name:'Смена 1',start:def.staff_arrival,end:def.event_end,required_count:def.required_photographers}],
-    admin:[{name:'Админ',start:def.admin_arrival,end:def.event_end,required_count:1}],
+    print_operator:[{name:'Оператор печати',start:def.admin_arrival,end:def.event_end,required_count:1}],
     manager:[{name:'Менеджер',start:def.manager_arrival,end:def.event_end,required_count:1}],
     mentor:[],
     helper:[]
   };
+  if(cfg&&cfg.admin&&!cfg.print_operator){cfg.print_operator=cfg.admin;delete cfg.admin;}
   singleShiftsConfig=JSON.parse(JSON.stringify(cfg));
   const ruDate=new Date(dateStr+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',weekday:'long'});
   document.getElementById('create-venue').textContent=`Площадка: ${venue.name}`;
@@ -990,14 +990,15 @@ async function renderTetris(){
       return ds>=date_from&&ds<=date_to;
     });
     tetrisEventsByKey={};
-    const venues=[...new Set(events.map(e=>`${e.venue_id}__${e.venue_name||'Площадка'}`))].map(s=>({id:s.split('__')[0],name:s.split('__')[1]}));
+    const venueMap={};events.forEach(e=>{if(!venueMap[e.venue_id]) venueMap[e.venue_id]={id:e.venue_id,name:e.venue_name||'Площадка',short:e.venue_short_name||e.venue_name||'Площадка'};});
+    const venues=Object.values(venueMap);
     const days=[]; for(let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) days.push(new Date(d).toISOString().slice(0,10));
     events.forEach(ev=>{ const key=`${ev.venue_id}|${String(ev.event_date).slice(0,10)}`; if(!tetrisEventsByKey[key]) tetrisEventsByKey[key]=[]; tetrisEventsByKey[key].push(ev); });
     if(!events.length){ document.getElementById('tetris-placeholder').innerHTML='<div style="font-size:12px;color:var(--text3)">Нет утверждённых мероприятий для выбранного периода/города</div>'; return; }
     let head='<tr><th class="tt-venue">Площадка</th>'+days.map(ds=>`<th class="tt-h-day">${esc(fmtDateShort(ds))}</th>`).join('')+'</tr>';
     let body='';
     venues.forEach(v=>{
-      let row=`<tr><td class="tt-venue">${esc(v.name)}</td>`;
+      let row=`<tr><td class="tt-venue" title="${esc(v.name)}">${esc(v.short||v.name)}</td>`;
       days.forEach(ds=>{
         const key=`${v.id}|${ds}`;
         const list=tetrisEventsByKey[key]||[];
@@ -1015,7 +1016,7 @@ async function renderTetris(){
           else if(asg<req) pillClass+='tt-pill--partial';
           else if(asg===req) pillClass+='tt-pill--full';
           else pillClass+='tt-pill--over';
-          return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')"><div class="tt-vn">${esc(ev.venue_name||'')}</div><div class="tt-sm">${esc(ROLE_SHORT[poolRole]||poolRole)} ${asg}/${req}${declined>0?` <span class="tt-decline-mark">❌${declined}</span>`:''}</div></div>`;
+          return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')"><div class="tt-vn">${esc(ev.venue_short_name||ev.venue_name||'')}</div><div class="tt-sm">${esc(ROLE_SHORT[poolRole]||poolRole)} ${asg}/${req}${declined>0?` <span class="tt-decline-mark">❌${declined}</span>`:''}</div></div>`;
         }).join('');
         const firstEvent=list[0]||{};
         const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===poolRole) || {}).id || '';
@@ -1028,12 +1029,13 @@ async function renderTetris(){
 }
 
 function updateTetrisRoleButtons(){
-  ['photographer','admin','manager','print_operator'].forEach(r=>{
+  ['photographer','print_operator','manager'].forEach(r=>{
     const btn=document.getElementById('tr-'+r);
     if(btn) btn.className='btn '+(r===poolRole?'btn-primary':'btn-ghost');
   });
 }
 function switchTetrisRole(role){
+  if(role==='admin') role='print_operator';
   poolRole=role||'photographer';
   updateTetrisRoleButtons();
   Object.keys(cityPoolRoles).forEach(k=>{ cityPoolRoles[k]=poolRole; });
@@ -1041,6 +1043,7 @@ function switchTetrisRole(role){
   loadPool(poolRole);
 }
 function setCityPoolRole(cityKey, role){
+  if(role==='admin') role='print_operator';
   cityPoolRoles[cityKey]=role;
   loadPool(poolRole);
 }
@@ -1083,8 +1086,7 @@ async function loadPool(role){
         <div class="pool-city-title">Пул ${esc(city)}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
           ${roleBtn(key,'photographer','📸 Фотографы')}
-          ${roleBtn(key,'admin','👤 Админы')}
-          ${roleBtn(key,'print_operator','🖨 Операторы')}
+          ${roleBtn(key,'print_operator','🖨 Опер.печати')}
           ${roleBtn(key,'manager','👔 Менеджеры')}
           ${roleBtn(key,'mentor','🎓 Наставники')}
           ${roleBtn(key,'helper','🤝 Помощники')}
@@ -1340,13 +1342,14 @@ function vsKindKey(kind){return kind==='holiday'?'holiday':kind==='weekend'?'wee
 function vsDayTypeForKind(kind){return kind==='holiday'?'holiday':kind==='weekend'?'weekend':'weekday';}
 function vsInitSlotFromCfg(cfg,def){
   const ph=(cfg.photographer&&cfg.photographer.length)?vsClone(cfg.photographer):[{name:'Смена 1',start:def.staff_arrival||'09:30',end:def.event_end||'20:00',required_count:def.required_photographers||1}];
-  const ad=(cfg.admin&&cfg.admin.length)?vsClone(cfg.admin):[{name:'Админ',start:def.admin_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
+  const opArr=(cfg.print_operator&&cfg.print_operator.length)?cfg.print_operator:(cfg.admin&&cfg.admin.length)?cfg.admin:null;
+  const ad=opArr?vsClone(opArr):[{name:'Оператор печати',start:def.admin_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
   const mg=(cfg.manager&&cfg.manager.length)?vsClone(cfg.manager):[{name:'Менеджер',start:def.manager_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
-  return{photographer:ph,admin:ad,manager:mg,mentor:[...(cfg.mentor||[])],helper:[...(cfg.helper||[])]};
+  return{photographer:ph,print_operator:ad,manager:mg,mentor:[...(cfg.mentor||[])],helper:[...(cfg.helper||[])]};
 }
 function vsBuildDefaultShiftsPayload(slot){
   return{photographer:(slot.photographer||[]).map((r,i)=>({name:r.name||`Смена ${i+1}`,start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
-    admin:(slot.admin||[]).map((r,i)=>({name:r.name||'Админ',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    print_operator:(slot.print_operator||[]).map((r,i)=>({name:r.name||'Оператор печати',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
     manager:(slot.manager||[]).map((r,i)=>({name:r.name||'Менеджер',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
     mentor:slot.mentor||[],helper:slot.helper||[]};
 }
@@ -1447,15 +1450,15 @@ function openVenueSettings(venueId){
   <button type="button" class="btn btn-ghost" style="font-size:11px;margin-top:4px" onclick="vsAddPhShift('holiday')">+ Добавить смену</button>
 </div>
 <div class="vs-sec vs-sec-ad">
-  <div class="vs-sec-title">👔 АдМэны</div>
+  <div class="vs-sec-title">🖨 Операторы печати / 👔 Менеджеры</div>
   <div class="vs-grid3">
     ${['weekday','weekend','holiday'].map((kind)=>{
       const slot=venueSettingsShiftState[vsKindKey(kind)];
-      const a=slot.admin[0]||{start:'09:30',end:'22:00',required_count:1};
+      const a=slot.print_operator[0]||{start:'09:30',end:'22:00',required_count:1};
       const m=slot.manager[0]||{start:'09:30',end:'22:00',required_count:1};
       const lab=kind==='weekday'?'Будни':kind==='weekend'?'Выходные':'Праздники';
       return`<div><div class="vs-sub">${lab}</div>
-        <div class="vs-ph-row"><span class="vs-lbl">Адм</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','admin',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','admin',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','admin',0,'required_count',this.value)"></div>
+        <div class="vs-ph-row"><span class="vs-lbl">Опер</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','print_operator',0,'required_count',this.value)"></div>
         <div class="vs-ph-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
       </div>`;
     }).join('')}
@@ -1498,11 +1501,11 @@ async function saveVenueSettings(){
     const v=getVenueById(venueSettingsId)||{};
     const g=id=>document.getElementById(id)?.value||null;
     const tw={...(normalizeCfg(v.times_weekday)||{}),guest_start:g('vs-ev-wd-g')||null,event_start:g('vs-ev-wd-ev')||null,event_end:g('vs-ev-wd-en')||null,
-      admin_arrival:(venueSettingsShiftState.weekday.admin[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekday.manager[0]||{}).start||null};
+      admin_arrival:(venueSettingsShiftState.weekday.print_operator[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekday.manager[0]||{}).start||null};
     const tww={...(normalizeCfg(v.times_weekend)||{}),guest_start:g('vs-ev-we-g')||null,event_start:g('vs-ev-we-ev')||null,event_end:g('vs-ev-we-en')||null,
-      admin_arrival:(venueSettingsShiftState.weekend.admin[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekend.manager[0]||{}).start||null};
+      admin_arrival:(venueSettingsShiftState.weekend.print_operator[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekend.manager[0]||{}).start||null};
     const th={...(normalizeCfg(v.times_holiday)||{}),guest_start:g('vs-ev-h-g')||null,event_start:g('vs-ev-h-ev')||null,event_end:g('vs-ev-h-en')||null,
-      admin_arrival:(venueSettingsShiftState.holiday.admin[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.holiday.manager[0]||{}).start||null};
+      admin_arrival:(venueSettingsShiftState.holiday.print_operator[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.holiday.manager[0]||{}).start||null};
     const wd=vsBuildDefaultShiftsPayload(venueSettingsShiftState.weekday);
     const we=vsBuildDefaultShiftsPayload(venueSettingsShiftState.weekend);
     const hol=vsBuildDefaultShiftsPayload(venueSettingsShiftState.holiday);
