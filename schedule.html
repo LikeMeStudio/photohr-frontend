@@ -1090,7 +1090,11 @@ async function loadPool(role){
       const roleNow=cityPoolRoles[key];
       const people=groups[city].filter(p=>{
         const roles=[p.employee_role||''].concat(Array.isArray(p.employee_roles)?p.employee_roles:[]);
-        return roles.includes(roleNow);
+        if(roles.includes(roleNow)) return true;
+        if(roleNow==='print_operator' && p.can_be_admin) return true;
+        if(roleNow==='manager' && p.can_be_manager) return true;
+        if(roleNow==='mentor' && p.can_be_mentor) return true;
+        return false;
       });
       return `<div class="pool-city">
         <div class="pool-city-title">Пул ${esc(city)}</div>
