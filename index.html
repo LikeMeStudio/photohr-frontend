@@ -184,8 +184,9 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 #dr-photo-zone .photo-del-btn{width:17px;height:17px;font-size:9px;top:-1px;right:-1px}
 
 /* tabs */
-.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:0}
-.tab{flex:1;min-width:0;padding:7px 4px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1.2;white-space:nowrap}
+.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;margin-bottom:0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 1 auto;min-width:0;padding:7px 8px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:11px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1.2;white-space:nowrap}
 .tab.active{background:var(--card);color:var(--text)}
 
 /* fields */
