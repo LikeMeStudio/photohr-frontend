@@ -186,13 +186,16 @@ function esc(s) {
 function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
 function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 function fmtTime(v){const s=String(v||'');if(!s)return'—';return s.slice(0,5);}
-async function respondUpcomingShift(assignmentId,response){
+async function respondAssignment(assignmentId,response){
+  console.log('respondAssignment:',assignmentId,response);
+  if(!assignmentId||String(assignmentId)==='undefined'){ showToast('Ошибка: assignment_id не определён',true); return; }
   try{
     await api('PATCH',`/shift-assignments/${assignmentId}/respond`,{response});
     showToast(response==='accept'?'Смена подтверждена':'Смена отклонена');
     await loadSchedulePanel(availEditor.photographerId||currentUser?.photographer_id);
   }catch(e){ showToast(e.message,true); }
 }
+const respondUpcomingShift=respondAssignment;
 function openDeclineModal(assignmentId, eventDate, venueName){
   declineState.assignmentId=assignmentId;
   document.getElementById('decline-shift-meta').textContent=`Смена: ${fmtDate(eventDate)}, ${venueName||'—'}`;
@@ -206,7 +209,8 @@ function closeDeclineModal(){
 }
 async function submitDeclineResponse(){
   const assignmentId=declineState.assignmentId;
-  if(!assignmentId) return;
+  console.log('submitDeclineResponse:',assignmentId);
+  if(!assignmentId||String(assignmentId)==='undefined'){ showToast('Ошибка: assignment_id не определён',true); return; }
   const reasonEl=document.querySelector('input[name="decline-reason"]:checked');
   const decline_reason=reasonEl?.value||null;
   const decline_comment=(document.getElementById('decline-comment')?.value||'').trim()||null;
@@ -379,7 +383,7 @@ async function loadSchedulePanel(phId){
     const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation'||(r.forced&&r.status==='confirmed')).map(r=>{
       const aid=String(r.assignment_id||r.id||'');
       if(r.status==='pending_confirmation'){
-        return `<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам предложена смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите или отклоните.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondUpcomingShift(${JSON.stringify(aid)},'accept')">✅ Подтвердить</button><button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openDeclineModal(${JSON.stringify(aid)},${JSON.stringify(String(r.event_date||'').slice(0,10))},${JSON.stringify(r.venue_name||'')})">❌ Отклонить</button></div></div>`;
+        return `<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам предложена смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите или отклоните.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondAssignment(${JSON.stringify(aid)},'accept')">✅ Подтвердить</button><button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openDeclineModal(${JSON.stringify(aid)},${JSON.stringify(String(r.event_date||'').slice(0,10))},${JSON.stringify(r.venue_name||'')})">❌ Отклонить</button></div></div>`;
       }
       return `<div style="padding:8px;border:1px solid rgba(242,85,85,.45);border-radius:8px;background:rgba(242,85,85,.12);margin-bottom:6px">Вам назначена обязательная смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}.</div>`;
     }).join('');
