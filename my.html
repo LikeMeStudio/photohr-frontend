@@ -90,11 +90,27 @@ a{color:inherit;text-decoration:none}
 .day-menu .row{display:flex;gap:6px;align-items:center;margin-top:8px}
 .day-menu input[type="time"]{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 6px}
 .premium-note{font-size:12px;color:var(--text2);margin-bottom:8px}
+/* My schedule grid */
+.my-sched-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+.my-sched-head{font-size:10px;color:var(--text3);text-align:center;padding:4px;text-transform:uppercase;font-weight:600}
+.my-sched-day{background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:72px;padding:6px;font-size:11px}
+.my-sched-day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.my-sched-day.past{opacity:.5}
+.my-sched-day .num{font-weight:600;margin-bottom:3px}
+.my-sched-day .venue{font-size:10px;color:var(--accent2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-sched-day .times{font-size:9px;color:var(--text2);margin-top:2px}
+.my-sched-day .crew{font-size:9px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-sched-day.off{background:var(--bg2)}
+.my-sched-day .status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px}
+.my-sched-day .status-confirmed{background:var(--rank1)}
+.my-sched-day .status-pending{background:var(--rank2)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:400}
 .overlay.open{display:flex}
 .modal{width:min(560px,92vw);background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px}
 @media(max-width:768px){
+  .my-sched-grid{grid-template-columns:repeat(7,1fr);gap:3px}
+  .my-sched-day{min-height:56px;padding:4px;font-size:10px}
   .header{padding:10px 14px;gap:8px}
   .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
   .nav-links::-webkit-scrollbar{display:none}
@@ -366,6 +382,58 @@ function selectMyPeriod(periodId){
   loadSchedulePanel(availEditor.photographerId);
 }
 
+function renderMyScheduleGrid(from, to, assignments){
+  const holder=document.getElementById('my-sched-holder');
+  if(!holder) return;
+  const days=buildDateRange(from,to);
+  if(!days.length){ holder.innerHTML=''; return; }
+  const byDate={};
+  (assignments||[]).forEach(a=>{
+    const ds=String(a.event_date||'').slice(0,10);
+    if(!byDate[ds]) byDate[ds]=[];
+    byDate[ds].push(a);
+  });
+  const todayStr=new Date().toISOString().slice(0,10);
+  const first=parseDateLocal(days[0]);
+  const pad=first?((first.getDay()+6)%7):0;
+  let h='<div class="my-sched-grid">';
+  ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(d=>{h+=`<div class="my-sched-head">${d}</div>`;});
+  for(let i=0;i<pad;i++) h+='<div></div>';
+  days.forEach(ds=>{
+    const dt=parseDateLocal(ds);
+    const isToday=ds===todayStr;
+    const isPast=ds<todayStr;
+    const items=byDate[ds]||[];
+    let cls='my-sched-day';
+    if(isToday) cls+=' today';
+    if(isPast) cls+=' past';
+    if(!items.length) cls+=' off';
+    let inner=`<div class="num">${dt?dt.getDate():''}</div>`;
+    if(items.length){
+      items.forEach(a=>{
+        const statusCls=a.assignment_status==='confirmed'?'status-confirmed':'status-pending';
+        const vName=esc(a.venue_short_name||a.venue_name||'');
+        const timeFrom=fmtTime(a.staff_arrival||a.shift_start||a.event_start||'');
+        const timeTo=fmtTime(a.event_end||a.shift_end||'');
+        const timeStr=timeTo&&timeTo!=='—'?`${timeFrom} → ${timeTo}`:timeFrom;
+        const crewParts=[];
+        if(a.admin_names) crewParts.push('👤 '+esc(a.admin_names));
+        if(a.manager_names) crewParts.push('👔 '+esc(a.manager_names));
+        if(a.operator_names) crewParts.push('🖨 '+esc(a.operator_names));
+        inner+=`<div class="venue"><span class="status-dot ${statusCls}"></span>${vName}</div>`;
+        inner+=`<div class="times">${esc(timeStr)}</div>`;
+        if(crewParts.length) inner+=`<div class="crew">${crewParts.join(' · ')}</div>`;
+      });
+    } else {
+      inner+='<div style="color:var(--text3);font-size:10px">—</div>';
+    }
+    h+=`<div class="${cls}">${inner}</div>`;
+  });
+  h+='</div>';
+  const legend='<div style="margin-top:8px;font-size:10px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap"><span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rank1);margin-right:3px"></span>Подтверждено</span><span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rank2);margin-right:3px"></span>Ожидает</span></div>';
+  holder.innerHTML=h+legend;
+}
+
 async function loadSchedulePanel(phId){
   const box=document.getElementById('sched-body');if(!box)return;
   box.innerHTML='<div class="loading">Загрузка...</div>';
@@ -379,7 +447,11 @@ async function loadSchedulePanel(phId){
     const upHtml=(upcoming||[]).map((r)=>{
       const ds=(r.event_date||'').toString().slice(0,10);
       const hl=ds===tomStr?'style="border:2px solid var(--rank2);border-radius:10px;padding:8px"':'';
-      return`<div class="pay-row" ${hl}><div><b>${esc(fmtDate(ds))}</b> ${esc(r.venue_name||'')}</div><div style="font-size:11px;color:var(--text3)">${esc(fmtTime(r.staff_arrival||r.event_start||''))}</div></div>`;
+      const t0=fmtTime(r.staff_arrival||r.event_start||'');
+      const t1=fmtTime(r.event_end||'');
+      const tr=t1&&t1!=='—'?`${t0} → ${t1}`:t0;
+      const crew=[r.manager_names?`👔 ${esc(r.manager_names)}`:null,r.admin_names?`👤 ${esc(r.admin_names)}`:null].filter(Boolean).join(' · ');
+      return`<div class="pay-row" ${hl}><div><b>${esc(fmtDate(ds))}</b> ${esc(r.venue_name||'')}${crew?`<div style="font-size:10px;color:var(--text3);margin-top:3px">${crew}</div>`:''}</div><div style="font-size:11px;color:var(--text3);text-align:right">${esc(tr)}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
     const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation'||(r.forced&&r.status==='confirmed')).map(r=>{
       const aid=String(r.assignment_id||r.id||'');
@@ -400,6 +472,7 @@ async function loadSchedulePanel(phId){
     const periodsUi=myPeriods.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${myPeriods.map(p=>`<button class="btn ${p.period_id===mySelectedPeriodId?'btn-primary':'btn-ghost'}" style="padding:5px 10px;font-size:11px" onclick="selectMyPeriod('${p.period_id}')">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${p.submitted?'✓':'•'})</button>`).join('')}</div>`:'';
     box.innerHTML=`
       <div class="section"><div class="section-title">Период заявок</div>${periodsUi}<div style="font-size:13px">${st?`${esc(fmtDate(st.period_start))} → ${esc(fmtDate(st.period_end))}<br>Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(statusHuman(st))}`:'Нет открытого периода'}</div><div id="avail-editor" style="margin-top:12px"></div></div>
+      <div class="section"><div class="section-title">📅 Моё расписание</div><div id="my-sched-holder"><div class="loading">Загрузка...</div></div></div>
       <div class="section"><div class="section-title">Профиль</div><div style="font-size:13px">Город: ${esc(ph.city||'—')}</div></div>
       <div class="section"><div class="section-title">Ближайшие смены</div>${forcedNotices}${upHtml}</div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
@@ -409,6 +482,21 @@ async function loadSchedulePanel(phId){
         <div style="margin-top:8px;font-size:11px;color:var(--text3)">Редактирование — в карточке сотрудника (Фотографы)</div>
       </div>
       <div class="section"><div class="section-title">История смен</div><div id="my-shift-history" style="font-size:12px;color:var(--text3)">Загрузка…</div></div>`;
+    if(st?.period_start && st?.period_end){
+      (async()=>{
+        try{
+          const cal=await api('GET',`/schedule/my-calendar?from=${encodeURIComponent(st.period_start)}&to=${encodeURIComponent(st.period_end)}`);
+          renderMyScheduleGrid(st.period_start, st.period_end, cal||[]);
+        }catch(e){
+          console.error('my-calendar load error', e);
+          const h=document.getElementById('my-sched-holder');
+          if(h) h.innerHTML='<span style="color:var(--text3);font-size:11px">Не удалось загрузить расписание</span>';
+        }
+      })();
+    } else {
+      const h=document.getElementById('my-sched-holder');
+      if(h) h.innerHTML='<span style="color:var(--text3);font-size:11px">Нет активного периода</span>';
+    }
     availEditor={period:st||null,entries:{},payScheme:ph.pay_scheme||'standard',submitted:!!st?.submitted,photographerId:phId,selectedDate:null};
     if(st?.period_status==='paused'){
       const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Приём заявок приостановлен. Ожидайте.</div>';
