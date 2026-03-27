@@ -70,6 +70,26 @@ a{color:inherit;text-decoration:none}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+.avail-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.avail-head{font-size:11px;color:var(--text3);text-align:center}
+.avail-day{border:1px solid var(--border);background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center;cursor:pointer;font-size:12px;min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.avail-day .num{font-family:'Unbounded',sans-serif;font-size:12px}
+.avail-day .lbl{font-size:10px;color:var(--text3)}
+.avail-day.s-full{background:rgba(62,207,142,.16);border-color:rgba(62,207,142,.45)}
+.avail-day.s-unavailable{background:rgba(242,85,85,.13);border-color:rgba(242,85,85,.4)}
+.avail-day.s-maybe{background:rgba(245,166,35,.16);border-color:rgba(245,166,35,.4)}
+.avail-day.s-morning{background:rgba(78,166,232,.17);border-color:rgba(78,166,232,.4)}
+.avail-day.s-evening{background:rgba(155,141,255,.18);border-color:rgba(155,141,255,.45)}
+.avail-day.sel{outline:2px solid var(--accent2)}
+.avail-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);margin-top:10px}
+.avail-dot{display:inline-flex;align-items:center;gap:5px}
+.avail-dot i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.day-menu{position:fixed;z-index:700;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:10px;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.day-menu .opt{display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;margin-bottom:6px}
+.day-menu .opt:last-of-type{margin-bottom:0}
+.day-menu .row{display:flex;gap:6px;align-items:center;margin-top:8px}
+.day-menu input[type="time"]{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 6px}
+.premium-note{font-size:12px;color:var(--text2);margin-bottom:8px}
 .loading{text-align:center;padding:40px;color:var(--text3)}
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px}
@@ -167,6 +187,119 @@ function switchMyTab(i){
   if(i===1&&currentUser.photographer_id)loadSchedulePanel(currentUser.photographer_id);
 }
 
+const AV_LABELS={available_full:'Свободен весь день',unavailable:'Занят',day_off:'Под вопросом',available_morning:'Свободен утром',available_evening:'Свободен вечером'};
+let availEditor={period:null,entries:{},payScheme:'standard',submitted:false,photographerId:null,selectedDate:null};
+
+function buildDateRange(from,to){
+  const s=parseDateLocal(from),e=parseDateLocal(to); if(!s||!e||s>e) return [];
+  const out=[]; for(let d=new Date(s); d<=e; d.setDate(d.getDate()+1)){ out.push(new Date(d).toISOString().slice(0,10)); }
+  return out;
+}
+function availClass(st){
+  if(st==='available_full') return 's-full';
+  if(st==='unavailable') return 's-unavailable';
+  if(st==='day_off') return 's-maybe';
+  if(st==='available_morning') return 's-morning';
+  if(st==='available_evening') return 's-evening';
+  return '';
+}
+function isPremiumSchedule(){ return availEditor.payScheme==='premium'; }
+function closeDayMenu(){ const m=document.getElementById('day-menu'); if(m) m.style.display='none'; availEditor.selectedDate=null; }
+function setAvailabilityStatus(date,status){
+  const cur=availEditor.entries[date]||{};
+  availEditor.entries[date]={...cur,status};
+  if(status!=='available_morning'&&status!=='available_evening'){ delete availEditor.entries[date].available_from; delete availEditor.entries[date].available_to; }
+  closeDayMenu(); renderAvailabilityEditor();
+}
+function openDayMenu(date,ev){
+  if(isPremiumSchedule()) return togglePremiumDay(date);
+  availEditor.selectedDate=date;
+  const cur=availEditor.entries[date]||{};
+  const m=document.getElementById('day-menu'); if(!m) return;
+  m.style.display='block';
+  m.style.left=Math.min((ev.clientX||120)+8, window.innerWidth-240)+'px';
+  m.style.top=Math.min((ev.clientY||120)+8, window.innerHeight-240)+'px';
+  const tf=document.getElementById('dm-from'),tt=document.getElementById('dm-to');
+  if(tf) tf.value=cur.available_from||'09:00';
+  if(tt) tt.value=cur.available_to||'14:00';
+}
+function applyDayTime(){
+  const date=availEditor.selectedDate; if(!date) return;
+  const cur=availEditor.entries[date]||{};
+  const from=document.getElementById('dm-from')?.value||null;
+  const to=document.getElementById('dm-to')?.value||null;
+  if(!(cur.status==='available_morning'||cur.status==='available_evening')) return;
+  availEditor.entries[date]={...cur,available_from:from,available_to:to};
+  closeDayMenu(); renderAvailabilityEditor();
+}
+function togglePremiumDay(date){
+  const dayOff=Object.entries(availEditor.entries).filter(([,v])=>v.status==='day_off').map(([d])=>d);
+  const cur=availEditor.entries[date]?.status;
+  if(cur==='day_off'){ availEditor.entries[date]={status:'available_full'}; renderAvailabilityEditor(); return; }
+  if(dayOff.length>=2){ showToast('Можно выбрать только 2 выходных', true); return; }
+  availEditor.entries[date]={status:'day_off'}; renderAvailabilityEditor();
+}
+function renderAvailabilityEditor(){
+  const wrap=document.getElementById('avail-editor'); if(!wrap||!availEditor.period) return;
+  const days=buildDateRange(availEditor.period.period_start, availEditor.period.period_end);
+  const first=parseDateLocal(days[0]); const pad=first?((first.getDay()+6)%7):0;
+  let h='<div class="avail-grid">'+['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=>`<div class="avail-head">${d}</div>`).join('');
+  for(let i=0;i<pad;i++) h+='<div></div>';
+  days.forEach(ds=>{
+    const dt=parseDateLocal(ds), cur=availEditor.entries[ds]||{}, st=cur.status||'';
+    const t=(st==='available_morning'||st==='available_evening')&&cur.available_from&&cur.available_to?`${cur.available_from}-${cur.available_to}`:'';
+    h+=`<div class="avail-day ${availClass(st)} ${availEditor.selectedDate===ds?'sel':''}" onclick="openDayMenu('${ds}',event)"><div class="num">${dt?dt.getDate():''}</div><div class="lbl">${esc(AV_LABELS[st]||'—')}</div>${t?`<div class="lbl">${esc(t)}</div>`:''}</div>`;
+  });
+  h+='</div>';
+  const legend=`<div class="avail-legend">
+    <span class="avail-dot"><i style="background:rgba(62,207,142,.8)"></i>🟢 Свободен</span>
+    <span class="avail-dot"><i style="background:rgba(242,85,85,.85)"></i>🔴 Занят</span>
+    <span class="avail-dot"><i style="background:rgba(245,166,35,.85)"></i>🟡 Под вопросом</span>
+    <span class="avail-dot"><i style="background:rgba(78,166,232,.85)"></i>🔵 Утро</span>
+    <span class="avail-dot"><i style="background:rgba(155,141,255,.85)"></i>🟣 Вечер</span>
+  </div>`;
+  const premium=isPremiumSchedule()?'<div class="premium-note">Выберите 2 выходных дня. Остальные автоматически считаются рабочими.</div>':'';
+  const actionLabel=isPremiumSchedule()?'Подтвердить':(availEditor.submitted?'Скорректировать':'Отправить заявку');
+  wrap.innerHTML=`${premium}${h}${legend}
+    <div style="margin-top:10px"><input id="avail-note" class="fin" placeholder="Комментарий" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text)"></div>
+    <div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="submitAvailabilityFlow()">${actionLabel}</button></div>
+    <div id="day-menu" class="day-menu" style="display:none" onclick="event.stopPropagation()">
+      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'available_full')">🟢 Свободен весь день</button>
+      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'unavailable')">🔴 Занят</button>
+      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'day_off')">🟡 Под вопросом</button>
+      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'available_morning')">🔵 Свободен утром</button>
+      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'available_evening')">🟣 Свободен вечером</button>
+      <div class="row"><span style="font-size:11px;color:var(--text3)">с</span><input type="time" id="dm-from"><span style="font-size:11px;color:var(--text3)">по</span><input type="time" id="dm-to"><button class="btn btn-ghost" style="padding:4px 8px" onclick="applyDayTime()">OK</button></div>
+      <div style="margin-top:8px;text-align:right"><button class="btn btn-ghost" style="padding:4px 8px" onclick="closeDayMenu()">Закрыть</button></div>
+    </div>`;
+}
+async function submitAvailabilityFlow(){
+  if(!availEditor.period) return;
+  const note=(document.getElementById('avail-note')?.value||'').trim()||null;
+  const days=buildDateRange(availEditor.period.period_start, availEditor.period.period_end);
+  try{
+    if(isPremiumSchedule()){
+      const dayOff=days.filter(d=>availEditor.entries[d]?.status==='day_off');
+      if(dayOff.length!==2){ showToast('Выберите ровно 2 выходных дня', true); return; }
+      await api('POST','/availability/premium-setup',{period_start:availEditor.period.period_start,period_end:availEditor.period.period_end,day_off_dates:dayOff});
+      const dates=days.map(d=>({date:d,status:dayOff.includes(d)?'day_off':'available_full',notes:note}));
+      if(availEditor.submitted) await api('POST','/availability/correct',{dates});
+      else await api('POST','/availability/submit',{period_id:availEditor.period.period_id});
+      showToast(availEditor.submitted?'Заявка скорректирована':'Заявка отправлена');
+      await loadSchedulePanel(availEditor.photographerId);
+      return;
+    }
+    const dates=days.map(d=>{
+      const v=availEditor.entries[d]||{};
+      return {date:d,status:v.status||'unavailable',notes:note,available_from:v.available_from||null,available_to:v.available_to||null};
+    });
+    if(availEditor.submitted) await api('POST','/availability/correct',{dates});
+    else { await api('POST','/availability',{dates}); await api('POST','/availability/submit',{period_id:availEditor.period.period_id}); }
+    showToast(availEditor.submitted?'Заявка скорректирована':'Заявка отправлена');
+    await loadSchedulePanel(availEditor.photographerId);
+  }catch(e){ showToast(e.message,true); }
+}
+
 async function loadSchedulePanel(phId){
   const box=document.getElementById('sched-body');if(!box)return;
   box.innerHTML='<div class="loading">Загрузка...</div>';
@@ -182,7 +315,7 @@ async function loadSchedulePanel(phId){
       const hl=ds===tomStr?'style="border:2px solid var(--rank2);border-radius:10px;padding:8px"':'';
       return`<div class="pay-row" ${hl}><div><b>${esc(ds)}</b> ${esc(r.venue_name||'')}</div><div style="font-size:11px;color:var(--text3)">${esc(r.staff_arrival||'')}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
-    const st=(status||[])[0];
+    const st=(status||[]).find(x=>x.period_status==='open') || (status||[])[0];
     const stTxt=st?(st.submitted?'Подана'+(st.on_time?' (вовремя)':' (после дедлайна)'):'Не подана'):'—';
     let venues=ph.venues;if(typeof venues==='string'){try{venues=JSON.parse(venues);}catch{venues=[];}}
     const loves=(venues||[]).filter(v=>v.attitude==='loves');
@@ -190,7 +323,7 @@ async function loadSchedulePanel(phId){
     const dis=(venues||[]).filter(v=>v.attitude==='dislikes');
     const disLimited=dis.slice(0,3);
     box.innerHTML=`
-      <div class="section"><div class="section-title">Период заявок</div><div style="font-size:13px">${st?`Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(stTxt)}`:'Нет открытого периода'}</div></div>
+      <div class="section"><div class="section-title">Период заявок</div><div style="font-size:13px">${st?`${esc(fmtDate(st.period_start))} → ${esc(fmtDate(st.period_end))}<br>Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(stTxt)}`:'Нет открытого периода'}</div><div id="avail-editor" style="margin-top:12px"></div></div>
       <div class="section"><div class="section-title">Ближайшие смены</div>${upHtml}</div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
         <div style="font-size:12px;margin-bottom:6px">❤️ Люблю: ${loves.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
@@ -198,6 +331,19 @@ async function loadSchedulePanel(phId){
         <div style="font-size:12px">✕ Не люблю: ${disLimited.map(v=>esc(v.venue_name)).join(', ')||'—'}${dis.length>3?` <span style="color:var(--text3)">(+${dis.length-3})</span>`:''}</div>
         <div style="margin-top:8px;font-size:11px;color:var(--text3)">Редактирование — в карточке сотрудника (Фотографы)</div>
       </div>`;
+    availEditor={period:st||null,entries:{},payScheme:ph.pay_scheme||'standard',submitted:!!st?.submitted,photographerId:phId,selectedDate:null};
+    if(st?.period_start&&st?.period_end){
+      const rows=await api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(st.period_start)}&to=${encodeURIComponent(st.period_end)}`).catch(()=>[]);
+      (rows||[]).forEach(r=>{ const ds=String(r.avail_date||'').slice(0,10); availEditor.entries[ds]={status:r.status||'unavailable',available_from:r.available_from||null,available_to:r.available_to||null,notes:r.notes||null}; });
+      if(isPremiumSchedule()){
+        const all=buildDateRange(st.period_start, st.period_end);
+        all.forEach(ds=>{ if(!availEditor.entries[ds]) availEditor.entries[ds]={status:'available_full'}; });
+      }
+      renderAvailabilityEditor();
+      document.addEventListener('click', closeDayMenu, { once:true });
+    } else {
+      const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Открытого периода для подачи нет.</div>';
+    }
   }catch(e){box.innerHTML='<div class="loading" style="color:var(--rank3)">'+esc(e.message)+'</div>';}
 }
 
