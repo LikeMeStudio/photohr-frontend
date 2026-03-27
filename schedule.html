@@ -1082,7 +1082,7 @@ async function openTetrisCell(key,eventId){
     document.getElementById('tc-body').innerHTML=details.map(x=>`
       <div class="section" style="padding:10px;margin-bottom:8px">
         <div><b>${esc(x.shift.shift_name||'Смена')}</b> · ${Number(x.shift.assigned||0)}/${Number(x.shift.required||0)}</div>
-        <div style="margin-top:6px">${x.assignments.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)}${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick="removeAssignment('${a.id}','${key}')">Снять</button></div>`).join('')||'<span style="color:var(--text3)">Нет назначений</span>'}</div>
+        <div style="margin-top:6px">${x.assignments.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)}${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick="removeAssignment(${JSON.stringify(String(a.id||''))},${JSON.stringify(key)})">Снять</button></div>`).join('')||'<span style="color:var(--text3)">Нет назначений</span>'}</div>
       </div>`).join('');
     document.getElementById('tetris-cell-modal').classList.add('open');
   }catch(e){showToast(e.message,true);}

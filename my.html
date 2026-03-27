@@ -367,7 +367,7 @@ async function loadSchedulePanel(phId){
   try{
     const [status, upcoming, ph]=await Promise.all([
       api('GET','/availability/my-status').catch(()=>[]),
-      api('GET','/schedule/my-upcoming').catch(()=>[]),
+      api('GET','/schedule/my-upcoming').catch((e)=>{ console.error('my-upcoming failed', e); return []; }),
       api('GET','/photographers/'+phId),
     ]);
     const tom=new Date();tom.setDate(tom.getDate()+1);const tomStr=tom.toISOString().slice(0,10);
@@ -377,8 +377,9 @@ async function loadSchedulePanel(phId){
       return`<div class="pay-row" ${hl}><div><b>${esc(fmtDate(ds))}</b> ${esc(r.venue_name||'')}</div><div style="font-size:11px;color:var(--text3)">${esc(fmtTime(r.staff_arrival||r.event_start||''))}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
     const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation'||(r.forced&&r.status==='confirmed')).map(r=>{
+      const aid=String(r.assignment_id||r.id||'');
       if(r.status==='pending_confirmation'){
-        return `<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам предложена смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите или отклоните.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondUpcomingShift('${esc(r.assignment_id||'')}','accept')">✅ Подтвердить</button><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openDeclineModal('${esc(r.assignment_id||'')}','${esc(String(r.event_date||'').slice(0,10))}','${esc(r.venue_name||'')}')">❌ Отклонить</button></div></div>`;
+        return `<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам предложена смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите или отклоните.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondUpcomingShift(${JSON.stringify(aid)},'accept')">✅ Подтвердить</button><button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openDeclineModal(${JSON.stringify(aid)},${JSON.stringify(String(r.event_date||'').slice(0,10))},${JSON.stringify(r.venue_name||'')})">❌ Отклонить</button></div></div>`;
       }
       return `<div style="padding:8px;border:1px solid rgba(242,85,85,.45);border-radius:8px;background:rgba(242,85,85,.12);margin-bottom:6px">Вам назначена обязательная смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}.</div>`;
     }).join('');
