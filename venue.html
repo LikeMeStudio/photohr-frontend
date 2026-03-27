@@ -475,7 +475,7 @@ document.getElementById('C').innerHTML=`
 <div style="font-size:16px;font-weight:700;font-family:'Unbounded',sans-serif;margin-bottom:12px">📍 ${esc(venueName)}</div>
 <div style="display:flex;gap:12px;align-items:center;margin-top:-8px;margin-bottom:10px;font-size:12px;color:var(--text2)">
   <span>🕐 Сбор: <b style="color:var(--text)">${(ev.staff_arrival||'не указано').slice(0,5)}</b></span>
-  <span>🕐 Админ: <b style="color:var(--text)">${(ev.admin_arrival||'не указано').slice(0,5)}</b></span>
+  <span>🕐 Оператор: <b style="color:var(--text)">${(ev.admin_arrival||'не указано').slice(0,5)}</b></span>
   ${isEditor()?`<button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="editArrivalTime()">✏️</button>`:''}
 </div>
 <div class="qr-shift-row">
@@ -508,9 +508,9 @@ ${(()=>{
 ${isEditor()?`
 <div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">
   <div style="flex:1;min-width:120px">
-    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Админ</div>
+    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Оператор</div>
     ${(()=>{
-      const admins=phs.filter(a=>a.role_in_shift==='admin_venue');
+      const admins=phs.filter(a=>a.role_in_shift==='print_operator');
       return admins.length?admins.map(a=>{
         const ch=a.checkin_at||a.checked_in;
         return`<div style="display:flex;align-items:center;gap:4px;font-size:11px">
@@ -558,13 +558,13 @@ ${isEditor()?`
 </div>
 `:`
 <div style="font-size:11px;color:var(--text2);margin-bottom:6px">
-  Админ: <b>${esc(report?.admin_name||'—')}</b> · Менеджер: <b>${esc(report?.manager_name||'—')}</b>
+  Оператор: <b>${esc(report?.admin_name||'—')}</b> · Менеджер: <b>${esc(report?.manager_name||'—')}</b>
 </div>
 `}
 ${(()=>{
-  const photoPhs = phs.filter(a=>!['admin_venue','venue_manager','mentor'].includes(a.role_in_shift));
-  const roleOrder={'admin_venue':0,'venue_manager':0,'mentor':1,'print_operator':1,'photographer':2};
-  const roleLbl={'admin_venue':'Админ','venue_manager':'Менеджер','mentor':'Наставник','print_operator':'Оператор','photographer':'Фото'};
+  const photoPhs = phs.filter(a=>!['print_operator','venue_manager','mentor'].includes(a.role_in_shift));
+  const roleOrder={'venue_manager':0,'print_operator':0,'mentor':1,'photographer':2};
+  const roleLbl={'venue_manager':'Менеджер','mentor':'Наставник','print_operator':'Оператор','photographer':'Фото'};
   const sorted=[...photoPhs].sort((a,b)=>(roleOrder[a.role_in_shift]||2)-(roleOrder[b.role_in_shift]||2));
   const cols=[[],[],[]];let ci=0;
   sorted.forEach(a=>{cols[ci].push(a);if(cols[ci].length>=Math.ceil(sorted.length/3))ci=Math.min(ci+1,2);});
@@ -895,7 +895,7 @@ if(report?.id||!shift)return;
 const vid=document.getElementById('vs').value,dt=document.getElementById('sd').value;
 if(!vid||!dt)return;
 const collected=collect();
-const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue'),manager_name:getRoleLeadName('venue_manager'),notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
+const body={shift_id:shift.id,venue_id:vid,report_date:dt,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('print_operator'),manager_name:getRoleLeadName('venue_manager'),notes_report:document.getElementById('rn')?.value||null,advances:typeof collectAdvances==='function'?collectAdvances():[],petty_cash_expenses:typeof collectPettyCash==='function'?collectPettyCash():[]};
 try{
 const created=await api('POST','/daily-reports',body);
 report=created;
@@ -907,7 +907,7 @@ recalcAll(true);
 
 function buildReportBody(){
 const collected=collect();
-return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('admin_venue'),manager_name:getRoleLeadName('venue_manager'),notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
+return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_date:document.getElementById('sd').value,lines:collected.lines,printer_data:collected.printer_data,admin_name:getRoleLeadName('print_operator'),manager_name:getRoleLeadName('venue_manager'),notes_report:document.getElementById('rn')?.value||null,advances:collectAdvances(),petty_cash_expenses:collectPettyCash()};
 }
 
 async function addPhotographerToShift(){
@@ -978,7 +978,7 @@ const selMgr=document.getElementById('add-manager');
 const selMentor=document.getElementById('add-mentor');
 if(selAdmin){
 canAdmin.filter(p=>!alreadyIds.includes(p.id)).forEach(p=>{selAdmin.innerHTML+=`<option value="${p.id}">${esc(p.name)}</option>`;});
-selAdmin.onchange=function(){if(this.value)addRoleAssign(this.value,'admin_venue');};
+selAdmin.onchange=function(){if(this.value)addRoleAssign(this.value,'print_operator');};
 }
 if(selMgr){
 canManager.filter(p=>!alreadyIds.includes(p.id)).forEach(p=>{selMgr.innerHTML+=`<option value="${p.id}">${esc(p.name)}</option>`;});
@@ -1165,7 +1165,7 @@ if(!report?.id){if(!silent)toast('Нет данных для расчёта',1);
 const{lines,printer_data}=collect();
 await api('PATCH',`/daily-reports/${report.id}/lines`,{
 lines,printer_data,
-admin_name:getRoleLeadName('admin_venue'),
+admin_name:getRoleLeadName('print_operator'),
 manager_name:getRoleLeadName('venue_manager'),
 notes_report:document.getElementById('rn')?.value||null,
 advances:collectAdvances(),
@@ -1605,7 +1605,7 @@ const mgrBonus=calcBonusLocal(rules.manager,totalRev);
 const phTotal=estSal+phBonus;
 const out=document.getElementById('bs-preview-result');
 if(out)out.innerHTML=`<div>📷 Фотограф: ЗП ${estSal.toLocaleString('ru-RU')}₽ + бонус ${phBonus.toLocaleString('ru-RU')}₽ = <b>${phTotal.toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(бонус из кассы)</span></div>
-<div>👔 Админ: фикс ${adminFix.toLocaleString('ru-RU')}₽ + бонус ${adminBonus.toLocaleString('ru-RU')}₽ = <b>${(adminFix+adminBonus).toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(начисление)</span></div>
+<div>🖨 Оператор: фикс ${adminFix.toLocaleString('ru-RU')}₽ + бонус ${adminBonus.toLocaleString('ru-RU')}₽ = <b>${(adminFix+adminBonus).toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(начисление)</span></div>
 <div>📋 Менеджер: фикс ${mgrFix.toLocaleString('ru-RU')}₽ + бонус ${mgrBonus.toLocaleString('ru-RU')}₽ = <b>${(mgrFix+mgrBonus).toLocaleString('ru-RU')}₽</b> <span style="color:var(--text3)">(начисление)</span></div>
 <div style="margin-top:6px;font-size:10px;color:var(--text3)">ЗП в предпросмотре — сумма ставок «как по 1 шт. каждого товара»; в отчёте считается по факту продаж.</div>`;
 }
@@ -1648,7 +1648,7 @@ return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghos
 <div style="font-size:11px;font-weight:600">📷 Бонусы фотографа (от личной выручки, из кассы)</div>
 <div><div class="fl">Пороги</div><div id="bs-ph-th">${bsRenderThRows(ph.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('ph')">+ Порог</button></div>
 <div><div class="fl">Прогрессивные</div><div id="bs-ph-pr">${bsRenderPrRows(ph.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('ph')">+ Правило</button></div>
-<div style="font-size:11px;font-weight:600">👔 Администратор (от общей выручки, начисление)</div>
+<div style="font-size:11px;font-weight:600">🖨 Оператор (от общей выручки, начисление)</div>
 <div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-admin-base" value="${adm.base_salary||0}" step="0.01" style="width:120px"/></div>
 <div><div class="fl">Пороги</div><div id="bs-admin-th">${bsRenderThRows(adm.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('admin')">+ Порог</button></div>
 <div><div class="fl">Прогрессивные</div><div id="bs-admin-pr">${bsRenderPrRows(adm.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('admin')">+ Правило</button></div>
@@ -1992,7 +1992,7 @@ async function openVenueSettings(){
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <div><div class="fl">Фотографов</div><input class="fin" type="number" id="vr-photo" value="${venue.required_photographers||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
           <div><div class="fl">Операторов</div><input class="fin" type="number" id="vr-ops" value="${venue.required_operators||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
-          <div><div class="fl">Админов</div><input class="fin" type="number" id="vr-admin" value="${venue.required_admins||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
+          <div><div class="fl">Менеджеров</div><input class="fin" type="number" id="vr-admin" value="${venue.required_admins||0}" style="width:60px" onchange="saveVenueStaff('${vid}')"/></div>
         </div>
       </div>
 
@@ -2160,7 +2160,7 @@ function renderAqSection() {
   // Итоги
   html += `<div class="sec"><div class="sec-t" style="color:#3ecfb4">📝 Итоги аквагрим</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">
-    <div style="flex:1;min-width:140px"><div class="fl">Админ</div><input class="fin" id="aqa" value="${esc(aqReport?.admin_name||U?.name||'')}" style="width:100%"/></div>
+    <div style="flex:1;min-width:140px"><div class="fl">Оператор</div><input class="fin" id="aqa" value="${esc(aqReport?.admin_name||U?.name||'')}" style="width:100%"/></div>
     <div style="flex:1;min-width:140px"><div class="fl">Менеджер</div><input class="fin" id="aqm" value="${esc(aqReport?.manager_name||'')}" style="width:100%"/></div>
   </div>
   <div style="margin-top:6px"><div class="fl">Примечание</div><input class="fin" id="aqn" value="${esc(aqReport?.notes_report||'')}" style="width:100%" placeholder="Комментарий..."/></div>
