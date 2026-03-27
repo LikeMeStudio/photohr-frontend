@@ -99,6 +99,12 @@ a{color:inherit;text-decoration:none}
     <button class="tab-main" data-i="3" onclick="switchMainTab(3)">📊 Обзор</button>
   </div>
   <div id="panel-0" class="sched-panel">
+    <div class="section" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" id="status-draft-btn" onclick="setScheduleStatus('draft')">📝 Черновик (план)</button>
+      <button class="btn btn-ghost" id="status-confirmed-btn" onclick="setScheduleStatus('confirmed')">✅ Утверждённое</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost" id="confirm-schedule-btn" onclick="confirmSchedulePeriod()">Утвердить расписание</button>
+    </div>
     <div class="section" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
       <select class="fselect" id="sch-city" onchange="loadTab0()"><option value="">Все города</option></select>
       <button class="btn btn-ghost" onclick="schPrevMonth()">◀</button>
@@ -151,11 +157,15 @@ a{color:inherit;text-decoration:none}
   <div class="modal-title"><span>Создание мероприятия</span><button class="dr-close" onclick="document.getElementById('create-modal').classList.remove('open')">×</button></div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:8px" id="create-venue">—</div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="create-daytype">—</div>
-  <div class="info-grid">
-    <div><div class="section-title">Сбор фотографов</div><input class="fin" id="c-staff" type="time" style="width:100%"></div>
-    <div><div class="section-title">Начало мероприятия</div><input class="fin" id="c-event" type="time" style="width:100%"></div>
-    <div><div class="section-title">Приход гостей</div><input class="fin" id="c-guest" type="time" style="width:100%"></div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+    <div><div class="section-title">Сбор фото</div><input class="fin" id="c-staff" type="time" style="width:100%"></div>
+    <div><div class="section-title">Запуск гостей</div><input class="fin" id="c-guest" type="time" style="width:100%"></div>
+    <div><div class="section-title">Начало</div><input class="fin" id="c-event" type="time" style="width:100%"></div>
+    <div><div class="section-title">Завершение</div><input class="fin" id="c-end" type="time" style="width:100%"></div>
     <div><div class="section-title">Приход админа</div><input class="fin" id="c-admin" type="time" style="width:100%"></div>
+    <div><div class="section-title">Приход менеджера</div><input class="fin" id="c-manager" type="time" style="width:100%"></div>
+  </div>
+  <div class="info-grid" style="margin-top:8px">
     <div><div class="section-title">Фотографов</div><input class="fin" id="c-ph" type="number" min="0" style="width:100%"></div>
     <div><div class="section-title">Операторов</div><input class="fin" id="c-op" type="number" min="0" style="width:100%"></div>
     <div><div class="section-title">Менеджеров</div><input class="fin" id="c-mgr" type="number" min="0" style="width:100%"></div>
@@ -179,7 +189,36 @@ a{color:inherit;text-decoration:none}
     <button class="quick-btn" onclick="toggleQuick('we')">Выходные</button>
   </div>
   <div style="font-family:Unbounded,sans-serif;font-size:13px;margin-bottom:8px" id="bulk-month-label">—</div>
-  <div id="bulk-mini"></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
+    <div id="bulk-mini"></div>
+    <div style="flex:1;min-width:250px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Времена по типу дня</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Будни</div>
+          <div style="display:grid;grid-template-columns:auto 84px;gap:4px;align-items:center;font-size:11px">
+            <span>Сбор</span><input class="fin" id="bw-staff" type="time" style="padding:5px 6px">
+            <span>Гости</span><input class="fin" id="bw-guest" type="time" style="padding:5px 6px">
+            <span>Начало</span><input class="fin" id="bw-event" type="time" style="padding:5px 6px">
+            <span>Конец</span><input class="fin" id="bw-end" type="time" style="padding:5px 6px">
+            <span>Админ</span><input class="fin" id="bw-admin" type="time" style="padding:5px 6px">
+            <span>Менеджер</span><input class="fin" id="bw-manager" type="time" style="padding:5px 6px">
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Выходные</div>
+          <div style="display:grid;grid-template-columns:auto 84px;gap:4px;align-items:center;font-size:11px">
+            <span>Сбор</span><input class="fin" id="be-staff" type="time" style="padding:5px 6px">
+            <span>Гости</span><input class="fin" id="be-guest" type="time" style="padding:5px 6px">
+            <span>Начало</span><input class="fin" id="be-event" type="time" style="padding:5px 6px">
+            <span>Конец</span><input class="fin" id="be-end" type="time" style="padding:5px 6px">
+            <span>Админ</span><input class="fin" id="be-admin" type="time" style="padding:5px 6px">
+            <span>Менеджер</span><input class="fin" id="be-manager" type="time" style="padding:5px 6px">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div style="margin-top:10px;font-size:12px">Выбрано: <b id="bulk-count">0</b> дат</div>
   <div style="margin-top:8px"><div class="section-title">Название мероприятия</div><input class="fin" id="bulk-name" placeholder="Опционально" style="width:100%"></div>
   <div id="bulk-preview-box" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
@@ -217,8 +256,9 @@ a{color:inherit;text-decoration:none}
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
 let refreshLock=null,schMonth=new Date().getMonth(),schYear=new Date().getFullYear(),venuesList=[],calDataCache=null,dragVenueId=null;
-let bulkState={venueId:null,selectedDates:new Set(),existingDates:new Set()};
+let bulkState={venueId:null,selectedDates:new Set(),existingDates:new Set(),existingMap:{}};
 let singleCreateState={venueId:null,date:''};
+let scheduleViewStatus='draft';
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
@@ -240,6 +280,13 @@ navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=
 function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2)initTetrisDates();}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
+function setScheduleStatus(v){
+  scheduleViewStatus=v;
+  document.getElementById('status-draft-btn').className='btn '+(v==='draft'?'btn-primary':'btn-ghost');
+  document.getElementById('status-confirmed-btn').className='btn '+(v==='confirmed'?'btn-primary':'btn-ghost');
+  document.getElementById('confirm-schedule-btn').style.display=v==='draft'?'':'none';
+  loadTab0();
+}
 
 async function loadTab0(){
   document.getElementById('sch-month-lbl').textContent=`${MONTHS[schMonth]} ${schYear}`;
@@ -247,7 +294,7 @@ async function loadTab0(){
   const month=schMonth+1;
   try{
     const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
-    const data=await api('GET',`/events/calendar-data?month=${month}&year=${schYear}${cityParam}`);
+    const data=await api('GET',`/events/calendar-data?month=${month}&year=${schYear}${cityParam}&schedule_status=${encodeURIComponent(scheduleViewStatus)}`);
     calDataCache=data;
     renderCalGrid(data);
     if(!venuesList.length){venuesList=await api('GET','/venues');filterVenueList();}
@@ -318,6 +365,8 @@ function getVenueDefaults(venue, dayType){
     event_start:t.event_start||venue?.default_event_start||'11:00',
     guest_start:t.guest_start||venue?.default_guest_start||'10:30',
     admin_arrival:t.admin_arrival||venue?.default_admin_arrival||'09:30',
+    event_end:t.event_end||venue?.default_event_end||'20:00',
+    manager_arrival:t.manager_arrival||venue?.default_manager_arrival||venue?.default_admin_arrival||'09:30',
     required_photographers:Number(s.photographers ?? venue?.required_photographers ?? 1),
     required_operators:Number(s.operators ?? venue?.required_operators ?? 1),
     required_admins:Number(s.managers ?? venue?.required_admins ?? 1),
@@ -336,6 +385,8 @@ function openSingleCreate(venueId,dateStr){
   document.getElementById('c-event').value=def.event_start;
   document.getElementById('c-guest').value=def.guest_start;
   document.getElementById('c-admin').value=def.admin_arrival;
+  document.getElementById('c-end').value=def.event_end;
+  document.getElementById('c-manager').value=def.manager_arrival;
   document.getElementById('c-ph').value=def.required_photographers;
   document.getElementById('c-op').value=def.required_operators;
   document.getElementById('c-mgr').value=def.required_admins;
@@ -359,6 +410,7 @@ async function createSingleEvent(){
     venue_id:venueId,
     dates:[date],
     event_name:(document.getElementById('c-name').value||'').trim()||null,
+    schedule_status:scheduleViewStatus,
     preview:false
   };
   try{
@@ -370,6 +422,8 @@ async function createSingleEvent(){
       event_start:document.getElementById('c-event').value||null,
       guest_start:document.getElementById('c-guest').value||null,
       admin_arrival:document.getElementById('c-admin').value||null,
+      event_end:document.getElementById('c-end').value||null,
+      manager_arrival:document.getElementById('c-manager').value||null,
       required_photographers:Number(document.getElementById('c-ph').value||0),
       required_operators:Number(document.getElementById('c-op').value||0),
       required_admins:Number(document.getElementById('c-mgr').value||0),
@@ -392,11 +446,17 @@ function openBulkForVenue(venueId){
   bulkState.venueId=venueId;
   bulkState.selectedDates=new Set();
   const ex=new Set();
-  (calDataCache?.events||[]).forEach(e=>{if(String(e.venue_id)===String(venueId)) ex.add(String(e.event_date).slice(0,10));});
+  const exMap={};
+  (calDataCache?.events||[]).forEach(e=>{if(String(e.venue_id)===String(venueId)){const ds=String(e.event_date).slice(0,10); ex.add(ds); exMap[ds]=e.id;}});
   bulkState.existingDates=ex;
+  bulkState.existingMap=exMap;
   document.getElementById('bulk-title').textContent=`Массовое создание: ${venue.name}`;
   document.getElementById('bulk-name').value='';
   document.getElementById('bulk-preview-box').textContent='';
+  const wd=getVenueDefaults(venue,'weekday');
+  const we=getVenueDefaults(venue,'weekend');
+  setBulkTimes('bw', wd);
+  setBulkTimes('be', we);
   renderBulkMini();
   document.getElementById('bulk-modal').classList.add('open');
 }
@@ -412,7 +472,7 @@ function renderBulkMini(){
     const ds=`${schYear}-${String(schMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const ex=bulkState.existingDates.has(ds);
     const sel=bulkState.selectedDates.has(ds);
-    h+=`<div class="mini-day ${ex?'ex':''} ${sel?'sel':''}" title="${ex?'Уже создано':''}" onclick="toggleBulkDate('${ds}')">${d}</div>`;
+    h+=`<div class="mini-day ${ex?'ex':''} ${sel?'sel':''}" title="${ex?'Уже создано':''}" onclick="toggleBulkDate('${ds}')">${d}${ex?'<span style="font-size:8px;display:block;line-height:8px">есть</span>':''}</div>`;
   }
   h+='</div>';
   document.getElementById('bulk-mini').innerHTML=h;
@@ -420,10 +480,46 @@ function renderBulkMini(){
   document.getElementById('bulk-create-btn').textContent=`Создать ${bulkState.selectedDates.size} мероприятий`;
 }
 
-function toggleBulkDate(ds){
-  if(bulkState.existingDates.has(ds)) return;
+async function toggleBulkDate(ds){
+  if(bulkState.existingDates.has(ds)) {
+    const venue=getVenueById(bulkState.venueId);
+    const msg=`Мероприятие ${venue?.name||''} на ${new Date(ds+'T12:00:00').toLocaleDateString('ru-RU')} уже существует. Удалить?`;
+    if(!confirm(msg)) return;
+    if(scheduleViewStatus==='confirmed'){
+      if(!confirm('Это утверждённое расписание. Уверены, что хотите удалить?')) return;
+    }
+    const eventId=bulkState.existingMap[ds];
+    if(!eventId) return;
+    try{
+      await api('DELETE',`/events/${eventId}`);
+      showToast('Мероприятие удалено');
+      await loadTab0();
+      openBulkForVenue(bulkState.venueId);
+    }catch(e){showToast(e.message,true);}
+    return;
+  }
   if(bulkState.selectedDates.has(ds)) bulkState.selectedDates.delete(ds); else bulkState.selectedDates.add(ds);
   renderBulkMini();
+}
+
+function setBulkTimes(prefix, src){
+  document.getElementById(`${prefix}-staff`).value=src.staff_arrival||'';
+  document.getElementById(`${prefix}-guest`).value=src.guest_start||'';
+  document.getElementById(`${prefix}-event`).value=src.event_start||'';
+  document.getElementById(`${prefix}-end`).value=src.event_end||'';
+  document.getElementById(`${prefix}-admin`).value=src.admin_arrival||'';
+  document.getElementById(`${prefix}-manager`).value=src.manager_arrival||'';
+}
+
+function getBulkTimes(prefix){
+  return {
+    staff_arrival:document.getElementById(`${prefix}-staff`).value||null,
+    guest_start:document.getElementById(`${prefix}-guest`).value||null,
+    event_start:document.getElementById(`${prefix}-event`).value||null,
+    event_end:document.getElementById(`${prefix}-end`).value||null,
+    admin_arrival:document.getElementById(`${prefix}-admin`).value||null,
+    manager_arrival:document.getElementById(`${prefix}-manager`).value||null,
+  };
 }
 
 function toggleQuick(mode){
@@ -458,6 +554,10 @@ async function doBulkCreateAction(preview){
       venue_id:bulkState.venueId,
       dates,
       event_name:(document.getElementById('bulk-name').value||'').trim()||null,
+      weekday_times:getBulkTimes('bw'),
+      weekend_times:getBulkTimes('be'),
+      holiday_times:getBulkTimes('be'),
+      schedule_status:scheduleViewStatus,
       preview
     });
     if(preview){
@@ -470,6 +570,20 @@ async function doBulkCreateAction(preview){
     document.getElementById('bulk-modal').classList.remove('open');
     const created=Number(r.created||0);
     showToast(created===1?'Создано 1 мероприятие':`Создано ${created} мероприятий`);
+    await loadTab0();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function confirmSchedulePeriod(){
+  const city=document.getElementById('sch-city').value || null;
+  const from=`${schYear}-${String(schMonth+1).padStart(2,'0')}-01`;
+  const to=new Date(schYear,schMonth+1,0).toISOString().split('T')[0];
+  const draftCount=(calDataCache?.events||[]).length;
+  if(!draftCount){showToast('Нет черновых мероприятий за выбранный период',true);return;}
+  if(!confirm(`Будет утверждено ${draftCount} мероприятий за период ${from} — ${to}. Продолжить?`)) return;
+  try{
+    const r=await api('POST','/events/confirm-schedule',{date_from:from,date_to:to,city});
+    showToast(`Утверждено: ${r.confirmed||0}`);
     await loadTab0();
   }catch(e){showToast(e.message,true);}
 }
@@ -545,7 +659,7 @@ async function loadSnapshots(){
     setupUserPill();setupNav('schedule');
     venuesList=await api('GET','/venues');
     initScheduleCityFilter();
-    await loadTab0();
+    setScheduleStatus('draft');
   }catch(e){showToast(e.message,true);}
 })();
 </script>

@@ -328,7 +328,7 @@ const v=dashboardData?.venues?.find(x=>x.id===venueId);
 const label=v?.name||venueId;
 if(!confirm(`Создать мероприятие на ${document.getElementById('sd').value} для «${label}»?`))return;
 try{
-await api('POST','/events',{venue_id:venueId,event_date:document.getElementById('sd').value,event_type:'regular'});
+await api('POST','/events',{venue_id:venueId,event_date:document.getElementById('sd').value,event_type:'regular',schedule_status:'confirmed'});
 toast('Мероприятие создано');
 loadDashboard();
 }catch(e){toast(e.message,1);}
@@ -348,7 +348,7 @@ return;
 isDirty=false;
 document.getElementById('C').innerHTML='<div class="loading">Загрузка...</div>';
 try{
-const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`);
+const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}&schedule_status=confirmed`);
 if(!ev.length){document.getElementById('C').innerHTML=`<div class="loading">Нет мероприятий <button class="btn btn-primary" style="margin-left:6px" onclick="mkEvent()">+ Создать</button></div>`;_prevVid=vid;_prevSd=dt;return;}
 const sh=await api('GET',`/shifts?event_id=${ev[0].id}`);shift=sh[0]||null;
 if(!shift){document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';_prevVid=vid;_prevSd=dt;return;}
@@ -434,7 +434,7 @@ if(changed){
 assigns=freshAssigns;
 const vid=document.getElementById('vs').value;
 const dt=document.getElementById('sd').value;
-const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
+const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}&schedule_status=confirmed`).catch(()=>[]);
 if(ev.length){
 render(ev[0]);
 const shiftSec=document.querySelector('.qr-shift-row .sec:nth-child(2)');
@@ -994,7 +994,7 @@ async function editArrivalTime(){
 const vid=document.getElementById('vs').value;
 const dt=document.getElementById('sd').value;
 if(!vid||!dt)return;
-  const evs=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}`).catch(()=>[]);
+  const evs=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}&schedule_status=confirmed`).catch(()=>[]);
   if(!evs.length){toast('Нет мероприятия',1);return;}
   const ev=evs[0];
 
@@ -1899,7 +1899,7 @@ showAutoSaveStatus('Ошибка сохранения');
 }
 }
 
-async function mkEvent(){const v=document.getElementById('vs').value,d=document.getElementById('sd').value;try{await api('POST','/events',{venue_id:v,event_date:d,event_type:'regular'});toast('Создано');load();}catch(e){toast(e.message,1);}}
+async function mkEvent(){const v=document.getElementById('vs').value,d=document.getElementById('sd').value;try{await api('POST','/events',{venue_id:v,event_date:d,event_type:'regular',schedule_status:'confirmed'});toast('Создано');load();}catch(e){toast(e.message,1);}}
 
 // ── VENUE SETTINGS ──
 let allProducts=[];

@@ -271,7 +271,7 @@ async function loadCalendar(){
   document.getElementById('month-label').textContent=`${MONTHS[currentMonth]} ${currentYear}`;
 
   try{
-    allEvents=await api('GET',`/events?from=${from}&to=${to}${vParam}`);
+    allEvents=await api('GET',`/events?from=${from}&to=${to}${vParam}&schedule_status=confirmed`);
   }catch{allEvents=[];}
 
   // AQ events load (parallel stream)
@@ -458,6 +458,7 @@ async function createEvent(){
         event_type:document.getElementById('ev-type').value,
         required_photographers:parseInt(document.getElementById('ev-photo').value)||0,
         required_operators:parseInt(document.getElementById('ev-ops').value)||0,
+        schedule_status:'confirmed',
         notes:document.getElementById('ev-notes').value.trim()||null,
       });
     }
