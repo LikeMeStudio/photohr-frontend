@@ -341,6 +341,7 @@ async function loadSchedulePanel(phId){
     const periodsUi=myPeriods.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${myPeriods.map(p=>`<button class="btn ${p.period_id===mySelectedPeriodId?'btn-primary':'btn-ghost'}" style="padding:5px 10px;font-size:11px" onclick="selectMyPeriod('${p.period_id}')">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${p.submitted?'✓':'•'})</button>`).join('')}</div>`:'';
     box.innerHTML=`
       <div class="section"><div class="section-title">Период заявок</div>${periodsUi}<div style="font-size:13px">${st?`${esc(fmtDate(st.period_start))} → ${esc(fmtDate(st.period_end))}<br>Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(statusHuman(st))}`:'Нет открытого периода'}</div><div id="avail-editor" style="margin-top:12px"></div></div>
+      <div class="section"><div class="section-title">Профиль</div><div style="font-size:13px">Город: ${esc(ph.city||'—')}</div></div>
       <div class="section"><div class="section-title">Ближайшие смены</div>${forcedNotices}${upHtml}</div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
         <div style="font-size:12px;margin-bottom:6px">❤️ Люблю: ${loves.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>

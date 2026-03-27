@@ -93,6 +93,9 @@ a{color:inherit;text-decoration:none}
 .pool{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .pool-ph{padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-size:11px;cursor:grab;background:var(--card)}
 .pool-ph.avail{border-color:var(--sched-free)}
+.pool-city{border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:10px;background:var(--bg3)}
+.pool-city-title{font-size:12px;font-weight:600;margin-bottom:6px}
+.pool-city-list{display:flex;flex-wrap:wrap;gap:6px}
 @media(max-width:768px){
   .header{padding:10px 14px}
   .nav-links{order:3;width:100%;overflow-x:auto}
@@ -173,15 +176,8 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-ghost" onclick="publishSchedule()">✅ Опубликовать</button>
     </div>
     <div class="section tetris-grid"><div id="tetris-placeholder" class="loading">Укажите период и загрузите данные календаря</div></div>
-    <div class="section"><div class="section-title">Пул</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="quick-btn" onclick="loadPool('photographer')">📸 Фотографы</button>
-        <button class="quick-btn" onclick="loadPool('print_operator')">🖨 Операторы</button>
-        <button class="quick-btn" onclick="loadPool('manager')">👔 Менеджеры</button>
-        <button class="quick-btn" onclick="loadPool('mentor')">🎓 Наставники</button>
-        <button class="quick-btn" onclick="loadPool('helper')">🤝 Помощники</button>
-      </div>
-      <div class="pool" id="ph-pool"></div>
+    <div class="section"><div class="section-title">Пул сотрудников по городам</div>
+      <div id="ph-pool"></div>
     </div>
   </div>
   <div id="panel-3" class="sched-panel" style="display:none">
@@ -298,9 +294,13 @@ a{color:inherit;text-decoration:none}
 <div class="overlay" id="period-modal" onclick="if(event.target===this)this.classList.remove('open')">
 <div class="modal">
   <div class="modal-title"><span>Новый период</span><button class="dr-close" onclick="document.getElementById('period-modal').classList.remove('open')">×</button></div>
+  <div class="section-title">Город</div>
+  <select class="fselect" id="np-city">
+    <option value="">Все сотрудники</option>
+  </select>
   <div class="section-title">Начало</div><input class="fin" type="date" id="np-start"/>
   <div class="section-title">Конец</div><input class="fin" type="date" id="np-end"/>
-  <div class="section-title">Дедлайн подачи</div><input class="fin" type="datetime-local" id="np-dead"/>
+  <div class="section-title">Дедлайн подачи</div><input class="fin" type="date" id="np-dead"/>
   <div style="margin-top:12px"><button class="btn btn-primary" onclick="createPeriod()">Создать</button></div>
 </div>
 </div>
@@ -361,8 +361,10 @@ let tetrisEventsByKey={};
 let poolRole='photographer';
 let draggingPoolPhotographerId=null;
 let draggingPoolPhotographerName='';
+let draggingPoolPhotographerCity='';
 let tetrisPeriods=[];
 let forceAssignResolver=null;
+let cityPoolRoles={};
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
@@ -481,6 +483,14 @@ function initTetrisCityFilter(){
   const current=sel.value||'';
   const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
   sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=(current&&cities.includes(current))?current:'';
+}
+function initPeriodCityFilter(){
+  const sel=document.getElementById('np-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все сотрудники</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value=(current&&cities.includes(current))?current:'';
 }
 
@@ -767,13 +777,14 @@ async function confirmSchedulePeriod(){
 async function loadPeriodsSubs(){
   try{
     const periods=await api('GET','/availability/periods');
-    const statusLabel=(s)=>s==='open'?'открыт':s==='closed'?'закрыт':(s||'');
+    const statusLabel=(s)=>s==='open'?'открыт':s==='locked'?'закрыт':s==='paused'?'пауза':s==='archived'?'архив':(s||'');
+    const cityLabel=(c)=>c||'Все сотрудники';
     const visible=(periods||[]).filter(p=>showArchivedPeriods||p.status!=='archived');
     const sel=document.getElementById('sub-period');
     sel.innerHTML=visible.map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(statusLabel(p.status))})</option>`).join('');
     document.getElementById('periods-list').innerHTML=visible.map(p=>`
       <div class="period-row">
-        <div>${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>
+        <div>${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))} · ${esc(cityLabel(p.city))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>
         <div class="period-actions">
           <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','locked')">🔒 Закрыть</button>
           <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','paused')">⏸ Приостановить</button>
@@ -848,12 +859,13 @@ async function openSubmissionDetail(phId){
   }catch(e){showToast(e.message,true);}
 }
 
-function openPeriodModal(){document.getElementById('period-modal').classList.add('open');}
+function openPeriodModal(){initPeriodCityFilter();document.getElementById('period-modal').classList.add('open');}
 async function createPeriod(){
   const period_start=document.getElementById('np-start').value;
   const period_end=document.getElementById('np-end').value;
   const submit_deadline=document.getElementById('np-dead').value;
-  try{await api('POST','/availability/periods',{period_start,period_end,submit_deadline});showToast('Период создан');document.getElementById('period-modal').classList.remove('open');loadPeriodsSubs();}catch(e){showToast(e.message,true);}
+  const city=document.getElementById('np-city').value||null;
+  try{await api('POST','/availability/periods',{period_start,period_end,submit_deadline,city});showToast('Период создан');document.getElementById('period-modal').classList.remove('open');loadPeriodsSubs();}catch(e){showToast(e.message,true);}
 }
 
 async function loadTetrisPeriods(){
@@ -918,28 +930,68 @@ async function renderTetris(){
   }catch(e){document.getElementById('tetris-placeholder').innerHTML=esc(e.message);}
 }
 
+function setCityPoolRole(cityKey, role){
+  cityPoolRoles[cityKey]=role;
+  loadPool(poolRole);
+}
+function roleBtn(cityKey, role, label){
+  const active=(cityPoolRoles[cityKey]||poolRole||'photographer')===role;
+  const citySafe=String(cityKey||'').replace(/'/g,"\\'");
+  return `<button class="quick-btn" style="${active?'border-color:var(--accent);color:var(--text)':''}" onclick="setCityPoolRole('${citySafe}','${esc(role)}')">${label}</button>`;
+}
 async function loadPool(role){
-  poolRole=role||'photographer';
+  poolRole=role||poolRole||'photographer';
   const period=getSelectedTetrisPeriod();
   const date=String(period?.period_start||'').slice(0,10);
   if(!date){ document.getElementById('ph-pool').innerHTML='—'; return; }
   try{
-    const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=${encodeURIComponent(role)}`);
-    document.getElementById('ph-pool').innerHTML=(rows||[]).map(p=>`<div class="pool-ph avail" draggable="true" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}')">${esc(p.name)}</div>`).join('')||'—';
+    const selectedCity=document.getElementById('tet-city')?.value||'';
+    const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=all${selectedCity?`&city=${encodeURIComponent(selectedCity)}`:''}`);
+    const groups={};
+    (rows||[]).forEach(p=>{
+      const c=(p.city||'Без города').trim()||'Без города';
+      if(!groups[c]) groups[c]=[];
+      groups[c].push(p);
+    });
+    const visibleCities=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ru'));
+    document.getElementById('ph-pool').innerHTML=visibleCities.map(city=>{
+      const key=`${city}`;
+      if(!cityPoolRoles[key]) cityPoolRoles[key]=poolRole||'photographer';
+      const roleNow=cityPoolRoles[key];
+      const people=groups[city].filter(p=>{
+        const roles=[p.employee_role||''].concat(Array.isArray(p.employee_roles)?p.employee_roles:[]);
+        return roles.includes(roleNow);
+      });
+      return `<div class="pool-city">
+        <div class="pool-city-title">Пул ${esc(city)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          ${roleBtn(key,'photographer','📸 Фотографы')}
+          ${roleBtn(key,'print_operator','🖨 Операторы')}
+          ${roleBtn(key,'manager','👔 Менеджеры')}
+          ${roleBtn(key,'mentor','🎓 Наставники')}
+          ${roleBtn(key,'helper','🤝 Помощники')}
+        </div>
+        <div class="pool-city-list">${people.map(p=>`<div class="pool-ph avail" draggable="true" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}','${esc(city)}')">${esc(p.name)}</div>`).join('')||'<span style="font-size:11px;color:var(--text3)">Нет сотрудников</span>'}</div>
+      </div>`;
+    }).join('')||'—';
     await renderTetris();
   }catch(e){document.getElementById('ph-pool').innerHTML=esc(e.message);}
 }
 
-function startPoolDrag(ev,id,name){ draggingPoolPhotographerId=id; draggingPoolPhotographerName=name||''; ev.dataTransfer.setData('text/plain',`${id}|${name||''}`); }
+function startPoolDrag(ev,id,name,city){ draggingPoolPhotographerId=id; draggingPoolPhotographerName=name||''; draggingPoolPhotographerCity=city||''; ev.dataTransfer.setData('text/plain',`${id}|${name||''}|${city||''}`); }
 async function dropPoolOnCell(ev,key){
   ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
   const data=String(ev.dataTransfer.getData('text/plain')||'');
   const pid=draggingPoolPhotographerId||String(data.split('|')[0]||'');
   const pname=draggingPoolPhotographerName||String(data.split('|')[1]||'');
+  const pcity=draggingPoolPhotographerCity||String(data.split('|')[2]||'');
   if(!pid) return;
   const list=tetrisEventsByKey[key]||[];
   if(!list.length) return;
   const evItem=list[0];
+  if(pcity && evItem?.venue_city && String(pcity)!==String(evItem.venue_city)){
+    if(!confirm(`Сотрудник из ${pcity}, площадка в ${evItem.venue_city}. Продолжить?`)) return;
+  }
   const dsShift=String(ev.currentTarget?.dataset?.shiftId||'');
   const shift=(evItem.shifts_summary||[]).find(s=>String(s.id||'')===dsShift)
     || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
@@ -1100,6 +1152,7 @@ async function saveVenueSettings(){
     showToast('Настройки площадки сохранены');
     document.getElementById('venue-settings-modal').classList.remove('open');
     venuesList=await api('GET','/venues');
+    initPeriodCityFilter();
     filterVenueList();
   }catch(e){showToast(e.message,true);}
 }
@@ -1113,6 +1166,7 @@ async function saveVenueSettings(){
     venuesList=await api('GET','/venues');
     initScheduleCityFilter();
     initTetrisCityFilter();
+    initPeriodCityFilter();
     setScheduleStatus('draft');
   }catch(e){showToast(e.message,true);}
 })();

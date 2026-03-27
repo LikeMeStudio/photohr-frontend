@@ -2619,6 +2619,8 @@ function renderInfoTab(ph){
   // Группировка площадок по городу и категории
   const activeVenues = venues.filter(v=>v.is_active);
   const cities = [...new Set(activeVenues.map(v=>v.city||'Другое'))];
+  const photographerCities = [...new Set(activeVenues.map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  const cityOptions = photographerCities.map(c=>`<option value="${esc(c)}" ${String(ph.city||'')===String(c)?'selected':''}>${esc(c)}</option>`).join('');
 
   const venueSearch = `
     <div style="position:relative;margin-bottom:10px">
@@ -2741,6 +2743,15 @@ function renderInfoTab(ph){
         <div class="fl">Дата рождения</div>
         <input class="fin" type="date" id="edit-ph-birth" value="${ph.birth_date?ph.birth_date.split('T')[0]:''}"/>
       </div>
+    </div>
+    <div class="field-row" style="margin-bottom:14px">
+      <div class="field">
+        <div class="fl">Город</div>
+        ${isEditor
+          ? `<select class="fselect" id="edit-ph-city"><option value="">— не указан —</option>${cityOptions}</select>`
+          : `<div style="font-size:14px">${esc(ph.city||'—')}</div>`}
+      </div>
+      <div class="field"></div>
     </div>
     ${isEditor ? `
     <div class="field-row" style="margin-bottom:14px">
@@ -3644,6 +3655,7 @@ async function saveCard(){
     const passportEl = document.getElementById('edit-ph-passport');
     const gradeEl   = document.getElementById('edit-ph-grade');
     const payEl     = document.getElementById('edit-ph-pay-scheme');
+    const cityEl    = document.getElementById('edit-ph-city');
     const employeeRoleEl = document.getElementById('edit-ph-employee-role');
     const isTrainerEl = document.getElementById('edit-ph-is-trainer');
     const isCuratorEl = document.getElementById('edit-ph-is-curator');
@@ -3668,6 +3680,7 @@ async function saveCard(){
       venues:       editState.venues,
       grade:        gradeEl?.value          || null,
       pay_scheme:   payEl?.value            || null,
+      city:         cityEl?.value           || null,
       employee_role: employeeRoleEl?.value || undefined,
       is_trainer: isTrainerEl?.checked ?? undefined,
       is_curator: isCuratorEl?.checked ?? undefined,
