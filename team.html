@@ -634,6 +634,9 @@ function setupTeamNav() {
   if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin', 'photographer_user'])) {
     navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
   }
+  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin'])) {
+    navBtns.push('<a class="f-btn" href="schedule.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Расписание</a>');
+  }
   if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
     navBtns.push('<a class="f-btn" href="checkin.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📍 Чекин</a>');
   }

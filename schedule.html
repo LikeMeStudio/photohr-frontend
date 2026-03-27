@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhotoHR — Расписание</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;--border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
+--sched-free:#3ecf8e;--sched-busy:#f25555;--sched-maybe:#f5a623;--sched-morning:#6aa6e8;--sched-evening:#9b8dff;
+--staff-critical:#f25555;--staff-warning:#f5a623;--staff-ok:#3ecf8e;--staff-over:#6aa6e8;--staff-excess:#e86aa6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+.header{padding:18px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}.logo span{color:var(--accent2)}
+.header-stats{display:flex;gap:16px;flex:1}
+.stat{text-align:center}.stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.role-dot{width:7px;height:7px;border-radius:50%}
+.nav-links{display:flex;gap:6px;margin-left:12px}
+.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.f-btn:hover{color:var(--text)}.f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.main{max-width:1400px;margin:0 auto;padding:20px 24px}
+.tabs-main{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px;flex-wrap:nowrap;overflow-x:auto}
+.tab-main{padding:8px 16px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap}
+.tab-main.active{background:var(--accent);color:#fff}
+.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.fin,.fselect{padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px}
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.section-title{font-family:'Unbounded',sans-serif;font-size:13px;margin-bottom:10px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-h{font-size:10px;color:var(--text3);text-align:center;padding:4px;text-transform:uppercase}
+.cal-cell{background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:88px;padding:6px;font-size:11px}
+.cal-cell.drop-over{border-color:var(--accent);background:var(--card-h)}
+.cal-num{font-weight:600;margin-bottom:4px}.holiday-badge{font-size:9px}
+.ev-pill{font-size:9px;padding:2px 4px;border-radius:4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cat-a{background:rgba(124,108,255,.2)}.cat-b{background:rgba(62,207,142,.15)}.cat-c{background:rgba(245,166,35,.12)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th,.tbl td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+.tbl th{color:var(--text3);font-size:11px}
+.row-ok{background:rgba(62,207,142,.08)}.row-late{background:rgba(245,166,35,.1)}.row-none{background:rgba(242,85,85,.06)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto}
+.modal-title{font-family:'Unbounded',sans-serif;font-size:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.dr-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;color:var(--text2)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
+.loading{padding:40px;text-align:center;color:var(--text3)}
+.venue-side{max-height:420px;overflow-y:auto}
+.venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:11px}
+.tetris-grid{overflow:auto;max-height:60vh}
+.tetris-inner{display:grid;gap:2px;min-width:600px}
+.tetris-cell{border:1px solid var(--border);padding:4px;font-size:10px;min-height:48px;background:var(--bg3)}
+.pool{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pool-ph{padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-size:11px;cursor:grab;background:var(--card)}
+.pool-ph.avail{border-color:var(--sched-free)}
+@media(max-width:768px){
+  .header{padding:10px 14px}
+  .nav-links{order:3;width:100%;overflow-x:auto}
+  .tabs-main{scrollbar-width:none}
+  .main{padding:12px}
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">Photo<span>HR</span></div>
+  <div class="nav-links" id="nav-links"></div>
+  <div class="header-stats" id="hstats"></div>
+  <div class="header-right">
+    <div class="user-pill" id="user-pill" onclick="location.href='index.html?profile=1'" style="cursor:pointer"></div>
+    <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
+  </div>
+</div>
+<div class="main">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="location.href='index.html#achievements'">🏆 Достижения</button>
+    <button class="btn btn-ghost" onclick="location.href='index.html#birthdays'">🎂 Дни рождения</button>
+    <button class="btn btn-ghost" onclick="location.href='index.html#likes'">❤️ Лайки</button>
+  </div>
+  <div class="tabs-main" id="tabs-main">
+    <button class="tab-main active" data-i="0" onclick="switchMainTab(0)">📅 Площадки</button>
+    <button class="tab-main" data-i="1" onclick="switchMainTab(1)">📋 Заявки</button>
+    <button class="tab-main" data-i="2" onclick="switchMainTab(2)">🧩 Расстановка</button>
+    <button class="tab-main" data-i="3" onclick="switchMainTab(3)">📊 Обзор</button>
+  </div>
+  <div id="panel-0" class="sched-panel">
+    <div class="section" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <select class="fselect" id="sch-city" onchange="loadTab0()"><option value="msk">МСК</option><option value="spb">СПБ</option></select>
+      <button class="btn btn-ghost" onclick="schPrevMonth()">◀</button>
+      <span id="sch-month-lbl" style="font-family:Unbounded,sans-serif;font-size:14px">—</span>
+      <button class="btn btn-ghost" onclick="schNextMonth()">▶</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost" onclick="document.getElementById('bulk-modal').classList.add('open')">+ Создать</button>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:280px">
+        <div class="cal-grid" id="sch-cal-head"></div>
+        <div class="cal-grid" id="sch-cal-grid" style="margin-top:4px"></div>
+      </div>
+      <div style="width:300px;max-width:100%" class="section">
+        <div class="section-title">Площадки</div>
+        <input class="fin" id="venue-search" placeholder="Поиск..." style="width:100%;margin-bottom:8px" oninput="filterVenueList()"/>
+        <div class="venue-side" id="venue-list"></div>
+      </div>
+    </div>
+  </div>
+  <div id="panel-1" class="sched-panel" style="display:none">
+    <div class="section">
+      <div class="section-title">Периоды</div>
+      <div id="periods-list" class="loading">Загрузка...</div>
+      <button class="btn btn-primary" style="margin-top:8px" onclick="openPeriodModal()">Открыть новый период</button>
+    </div>
+    <div class="section">
+      <div class="section-title">Заявки <select class="fselect" id="sub-period" onchange="loadSubmissions()"></select></div>
+      <div id="submissions-wrap"><div class="loading">Выберите период</div></div>
+    </div>
+  </div>
+  <div id="panel-2" class="sched-panel" style="display:none">
+    <div class="section" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <select class="fselect" id="tet-city"><option value="msk">МСК</option><option value="spb">СПБ</option></select>
+      <input class="fin" type="date" id="tet-from"/> — <input class="fin" type="date" id="tet-to"/>
+      <button class="btn btn-primary" onclick="runAutoAssign(true)">🤖 Авто (preview)</button>
+      <button class="btn btn-ghost" onclick="saveSnapshot()">💾 Снимок</button>
+      <button class="btn btn-ghost" onclick="publishSchedule()">✅ Опубликовать</button>
+    </div>
+    <div class="section tetris-grid"><div id="tetris-placeholder" class="loading">Укажите период и загрузите данные календаря</div></div>
+    <div class="section"><div class="section-title">Пул</div><div class="pool" id="ph-pool"></div></div>
+  </div>
+  <div id="panel-3" class="sched-panel" style="display:none">
+    <div class="section"><div class="section-title">Снимки расписания</div><div id="snap-list" class="loading">—</div></div>
+  </div>
+</div>
+
+<div class="overlay" id="bulk-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Массовое создание</span><button class="dr-close" onclick="document.getElementById('bulk-modal').classList.remove('open')">×</button></div>
+  <div style="margin-bottom:8px"><span class="section-title">Площадка</span><select class="fselect" id="bulk-vid" style="width:100%"></select></div>
+  <div style="margin-bottom:8px"><span class="section-title">Даты (по одной строке)</span><textarea class="fin" id="bulk-dates" rows="4" style="width:100%" placeholder="2026-04-01&#10;2026-04-02"></textarea></div>
+  <label><input type="checkbox" id="bulk-preview" checked/> Только preview</label>
+  <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="document.getElementById('bulk-modal').classList.remove('open')">Отмена</button>
+    <button class="btn btn-primary" onclick="doBulkCreate()">Выполнить</button>
+  </div>
+  <pre id="bulk-out" style="margin-top:12px;font-size:11px;color:var(--text2);white-space:pre-wrap;max-height:200px;overflow:auto"></pre>
+</div>
+</div>
+
+<div class="overlay" id="auto-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:640px">
+  <div class="modal-title"><span>Автораспределение</span><button class="dr-close" onclick="document.getElementById('auto-modal').classList.remove('open')">×</button></div>
+  <div id="auto-body" style="font-size:12px;max-height:50vh;overflow:auto"></div>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="runAutoAssign(false)">Применить</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('auto-modal').classList.remove('open')">Закрыть</button>
+  </div>
+</div>
+</div>
+
+<div class="overlay" id="period-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal">
+  <div class="modal-title"><span>Новый период</span><button class="dr-close" onclick="document.getElementById('period-modal').classList.remove('open')">×</button></div>
+  <div class="section-title">Начало</div><input class="fin" type="date" id="np-start"/>
+  <div class="section-title">Конец</div><input class="fin" type="date" id="np-end"/>
+  <div class="section-title">Дедлайн подачи</div><input class="fin" type="datetime-local" id="np-dead"/>
+  <div style="margin-top:12px"><button class="btn btn-primary" onclick="createPeriod()">Создать</button></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
+let refreshLock=null,schMonth=new Date().getMonth(),schYear=new Date().getFullYear(),venuesList=[],calDataCache=null,dragVenueId=null;
+const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
+const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
+const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
+const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);
+if(r.status===401&&refreshToken){try{if(!refreshLock){refreshLock=(async()=>{const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});if(!rr.ok)throw new Error('x');const d=await rr.json();accessToken=d.accessToken;refreshToken=d.refreshToken;localStorage.setItem('fhr_refresh',refreshToken);localStorage.setItem('fhr_access',accessToken);})();}await refreshLock;o.headers['Authorization']=`Bearer ${accessToken}`;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}
+if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
+function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
+function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
+
+function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};
+navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('checkin','checkin.html','📍 Чекин'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
+
+function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2)initTetrisDates();}
+function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
+function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
+
+async function loadTab0(){
+  document.getElementById('sch-month-lbl').textContent=`${MONTHS[schMonth]} ${schYear}`;
+  const city=document.getElementById('sch-city').value;
+  const month=schMonth+1;
+  try{
+    const data=await api('GET',`/events/calendar-data?month=${month}&year=${schYear}&city=${encodeURIComponent(city)}`);
+    calDataCache=data;
+    renderCalGrid(data);
+    if(!venuesList.length){venuesList=await api('GET','/venues');filterVenueList();}
+    else filterVenueList();
+    const sel=document.getElementById('bulk-vid');sel.innerHTML=venuesList.filter(v=>v.city===city||!city).map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  }catch(e){showToast(e.message,true);}
+}
+
+function renderCalGrid(data){
+  const evByDate={};
+  (data.events||[]).forEach(e=>{const d=(e.event_date||'').toString().slice(0,10);if(!evByDate[d])evByDate[d]=[];evByDate[d].push(e);});
+  const ov=new Set((data.overrides||[]).map(o=>(o.override_date||'').toString().slice(0,10)));
+  const first=new Date(schYear,schMonth,1);
+  const startPad=(first.getDay()+6)%7;
+  const daysIn=new Date(schYear,schMonth+1,0).getDate();
+  let html='',head='';
+  for(let i=0;i<7;i++)head+=`<div class="cal-h">${DAYS[i]}</div>`;
+  document.getElementById('sch-cal-head').innerHTML=head;
+  let cells='';let d=1;
+  for(let i=0;i<startPad;i++)cells+=`<div class="cal-cell" style="opacity:.3"></div>`;
+  while(d<=daysIn){
+    const ds=`${schYear}-${String(schMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hol=ov.has(ds)?'<span class="holiday-badge">🎄</span>':'';
+    const list=(evByDate[ds]||[]).slice(0,4).map(e=>{
+      const cat=(e.venue_category||'').slice(0,1)||'a';
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name)}">${esc((e.venue_name||'').slice(0,14))}</div>`;
+    }).join('');
+    cells+=`<div class="cal-cell" data-date="${ds}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
+    d++;
+  }
+  document.getElementById('sch-cal-grid').innerHTML=cells;
+}
+
+function filterVenueList(){
+  const q=(document.getElementById('venue-search').value||'').toLowerCase();
+  const city=document.getElementById('sch-city').value;
+  const box=document.getElementById('venue-list');
+  const grp={};
+  venuesList.filter(v=>(v.city||'')===city||!city).filter(v=>!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q)).forEach(v=>{const c=v.category||'—';if(!grp[c])grp[c]=[];grp[c].push(v);});
+  let h='';
+  Object.keys(grp).sort().forEach(cat=>{h+=`<div style="font-size:10px;color:var(--text3);margin:6px 0 2px">${esc(cat)}</div>`;grp[cat].forEach(v=>{h+=`<div class="venue-drag" draggable="true" data-vid="${v.id}" ondragstart="dragVenueId='${v.id}'">${esc(v.name)}</div>`;});});
+  box.innerHTML=h||'<div style="color:var(--text3)">Нет площадок</div>';
+}
+
+function dropVenueOnDate(ev,ds){ev.preventDefault();ev.currentTarget.classList.remove('drop-over');const vid=dragVenueId;if(!vid)return;dragVenueId=null;
+  document.getElementById('bulk-modal').classList.add('open');document.getElementById('bulk-vid').value=vid;document.getElementById('bulk-dates').value=ds;document.getElementById('bulk-preview').checked=false;}
+
+async function doBulkCreate(){
+  const vid=document.getElementById('bulk-vid').value;
+  const raw=document.getElementById('bulk-dates').value.trim().split(/\n/).map(s=>s.trim()).filter(Boolean);
+  const preview=document.getElementById('bulk-preview').checked;
+  try{const r=await api('POST','/events/bulk-create',{venue_id:vid,dates:raw,preview});document.getElementById('bulk-out').textContent=JSON.stringify(r,null,2);if(!preview){showToast('Создано');loadTab0();}}catch(e){showToast(e.message,true);}
+}
+
+async function loadPeriodsSubs(){
+  try{
+    const periods=await api('GET','/availability/periods');
+    const sel=document.getElementById('sub-period');sel.innerHTML=(periods||[]).map(p=>`<option value="${p.id}">${esc(p.period_start)} — ${esc(p.period_end)} (${esc(p.status||'')})</option>`).join('');
+    document.getElementById('periods-list').innerHTML=(periods||[]).map(p=>`<div style="padding:6px;border-bottom:1px solid var(--border)">${esc(p.period_start)} → ${esc(p.period_end)} <span style="color:var(--text3)">${esc(p.status)}</span></div>`).join('')||'—';
+    if(periods&&periods.length)loadSubmissions();
+  }catch(e){document.getElementById('periods-list').innerHTML=esc(e.message);}
+}
+
+async function loadSubmissions(){
+  const pid=document.getElementById('sub-period').value;if(!pid)return;
+  try{
+    const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(pid));
+    const rows=(data.submissions||[]).map(s=>{
+      const cls=s.on_time?'row-ok':(s.submitted_at?'row-late':'row-none');
+      return`<tr class="${cls}"><td>${esc(s.name)}</td><td>${s.submitted_at?'✓':'—'}</td><td>${s.total_days||0}</td><td>${s.full_days||0}</td><td>${s.morning_days||0}</td><td>${s.evening_days||0}</td></tr>`;
+    }).join('');
+    document.getElementById('submissions-wrap').innerHTML=`<table class="tbl"><thead><tr><th>Фотограф</th><th>Подана</th><th>Дней</th><th>Полных</th><th>Утро</th><th>Вечер</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
+}
+
+function openPeriodModal(){document.getElementById('period-modal').classList.add('open');}
+async function createPeriod(){
+  const period_start=document.getElementById('np-start').value;
+  const period_end=document.getElementById('np-end').value;
+  const submit_deadline=document.getElementById('np-dead').value;
+  try{await api('POST','/availability/periods',{period_start,period_end,submit_deadline});showToast('Период создан');document.getElementById('period-modal').classList.remove('open');loadPeriodsSubs();}catch(e){showToast(e.message,true);}
+}
+
+function initTetrisDates(){const t=new Date();const a=t.toISOString().slice(0,10);const b=new Date(t.getTime()+14*864e5).toISOString().slice(0,10);document.getElementById('tet-from').value=a;document.getElementById('tet-to').value=b;}
+
+let lastAuto=null;
+async function runAutoAssign(dry){
+  const date_from=document.getElementById('tet-from').value;
+  const date_to=document.getElementById('tet-to').value;
+  const city=document.getElementById('tet-city').value;
+  try{
+    const r=await api('POST','/staffing/auto-assign',{date_from,date_to,city,dry_run:dry});
+    lastAuto=r;
+    const el=document.getElementById('auto-body');
+    el.innerHTML=`<div>Назначений: ${r.assignments?.length||0}, предупреждений: ${r.warnings?.length||0}</div><pre style="font-size:10px;margin-top:8px;white-space:pre-wrap">${esc(JSON.stringify(r,null,2).slice(0,4000))}</pre>`;
+    document.getElementById('auto-modal').classList.add('open');
+    if(!dry)showToast('Применено');
+  }catch(e){showToast(e.message,true);}
+}
+
+async function saveSnapshot(){
+  const period_start=document.getElementById('tet-from').value;
+  const period_end=document.getElementById('tet-to').value;
+  const city=document.getElementById('tet-city').value;
+  try{await api('POST','/schedule/snapshots',{period_start,period_end,city,action_description:'Ручной снимок'});showToast('Снимок сохранён');}catch(e){showToast(e.message,true);}
+}
+async function publishSchedule(){
+  const period_start=document.getElementById('tet-from').value;
+  const period_end=document.getElementById('tet-to').value;
+  const city=document.getElementById('tet-city').value;
+  try{await api('POST','/schedule/publish',{period_start,period_end,city});showToast('Опубликовано');}catch(e){showToast(e.message,true);}
+}
+
+async function loadSnapshots(){
+  try{const rows=await api('GET','/schedule/snapshots');document.getElementById('snap-list').innerHTML=(rows||[]).map(s=>`<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">${esc(s.period_start)} — ${esc(s.period_end)} <span style="color:var(--text3)">${esc(s.created_at)}</span></div>`).join('')||'—';}catch(e){document.getElementById('snap-list').innerHTML=esc(e.message);}
+}
+
+(async function init(){
+  if(!accessToken&&!refreshToken){location.href='index.html';return;}
+  try{
+    currentUser=await api('GET','/auth/me');
+    if(!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])){showToast('Нет доступа к разделу',true);setTimeout(()=>location.href='index.html',1200);return;}
+    setupUserPill();setupNav('schedule');
+    venuesList=await api('GET','/venues');
+    await loadTab0();
+  }catch(e){showToast(e.message,true);}
+})();
+</script>
+</body>
+</html>

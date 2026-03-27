@@ -433,6 +433,9 @@ function setupNav(activeKey) {
   if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin', 'photographer_user'])) {
     navBtns.push(a('calendar', 'calendar.html', 'Календарь'));
   }
+  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin'])) {
+    navBtns.push(a('schedule', 'schedule.html', 'Расписание'));
+  }
   if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
     navBtns.push(a('checkin', 'checkin.html', '📍 Чекин'));
   }
