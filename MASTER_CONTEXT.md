@@ -62,6 +62,7 @@ PhotoHR - HR/операционная система LikeMe Studio для фот
 - Aquagrim staff + events + shifts + reports + payroll.
 - Venues/products/pay-rates.
 - Events/shifts/assignments/staffing-needs.
+- **Расписание** (`schedule.html`): вкладки «Площадки» (календарь, drag-and-drop мероприятий, ⚙️ настройки `default_shifts`/времён/штатов площадки), «Заявки» (периоды доступности), «Расстановка» (сетка по дням, пул сотрудников, автораспределение, снимки/публикация), «Обзор» (дашборд `GET /api/schedule/overview`, прогресс по площадкам, фотографы, проблемы, история снимков).
 - Checkin QR + гео + штрафы/отмена штрафов.
 - Daily reports lifecycle + расчеты бонусов.
 - Payroll + payouts + dashboard + premium/adjustments.
@@ -78,11 +79,11 @@ PhotoHR - HR/операционная система LikeMe Studio для фот
 - `recruiting.html` (1362) - канбан рекрутинга.
 - `venue.html` (2263) - интерфейс площадки, отчетность/операционка.
 - `calendar.html` (620) - календарная сетка мероприятий.
-- `schedule.html` (667) - планирование графиков (4 вкладки).
+- `schedule.html` (~1480) - расписание: площадки, заявки, расстановка, обзор.
 - `stock.html` (1324) - склад.
 - `team.html` (2062) - командный модуль.
 - `aquagrim.html` (1285) - аквагрим-направление.
-- `my.html` (314) - ЛК сотрудника.
+- `my.html` (~540) - ЛК сотрудника.
 - `checkin.html` (346) - мобильный QR-чекин.
 
 ## API ЭНДПОИНТЫ (ключевые группы)
@@ -90,7 +91,7 @@ PhotoHR - HR/операционная система LikeMe Studio для фот
 - `/api/photographers*`, `/api/team*`, `/api/comments*`.
 - `/api/aq/*` (аквагрим контур).
 - `/api/venues*`, `/api/products*`, `/api/venues/:id/products`, `/api/venues/:id/pay-rates`.
-- `/api/events*`, `/api/shifts*`, `/api/shift-assignments*`, `/api/staffing/*`.
+- `/api/events*`, `/api/shifts*`, `/api/shift-assignments*`, `/api/staffing/*`, `/api/schedule/overview`, `/api/schedule/snapshots`, `/api/schedule/publish`.
 - `/api/checkins*`, `/api/my-shifts`.
 - `/api/daily-reports*`, `/api/sale-lines*`.
 - `/api/payroll*`, `/api/payouts*`, `/api/bonus-rules*`, `/api/bonus-awards*`.
@@ -99,7 +100,7 @@ PhotoHR - HR/операционная система LikeMe Studio для фот
 - `/api/recruiting/*`, `/api/candidates*`, `/api/audit`, `/api/telegram/*`, `/api/tg-webhook`.
 
 ## ТЕКУЩИЙ СТАТУС ЗАДАЧ
-- ✅ База и API крупными блоками реализованы (293 endpoint в `backend/index.js`).
+- ✅ База и API крупными блоками реализованы (~300 HTTP-маршрутов в `backend/index.js`).
 - ✅ Фронтенд расширен до 10 страниц.
 - 🔄 Идет поддержка/стабилизация schedule/recruiting/stock модулей.
 - 🔄 Нужна регулярная синхронизация контекста после больших изменений.
