@@ -122,13 +122,14 @@ a{color:inherit;text-decoration:none}
 .sm-cell.drop-over{outline:2px solid var(--accent);outline-offset:-1px}
 .sm-cell--force{box-shadow:inset 0 0 0 2px rgba(245,166,35,.85)}
 #panel-2{width:100%;max-width:100%;box-sizing:border-box}
+#panel-2 .section{width:100%;max-width:none;box-sizing:border-box;padding:12px;margin-bottom:10px}
+#panel-2 .section-title{margin-bottom:8px;padding:0}
 #panel-2 .section.tetris-grid,
-#panel-2 .section:has(#staff-matrix-placeholder){width:100%;max-width:none;box-sizing:border-box;padding:0;margin-bottom:10px;overflow:hidden}
-#panel-2 .section.tetris-grid > .section-title,
-#panel-2 .section:has(#staff-matrix-placeholder) > .section-title{padding:12px 12px 8px;margin-bottom:0}
-#panel-2 .section:has(#ph-pool),
-#panel-2 .section:first-of-type{width:100%;max-width:none;box-sizing:border-box;padding:12px;margin-bottom:10px}
-#panel-2 .section:has(#ph-pool) .section-title{margin-bottom:8px}
+#panel-2 .section:has(#staff-matrix-placeholder){overflow:hidden}
+#panel-2 #tetris-placeholder,
+#panel-2 #staff-matrix-placeholder{padding:0;margin:0}
+#panel-2 #tetris-placeholder.loading,
+#panel-2 #staff-matrix-placeholder.loading{padding:8px 0;margin:0}
 #panel-2 > div:not(.section){width:100%;box-sizing:border-box}
 @media(max-width:768px){
   .header{padding:10px 14px}
