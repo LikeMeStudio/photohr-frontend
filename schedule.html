@@ -73,6 +73,23 @@ a{color:inherit;text-decoration:none}
 .tetris-grid{overflow:auto;max-height:60vh}
 .tetris-inner{display:grid;gap:2px;min-width:600px}
 .tetris-cell{border:1px solid var(--border);padding:4px;font-size:10px;min-height:48px;background:var(--bg3)}
+.tt-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
+.tt-table{border-collapse:separate;border-spacing:0;min-width:900px;width:max-content}
+.tt-table th,.tt-table td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;vertical-align:top;font-size:11px}
+.tt-table th:first-child,.tt-table td:first-child{position:sticky;left:0;background:var(--bg2);z-index:2}
+.tt-h-day{min-width:92px;text-align:center;color:var(--text2);font-size:10px}
+.tt-venue{min-width:160px;font-weight:600}
+.tt-drop{min-height:62px;border:1px dashed var(--border2);border-radius:8px;padding:4px;cursor:pointer}
+.tt-drop.drop-over{border-color:var(--accent);background:rgba(124,108,255,.08)}
+.tt-empty{color:var(--text3);text-align:center;padding-top:16px}
+.tt-pill{display:block;border:1px solid var(--border);border-radius:8px;padding:3px 5px;margin-bottom:4px;background:var(--card)}
+.tt-pill.ok{border-color:rgba(62,207,142,.5);background:rgba(62,207,142,.1)}
+.tt-pill.bad{border-color:rgba(242,85,85,.5);background:rgba(242,85,85,.08)}
+.auto-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.auto-card{border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg3);font-size:12px}
+.period-row{padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.period-actions{display:flex;gap:6px;flex-wrap:wrap}
+.period-actions .btn{padding:4px 8px;font-size:11px}
 .pool{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .pool-ph{padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-size:11px;cursor:grab;background:var(--card)}
 .pool-ph.avail{border-color:var(--sched-free)}
@@ -135,7 +152,7 @@ a{color:inherit;text-decoration:none}
   </div>
   <div id="panel-1" class="sched-panel" style="display:none">
     <div class="section">
-      <div class="section-title">Периоды</div>
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px">Периоды <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="toggleArchivedPeriods()" id="arch-toggle-btn">Показать архив</button></div>
       <div id="periods-list" class="loading">Загрузка...</div>
       <button class="btn btn-primary" style="margin-top:8px" onclick="openPeriodModal()">Открыть новый период</button>
     </div>
@@ -296,6 +313,20 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
+<div class="overlay" id="submission-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:760px">
+  <div class="modal-title"><span id="subm-title">Заявка</span><button class="dr-close" onclick="document.getElementById('submission-modal').classList.remove('open')">×</button></div>
+  <div id="subm-body" style="font-size:12px;max-height:65vh;overflow:auto">—</div>
+</div>
+</div>
+
+<div class="overlay" id="tetris-cell-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:640px">
+  <div class="modal-title"><span id="tc-title">Смена</span><button class="dr-close" onclick="document.getElementById('tetris-cell-modal').classList.remove('open')">×</button></div>
+  <div id="tc-body" style="font-size:12px;max-height:60vh;overflow:auto">—</div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -308,6 +339,12 @@ let bulkShiftCfg={weekday:[],weekend:[]};
 let ghostEl=null;
 let venueSettingsId=null;
 let scheduleViewStatus='draft';
+let showArchivedPeriods=false;
+let currentSubmissions=[];
+let currentPeriodMeta=null;
+let tetrisEventsByKey={};
+let poolRole='photographer';
+let draggingPoolPhotographerId=null;
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
@@ -322,6 +359,7 @@ function showToast(m,e){const t=document.getElementById('toast');t.textContent=m
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
 function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
+function fmtDateShort(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).replace('.','');}
 
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 
@@ -711,22 +749,84 @@ async function loadPeriodsSubs(){
   try{
     const periods=await api('GET','/availability/periods');
     const statusLabel=(s)=>s==='open'?'открыт':s==='closed'?'закрыт':(s||'');
-    const sel=document.getElementById('sub-period');sel.innerHTML=(periods||[]).map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(statusLabel(p.status))})</option>`).join('');
-    document.getElementById('periods-list').innerHTML=(periods||[]).map(p=>`<div style="padding:6px;border-bottom:1px solid var(--border)">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>`).join('')||'—';
-    if(periods&&periods.length)loadSubmissions();
+    const visible=(periods||[]).filter(p=>showArchivedPeriods||p.status!=='archived');
+    const sel=document.getElementById('sub-period');
+    sel.innerHTML=visible.map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(statusLabel(p.status))})</option>`).join('');
+    document.getElementById('periods-list').innerHTML=visible.map(p=>`
+      <div class="period-row">
+        <div>${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>
+        <div class="period-actions">
+          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','locked')">🔒 Закрыть</button>
+          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','paused')">⏸ Приостановить</button>
+          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','archived')">📦 Архив</button>
+          <button class="btn btn-ghost" onclick="deletePeriod('${p.id}')">🗑 Удалить</button>
+        </div>
+      </div>
+    `).join('')||'—';
+    if(visible.length) loadSubmissions(); else document.getElementById('submissions-wrap').innerHTML='<div class="loading">Нет периодов</div>';
   }catch(e){document.getElementById('periods-list').innerHTML=esc(e.message);}
+}
+
+function toggleArchivedPeriods(){
+  showArchivedPeriods=!showArchivedPeriods;
+  const b=document.getElementById('arch-toggle-btn');
+  if(b) b.textContent=showArchivedPeriods?'Скрыть архив':'Показать архив';
+  loadPeriodsSubs();
+}
+
+async function setPeriodStatus(id,status){
+  try{
+    await api('PATCH',`/availability/periods/${id}`,{status});
+    showToast('Статус обновлён');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function deletePeriod(id){
+  try{
+    const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(id));
+    const hasSubmitted=(data?.submissions||[]).some(s=>s.submitted_at);
+    if(hasSubmitted){
+      if(!confirm('В периоде есть поданные заявки. Архивировать вместо удаления?')) return;
+      await setPeriodStatus(id,'archived');
+      return;
+    }
+    if(!confirm('Удалить период безвозвратно?')) return;
+    await api('DELETE',`/availability/periods/${id}`);
+    showToast('Период удалён');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
 }
 
 async function loadSubmissions(){
   const pid=document.getElementById('sub-period').value;if(!pid)return;
   try{
     const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(pid));
-    const rows=(data.submissions||[]).map(s=>{
+    currentSubmissions=data.submissions||[];
+    currentPeriodMeta=data.period||null;
+    const rows=currentSubmissions.map(s=>{
       const cls=s.on_time?'row-ok':(s.submitted_at?'row-late':'row-none');
-      return`<tr class="${cls}"><td>${esc(s.name)}</td><td>${s.submitted_at?'✓':'—'}</td><td>${s.total_days||0}</td><td>${s.full_days||0}</td><td>${s.morning_days||0}</td><td>${s.evening_days||0}</td></tr>`;
+      return`<tr class="${cls}" style="cursor:pointer" onclick="openSubmissionDetail('${s.id}')"><td>${esc(s.name)}</td><td>${s.submitted_at?'✓':'—'}</td><td>${s.total_days||0}</td><td>${s.full_days||0}</td><td>${s.morning_days||0}</td><td>${s.evening_days||0}</td></tr>`;
     }).join('');
     document.getElementById('submissions-wrap').innerHTML=`<table class="tbl"><thead><tr><th>Фотограф</th><th>Подана</th><th>Дней</th><th>Полных</th><th>Утро</th><th>Вечер</th></tr></thead><tbody>${rows}</tbody></table>`;
   }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
+}
+
+async function openSubmissionDetail(phId){
+  try{
+    if(!currentPeriodMeta) return;
+    const from=String(currentPeriodMeta.period_start||'').slice(0,10);
+    const to=String(currentPeriodMeta.period_end||'').slice(0,10);
+    const person=currentSubmissions.find(s=>String(s.id)===String(phId));
+    const rows=await api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    const byDate={}; (rows||[]).forEach(r=>{byDate[String(r.avail_date).slice(0,10)]=r;});
+    const days=[]; const s=parseDateLocal(from),e=parseDateLocal(to);
+    for(let d=new Date(s); d<=e; d.setDate(d.getDate()+1)){ days.push(new Date(d).toISOString().slice(0,10)); }
+    const cells=days.map(ds=>{const r=byDate[ds]; const lbl=r?(r.status==='available_full'?'🟢 Весь день':r.status==='available_morning'?'🔵 Утро':r.status==='available_evening'?'🟣 Вечер':r.status==='day_off'?'🟡 Под вопросом':'🔴 Занят'):'—'; const tm=(r&&r.available_from&&r.available_to)?`<div style="font-size:10px;color:var(--text3)">${esc(r.available_from)}-${esc(r.available_to)}</div>`:''; return `<div class="tetris-cell"><b>${esc(fmtDate(ds))}</b><div>${lbl}</div>${tm}</div>`;}).join('');
+    document.getElementById('subm-title').textContent=`Заявка: ${person?.name||'—'}`;
+    document.getElementById('subm-body').innerHTML=`<div style="margin-bottom:8px">Период: ${esc(fmtDate(from))} → ${esc(fmtDate(to))}</div><div style="margin-bottom:10px;color:var(--text2)">Подана: ${person?.submitted_at?esc(new Date(person.submitted_at).toLocaleString('ru-RU')):'—'} · Версия: ${Number(person?.max_version||1)}</div><div class="tetris-inner" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${cells}</div><div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-ghost" onclick="document.getElementById('submission-modal').classList.remove('open')">Закрыть</button></div>`;
+    document.getElementById('submission-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
 }
 
 function openPeriodModal(){document.getElementById('period-modal').classList.add('open');}
@@ -741,31 +841,115 @@ function initTetrisDates(){const t=new Date();const a=t.toISOString().slice(0,10
 
 async function renderTetris(){
   const date_from=document.getElementById('tet-from').value;
+  const date_to=document.getElementById('tet-to').value;
   const city=document.getElementById('tet-city').value;
-  if(!date_from) return;
+  if(!date_from||!date_to) return;
   try{
-    const d=new Date(date_from+'T12:00:00');
-    const month=d.getMonth()+1, year=d.getFullYear();
-    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
-    const data=await api('GET',`/events/calendar-data?month=${month}&year=${year}${cityParam}&schedule_status=confirmed`);
-    const events=(data.events||[]);
-    let html='<div style="font-size:11px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">';
-    events.forEach(e=>{
-      const rows=(e.shifts_summary||[]).map(s=>`${esc(s.shift_name||'Смена')} (${esc(s.role||'')}): ${Number(s.assigned||0)}/${Number(s.required||0)}`).join('<br>');
-      html+=`<div class="tetris-cell"><b>${esc(e.venue_name||'')}</b><div style="color:var(--text3)">${esc(String(e.event_date||'').slice(0,10))}</div><div>${rows||'—'}</div></div>`;
+    const from=parseDateLocal(date_from), to=parseDateLocal(date_to);
+    if(!from||!to||from>to){ document.getElementById('tetris-placeholder').innerHTML='<div class="loading">Некорректный период</div>'; return; }
+    const months=[]; let cur=new Date(from.getFullYear(),from.getMonth(),1);
+    const endM=new Date(to.getFullYear(),to.getMonth(),1);
+    while(cur<=endM){ months.push({m:cur.getMonth()+1,y:cur.getFullYear()}); cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
+    const byId={};
+    for(const mm of months){
+      const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+      const data=await api('GET',`/events/calendar-data?month=${mm.m}&year=${mm.y}${cityParam}&schedule_status=confirmed`);
+      (data.events||[]).forEach(e=>{
+        const ds=String(e.event_date||'').slice(0,10);
+        if(ds<date_from||ds>date_to) return;
+        byId[e.id]=e;
+      });
+    }
+    const events=Object.values(byId);
+    tetrisEventsByKey={};
+    const venues=[...new Set(events.map(e=>`${e.venue_id}__${e.venue_name||'Площадка'}`))].map(s=>({id:s.split('__')[0],name:s.split('__')[1]}));
+    const days=[]; for(let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) days.push(new Date(d).toISOString().slice(0,10));
+    events.forEach(ev=>{ const key=`${ev.venue_id}|${String(ev.event_date).slice(0,10)}`; if(!tetrisEventsByKey[key]) tetrisEventsByKey[key]=[]; tetrisEventsByKey[key].push(ev); });
+    if(!events.length){ document.getElementById('tetris-placeholder').innerHTML='<div style="font-size:12px;color:var(--text3)">Нет утверждённых мероприятий для выбранного периода/города</div>'; return; }
+    let head='<tr><th class="tt-venue">Площадка</th>'+days.map(ds=>`<th class="tt-h-day">${esc(fmtDateShort(ds))}</th>`).join('')+'</tr>';
+    let body='';
+    venues.forEach(v=>{
+      let row=`<tr><td class="tt-venue">${esc(v.name)}</td>`;
+      days.forEach(ds=>{
+        const key=`${v.id}|${ds}`;
+        const list=tetrisEventsByKey[key]||[];
+        if(!list.length){ row+=`<td><div class="tt-empty">—</div></td>`; return; }
+        const cells=list.map(ev=>{
+          const sum=ev.shifts_summary||[];
+          const req=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.required||0),0);
+          const asg=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.assigned||0),0);
+          const ok=req>0 && asg>=req;
+          return `<div class="tt-pill ${ok?'ok':'bad'}">${esc(ev.venue_name||'')}<br>${esc(poolRole)} ${asg}/${req}</div>`;
+        }).join('');
+        row+=`<td><div class="tt-drop" data-key="${key}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event,'${key}')" onclick="openTetrisCell('${key}')">${cells}</div></td>`;
+      });
+      body+=row+'</tr>';
     });
-    html+='</div>';
-    if(!events.length) html='<div style="font-size:12px;color:var(--text3)">Нет утверждённых мероприятий для выбранного периода/города</div>';
-    document.getElementById('tetris-placeholder').innerHTML=html;
+    document.getElementById('tetris-placeholder').innerHTML=`<div class="tt-wrap"><table class="tt-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }catch(e){document.getElementById('tetris-placeholder').innerHTML=esc(e.message);}
 }
 
 async function loadPool(role){
+  poolRole=role||'photographer';
   const date=document.getElementById('tet-from').value;
   try{
     const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=${encodeURIComponent(role)}`);
-    document.getElementById('ph-pool').innerHTML=(rows||[]).map(p=>`<div class="pool-ph avail" draggable="true">${esc(p.name)}</div>`).join('')||'—';
+    document.getElementById('ph-pool').innerHTML=(rows||[]).map(p=>`<div class="pool-ph avail" draggable="true" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}')">${esc(p.name)}</div>`).join('')||'—';
+    await renderTetris();
   }catch(e){document.getElementById('ph-pool').innerHTML=esc(e.message);}
+}
+
+function startPoolDrag(ev,id,name){ draggingPoolPhotographerId=id; ev.dataTransfer.setData('text/plain',`${id}|${name||''}`); }
+async function dropPoolOnCell(ev,key){
+  ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
+  const pid=draggingPoolPhotographerId||String((ev.dataTransfer.getData('text/plain')||'').split('|')[0]||'');
+  if(!pid) return;
+  const list=tetrisEventsByKey[key]||[];
+  if(!list.length) return;
+  const evItem=list[0];
+  const shift=(evItem.shifts_summary||[]).find(s=>(s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+  if(!shift){ showToast('Нет свободной позиции для выбранной роли', true); return; }
+  await assignToShift(shift.shift_id,pid,poolRole,key);
+}
+async function assignToShift(shiftId,photographerId,role,key){
+  try{
+    await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role});
+    showToast('Назначено');
+  }catch(e){
+    if(String(e.message||'').includes('requires_force')||String(e.message||'').includes('принудительное')){
+      if(!confirm('Сотрудник не подал заявку на этот день. Назначить принудительно?')) return;
+      await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role,force:true});
+      showToast('Назначено принудительно');
+    }else{ showToast(e.message,true); return; }
+  }
+  await loadPool(poolRole);
+  await renderTetris();
+  if(key) openTetrisCell(key);
+}
+async function removeAssignment(assignmentId,key){
+  try{ await api('DELETE',`/shift-assignments/${assignmentId}`); showToast('Назначение снято'); await loadPool(poolRole); await renderTetris(); if(key) openTetrisCell(key); }catch(e){showToast(e.message,true);}
+}
+async function openTetrisCell(key){
+  try{
+    const list=tetrisEventsByKey[key]||[];
+    if(!list.length) return;
+    const d=key.split('|')[1];
+    const details=[];
+    for(const evItem of list){
+      const shifts=(evItem.shifts_summary||[]).filter(s=>(s.role||'photographer')===poolRole);
+      for(const sh of shifts){
+        const asg=await api('GET',`/shifts/${sh.shift_id}/assignments`);
+        details.push({event:evItem,shift:sh,assignments:(asg||[]).filter(a=>(a.role_in_shift||'photographer')===poolRole)});
+      }
+    }
+    document.getElementById('tc-title').textContent=`${fmtDate(d)} · ${list[0].venue_name||'Площадка'}`;
+    document.getElementById('tc-body').innerHTML=details.map(x=>`
+      <div class="section" style="padding:10px;margin-bottom:8px">
+        <div><b>${esc(x.shift.shift_name||'Смена')}</b> · ${Number(x.shift.assigned||0)}/${Number(x.shift.required||0)}</div>
+        <div style="margin-top:6px">${x.assignments.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)}${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick="removeAssignment('${a.id}','${key}')">Снять</button></div>`).join('')||'<span style="color:var(--text3)">Нет назначений</span>'}</div>
+      </div>`).join('');
+    document.getElementById('tetris-cell-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
 }
 
 let lastAuto=null;
@@ -777,7 +961,22 @@ async function runAutoAssign(dry){
     const r=await api('POST','/staffing/auto-assign',{date_from,date_to,city,dry_run:dry});
     lastAuto=r;
     const el=document.getElementById('auto-body');
-    el.innerHTML=`<div>Назначений: ${r.assignments?.length||0}, предупреждений: ${r.warnings?.length||0}</div><pre style="font-size:10px;margin-top:8px;white-space:pre-wrap">${esc(JSON.stringify(r,null,2).slice(0,4000))}</pre>`;
+    const assigned=dry?(r.assignments?.length||0):(r.applied||0);
+    const warn=r.warnings?.length||0;
+    const miss=r.unresolved?.length||0;
+    const assignments=(r.assignments||[]).map((a,i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(fmtDate(a.date))} · ${esc(a.venue_name||'')} · ${esc(a.shift_name||'Смена')}<br><span style="color:var(--text2)">📸 ${esc(a.photographer_name||'')} (${esc(a.tier||'')})</span></div>`).join('')||'<div style="color:var(--text3)">Нет назначений</div>';
+    const warnings=(r.warnings||[]).map(w=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">⚠️ ${esc(w.text||'')}</div>`).join('')||'<div style="color:var(--text3)">Нет предупреждений</div>';
+    const unresolved=(r.unresolved||[]).map(u=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">❌ ${esc(fmtDate(u.date))} · ${esc(u.venue_name||'')} · нужно ${Number(u.missing||0)}</div>`).join('')||'<div style="color:var(--text3)">Нет незаполненных</div>';
+    const zeroHint=(dry&&assigned===0)?'<div style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);margin-bottom:8px">Нет подходящих сотрудников. Проверьте что заявки поданы и период совпадает.</div>':'';
+    el.innerHTML=`${zeroHint}
+      <div class="auto-stats">
+        <div class="auto-card">✅ Назначено: <b>${assigned}</b></div>
+        <div class="auto-card">⚠️ Предупреждения: <b>${warn}</b></div>
+        <div class="auto-card">❌ Не заполнено: <b>${miss}</b></div>
+      </div>
+      <div class="section-title">Назначения</div>${assignments}
+      <div class="section-title" style="margin-top:10px">Предупреждения</div>${warnings}
+      <div class="section-title" style="margin-top:10px">Не заполнено</div>${unresolved}`;
     document.getElementById('auto-modal').classList.add('open');
     if(!dry)showToast('Применено');
     await renderTetris();

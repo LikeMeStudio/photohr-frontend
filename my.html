@@ -189,6 +189,8 @@ function switchMyTab(i){
 
 const AV_LABELS={available_full:'Свободен весь день',unavailable:'Занят',day_off:'Под вопросом',available_morning:'Свободен утром',available_evening:'Свободен вечером'};
 let availEditor={period:null,entries:{},payScheme:'standard',submitted:false,photographerId:null,selectedDate:null};
+let myPeriods=[];
+let mySelectedPeriodId=null;
 
 function buildDateRange(from,to){
   const s=parseDateLocal(from),e=parseDateLocal(to); if(!s||!e||s>e) return [];
@@ -300,6 +302,12 @@ async function submitAvailabilityFlow(){
   }catch(e){ showToast(e.message,true); }
 }
 
+function selectMyPeriod(periodId){
+  mySelectedPeriodId=periodId;
+  renderAvailabilityEditor();
+  loadSchedulePanel(availEditor.photographerId);
+}
+
 async function loadSchedulePanel(phId){
   const box=document.getElementById('sched-body');if(!box)return;
   box.innerHTML='<div class="loading">Загрузка...</div>';
@@ -315,16 +323,20 @@ async function loadSchedulePanel(phId){
       const hl=ds===tomStr?'style="border:2px solid var(--rank2);border-radius:10px;padding:8px"':'';
       return`<div class="pay-row" ${hl}><div><b>${esc(ds)}</b> ${esc(r.venue_name||'')}</div><div style="font-size:11px;color:var(--text3)">${esc(r.staff_arrival||'')}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
-    const st=(status||[]).find(x=>x.period_status==='open') || (status||[])[0];
-    const stTxt=st?(st.submitted?'Подана'+(st.on_time?' (вовремя)':' (после дедлайна)'):'Не подана'):'—';
+    const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation').map(r=>`<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам назначена обязательная смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите.</div>`).join('');
+    myPeriods=(status||[]).filter(p=>p.period_status!=='archived');
+    const st=(myPeriods.find(x=>x.period_id===mySelectedPeriodId)) || (myPeriods.find(x=>x.period_status==='open')) || myPeriods[0] || null;
+    mySelectedPeriodId=st?.period_id||null;
+    const statusHuman=(p)=>p?.period_status==='paused'?'Приём приостановлен':p?.period_status==='locked'?'Приём закрыт':(p?.submitted?(p.on_time?'Подана (вовремя)':'Подана (после дедлайна)'):'Не подана');
     let venues=ph.venues;if(typeof venues==='string'){try{venues=JSON.parse(venues);}catch{venues=[];}}
     const loves=(venues||[]).filter(v=>v.attitude==='loves');
     const cans=(venues||[]).filter(v=>v.attitude==='can');
     const dis=(venues||[]).filter(v=>v.attitude==='dislikes');
     const disLimited=dis.slice(0,3);
+    const periodsUi=myPeriods.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${myPeriods.map(p=>`<button class="btn ${p.period_id===mySelectedPeriodId?'btn-primary':'btn-ghost'}" style="padding:5px 10px;font-size:11px" onclick="selectMyPeriod('${p.period_id}')">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${p.submitted?'✓':'•'})</button>`).join('')}</div>`:'';
     box.innerHTML=`
-      <div class="section"><div class="section-title">Период заявок</div><div style="font-size:13px">${st?`${esc(fmtDate(st.period_start))} → ${esc(fmtDate(st.period_end))}<br>Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(stTxt)}`:'Нет открытого периода'}</div><div id="avail-editor" style="margin-top:12px"></div></div>
-      <div class="section"><div class="section-title">Ближайшие смены</div>${upHtml}</div>
+      <div class="section"><div class="section-title">Период заявок</div>${periodsUi}<div style="font-size:13px">${st?`${esc(fmtDate(st.period_start))} → ${esc(fmtDate(st.period_end))}<br>Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(statusHuman(st))}`:'Нет открытого периода'}</div><div id="avail-editor" style="margin-top:12px"></div></div>
+      <div class="section"><div class="section-title">Ближайшие смены</div>${forcedNotices}${upHtml}</div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
         <div style="font-size:12px;margin-bottom:6px">❤️ Люблю: ${loves.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
         <div style="font-size:12px;margin-bottom:6px">✓ Могу: ${cans.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
@@ -332,7 +344,11 @@ async function loadSchedulePanel(phId){
         <div style="margin-top:8px;font-size:11px;color:var(--text3)">Редактирование — в карточке сотрудника (Фотографы)</div>
       </div>`;
     availEditor={period:st||null,entries:{},payScheme:ph.pay_scheme||'standard',submitted:!!st?.submitted,photographerId:phId,selectedDate:null};
-    if(st?.period_start&&st?.period_end){
+    if(st?.period_status==='paused'){
+      const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Приём заявок приостановлен. Ожидайте.</div>';
+    } else if(st?.period_status==='locked'){
+      const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Приём закрыт. Обратитесь к HR.</div>';
+    } else if(st?.period_start&&st?.period_end){
       const rows=await api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(st.period_start)}&to=${encodeURIComponent(st.period_end)}`).catch(()=>[]);
       (rows||[]).forEach(r=>{ const ds=String(r.avail_date||'').slice(0,10); availEditor.entries[ds]={status:r.status||'unavailable',available_from:r.available_from||null,available_to:r.available_to||null,notes:r.notes||null}; });
       if(isPremiumSchedule()){
