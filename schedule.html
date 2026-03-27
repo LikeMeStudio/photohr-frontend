@@ -419,6 +419,7 @@ let currentSubmissions=[];
 let currentPeriodMeta=null;
 let tetrisEventsByKey={};
 let poolRole='photographer';
+const ROLE_SHORT={photographer:'фото',admin:'админ',manager:'менеджер',print_operator:'оператор',mentor:'наставник',helper:'помощник'};
 let draggingPoolPhotographerId=null;
 let draggingPoolPhotographerName='';
 let draggingPoolPhotographerCity='';
@@ -1014,7 +1015,7 @@ async function renderTetris(){
           else if(asg<req) pillClass+='tt-pill--partial';
           else if(asg===req) pillClass+='tt-pill--full';
           else pillClass+='tt-pill--over';
-          return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')"><div class="tt-vn">${esc(ev.venue_name||'')}</div><div class="tt-sm">${esc(poolRole)} ${asg}/${req}${declined>0?` <span class="tt-decline-mark">❌${declined}</span>`:''}</div></div>`;
+          return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')"><div class="tt-vn">${esc(ev.venue_name||'')}</div><div class="tt-sm">${esc(ROLE_SHORT[poolRole]||poolRole)} ${asg}/${req}${declined>0?` <span class="tt-decline-mark">❌${declined}</span>`:''}</div></div>`;
         }).join('');
         const firstEvent=list[0]||{};
         const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===poolRole) || {}).id || '';
