@@ -142,6 +142,8 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
+function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
@@ -186,13 +188,14 @@ async function loadSchedulePanel(phId){
     const loves=(venues||[]).filter(v=>v.attitude==='loves');
     const cans=(venues||[]).filter(v=>v.attitude==='can');
     const dis=(venues||[]).filter(v=>v.attitude==='dislikes');
+    const disLimited=dis.slice(0,3);
     box.innerHTML=`
-      <div class="section"><div class="section-title">Период заявок</div><div style="font-size:13px">${st?`Дедлайн: ${esc(st.submit_deadline||'—')} · ${esc(stTxt)}`:'Нет открытого периода'}</div></div>
+      <div class="section"><div class="section-title">Период заявок</div><div style="font-size:13px">${st?`Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(stTxt)}`:'Нет открытого периода'}</div></div>
       <div class="section"><div class="section-title">Ближайшие смены</div>${upHtml}</div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
         <div style="font-size:12px;margin-bottom:6px">❤️ Люблю: ${loves.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
         <div style="font-size:12px;margin-bottom:6px">✓ Могу: ${cans.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
-        <div style="font-size:12px">✕ Не люблю: ${dis.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
+        <div style="font-size:12px">✕ Не люблю: ${disLimited.map(v=>esc(v.venue_name)).join(', ')||'—'}${dis.length>3?` <span style="color:var(--text3)">(+${dis.length-3})</span>`:''}</div>
         <div style="margin-top:8px;font-size:11px;color:var(--text3)">Редактирование — в карточке сотрудника (Фотографы)</div>
       </div>`;
   }catch(e){box.innerHTML='<div class="loading" style="color:var(--rank3)">'+esc(e.message)+'</div>';}

@@ -320,6 +320,8 @@ if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new E
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
+function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 
@@ -414,6 +416,15 @@ function initScheduleCityFilter(){
   const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
   sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value=cities.includes(current)?current:'';
+}
+
+function initTetrisCityFilter(){
+  const sel=document.getElementById('tet-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=(current&&cities.includes(current))?current:'';
 }
 
 function resolveDayType(dateStr){
@@ -699,8 +710,9 @@ async function confirmSchedulePeriod(){
 async function loadPeriodsSubs(){
   try{
     const periods=await api('GET','/availability/periods');
-    const sel=document.getElementById('sub-period');sel.innerHTML=(periods||[]).map(p=>`<option value="${p.id}">${esc(p.period_start)} — ${esc(p.period_end)} (${esc(p.status||'')})</option>`).join('');
-    document.getElementById('periods-list').innerHTML=(periods||[]).map(p=>`<div style="padding:6px;border-bottom:1px solid var(--border)">${esc(p.period_start)} → ${esc(p.period_end)} <span style="color:var(--text3)">${esc(p.status)}</span></div>`).join('')||'—';
+    const statusLabel=(s)=>s==='open'?'открыт':s==='closed'?'закрыт':(s||'');
+    const sel=document.getElementById('sub-period');sel.innerHTML=(periods||[]).map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(statusLabel(p.status))})</option>`).join('');
+    document.getElementById('periods-list').innerHTML=(periods||[]).map(p=>`<div style="padding:6px;border-bottom:1px solid var(--border)">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>`).join('')||'—';
     if(periods&&periods.length)loadSubmissions();
   }catch(e){document.getElementById('periods-list').innerHTML=esc(e.message);}
 }
@@ -734,7 +746,8 @@ async function renderTetris(){
   try{
     const d=new Date(date_from+'T12:00:00');
     const month=d.getMonth()+1, year=d.getFullYear();
-    const data=await api('GET',`/events/calendar-data?month=${month}&year=${year}&city=${encodeURIComponent(city)}&schedule_status=${encodeURIComponent(scheduleViewStatus)}`);
+    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+    const data=await api('GET',`/events/calendar-data?month=${month}&year=${year}${cityParam}&schedule_status=confirmed`);
     const events=(data.events||[]);
     let html='<div style="font-size:11px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">';
     events.forEach(e=>{
@@ -742,6 +755,7 @@ async function renderTetris(){
       html+=`<div class="tetris-cell"><b>${esc(e.venue_name||'')}</b><div style="color:var(--text3)">${esc(String(e.event_date||'').slice(0,10))}</div><div>${rows||'—'}</div></div>`;
     });
     html+='</div>';
+    if(!events.length) html='<div style="font-size:12px;color:var(--text3)">Нет утверждённых мероприятий для выбранного периода/города</div>';
     document.getElementById('tetris-placeholder').innerHTML=html;
   }catch(e){document.getElementById('tetris-placeholder').innerHTML=esc(e.message);}
 }
@@ -840,6 +854,7 @@ async function saveVenueSettings(){
     setupUserPill();setupNav('schedule');
     venuesList=await api('GET','/venues');
     initScheduleCityFilter();
+    initTetrisCityFilter();
     setScheduleStatus('draft');
   }catch(e){showToast(e.message,true);}
 })();

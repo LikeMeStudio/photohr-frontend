@@ -3610,6 +3610,12 @@ function setScore(v){
 }
 
 function setVenueAtt(vid, att){
+  const prev = editState.venues.find(v=>v.venue_id===vid);
+  const dislikeCount = editState.venues.filter(v=>v.attitude==='dislikes').length;
+  if(att==='dislikes' && prev?.attitude!=='dislikes' && dislikeCount>=3){
+    showToast('Максимум 3 площадки', true);
+    return;
+  }
   editState.venues = editState.venues.filter(v=>v.venue_id!==vid);
   if(att !== 'none') editState.venues.push({ venue_id: vid, attitude: att });
   // Re-render only venue buttons
