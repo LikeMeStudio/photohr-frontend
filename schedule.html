@@ -489,7 +489,7 @@ function renderCalGrid(data){
       const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
       const onlyPh=aReq+mReq===0;
       const statLine=onlyPh?`📸${pAsg}/${pReq}`:`📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}`;
-      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)}">${esc(statLine)}</div></div>`;
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
     }).join('');
     cells+=`<div class="cal-cell" data-date="${ds}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
     d++;
