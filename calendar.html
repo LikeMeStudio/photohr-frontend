@@ -127,17 +127,13 @@ a{color:inherit;text-decoration:none}
 
 <!-- New event modal -->
 <div class="overlay" id="event-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal" style="max-width:520px">
-  <div class="modal-title">
-    <span>Новое мероприятие</span>
-    <button class="dr-close" onclick="document.getElementById('event-modal').classList.remove('open')">×</button>
-  </div>
-
-  <div class="field"><div class="fl">Площадка *</div><select class="fselect" id="ev-venue" style="width:100%" onchange="loadVenueShiftConfig()"></select></div>
+<div class="modal">
+  <div class="modal-title"><span>Новое мероприятие</span><button class="dr-close" onclick="document.getElementById('event-modal').classList.remove('open')">×</button></div>
+  <div class="field"><div class="fl">Площадка *</div><select class="fselect" id="ev-venue" style="width:100%"></select></div>
   <div style="display:flex;gap:8px">
-    <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" type="date" id="ev-date" style="width:100%" onchange="loadVenueShiftConfig()"/></div>
-    <div class="field" style="flex:1"><div class="fl">Тип дня</div>
-      <select class="fselect" id="ev-type" style="width:100%" onchange="loadVenueShiftConfig()">
+    <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" type="date" id="ev-date" style="width:100%"/></div>
+    <div class="field" style="flex:1"><div class="fl">Тип</div>
+      <select class="fselect" id="ev-type" style="width:100%">
         <option value="regular">Обычное</option>
         <option value="special">Специальное</option>
         <option value="holiday">Праздник</option>
@@ -150,17 +146,10 @@ a{color:inherit;text-decoration:none}
       </select>
     </div>
   </div>
-
   <div style="display:flex;gap:8px">
-    <div class="field" style="flex:1"><div class="fl">Запуск гостей</div><input class="fin" type="time" id="ev-guest-start" style="width:100%"/></div>
-    <div class="field" style="flex:1"><div class="fl">Начало работы</div><input class="fin" type="time" id="ev-event-start" style="width:100%"/></div>
-    <div class="field" style="flex:1"><div class="fl">Завершение</div><input class="fin" type="time" id="ev-event-end" style="width:100%"/></div>
+    <div class="field" style="flex:1"><div class="fl">Нужно фотографов</div><input class="fin" type="number" id="ev-photo" value="2" min="0" style="width:100%"/></div>
+    <div class="field" style="flex:1"><div class="fl">Нужно операторов</div><input class="fin" type="number" id="ev-ops" value="1" min="0" style="width:100%"/></div>
   </div>
-
-  <div id="ev-shifts-config" style="margin-top:8px">
-    <div style="color:var(--text3);font-size:12px">Выберите площадку и дату для загрузки конфигурации смен</div>
-  </div>
-
   <div class="field"><div class="fl">Примечание</div><input class="fin" id="ev-notes" placeholder="Особые условия..." style="width:100%"/></div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="document.getElementById('event-modal').classList.remove('open')">Отмена</button>
@@ -181,7 +170,6 @@ a{color:inherit;text-decoration:none}
       <option value="print_operator">Оператор печати</option>
       <option value="admin">Администратор</option>
       <option value="mentor">Наставник</option>
-      <option value="helper">Помощник</option>
     </select>
   </div>
   <div class="modal-footer">
@@ -197,9 +185,6 @@ const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'ht
 let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
 let venues=[],allEvents=[],currentMonth=new Date().getMonth(),currentYear=new Date().getFullYear();
 let aqEvents = [];
-let currentEventId = null;
-let currentEventDate = null;
-let modalShiftsConfig = {};
 const AQ_PAGE_ROLES = ['aq_manager','hr_director','exec_director','admin','cashier'];
 const canSeeAq = () => AQ_PAGE_ROLES.includes(currentUser?.role || '');
 let refreshLock=null;
@@ -388,20 +373,28 @@ async function showDayEvents(dateStr){
   if(showPhoto){
   for(const ev of dayPhotoEvents){
     const vName=venues.find(v=>v.id===ev.venue_id)?.name||'Площадка';
-    const shifts = await loadEventShifts(ev.id).catch(() => []);
-    const assignedTotal = shifts.reduce((sum, sh) => {
-      const active = (sh.assignments || []).filter(a => a.status !== 'cancelled').length;
-      return sum + active;
-    }, 0);
-    const neededTotal = shifts.reduce((sum, sh) => sum + (parseInt(sh.required_count || 1, 10) || 0), 0);
+    let assignments=[];
+    try{
+      const shifts=await api('GET',`/shifts?event_id=${ev.id}`);
+      if(shifts.length){
+        assignments=await api('GET',`/shifts/${shifts[0].id}/assignments`).catch(()=>[]);
+      }
+    }catch{}
+
+    const assigned=assignments.filter(a=>a.status!=='cancelled');
+    const needed=(ev.required_photographers||0)+(ev.required_operators||0)+(ev.required_admins||0);
 
     html+=`<div style="padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="font-size:14px;font-weight:600;flex:1">${esc(vName)}</div>
-        <span style="font-size:11px;color:${assignedTotal>=neededTotal?'var(--rank1)':'var(--rank2)'}">${assignedTotal}/${neededTotal || 0} назначено</span>
+        <span style="font-size:11px;color:${assigned.length>=needed?'var(--rank1)':'var(--rank2)'}">${assigned.length}/${needed} назначено</span>
         <button class="btn btn-primary btn-sm" onclick="openAssignModal('${ev.id}')">+ Назначить</button>
       </div>
-      ${renderShiftsSections(shifts, ev.id)}
+      ${assigned.length?assigned.map(a=>`<div class="ep-row">
+        <span style="flex:1">${esc(a.photographer_name||'Сотрудник')}</span>
+        <span style="font-size:11px;color:var(--text3)">${esc(a.role_in_shift||'фотограф')}</span>
+        <button style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:11px" onclick="removeAssignment('${a.id}','${dateStr}')">✕</button>
+      </div>`).join(''):'<div style="color:var(--text3);font-size:12px">Никто не назначен</div>'}
     </div>`;
   }
   }
@@ -425,71 +418,6 @@ async function showDayEvents(dateStr){
 
   html+='</div>';
   panel.innerHTML=html;
-  currentEventDate = dateStr;
-  if (dayPhotoEvents[0]?.id) currentEventId = dayPhotoEvents[0].id;
-}
-
-// Загрузка смен события с назначениями
-async function loadEventShifts(eventId) {
-  const shifts = await api('GET', `/shifts?event_id=${eventId}`);
-  const result = [];
-  for (const sh of shifts) {
-    const assignments = await api('GET', `/shifts/${sh.id}/assignments`).catch(() => []);
-    result.push({ ...sh, assignments });
-  }
-  return result;
-}
-
-function renderShiftsSections(shifts, eventId) {
-  const ROLE_ICONS = { photographer:'📸', admin:'🖨️', manager:'👔', mentor:'🎓', helper:'🤝' };
-  const ROLE_LABELS_LOCAL = { photographer:'Фотографы', admin:'АдМэны', manager:'Менеджеры', mentor:'Наставники', helper:'Помощники' };
-  const ROLE_COLORS_LOCAL = { photographer:'#7c6cff', admin:'#3ecf8e', manager:'#f5a623', mentor:'#9b8dff', helper:'#9090a8' };
-
-  if (!shifts || !shifts.length) return '<div style="color:var(--text3);font-size:12px">Смены не созданы</div>';
-
-  const byRole = {};
-  for (const sh of shifts) {
-    const role = sh.target_role || 'photographer';
-    if (!byRole[role]) byRole[role] = [];
-    byRole[role].push(sh);
-  }
-
-  let html = '';
-  const roleOrder = ['photographer','admin','manager','mentor','helper'];
-  for (const role of roleOrder) {
-    if (!byRole[role]) continue;
-    const color = ROLE_COLORS_LOCAL[role];
-    const label = ROLE_LABELS_LOCAL[role] || role;
-    const icon = ROLE_ICONS[role] || '👤';
-    html += `<div style="margin-bottom:10px">
-      <div style="font-size:11px;font-weight:600;color:${color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${icon} ${label}</div>`;
-    for (const sh of byRole[role]) {
-      const activeAssignments = (sh.assignments || []).filter(a => a.status !== 'cancelled');
-      const filled = activeAssignments.length || parseInt(sh.assigned_count || 0, 10);
-      const needed = parseInt(sh.required_count || 1, 10);
-      const gapColor = filled >= needed ? 'var(--rank1)' : filled > 0 ? 'var(--rank2)' : 'var(--rank3)';
-      const timeStr = sh.start_time ? `${sh.start_time}–${sh.end_time || '?'}` : '';
-      html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:4px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-size:12px;font-weight:500">${esc(sh.shift_name || 'Смена')}</span>
-          <span style="font-size:11px;color:var(--text3)">${timeStr}</span>
-          <span style="font-size:11px;font-weight:600;color:${gapColor}">${filled}/${needed}</span>
-        </div>`;
-      if (activeAssignments.length) {
-        html += `<div style="display:flex;flex-wrap:wrap;gap:4px">` +
-          activeAssignments.map(a =>
-            `<span style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px">${esc(a.photographer_name || a.name || '?')}</span>`
-          ).join('') + `</div>`;
-      }
-      html += `<button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;margin-top:4px"
-        onclick="currentEventId='${eventId}';openAssignModalForShift('${sh.id}')">+ Назначить</button>`;
-      html += `</div>`;
-    }
-    html += `<button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:${color}"
-      onclick="currentEventId='${eventId}';addShiftForRole('${eventId}', '${role}')">+ Смена ${label}</button>`;
-    html += `</div>`;
-  }
-  return html;
 }
 
 function prevMonth(){currentMonth--;if(currentMonth<0){currentMonth=11;currentYear--;}loadCalendar();document.getElementById('event-detail').innerHTML='';}
@@ -499,149 +427,45 @@ function goToday(){currentMonth=new Date().getMonth();currentYear=new Date().get
 function openNewEvent(date){
   document.getElementById('ev-date').value=date||new Date().toISOString().split('T')[0];
   updateBlockLabels();
-  modalShiftsConfig = {};
-  document.getElementById('ev-shifts-config').innerHTML = '<div style="color:var(--text3);font-size:12px">Выберите площадку и дату для загрузки конфигурации смен</div>';
-  const venueFilter = document.getElementById('venue-filter')?.value;
-  if (venueFilter) {
-    document.getElementById('ev-venue').value = venueFilter;
-    loadVenueShiftConfig();
-  }
   document.getElementById('event-modal').classList.add('open');
 }
 
 function updateBlockLabels() {
-  // Labels are static in the new create-event modal.
+  const block = document.getElementById('ev-block')?.value || 'photo';
+  const lbl1 = document.getElementById('ev-photo')?.parentElement?.querySelector('.fl');
+  const lbl2 = document.getElementById('ev-ops')?.parentElement?.querySelector('.fl');
+  if (lbl1) lbl1.textContent = block === 'aquagrim' ? 'Нужно аквагримёров' : 'Нужно фотографов';
+  if (lbl2) lbl2.textContent = block === 'aquagrim' ? 'Нужно менеджеров' : 'Нужно операторов';
 }
 
 async function createEvent(){
   const venueId=document.getElementById('ev-venue').value;
   const date=document.getElementById('ev-date').value;
-  if(!venueId||!date){showToast('Площадка и дата обязательны',true);return;}
+  if(!venueId||!date){showToast('Выберите площадку и дату',true);return;}
   try{
     const block = (canSeeAq() ? (document.getElementById('ev-block')?.value || 'photo') : 'photo');
-    const body = {
-      venue_id: venueId,
-      event_date: date,
-      event_type: document.getElementById('ev-type')?.value || 'regular',
-      guest_start: document.getElementById('ev-guest-start')?.value || null,
-      event_start: document.getElementById('ev-event-start')?.value || null,
-      event_end: document.getElementById('ev-event-end')?.value || null,
-      schedule_status: 'confirmed',
-      notes: document.getElementById('ev-notes')?.value.trim() || null,
-      shifts_config: Object.keys(modalShiftsConfig).length ? modalShiftsConfig : undefined,
-    };
     if (block === 'aquagrim') {
-      await api('POST','/aq/events', body);
+      await api('POST','/aq/events',{
+        venue_id:venueId,event_date:date,
+        event_type:document.getElementById('ev-type').value,
+        required_aquagrimers:parseInt(document.getElementById('ev-photo').value)||0,
+        required_aq_managers:parseInt(document.getElementById('ev-ops').value)||0,
+        notes:document.getElementById('ev-notes').value.trim()||null,
+      });
     } else {
-      await api('POST','/events', body);
+      await api('POST','/events',{
+        venue_id:venueId,event_date:date,
+        event_type:document.getElementById('ev-type').value,
+        required_photographers:parseInt(document.getElementById('ev-photo').value)||0,
+        required_operators:parseInt(document.getElementById('ev-ops').value)||0,
+        schedule_status:'confirmed',
+        notes:document.getElementById('ev-notes').value.trim()||null,
+      });
     }
     document.getElementById('event-modal').classList.remove('open');
     showToast('Мероприятие создано');
     await loadCalendar();
   }catch(e){showToast(e.message,true);}
-}
-
-async function loadVenueShiftConfig() {
-  const venueId = document.getElementById('ev-venue').value;
-  const dateVal = document.getElementById('ev-date').value;
-  const dayType = document.getElementById('ev-type').value;
-  const container = document.getElementById('ev-shifts-config');
-
-  if (!venueId) {
-    container.innerHTML = '<div style="color:var(--text3);font-size:12px">Выберите площадку</div>';
-    return;
-  }
-
-  try {
-    const venue = venues.find(v => String(v.id) === String(venueId));
-    if (!venue) return;
-
-    let config = null;
-    const isWeekend = dateVal ? [0,6].includes(new Date(dateVal).getDay()) : false;
-    if (dayType === 'holiday' && venue.default_shifts_holiday) config = venue.default_shifts_holiday;
-    else if (isWeekend && venue.default_shifts_weekend) config = venue.default_shifts_weekend;
-    else if (!isWeekend && venue.default_shifts_weekday) config = venue.default_shifts_weekday;
-    else config = venue.default_shifts || { photographer: [{ name:'Основная', start:'09:30', end:'20:00', required:1 }] };
-
-    if (typeof config === 'string') {
-      try { config = JSON.parse(config); } catch { config = {}; }
-    }
-    modalShiftsConfig = JSON.parse(JSON.stringify(config || {}));
-    renderModalShiftsConfig();
-  } catch(e) {
-    container.innerHTML = `<div style="color:var(--rank3);font-size:12px">Ошибка загрузки конфига: ${esc(e.message)}</div>`;
-  }
-}
-
-function renderModalShiftsConfig() {
-  const container = document.getElementById('ev-shifts-config');
-  const ROLE_LABELS_LOCAL = { photographer:'📸 Фотографы', admin:'🖨️ АдМэны', manager:'👔 Менеджеры', mentor:'🎓 Наставники', helper:'🤝 Помощники' };
-  const ROLE_COLORS_LOCAL = { photographer:'#7c6cff', admin:'#3ecf8e', manager:'#f5a623', mentor:'#9b8dff', helper:'#9090a8' };
-
-  if (!Object.keys(modalShiftsConfig).length) {
-    container.innerHTML = '<div style="color:var(--text3);font-size:12px">Нет конфигурации смен для площадки</div>';
-    return;
-  }
-
-  let html = '';
-  const roleOrder = ['photographer','admin','manager','mentor','helper'];
-  for (const role of roleOrder) {
-    if (!modalShiftsConfig[role]) continue;
-    const color = ROLE_COLORS_LOCAL[role] || '#9090a8';
-    const label = ROLE_LABELS_LOCAL[role] || role;
-    html += `<div style="margin-bottom:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
-      <div style="font-size:11px;font-weight:600;color:${color};margin-bottom:6px">${label}</div>`;
-    modalShiftsConfig[role].forEach((sh, idx) => {
-      html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
-        <input class="fin" style="flex:1.5;font-size:12px;padding:4px 8px" type="text"
-          value="${esc(sh.name || '')}" placeholder="Название"
-          onchange="modalShiftsConfig['${role}'][${idx}].name=this.value"/>
-        <input class="fin" style="width:70px;font-size:12px;padding:4px 6px" type="time"
-          value="${sh.start||''}"
-          onchange="modalShiftsConfig['${role}'][${idx}].start=this.value"/>
-        <span style="color:var(--text3);font-size:11px">—</span>
-        <input class="fin" style="width:70px;font-size:12px;padding:4px 6px" type="time"
-          value="${sh.end||''}"
-          onchange="modalShiftsConfig['${role}'][${idx}].end=this.value"/>
-        <input class="fin" style="width:44px;font-size:12px;padding:4px 6px;text-align:center" type="number"
-          value="${sh.required||1}" min="1" max="20" title="Кол-во человек"
-          onchange="modalShiftsConfig['${role}'][${idx}].required=parseInt(this.value)||1"/>
-        <button onclick="removeModalShift('${role}',${idx})" style="background:none;border:none;color:var(--rank3);cursor:pointer;font-size:14px;padding:2px 4px" title="Убрать смену">✕</button>
-      </div>`;
-    });
-    html += `<button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:${color};margin-top:2px"
-      onclick="addModalShift('${role}')">+ Смена</button>
-    </div>`;
-  }
-
-  const existingRoles = Object.keys(modalShiftsConfig);
-  if (!existingRoles.includes('mentor') || !existingRoles.includes('helper')) {
-    html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
-    if (!existingRoles.includes('mentor')) html += `<button class="btn btn-ghost" style="font-size:11px" onclick="addModalRole('mentor')">+ Наставник</button>`;
-    if (!existingRoles.includes('helper')) html += `<button class="btn btn-ghost" style="font-size:11px" onclick="addModalRole('helper')">+ Помощник</button>`;
-    html += `</div>`;
-  }
-
-  container.innerHTML = html;
-}
-
-function removeModalShift(role, idx) {
-  modalShiftsConfig[role].splice(idx, 1);
-  if (!modalShiftsConfig[role].length) delete modalShiftsConfig[role];
-  renderModalShiftsConfig();
-}
-
-function addModalShift(role) {
-  if (!modalShiftsConfig[role]) modalShiftsConfig[role] = [];
-  const prev = modalShiftsConfig[role].slice(-1)[0];
-  modalShiftsConfig[role].push({ name: `${modalShiftsConfig[role].length + 1} смена`, start: prev?.start || '09:30', end: prev?.end || '20:00', required: 1 });
-  renderModalShiftsConfig();
-}
-
-function addModalRole(role) {
-  const DEFAULTS = { mentor:{ name:'Наставник',start:'09:30',end:'20:00',required:1 }, helper:{ name:'Помощник',start:'12:00',end:'18:00',required:1 } };
-  modalShiftsConfig[role] = [DEFAULTS[role] || { name:'Смена',start:'09:30',end:'20:00',required:1 }];
-  renderModalShiftsConfig();
 }
 
 async function openAqEvent(eventId) {
@@ -748,61 +572,25 @@ async function removeAqAssign(assignId, eventId) {
   } catch(e) { showToast(e.message, true); }
 }
 
-async function openAssignModalForShift(shiftId) {
-  try {
-    const shifts = await api('GET', `/shifts?event_id=${currentEventId}`);
-    const shift = shifts.find(s => String(s.id) === String(shiftId));
-    if (!shift) { showToast('Смена не найдена', true); return; }
-
-    document.getElementById('as-shift-id').value = shiftId;
-
-    const roleSelect = document.getElementById('as-role');
-    if (roleSelect && shift.target_role) roleSelect.value = shift.target_role;
-
-    const date = shift.event_date || '';
-    const available = await api('GET', `/staffing/available?date=${date}&role=${shift.target_role || 'photographer'}`).catch(() => []);
-    const sel = document.getElementById('as-photographer');
-    if (available.length) {
-      sel.innerHTML = available.map(p =>
-        `<option value="${p.id}">${esc(p.name)} ${p.venue_attitude === 'loves' ? '❤️' : '✓'} (${p.shifts_this_month || 0} смен)</option>`
-      ).join('');
-    } else {
-      const phs = await api('GET', '/photographers');
-      sel.innerHTML = phs.filter(p => p.is_active).map(p =>
-        `<option value="${p.id}">${esc(p.name)}</option>`
-      ).join('');
-    }
-    document.getElementById('assign-modal').classList.add('open');
-  } catch(e) { showToast(e.message, true); }
-}
-
 async function openAssignModal(eventId){
   try{
-    currentEventId = eventId;
-    const shifts = await api('GET', `/shifts?event_id=${eventId}`);
+    const shifts=await api('GET',`/shifts?event_id=${eventId}`);
     if(!shifts.length){showToast('Смена не создана для этого мероприятия',true);return;}
-    await openAssignModalForShift(shifts[0].id);
-  }catch(e){showToast(e.message,true);}
-}
+    document.getElementById('as-shift-id').value=shifts[0].id;
 
-async function addShiftForRole(eventId, role) {
-  const ROLE_LABELS_LOCAL = { photographer:'фотографа', admin:'АдМэна', manager:'менеджера', mentor:'наставника', helper:'помощника' };
-  const name = prompt(`Название смены для роли "${ROLE_LABELS_LOCAL[role] || role}":`, 'Дополнительная');
-  if (!name) return;
-  const start = prompt('Начало смены (HH:MM):', '10:00');
-  const end = prompt('Конец смены (HH:MM):', '20:00');
-  const req = parseInt(prompt('Сколько человек нужно:', '1') || '1', 10);
-  try {
-    await api('POST', `/events/${eventId}/shifts`, {
-      target_role: role,
-      shift_name: name,
-      start_time: start || null,
-      end_time: end || null,
-      required_count: req
-    });
-    showToast('Смена добавлена');
-    showDayEvents(currentEventDate);
-  } catch(e) { showToast(e.message, true); }
+    // Load available photographers
+    const date=shifts[0].event_date||document.getElementById('ev-date').value;
+    const available=await api('GET',`/staffing/available?date=${date}`).catch(()=>[]);
+    const sel=document.getElementById('as-photographer');
+    if(available.length){
+      sel.innerHTML=available.map(p=>`<option value="${p.id}">${esc(p.name)} ${p.attitude==='loves'?'❤️':p.attitude==='dislikes'?'✕':'✓'} (${p.shifts_this_month||0} смен)</option>`).join('');
+    }else{
+      // Fallback: all active photographers
+      const phs=await api('GET','/photographers');
+      sel.innerHTML=phs.filter(p=>p.is_active).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    }
+    document.getElementById('assign-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
 }
 
 async function assignToShift(){
