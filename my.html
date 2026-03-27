@@ -376,7 +376,7 @@ async function loadSchedulePanel(phId){
       const hl=ds===tomStr?'style="border:2px solid var(--rank2);border-radius:10px;padding:8px"':'';
       return`<div class="pay-row" ${hl}><div><b>${esc(fmtDate(ds))}</b> ${esc(r.venue_name||'')}</div><div style="font-size:11px;color:var(--text3)">${esc(fmtTime(r.staff_arrival||r.event_start||''))}</div></div>`;
     }).join('')||'<div style="color:var(--text3)">Расписание ещё не опубликовано</div>';
-    const forcedNotices=(upcoming||[]).filter(r=>r.forced&&['pending_confirmation','confirmed'].includes(r.status)).map(r=>{
+    const forcedNotices=(upcoming||[]).filter(r=>r.status==='pending_confirmation'||(r.forced&&r.status==='confirmed')).map(r=>{
       if(r.status==='pending_confirmation'){
         return `<div style="padding:8px;border:1px solid rgba(245,166,35,.45);border-radius:8px;background:rgba(245,166,35,.12);margin-bottom:6px">Вам предложена смена: ${esc(fmtDate(r.event_date))}, ${esc(r.venue_name||'')}. Пожалуйста, подтвердите или отклоните.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondUpcomingShift('${esc(r.assignment_id||'')}','accept')">✅ Подтвердить</button><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openDeclineModal('${esc(r.assignment_id||'')}','${esc(String(r.event_date||'').slice(0,10))}','${esc(r.venue_name||'')}')">❌ Отклонить</button></div></div>`;
       }
