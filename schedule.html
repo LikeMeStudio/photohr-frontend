@@ -163,8 +163,10 @@ a{color:inherit;text-decoration:none}
   </div>
   <div id="panel-2" class="sched-panel" style="display:none">
     <div class="section" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-      <select class="fselect" id="tet-city"><option value="msk">МСК</option><option value="spb">СПБ</option></select>
-      <input class="fin" type="date" id="tet-from"/> — <input class="fin" type="date" id="tet-to"/>
+      <select class="fselect" id="tet-city" onchange="renderTetris();loadPool(poolRole)"><option value="msk">МСК</option><option value="spb">СПБ</option></select>
+      <select class="fselect" id="tet-period" onchange="renderTetris();loadPool(poolRole)">
+        <option value="">Период: загрузка...</option>
+      </select>
       <button class="btn btn-primary" onclick="runAutoAssign(true)">🤖 Авто (preview)</button>
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px"><input type="checkbox" id="auto-include-without"/> Включить сотрудников без заявок</label>
       <button class="btn btn-ghost" onclick="saveSnapshot()">💾 Снимок</button>
@@ -346,6 +348,7 @@ let currentPeriodMeta=null;
 let tetrisEventsByKey={};
 let poolRole='photographer';
 let draggingPoolPhotographerId=null;
+let tetrisPeriods=[];
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
@@ -361,13 +364,14 @@ function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').repla
 function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
 function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 function fmtDateShort(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).replace('.','');}
+function periodStatusLabel(s){if(s==='open')return'открыт';if(s==='locked')return'закрыт';if(s==='paused')return'пауза';return s||'';}
 
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};
 navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('checkin','checkin.html','📍 Чекин'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 
-function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2){initTetrisDates();renderTetris();loadPool('photographer');}}
+async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2){await loadTetrisPeriods();await renderTetris();loadPool('photographer');}}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
 function setScheduleStatus(v){
@@ -838,30 +842,37 @@ async function createPeriod(){
   try{await api('POST','/availability/periods',{period_start,period_end,submit_deadline});showToast('Период создан');document.getElementById('period-modal').classList.remove('open');loadPeriodsSubs();}catch(e){showToast(e.message,true);}
 }
 
-function initTetrisDates(){const t=new Date();const a=t.toISOString().slice(0,10);const b=new Date(t.getTime()+14*864e5).toISOString().slice(0,10);document.getElementById('tet-from').value=a;document.getElementById('tet-to').value=b;}
+async function loadTetrisPeriods(){
+  const sel=document.getElementById('tet-period'); if(!sel) return;
+  try{
+    const periods=await api('GET','/availability/periods');
+    tetrisPeriods=(periods||[]).filter(p=>p.status==='open'||p.status==='locked');
+    sel.innerHTML=tetrisPeriods.map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(periodStatusLabel(p.status))})</option>`).join('')||'<option value="">Нет периодов</option>';
+  }catch{
+    tetrisPeriods=[];
+    sel.innerHTML='<option value="">Ошибка загрузки периодов</option>';
+  }
+}
+function getSelectedTetrisPeriod(){
+  const id=document.getElementById('tet-period')?.value;
+  return tetrisPeriods.find(p=>String(p.id)===String(id))||null;
+}
 
 async function renderTetris(){
-  const date_from=document.getElementById('tet-from').value;
-  const date_to=document.getElementById('tet-to').value;
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
   const city=document.getElementById('tet-city').value;
   if(!date_from||!date_to) return;
   try{
     const from=parseDateLocal(date_from), to=parseDateLocal(date_to);
     if(!from||!to||from>to){ document.getElementById('tetris-placeholder').innerHTML='<div class="loading">Некорректный период</div>'; return; }
-    const months=[]; let cur=new Date(from.getFullYear(),from.getMonth(),1);
-    const endM=new Date(to.getFullYear(),to.getMonth(),1);
-    while(cur<=endM){ months.push({m:cur.getMonth()+1,y:cur.getFullYear()}); cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
-    const byId={};
-    for(const mm of months){
-      const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
-      const data=await api('GET',`/events/calendar-data?month=${mm.m}&year=${mm.y}${cityParam}&schedule_status=confirmed`);
-      (data.events||[]).forEach(e=>{
-        const ds=String(e.event_date||'').slice(0,10);
-        if(ds<date_from||ds>date_to) return;
-        byId[e.id]=e;
-      });
-    }
-    const events=Object.values(byId);
+    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+    const data=await api('GET',`/events/calendar-data?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityParam}&schedule_status=confirmed`);
+    const events=(data.events||[]).filter(e=>{
+      const ds=String(e.event_date||'').slice(0,10);
+      return ds>=date_from&&ds<=date_to;
+    });
     tetrisEventsByKey={};
     const venues=[...new Set(events.map(e=>`${e.venue_id}__${e.venue_name||'Площадка'}`))].map(s=>({id:s.split('__')[0],name:s.split('__')[1]}));
     const days=[]; for(let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) days.push(new Date(d).toISOString().slice(0,10));
@@ -893,7 +904,9 @@ async function renderTetris(){
 
 async function loadPool(role){
   poolRole=role||'photographer';
-  const date=document.getElementById('tet-from').value;
+  const period=getSelectedTetrisPeriod();
+  const date=String(period?.period_start||'').slice(0,10);
+  if(!date){ document.getElementById('ph-pool').innerHTML='—'; return; }
   try{
     const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=${encodeURIComponent(role)}`);
     document.getElementById('ph-pool').innerHTML=(rows||[]).map(p=>`<div class="pool-ph avail" draggable="true" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}')">${esc(p.name)}</div>`).join('')||'—';
@@ -956,10 +969,12 @@ async function openTetrisCell(key){
 
 let lastAuto=null;
 async function runAutoAssign(dry){
-  const date_from=document.getElementById('tet-from').value;
-  const date_to=document.getElementById('tet-to').value;
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
   const city=document.getElementById('tet-city').value;
   const include_without_availability=!!document.getElementById('auto-include-without')?.checked;
+  if(!date_from||!date_to){ showToast('Выберите период', true); return; }
   try{
     const r=await api('POST','/staffing/auto-assign',{date_from,date_to,city,dry_run:dry,include_without_availability});
     lastAuto=r;
@@ -987,15 +1002,19 @@ async function runAutoAssign(dry){
 }
 
 async function saveSnapshot(){
-  const period_start=document.getElementById('tet-from').value;
-  const period_end=document.getElementById('tet-to').value;
+  const period=getSelectedTetrisPeriod();
+  const period_start=String(period?.period_start||'').slice(0,10);
+  const period_end=String(period?.period_end||'').slice(0,10);
   const city=document.getElementById('tet-city').value;
+  if(!period_start||!period_end){ showToast('Выберите период', true); return; }
   try{await api('POST','/schedule/snapshots',{period_start,period_end,city,action_description:'Ручной снимок'});showToast('Снимок сохранён');}catch(e){showToast(e.message,true);}
 }
 async function publishSchedule(){
-  const period_start=document.getElementById('tet-from').value;
-  const period_end=document.getElementById('tet-to').value;
+  const period=getSelectedTetrisPeriod();
+  const period_start=String(period?.period_start||'').slice(0,10);
+  const period_end=String(period?.period_end||'').slice(0,10);
   const city=document.getElementById('tet-city').value;
+  if(!period_start||!period_end){ showToast('Выберите период', true); return; }
   try{await api('POST','/schedule/publish',{period_start,period_end,city});showToast('Опубликовано');}catch(e){showToast(e.message,true);}
 }
 
