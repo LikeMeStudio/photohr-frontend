@@ -166,6 +166,7 @@ a{color:inherit;text-decoration:none}
       <select class="fselect" id="tet-city"><option value="msk">МСК</option><option value="spb">СПБ</option></select>
       <input class="fin" type="date" id="tet-from"/> — <input class="fin" type="date" id="tet-to"/>
       <button class="btn btn-primary" onclick="runAutoAssign(true)">🤖 Авто (preview)</button>
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px"><input type="checkbox" id="auto-include-without"/> Включить сотрудников без заявок</label>
       <button class="btn btn-ghost" onclick="saveSnapshot()">💾 Снимок</button>
       <button class="btn btn-ghost" onclick="publishSchedule()">✅ Опубликовать</button>
     </div>
@@ -879,7 +880,8 @@ async function renderTetris(){
           const req=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.required||0),0);
           const asg=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.assigned||0),0);
           const ok=req>0 && asg>=req;
-          return `<div class="tt-pill ${ok?'ok':'bad'}">${esc(ev.venue_name||'')}<br>${esc(poolRole)} ${asg}/${req}</div>`;
+          const firstShift=(sum||[]).find(x=>(x.role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0));
+          return `<div class="tt-pill ${ok?'ok':'bad'}" data-shift-id="${esc(firstShift?.id||'')}">${esc(ev.venue_name||'')}<br>${esc(poolRole)} ${asg}/${req}</div>`;
         }).join('');
         row+=`<td><div class="tt-drop" data-key="${key}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event,'${key}')" onclick="openTetrisCell('${key}')">${cells}</div></td>`;
       });
@@ -907,9 +909,9 @@ async function dropPoolOnCell(ev,key){
   const list=tetrisEventsByKey[key]||[];
   if(!list.length) return;
   const evItem=list[0];
-  const shift=(evItem.shifts_summary||[]).find(s=>(s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+  const shift=(evItem.shifts_summary||[]).find(s=>s.id && (s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
   if(!shift){ showToast('Нет свободной позиции для выбранной роли', true); return; }
-  await assignToShift(shift.shift_id,pid,poolRole,key);
+  await assignToShift(shift.id,pid,poolRole,key);
 }
 async function assignToShift(shiftId,photographerId,role,key){
   try{
@@ -957,14 +959,15 @@ async function runAutoAssign(dry){
   const date_from=document.getElementById('tet-from').value;
   const date_to=document.getElementById('tet-to').value;
   const city=document.getElementById('tet-city').value;
+  const include_without_availability=!!document.getElementById('auto-include-without')?.checked;
   try{
-    const r=await api('POST','/staffing/auto-assign',{date_from,date_to,city,dry_run:dry});
+    const r=await api('POST','/staffing/auto-assign',{date_from,date_to,city,dry_run:dry,include_without_availability});
     lastAuto=r;
     const el=document.getElementById('auto-body');
     const assigned=dry?(r.assignments?.length||0):(r.applied||0);
     const warn=r.warnings?.length||0;
     const miss=r.unresolved?.length||0;
-    const assignments=(r.assignments||[]).map((a,i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(fmtDate(a.date))} · ${esc(a.venue_name||'')} · ${esc(a.shift_name||'Смена')}<br><span style="color:var(--text2)">📸 ${esc(a.photographer_name||'')} (${esc(a.tier||'')})</span></div>`).join('')||'<div style="color:var(--text3)">Нет назначений</div>';
+    const assignments=(r.assignments||[]).map((a,i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(fmtDate(a.date))} · ${esc(a.venue_name||'')} · ${esc(a.shift_name||'Смена')}<br><span style="color:${a.forced?'var(--rank2)':'var(--text2)'}">${a.forced?'⚠️📸':'📸'} ${esc(a.photographer_name||'')} (${esc(a.tier||'')})${a.forced?' (без заявки)':''}</span></div>`).join('')||'<div style="color:var(--text3)">Нет назначений</div>';
     const warnings=(r.warnings||[]).map(w=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">⚠️ ${esc(w.text||'')}</div>`).join('')||'<div style="color:var(--text3)">Нет предупреждений</div>';
     const unresolved=(r.unresolved||[]).map(u=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">❌ ${esc(fmtDate(u.date))} · ${esc(u.venue_name||'')} · нужно ${Number(u.missing||0)}</div>`).join('')||'<div style="color:var(--text3)">Нет незаполненных</div>';
     const zeroHint=(dry&&assigned===0)?'<div style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);margin-bottom:8px">Нет подходящих сотрудников. Проверьте что заявки поданы и период совпадает.</div>':'';
