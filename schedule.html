@@ -27,7 +27,7 @@ a{color:inherit;text-decoration:none}
 .tabs-main{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px;flex-wrap:nowrap;overflow-x:auto}
 .tab-main{padding:8px 16px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap}
 .tab-main.active{background:var(--accent);color:#fff}
-.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer}
+.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
 .fin,.fselect{padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px}
@@ -38,7 +38,8 @@ a{color:inherit;text-decoration:none}
 .cal-cell{background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:88px;padding:6px;font-size:11px}
 .cal-cell.drop-over{border-color:var(--accent);background:var(--card-h)}
 .cal-num{font-weight:600;margin-bottom:4px}.holiday-badge{font-size:9px}
-.ev-pill{font-size:9px;padding:2px 4px;border-radius:4px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-pill{font-size:9px;padding:2px 4px;border-radius:4px;margin-bottom:2px;cursor:pointer}
+.ev-pill .ev-pill-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat-a{background:rgba(124,108,255,.2)}.cat-b{background:rgba(62,207,142,.15)}.cat-c{background:rgba(245,166,35,.12)}
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th,.tbl td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
@@ -46,17 +47,17 @@ a{color:inherit;text-decoration:none}
 .row-ok{background:rgba(62,207,142,.08)}.row-late{background:rgba(245,166,35,.1)}.row-none{background:rgba(242,85,85,.06)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
 .overlay.open{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
 .modal-title{font-family:'Unbounded',sans-serif;font-size:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
 .dr-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;color:var(--text2)}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:13px;z-index:500;opacity:0;transition:opacity .3s}
 .toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{padding:40px;text-align:center;color:var(--text3)}
 .venue-side{max-height:420px;overflow-y:auto}
 .venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:11px}
 .venue-meta{font-size:10px;color:var(--text3);margin-top:2px}
 .drag-ghost{position:fixed;pointer-events:none;z-index:9999;background:rgba(124,108,255,.2);border:1px dashed var(--accent);border-radius:8px;padding:6px 8px;font-size:11px}
-.shift-sec{padding:8px;border:1px solid var(--border);border-radius:8px;margin-top:8px}
+.shift-sec{padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
 .shift-sec.event{background:rgba(155,141,255,.08)}
 .shift-sec.photo{background:rgba(124,108,255,.08)}
 .shift-sec.admin{background:rgba(62,207,142,.08)}
@@ -70,7 +71,9 @@ a{color:inherit;text-decoration:none}
 .quick-btn{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;cursor:pointer}
 .quick-btn:hover{color:var(--text)}
 .info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.tetris-grid{overflow:auto;max-height:60vh}
+.tetris-grid{overflow:auto;max-height:60vh;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.tetris-grid::-webkit-scrollbar{width:8px;height:8px}
+.tetris-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .tetris-inner{display:grid;gap:2px;min-width:600px}
 .tetris-cell{border:1px solid var(--border);padding:4px;font-size:10px;min-height:48px;background:var(--bg3)}
 .tt-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
@@ -78,14 +81,19 @@ a{color:inherit;text-decoration:none}
 .tt-table th,.tt-table td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;vertical-align:top;font-size:11px}
 .tt-table th:first-child,.tt-table td:first-child{position:sticky;left:0;background:var(--bg2);z-index:2}
 .tt-h-day{min-width:92px;text-align:center;color:var(--text2);font-size:10px}
-.tt-venue{min-width:160px;font-weight:600}
+.tt-venue{min-width:160px;font-weight:600;font-size:11px}
 .tt-drop{min-height:62px;border:1px dashed var(--border2);border-radius:8px;padding:4px;cursor:pointer}
 .tt-drop.drop-over{border-color:var(--accent);background:rgba(124,108,255,.08)}
-.tt-empty{color:var(--text3);text-align:center;padding-top:16px}
-.tt-pill{display:block;border:1px solid var(--border);border-radius:8px;padding:3px 5px;margin-bottom:4px;background:var(--card)}
-.tt-pill.ok{border-color:rgba(62,207,142,.5);background:rgba(62,207,142,.1)}
-.tt-pill.bad{border-color:rgba(242,85,85,.5);background:rgba(242,85,85,.08)}
-.tt-pill.declined{border-color:rgba(242,85,85,.9);background:rgba(242,85,85,.18)}
+.tt-pill{display:block;border:1px solid var(--border);border-radius:8px;padding:4px 6px;margin-bottom:4px;background:var(--card);transition:filter .15s}
+.tt-pill:hover{filter:brightness(1.06)}
+.tt-vn{font-weight:600;font-size:11px;line-height:1.2}
+.tt-sm{font-size:10px;font-family:Unbounded,sans-serif;margin-top:2px}
+.tt-pill--empty{background:rgba(242,85,85,.1);border-left:3px solid var(--rank3)}
+.tt-pill--partial{background:rgba(245,166,35,.1);border-left:3px solid var(--rank2)}
+.tt-pill--full{background:rgba(62,207,142,.1);border-left:3px solid var(--rank1)}
+.tt-pill--over{background:rgba(106,166,232,.1);border-left:3px solid #6aa6e8}
+.tt-pill--declined{border-color:rgba(242,85,85,.9);background:rgba(242,85,85,.18)}
+.tt-empty{color:var(--text3);text-align:center;padding-top:16px;border:none;background:transparent}
 .auto-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
 .auto-card{border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg3);font-size:12px}
 .period-row{padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
@@ -94,6 +102,9 @@ a{color:inherit;text-decoration:none}
 .pool{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .pool-ph{padding:4px 8px;border-radius:8px;border:1px solid var(--border);font-size:11px;cursor:grab;background:var(--card)}
 .pool-ph.avail{border-color:var(--sched-free)}
+.pool-chip{display:inline-flex;align-items:center;gap:4px;max-width:220px;vertical-align:middle}
+.pool-chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.pool-tier{font-size:9px;opacity:.9;flex-shrink:0}
 .pool-city{border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:10px;background:var(--bg3)}
 .pool-city-title{font-size:12px;font-weight:600;margin-bottom:6px}
 .pool-city-list{display:flex;flex-wrap:wrap;gap:6px}
@@ -103,6 +114,34 @@ a{color:inherit;text-decoration:none}
   .tabs-main{scrollbar-width:none}
   .main{padding:12px}
 }
+.vs-wrap{font-size:12px;color:var(--text)}
+.vs-sec{margin-bottom:10px;padding:10px;border-radius:8px;border:1px solid var(--border)}
+.vs-sec-ev{background:rgba(155,141,255,.08)}
+.vs-sec-ph{background:rgba(124,108,255,.08)}
+.vs-sec-ad{background:rgba(62,207,142,.08)}
+.vs-sec-pr{background:rgba(245,166,35,.06)}
+.vs-sec-title{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.vs-sub{font-size:11px;font-weight:600;color:var(--text2);margin:6px 0 4px}
+.vs-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vs-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vs-lbl{font-size:11px;color:var(--text3);margin-bottom:2px}
+.vs-time{width:80px;padding:5px 6px;font-size:12px}
+.vs-num{width:50px;padding:5px 4px;font-size:12px}
+.vs-ph-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;font-size:12px}
+.vs-ph-row .vs-lbl{min-width:auto;margin:0}
+.vs-inline{display:inline-flex;align-items:center;gap:4px}
+.vs-hr{height:1px;background:var(--border);margin:8px 0;opacity:.7}
+.ov-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.ov-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.ov-num{font-family:Unbounded,sans-serif;font-size:24px;font-weight:700}
+.ov-muted{font-size:11px;color:var(--text3);margin-top:4px}
+.ov-bar-track{height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;margin-top:4px}
+.ov-bar-fill{height:100%;border-radius:4px;transition:width .2s}
+.ov-prob{background:rgba(242,85,85,.08);border-left:3px solid var(--rank3);padding:8px 10px;margin-bottom:6px;border-radius:0 8px 8px 0;font-size:12px}
+.ov-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.ov-tbl th,.ov-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
+.ov-tbl th{color:var(--text3);font-size:11px}
+#venue-settings-modal .modal{max-height:90vh;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -167,7 +206,7 @@ a{color:inherit;text-decoration:none}
   </div>
   <div id="panel-2" class="sched-panel" style="display:none">
     <div class="section" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-      <select class="fselect" id="tet-city" onchange="renderTetris();loadPool(poolRole)"><option value="msk">МСК</option><option value="spb">СПБ</option></select>
+      <select class="fselect" id="tet-city" onchange="renderTetris();loadPool(poolRole)"><option value="">Все города</option></select>
       <select class="fselect" id="tet-period" onchange="renderTetris();loadPool(poolRole)">
         <option value="">Период: загрузка...</option>
       </select>
@@ -182,7 +221,16 @@ a{color:inherit;text-decoration:none}
     </div>
   </div>
   <div id="panel-3" class="sched-panel" style="display:none">
-    <div class="section"><div class="section-title">Снимки расписания</div><div id="snap-list" class="loading">—</div></div>
+    <div class="section">
+      <div class="section-title">📊 Обзор расписания</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+        <span style="font-size:12px;color:var(--text2)">Период:</span>
+        <select class="fselect" id="ov-period" onchange="loadScheduleOverview()" style="font-size:12px;min-width:240px"></select>
+        <span style="font-size:12px;color:var(--text2)">Город:</span>
+        <select class="fselect" id="ov-city" onchange="loadScheduleOverview()" style="font-size:12px;min-width:160px"></select>
+      </div>
+      <div id="ov-body" class="loading">Откройте вкладку для загрузки</div>
+    </div>
   </div>
 </div>
 
@@ -354,6 +402,7 @@ let singleShiftsConfig={};
 let bulkShiftCfg={weekday:[],weekend:[]};
 let ghostEl=null;
 let venueSettingsId=null;
+let venueSettingsShiftState=null;
 let scheduleViewStatus='draft';
 let showArchivedPeriods=false;
 let currentSubmissions=[];
@@ -388,7 +437,7 @@ function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';docume
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};
 navBtns.push(a('index','index.html','Фотографы'));if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user')navBtns.push(a('team','team.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Площадка'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user']))navBtns.push(a('calendar','calendar.html','Календарь'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('checkin','checkin.html','📍 Чекин'));if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));}if(currentUser.role==='photographer_user'&&currentUser.photographer_id)navBtns.push(a('my','my.html','📷 Мой профиль'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 
-async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3)loadSnapshots();if(i===2){await loadTetrisPeriods();await renderTetris();loadPool('photographer');}}
+async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool('photographer');}}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
 function setScheduleStatus(v){
@@ -438,7 +487,9 @@ function renderCalGrid(data){
       const mReq=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.required||0),0);
       const mAsg=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.assigned||0),0);
       const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
-      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name)}"><div>${esc((e.venue_name||'').slice(0,14))}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}</div></div>`;
+      const onlyPh=aReq+mReq===0;
+      const statLine=onlyPh?`📸${pAsg}/${pReq}`:`📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}`;
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)}">${esc(statLine)}</div></div>`;
     }).join('');
     cells+=`<div class="cal-cell" data-date="${ds}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
     d++;
@@ -883,7 +934,10 @@ async function loadTetrisPeriods(){
   try{
     const periods=await api('GET','/availability/periods');
     tetrisPeriods=(periods||[]).filter(p=>p.status==='open'||p.status==='locked');
-    sel.innerHTML=tetrisPeriods.map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(periodStatusLabel(p.status))})</option>`).join('')||'<option value="">Нет периодов</option>';
+    sel.innerHTML=tetrisPeriods.map(p=>{
+      const dl=p.submit_deadline?` · дедлайн ${esc(fmtDate(String(p.submit_deadline).slice(0,10)))}`:'';
+      return`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))}${dl} (${esc(periodStatusLabel(p.status))})</option>`;
+    }).join('')||'<option value="">Нет периодов</option>';
   }catch{
     tetrisPeriods=[];
     sel.innerHTML='<option value="">Ошибка загрузки периодов</option>';
@@ -927,9 +981,15 @@ async function renderTetris(){
           const req=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.required||0),0);
           const asg=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.assigned||0),0);
           const declined=sum.filter(x=>(x.role||'photographer')===poolRole).reduce((s,x)=>s+Number(x.declined||0),0);
-          const ok=req>0 && asg>=req;
           const firstShift=(sum||[]).find(x=>(x.role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0));
-          return `<div class="tt-pill ${declined>0?'declined':(ok?'ok':'bad')}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')">${esc(ev.venue_name||'')}<br>${esc(poolRole)} ${asg}/${req}${declined>0?` · ❌${declined}`:''}</div>`;
+          let pillClass='tt-pill ';
+          if(declined>0) pillClass+='tt-pill--declined';
+          else if(!req) pillClass+='tt-pill--empty';
+          else if(asg===0) pillClass+='tt-pill--empty';
+          else if(asg<req) pillClass+='tt-pill--partial';
+          else if(asg===req) pillClass+='tt-pill--full';
+          else pillClass+='tt-pill--over';
+          return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')"><div class="tt-vn">${esc(ev.venue_name||'')}</div><div class="tt-sm">${esc(poolRole)} ${asg}/${req}${declined>0?` · ❌${declined}`:''}</div></div>`;
         }).join('');
         const firstEvent=list[0]||{};
         const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===poolRole) || {}).id || '';
@@ -949,6 +1009,13 @@ function roleBtn(cityKey, role, label){
   const active=(cityPoolRoles[cityKey]||poolRole||'photographer')===role;
   const citySafe=String(cityKey||'').replace(/'/g,"\\'");
   return `<button class="quick-btn" style="${active?'border-color:var(--accent);color:var(--text)':''}" onclick="setCityPoolRole('${citySafe}','${esc(role)}')">${label}</button>`;
+}
+function tierFromSales(score){
+  const n=Number(score);
+  if(!Number.isFinite(n)) return '🥉C';
+  if(n>=75) return '🥇A';
+  if(n>=40) return '🥈B';
+  return '🥉C';
 }
 async function loadPool(role){
   poolRole=role||poolRole||'photographer';
@@ -982,7 +1049,12 @@ async function loadPool(role){
           ${roleBtn(key,'mentor','🎓 Наставники')}
           ${roleBtn(key,'helper','🤝 Помощники')}
         </div>
-        <div class="pool-city-list">${people.map(p=>`<div class="pool-ph avail" draggable="true" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}','${esc(city)}')">${esc(p.name)}</div>`).join('')||'<span style="font-size:11px;color:var(--text3)">Нет сотрудников</span>'}</div>
+        <div class="pool-city-list">${people.map(p=>{
+          const tier=tierFromSales(p.sales_score);
+          const nm=String(p.name||'');
+          const short=nm.length>24?nm.slice(0,22)+'…':nm;
+          return`<div class="pool-ph avail pool-chip" draggable="true" title="${esc(nm+' · '+tier)}" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}','${esc(city)}')"><span class="pool-chip-name">${esc(short)}</span><span class="pool-tier">${tier}</span></div>`;
+        }).join('')||'<span style="font-size:11px;color:var(--text3)">Нет сотрудников</span>'}</div>
       </div>`;
     }).join('')||'—';
     await renderTetris();
@@ -1082,7 +1154,7 @@ async function openTetrisCell(key,eventId){
     document.getElementById('tc-body').innerHTML=details.map(x=>`
       <div class="section" style="padding:10px;margin-bottom:8px">
         <div><b>${esc(x.shift.shift_name||'Смена')}</b> · ${Number(x.shift.assigned||0)}/${Number(x.shift.required||0)}</div>
-        <div style="margin-top:6px">${x.assignments.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)}${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick="removeAssignment(${JSON.stringify(String(a.id||''))},${JSON.stringify(key)})">Снять</button></div>`).join('')||'<span style="color:var(--text3)">Нет назначений</span>'}</div>
+        <div style="margin-top:6px">${x.assignments.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)}${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick='removeAssignment(${JSON.stringify(String(a.id||''))},${JSON.stringify(key)})'>Снять</button></div>`).join('')||'<span style="color:var(--text3)">Нет назначений</span>'}</div>
       </div>`).join('');
     document.getElementById('tetris-cell-modal').classList.add('open');
   }catch(e){showToast(e.message,true);}
@@ -1139,50 +1211,292 @@ async function publishSchedule(){
   try{await api('POST','/schedule/publish',{period_start,period_end,city});showToast('Опубликовано');}catch(e){showToast(e.message,true);}
 }
 
-async function loadSnapshots(){
-  try{const rows=await api('GET','/schedule/snapshots');document.getElementById('snap-list').innerHTML=(rows||[]).map(s=>`<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">${esc(s.period_start)} — ${esc(s.period_end)} <span style="color:var(--text3)">${esc(s.created_at)}</span></div>`).join('')||'—';}catch(e){document.getElementById('snap-list').innerHTML=esc(e.message);}
+function initOvCityFilter(){
+  const sel=document.getElementById('ov-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=(current&&cities.includes(current))?current:'';
+}
+function getSelectedOvPeriod(){
+  const id=document.getElementById('ov-period')?.value;
+  return tetrisPeriods.find(p=>String(p.id)===String(id))||tetrisPeriods[0]||null;
+}
+function ovBarColor(pct){if(pct<50)return'var(--rank3)';if(pct<=90)return'var(--rank2)';return'var(--rank1)';}
+async function loadScheduleOverview(){
+  const body=document.getElementById('ov-body');
+  if(!body)return;
+  if(!tetrisPeriods.length) await loadTetrisPeriods();
+  const ovPeriod=document.getElementById('ov-period');
+  if(ovPeriod&&!ovPeriod.dataset.filled){
+    ovPeriod.innerHTML=tetrisPeriods.map(p=>{
+      const dl=p.submit_deadline?` · дедлайн ${esc(fmtDate(String(p.submit_deadline).slice(0,10)))}`:'';
+      return`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))}${dl} (${esc(periodStatusLabel(p.status))})</option>`;
+    }).join('')||'<option value="">Нет периодов</option>';
+    ovPeriod.dataset.filled='1';
+  }
+  initOvCityFilter();
+  const period=getSelectedOvPeriod();
+  const from=String(period?.period_start||'').slice(0,10);
+  const to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('ov-city')?.value||'';
+  if(!from||!to){
+    body.innerHTML='<div style="color:var(--text3);font-size:13px">Нет периода для аналитики</div>';
+    return;
+  }
+  body.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    const [ov, snaps]=await Promise.all([
+      api('GET',`/schedule/overview?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${city?`&city=${encodeURIComponent(city)}`:''}`),
+      api('GET',`/schedule/snapshots${city?`?city=${encodeURIComponent(city)}`:''}`).catch(()=>[]),
+    ]);
+    const s=ov.summary||{};
+    const fill=Number(s.fill_rate||0);
+    const summaryHtml=`<div class="section-title" style="margin-top:0">Сводка</div>
+      <div class="ov-summary">
+        <div class="ov-card"><div class="ov-num">${esc(String(s.events??0))}</div><div class="ov-muted">мероприятий</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(s.venues??0))}</div><div class="ov-muted">площадок</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(fill))}%</div><div class="ov-muted">заполненность</div></div>
+      </div>`;
+    const venues=(ov.venue_stats||[]).map(v=>{
+      const req=parseInt(v.required||0,10)||0;
+      const asg=parseInt(v.assigned||0,10)||0;
+      const pct=req>0?Math.min(100,Math.round(asg/Math.max(1,req)*100)):0;
+      const col=ovBarColor(pct);
+      return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;gap:8px"><span>${esc(v.name||'')}</span><span style="color:var(--text3);white-space:nowrap">${pct}% (${asg}/${req>0?req:'0'} смен)</span></div><div class="ov-bar-track"><div class="ov-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>`;
+    }).join('')||'<div style="color:var(--text3);font-size:12px">Нет данных по площадкам</div>';
+    const phRows=(ov.photographer_stats||[]).map(p=>{
+      const sub=p.submitted_at?'✓':'—';
+      return`<tr><td>${esc(p.name||'')}</td><td style="text-align:center">${esc(String(p.assigned_shifts??0))}</td><td style="text-align:center">${sub}</td></tr>`;
+    }).join('');
+    const phHtml=`<div class="section-title" style="margin-top:14px">Загрузка фотографов</div>
+      <table class="ov-tbl"><thead><tr><th>Фотограф</th><th>Смен</th><th>Подана</th></tr></thead><tbody>${phRows||'<tr><td colspan="3" style="color:var(--text3)">Нет данных</td></tr>'}</tbody></table>`;
+    const probHtml=(ov.problems||[]).map(pr=>{
+      if(pr.type==='understaffed') return`<div class="ov-prob">🔴 ${esc(String(pr.count))} площадки с недобором фотографов</div>`;
+      if(pr.type==='forced') return`<div class="ov-prob">⚠️ ${esc(String(pr.count))} принудительных назначений (без заявки)</div>`;
+      if(pr.type==='declined') return`<div class="ov-prob">❌ ${esc(String(pr.count))} отклонённых смен</div>`;
+      return'';
+    }).join('');
+    const snapRows=(snaps||[]).map(s=>{
+      const dt=s.created_at?new Date(s.created_at).toLocaleString('ru-RU'):'—';
+      const who=esc(s.created_by_name||s.action_description||'');
+      return`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">${esc(fmtDate(s.period_start))} — ${esc(fmtDate(s.period_end))} · ${dt}${who?` · ${who}`:''}</div>`;
+    }).join('')||'<div style="color:var(--text3);font-size:12px">Нет снимков</div>';
+    body.innerHTML=summaryHtml+`<div class="section-title" style="margin-top:14px">Загрузка площадок</div>`+venues
+      +phHtml+`<div class="section-title" style="margin-top:14px">Проблемы</div>`+(probHtml||'<div style="color:var(--text3);font-size:12px">Проблем не найдено</div>')
+      +`<div class="section-title" style="margin-top:14px">История снимков</div>`+snapRows;
+  }catch(e){ body.innerHTML=`<div style="color:var(--rank3);font-size:13px">${esc(e.message)}</div>`; }
+}
+
+function vsClone(o){return JSON.parse(JSON.stringify(o));}
+function vsKindKey(kind){return kind==='holiday'?'holiday':kind==='weekend'?'weekend':'weekday';}
+function vsDayTypeForKind(kind){return kind==='holiday'?'holiday':kind==='weekend'?'weekend':'weekday';}
+function vsInitSlotFromCfg(cfg,def){
+  const ph=(cfg.photographer&&cfg.photographer.length)?vsClone(cfg.photographer):[{name:'Смена 1',start:def.staff_arrival||'09:30',end:def.event_end||'20:00',required_count:def.required_photographers||1}];
+  const ad=(cfg.admin&&cfg.admin.length)?vsClone(cfg.admin):[{name:'Админ',start:def.admin_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
+  const mg=(cfg.manager&&cfg.manager.length)?vsClone(cfg.manager):[{name:'Менеджер',start:def.manager_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
+  return{photographer:ph,admin:ad,manager:mg,mentor:[...(cfg.mentor||[])],helper:[...(cfg.helper||[])]};
+}
+function vsBuildDefaultShiftsPayload(slot){
+  return{photographer:(slot.photographer||[]).map((r,i)=>({name:r.name||`Смена ${i+1}`,start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    admin:(slot.admin||[]).map((r,i)=>({name:r.name||'Админ',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    manager:(slot.manager||[]).map((r,i)=>({name:r.name||'Менеджер',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    mentor:slot.mentor||[],helper:slot.helper||[]};
+}
+function vsCfgEqual(a,b){return JSON.stringify(vsBuildDefaultShiftsPayload(a))===JSON.stringify(vsBuildDefaultShiftsPayload(b));}
+function vsRenderPhSections(){
+  if(!venueSettingsShiftState)return;
+  ['weekday','weekend','holiday'].forEach((kind)=>{
+    const el=document.getElementById('vs-ph-'+kind+'-body'); if(!el)return;
+    const slot=venueSettingsShiftState[vsKindKey(kind)];
+    const rows=slot.photographer;
+    el.innerHTML=rows.map((r,i)=>`<div class="vs-ph-row"><span class="vs-lbl">Смена ${i+1}:</span><span class="vs-inline"><span class="vs-lbl">с</span><input class="fin vs-time" type="time" value="${esc(r.start||'')}" onchange="vsSetPhField('${kind}',${i},'start',this.value)"></span><span class="vs-inline">—<input class="fin vs-time" type="time" value="${esc(r.end||'')}" onchange="vsSetPhField('${kind}',${i},'end',this.value)"></span><span class="vs-inline"><span class="vs-lbl">Нужно:</span><input class="fin vs-num" type="number" min="1" value="${Number(r.required_count)||1}" onchange="vsSetPhField('${kind}',${i},'required_count',this.value)"></span><button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:11px" onclick="vsRemovePhShift('${kind}',${i})">✕</button></div>`).join('');
+  });
+}
+function vsSetPhField(kind,idx,field,val){
+  const k=vsKindKey(kind);
+  const row=venueSettingsShiftState[k].photographer[idx];
+  if(!row)return;
+  if(field==='required_count') row.required_count=parseInt(val,10)||1;
+  else row[field]=val;
+}
+function vsAddPhShift(kind){
+  const k=vsKindKey(kind);
+  const v=getVenueById(venueSettingsId);
+  const def=v?getVenueDefaults(v,vsDayTypeForKind(kind)):{staff_arrival:'09:30',event_end:'20:00'};
+  const n=venueSettingsShiftState[k].photographer.length+1;
+  venueSettingsShiftState[k].photographer.push({name:`Смена ${n}`,start:def.staff_arrival||'09:30',end:def.event_end||'20:00',required_count:1});
+  vsRenderPhSections();
+}
+function vsRemovePhShift(kind,idx){
+  const k=vsKindKey(kind);
+  const rows=venueSettingsShiftState[k].photographer;
+  if(rows.length<=1)return;
+  rows.splice(idx,1);
+  vsRenderPhSections();
+}
+function vsSetAdField(kind,role,idx,field,val){
+  const k=vsKindKey(kind);
+  const arr=venueSettingsShiftState[k][role];
+  if(!arr||!arr[idx])return;
+  if(field==='required_count') arr[idx].required_count=parseInt(val,10)||1;
+  else arr[idx][field]=val;
 }
 
 function openVenueSettings(venueId){
   const v=getVenueById(venueId); if(!v) return;
   venueSettingsId=venueId;
-  document.getElementById('vs-title').textContent=`Настройки: ${v.name}`;
-  const cfg=normalizeCfg(v.default_shifts)||{};
+  const base=normalizeCfg(v.default_shifts)||{};
+  const wdCfg=normalizeCfg(v.default_shifts_weekday)||base;
+  const weCfg=normalizeCfg(v.default_shifts_weekend)||base;
+  const holCfg=normalizeCfg(v.default_shifts_holiday)||base;
+  const defWd=getVenueDefaults(v,'weekday');
+  const defWe=getVenueDefaults(v,'weekend');
+  const defHol=getVenueDefaults(v,'holiday');
+  venueSettingsShiftState={
+    weekday:vsInitSlotFromCfg(wdCfg,defWd),
+    weekend:vsInitSlotFromCfg(weCfg,defWe),
+    holiday:vsInitSlotFromCfg(holCfg,defHol),
+  };
   const tw=normalizeCfg(v.times_weekday)||{};
   const tww=normalizeCfg(v.times_weekend)||{};
   const th=normalizeCfg(v.times_holiday)||{};
-  document.getElementById('vs-body').innerHTML=`
-    <div class="section-title">Мероприятие</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-      <input class="fin" id="vs-wd-start" type="time" value="${tw.event_start||''}" placeholder="Будни начало">
-      <input class="fin" id="vs-we-start" type="time" value="${tww.event_start||''}" placeholder="Выходные начало">
-      <input class="fin" id="vs-h-start" type="time" value="${th.event_start||''}" placeholder="Праздники начало">
+  const smin=normalizeCfg(v.staffing_min)||{};
+  const smax=normalizeCfg(v.staffing_max)||{};
+  const swd=normalizeCfg(v.staffing_weekday)||{};
+  const pr=Number(v.priority_level??2);
+  const diff=String(v.difficulty||'normal');
+  document.getElementById('vs-title').textContent=`Настройки: ${v.name}`;
+  document.getElementById('vs-body').innerHTML=`<div class="vs-wrap">
+<div class="vs-sec vs-sec-ev">
+  <div class="vs-sec-title">🎭 Мероприятие</div>
+  <div class="vs-grid3">
+    <div><div class="vs-sub">Будни</div>
+      <div class="vs-lbl">Гости</div><input class="fin vs-time" id="vs-ev-wd-g" type="time" value="${esc(tw.guest_start||defWd.guest_start||'')}" />
+      <div class="vs-lbl">Начало</div><input class="fin vs-time" id="vs-ev-wd-ev" type="time" value="${esc(tw.event_start||defWd.event_start||'')}" />
+      <div class="vs-lbl">Конец</div><input class="fin vs-time" id="vs-ev-wd-en" type="time" value="${esc(tw.event_end||defWd.event_end||'')}" />
     </div>
-    <div class="section-title" style="margin-top:8px">Смены фотографов (JSON)</div>
-    <textarea class="fin" id="vs-default-shifts" style="width:100%;height:180px">${esc(JSON.stringify(cfg,null,2))}</textarea>
-  `;
+    <div><div class="vs-sub">Выходные</div>
+      <div class="vs-lbl">Гости</div><input class="fin vs-time" id="vs-ev-we-g" type="time" value="${esc(tww.guest_start||defWe.guest_start||'')}" />
+      <div class="vs-lbl">Начало</div><input class="fin vs-time" id="vs-ev-we-ev" type="time" value="${esc(tww.event_start||defWe.event_start||'')}" />
+      <div class="vs-lbl">Конец</div><input class="fin vs-time" id="vs-ev-we-en" type="time" value="${esc(tww.event_end||defWe.event_end||'')}" />
+    </div>
+    <div><div class="vs-sub">Праздники</div>
+      <div class="vs-lbl">Гости</div><input class="fin vs-time" id="vs-ev-h-g" type="time" value="${esc(th.guest_start||defHol.guest_start||'')}" />
+      <div class="vs-lbl">Начало</div><input class="fin vs-time" id="vs-ev-h-ev" type="time" value="${esc(th.event_start||defHol.event_start||'')}" />
+      <div class="vs-lbl">Конец</div><input class="fin vs-time" id="vs-ev-h-en" type="time" value="${esc(th.event_end||defHol.event_end||'')}" />
+    </div>
+  </div>
+</div>
+<div class="vs-sec vs-sec-ph">
+  <div class="vs-sec-title">📸 Смены фотографов</div>
+  <div class="vs-sub">Будни</div><div id="vs-ph-weekday-body"></div>
+  <button type="button" class="btn btn-ghost" style="font-size:11px;margin:4px 0 8px" onclick="vsAddPhShift('weekday')">+ Добавить смену</button>
+  <div class="vs-hr"></div>
+  <div class="vs-sub">Выходные</div><div id="vs-ph-weekend-body"></div>
+  <button type="button" class="btn btn-ghost" style="font-size:11px;margin:4px 0 8px" onclick="vsAddPhShift('weekend')">+ Добавить смену</button>
+  <div class="vs-hr"></div>
+  <div class="vs-sub">Праздники</div><div id="vs-ph-holiday-body"></div>
+  <button type="button" class="btn btn-ghost" style="font-size:11px;margin-top:4px" onclick="vsAddPhShift('holiday')">+ Добавить смену</button>
+</div>
+<div class="vs-sec vs-sec-ad">
+  <div class="vs-sec-title">👔 АдМэны</div>
+  <div class="vs-grid3">
+    ${['weekday','weekend','holiday'].map((kind)=>{
+      const slot=venueSettingsShiftState[vsKindKey(kind)];
+      const a=slot.admin[0]||{start:'09:30',end:'22:00',required_count:1};
+      const m=slot.manager[0]||{start:'09:30',end:'22:00',required_count:1};
+      const lab=kind==='weekday'?'Будни':kind==='weekend'?'Выходные':'Праздники';
+      return`<div><div class="vs-sub">${lab}</div>
+        <div class="vs-ph-row"><span class="vs-lbl">Адм</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','admin',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','admin',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','admin',0,'required_count',this.value)"></div>
+        <div class="vs-ph-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
+      </div>`;
+    }).join('')}
+  </div>
+</div>
+<div class="vs-sec vs-sec-pr">
+  <div class="vs-sec-title">⚙️ Параметры</div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+    <span class="vs-lbl">Приоритет:</span>
+    <select class="fselect" id="vs-priority" style="font-size:12px">
+      <option value="1" ${pr===1?'selected':''}>1 · высокий</option>
+      <option value="2" ${pr===2?'selected':''}>2 · стандартный</option>
+      <option value="3" ${pr===3?'selected':''}>3 · низкий</option>
+    </select>
+    <span class="vs-lbl">Тяжёлость:</span>
+    <select class="fselect" id="vs-difficulty" style="font-size:12px">
+      <option value="easy" ${diff==='easy'?'selected':''}>Лёгкая</option>
+      <option value="normal" ${diff==='normal'?'selected':''}>Обычная</option>
+      <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
+    </select>
+    <span class="vs-lbl">Город:</span><input class="fin" id="vs-city" style="width:120px;font-size:12px" value="${esc(v.city||'')}" />
+    <span class="vs-lbl">Категория:</span><input class="fin" id="vs-category" style="width:140px;font-size:12px" value="${esc(v.category||'')}" />
+  </div>
+</div>
+<div class="vs-sec">
+  <div class="vs-sec-title">📊 Штатное min / plan / max</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12px">
+    <div>Фотографы: min <input class="fin vs-num" id="vs-st-ph-min" type="number" min="0" value="${Number(smin.photographers??1)}"> plan <input class="fin vs-num" id="vs-st-ph-plan" type="number" min="0" value="${Number(swd.photographers??3)}"> max <input class="fin vs-num" id="vs-st-ph-max" type="number" min="0" value="${Number(smax.photographers??5)}"></div>
+    <div>Операторы: min <input class="fin vs-num" id="vs-st-op-min" type="number" min="0" value="${Number(smin.operators??1)}"> plan <input class="fin vs-num" id="vs-st-op-plan" type="number" min="0" value="${Number(swd.operators??1)}"> max <input class="fin vs-num" id="vs-st-op-max" type="number" min="0" value="${Number(smax.operators??2)}"></div>
+  </div>
+</div>
+</div>`;
+  vsRenderPhSections();
   document.getElementById('venue-settings-modal').classList.add('open');
 }
 
 async function saveVenueSettings(){
-  if(!venueSettingsId) return;
+  if(!venueSettingsId||!venueSettingsShiftState) return;
   try{
-    let cfg={};
-    try{ cfg=JSON.parse(document.getElementById('vs-default-shifts').value||'{}'); }catch{ throw new Error('Некорректный JSON в конфиге смен'); }
     const v=getVenueById(venueSettingsId)||{};
-    const tw={...(normalizeCfg(v.times_weekday)||{}),event_start:document.getElementById('vs-wd-start').value||null};
-    const te={...(normalizeCfg(v.times_weekend)||{}),event_start:document.getElementById('vs-we-start').value||null};
-    const th={...(normalizeCfg(v.times_holiday)||{}),event_start:document.getElementById('vs-h-start').value||null};
-    await api('PATCH',`/venues/${venueSettingsId}`,{
-      default_shifts:cfg,
-      default_shifts_weekend:cfg,
-      default_shifts_holiday:cfg,
-      times_weekday:tw,
-      times_weekend:te,
-      times_holiday:th,
-    });
+    const g=id=>document.getElementById(id)?.value||null;
+    const tw={...(normalizeCfg(v.times_weekday)||{}),guest_start:g('vs-ev-wd-g')||null,event_start:g('vs-ev-wd-ev')||null,event_end:g('vs-ev-wd-en')||null,
+      admin_arrival:(venueSettingsShiftState.weekday.admin[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekday.manager[0]||{}).start||null};
+    const tww={...(normalizeCfg(v.times_weekend)||{}),guest_start:g('vs-ev-we-g')||null,event_start:g('vs-ev-we-ev')||null,event_end:g('vs-ev-we-en')||null,
+      admin_arrival:(venueSettingsShiftState.weekend.admin[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekend.manager[0]||{}).start||null};
+    const th={...(normalizeCfg(v.times_holiday)||{}),guest_start:g('vs-ev-h-g')||null,event_start:g('vs-ev-h-ev')||null,event_end:g('vs-ev-h-en')||null,
+      admin_arrival:(venueSettingsShiftState.holiday.admin[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.holiday.manager[0]||{}).start||null};
+    const wd=vsBuildDefaultShiftsPayload(venueSettingsShiftState.weekday);
+    const we=vsBuildDefaultShiftsPayload(venueSettingsShiftState.weekend);
+    const hol=vsBuildDefaultShiftsPayload(venueSettingsShiftState.holiday);
+    const weekendOut=vsCfgEqual(venueSettingsShiftState.weekday,venueSettingsShiftState.weekend)?null:we;
+    const holidayOut=vsCfgEqual(venueSettingsShiftState.weekend,venueSettingsShiftState.holiday)?null:hol;
+    const sminRaw=normalizeCfg(v.staffing_min)||{};
+    const smaxRaw=normalizeCfg(v.staffing_max)||{};
+    const staffing_min={
+      photographers:parseInt(document.getElementById('vs-st-ph-min')?.value||'1',10)||0,
+      operators:parseInt(document.getElementById('vs-st-op-min')?.value||'1',10)||0,
+      managers:Number(sminRaw.managers??1),mentors:Number(sminRaw.mentors??0),
+    };
+    const staffing_max={
+      photographers:parseInt(document.getElementById('vs-st-ph-max')?.value||'5',10)||0,
+      operators:parseInt(document.getElementById('vs-st-op-max')?.value||'2',10)||0,
+      managers:Number(smaxRaw.managers??2),mentors:Number(smaxRaw.mentors??1),
+    };
+    const staffing_weekday={
+      photographers:parseInt(document.getElementById('vs-st-ph-plan')?.value||'3',10)||0,
+      operators:parseInt(document.getElementById('vs-st-op-plan')?.value||'1',10)||0,
+      managers:Number((normalizeCfg(v.staffing_weekday)||{}).managers??1),
+      mentors:Number((normalizeCfg(v.staffing_weekday)||{}).mentors??0),
+    };
+    const payload={
+      default_shifts:wd,
+      default_shifts_weekday:wd,
+      default_shifts_weekend:weekendOut,
+      default_shifts_holiday:holidayOut,
+      times_weekday:tw,times_weekend:tww,times_holiday:th,
+      staffing_min,staffing_max,staffing_weekday,
+      priority_level:parseInt(document.getElementById('vs-priority')?.value||'2',10)||2,
+      difficulty:document.getElementById('vs-difficulty')?.value||'normal',
+      city:(document.getElementById('vs-city')?.value||'').trim(),
+      category:(document.getElementById('vs-category')?.value||'').trim(),
+    };
+    await api('PATCH',`/venues/${venueSettingsId}`,payload);
     showToast('Настройки площадки сохранены');
     document.getElementById('venue-settings-modal').classList.remove('open');
+    venueSettingsShiftState=null;
     venuesList=await api('GET','/venues');
     initPeriodCityFilter();
     filterVenueList();
