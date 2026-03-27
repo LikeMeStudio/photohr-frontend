@@ -331,14 +331,14 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
-<div class="overlay" id="force-assign-modal" onclick="if(event.target===this)closeForceAssignModal('cancel')">
+<div class="overlay" id="force-assign-modal">
 <div class="modal" style="max-width:620px">
-  <div class="modal-title"><span>Назначение без заявки</span><button class="dr-close" onclick="closeForceAssignModal('cancel')">×</button></div>
+  <div class="modal-title"><span>Назначение без заявки</span><button type="button" class="dr-close" data-force-choice="cancel">×</button></div>
   <div id="force-assign-body" style="font-size:13px;color:var(--text2);line-height:1.45">—</div>
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-    <button class="btn btn-ghost" onclick="closeForceAssignModal('cancel')">Отмена</button>
-    <button class="btn btn-ghost" onclick="closeForceAssignModal('pending_confirmation')">📩 Предложить смену</button>
-    <button class="btn btn-primary" onclick="closeForceAssignModal('confirmed')">⚡ Назначить обязательно</button>
+    <button type="button" class="btn btn-ghost" data-force-choice="cancel">Отмена</button>
+    <button type="button" class="btn btn-ghost" data-force-choice="pending_confirmation">📩 Предложить смену</button>
+    <button type="button" class="btn btn-primary" data-force-choice="confirmed">⚡ Назначить обязательно</button>
   </div>
 </div>
 </div>
@@ -374,7 +374,7 @@ const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
 async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);
 if(r.status===401&&refreshToken){try{if(!refreshLock){refreshLock=(async()=>{const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});if(!rr.ok)throw new Error('x');const d=await rr.json();accessToken=d.accessToken;refreshToken=d.refreshToken;localStorage.setItem('fhr_refresh',refreshToken);localStorage.setItem('fhr_access',accessToken);})();}await refreshLock;o.headers['Authorization']=`Bearer ${accessToken}`;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}
-if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
+if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));const err=new Error(e.error||'Ошибка');err.status=r.status;err.body=e;throw err;}return r.json();}
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1013,6 +1013,15 @@ function closeForceAssignModal(choice){
   document.getElementById('force-assign-modal')?.classList.remove('open');
   if(forceAssignResolver){ const r=forceAssignResolver; forceAssignResolver=null; r(choice||'cancel'); }
 }
+(function setupForceAssignModal(){
+  const el=document.getElementById('force-assign-modal');
+  if(!el) return;
+  el.addEventListener('click', function(ev){
+    if(ev.target===el){ closeForceAssignModal('cancel'); return; }
+    const btn=ev.target.closest('[data-force-choice]');
+    if(btn){ ev.preventDefault(); closeForceAssignModal(btn.getAttribute('data-force-choice')||'cancel'); }
+  });
+})();
 function chooseForceAssignOption(ctx){
   const body=document.getElementById('force-assign-body');
   if(body){
@@ -1024,16 +1033,28 @@ function chooseForceAssignOption(ctx){
   document.getElementById('force-assign-modal')?.classList.add('open');
   return new Promise(resolve=>{ forceAssignResolver=resolve; });
 }
+function needsForceAssignmentError(e){
+  if(e&&e.body&&e.body.requires_force===true) return true;
+  const msg=String(e&&e.message||'');
+  return msg.includes('requires_force')||msg.includes('принудительное');
+}
 async function assignToShift(shiftId,photographerId,role,key,photographerName){
+  const sid=shiftId!=null&&shiftId!==''?String(shiftId):'';
+  const pid=photographerId!=null&&photographerId!==''?String(photographerId):'';
+  if(!sid||!pid){ showToast('Не удалось определить смену или сотрудника (shift_id / photographer_id). Повторите перетаскивание.',true); return; }
+  const roleInShift=role||'photographer';
   try{
-    await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role});
+    await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift});
     showToast('Назначено');
   }catch(e){
-    if(String(e.message||'').includes('requires_force')||String(e.message||'').includes('принудительное')){
+    if(needsForceAssignmentError(e)){
       const forceStatus=await chooseForceAssignOption({name:photographerName||'Сотрудник',date:(key||'').split('|')[1]||''});
       if(forceStatus==='cancel') return;
-      await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:photographerId,role_in_shift:role,force:true,force_status:forceStatus});
-      showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
+      console.log('force assign:',{shiftId:sid,photographerId:pid,forceStatus,role:roleInShift});
+      try{
+        await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift,force:true,force_status:forceStatus});
+        showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
+      }catch(e2){ showToast(e2.message||'Ошибка назначения',true); return; }
     }else{ showToast(e.message,true); return; }
   }
   await loadPool(poolRole);
