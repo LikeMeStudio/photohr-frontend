@@ -893,6 +893,7 @@ const canMentorshipHR = () => hasAnyRole(['hr_director', 'exec_director', 'admin
 function getDrawerTabIndices() {
   const idx = { info: 0, comments: 1 };
   let n = 2;
+  idx.shifts = n++;
   if (can('admin')) { idx.history = n++; }
   idx.mentorship = n++;
   idx.achievements = n++;
@@ -2540,6 +2541,7 @@ function closeDrawer(){
 function buildTabs(ph){
   const tabs = [{ label:'📋 Информация' }];
   tabs.push({ label:'💬 Комментарии' });
+  tabs.push({ label:'📅 Смены' });
   if(can('admin')) tabs.push({ label:'📜 История' });
   tabs.push({ label:'👥 Кураторство' });
   tabs.push({ label:'🏆 Достижения' });
@@ -2561,11 +2563,48 @@ function renderTab(ph){
   const T = getDrawerTabIndices();
   if(currentTab===T.info) content.innerHTML = renderInfoTab(ph);
   else if(currentTab===T.comments) content.innerHTML = renderCommentsTab(ph);
+  else if(currentTab===T.shifts) { renderShiftsTab(ph, content); return; }
   else if(T.history !== undefined && currentTab===T.history) content.innerHTML = renderHistoryTab(ph);
   else if(T.mentorship !== undefined && currentTab===T.mentorship) { renderMentorshipTab(ph, content); return; }
   else if(currentTab===T.achievements) { renderAchievementsTab(ph, content); return; }
   if(currentTab===T.info && canEditCard()) setupInfoEvents();
   if(currentTab===T.comments) setupCommentEvents(ph.id);
+}
+
+async function renderShiftsTab(ph, content) {
+  content.innerHTML = '<div style="padding:20px;color:var(--text3)">Загрузка…</div>';
+  try {
+    const rows = await api('GET', `/shift-assignment-history?photographer_id=${encodeURIComponent(ph.id)}`);
+    const actionRu = (a) => ({
+      assigned: 'Назначение',
+      reassign_after_decline: 'Повторное назначение',
+      forced_confirm: 'Подтверждение HR',
+      accept: 'Подтверждение сотрудником',
+      decline: 'Отклонение',
+      deleted: 'Снято',
+      cancelled: 'Отменено'
+    }[a] || a);
+    const lines = (rows || []).map((h) => {
+      const dt = h.event_date ? new Date(h.event_date).toLocaleDateString('ru-RU') : '—';
+      const when = h.created_at ? new Date(h.created_at).toLocaleString('ru-RU') : '';
+      const ven = esc(h.venue_name || '');
+      const st = [h.old_status, h.new_status].filter(Boolean).join(' → ');
+      const dec = (h.action === 'decline' || h.action === 'reassign_after_decline') && (h.decline_reason || h.decline_comment)
+        ? `<div style="font-size:11px;color:var(--text2);margin-top:4px">${esc(h.decline_reason || '')}${h.decline_comment ? ` · «${esc(h.decline_comment)}»` : ''}</div>`
+        : '';
+      return `<div style="padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg3)">
+        <div style="font-size:12px;font-weight:600">${esc(actionRu(h.action))}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${dt}${ven ? ' · ' + ven : ''}${h.shift_name ? ' · ' + esc(h.shift_name) : ''}</div>
+        ${st ? `<div style="font-size:11px;margin-top:4px">${esc(st)}</div>` : ''}
+        ${dec}
+        <div style="font-size:10px;color:var(--text3);margin-top:6px">${esc(when)}</div>
+      </div>`;
+    }).join('');
+    content.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:12px">История изменений назначений и ответов по сменам.</div>
+      ${lines || '<div style="color:var(--text3)">Пока нет записей</div>'}`;
+  } catch (e) {
+    content.innerHTML = `<div style="color:var(--rank3);font-size:13px">${esc(e.message || 'Ошибка')}</div>`;
+  }
 }
 
 function renderInfoTab(ph){

@@ -407,7 +407,8 @@ async function loadSchedulePanel(phId){
         <div style="font-size:12px;margin-bottom:6px">✓ Могу: ${cans.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
         <div style="font-size:12px">✕ Не люблю: ${disLimited.map(v=>esc(v.venue_name)).join(', ')||'—'}${dis.length>3?` <span style="color:var(--text3)">(+${dis.length-3})</span>`:''}</div>
         <div style="margin-top:8px;font-size:11px;color:var(--text3)">Редактирование — в карточке сотрудника (Фотографы)</div>
-      </div>`;
+      </div>
+      <div class="section"><div class="section-title">История смен</div><div id="my-shift-history" style="font-size:12px;color:var(--text3)">Загрузка…</div></div>`;
     availEditor={period:st||null,entries:{},payScheme:ph.pay_scheme||'standard',submitted:!!st?.submitted,photographerId:phId,selectedDate:null};
     if(st?.period_status==='paused'){
       const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Приём заявок приостановлен. Ожидайте.</div>';
@@ -425,6 +426,22 @@ async function loadSchedulePanel(phId){
     } else {
       const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Открытого периода для подачи нет.</div>';
     }
+    (async ()=>{
+      const hold=document.getElementById('my-shift-history');
+      if(!hold) return;
+      try{
+        const hist=await api('GET',`/shift-assignment-history?photographer_id=${encodeURIComponent(phId)}`);
+        const actionRu=(a)=>({assigned:'Назначение',reassign_after_decline:'Повторное назначение',forced_confirm:'Подтверждение HR',accept:'Подтвердил смену',decline:'Отклонил',deleted:'Снято',cancelled:'Отменено'}[a]||a);
+        hold.innerHTML=(hist||[]).length?(hist||[]).map(h=>{
+          const dt=h.event_date?new Date(h.event_date).toLocaleDateString('ru-RU'):'—';
+          const when=h.created_at?new Date(h.created_at).toLocaleString('ru-RU'):'';
+          const ven=esc(h.venue_name||'');
+          const st=[h.old_status,h.new_status].filter(Boolean).join(' → ');
+          const dec=(h.action==='decline'||h.action==='reassign_after_decline')&&(h.decline_reason||h.decline_comment)?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${esc(h.decline_reason||'')}${h.decline_comment?` · «${esc(h.decline_comment)}»`:''}</div>`:'';
+          return`<div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg3)"><div style="font-weight:600">${esc(actionRu(h.action))}</div><div style="font-size:11px;color:var(--text3)">${dt}${ven?' · '+ven:''}</div>${st?`<div style="font-size:11px;margin-top:4px">${esc(st)}</div>`:''}${dec}<div style="font-size:10px;color:var(--text3);margin-top:4px">${esc(when)}</div></div>`;
+        }).join(''):'<span style="color:var(--text3)">Пока нет записей</span>';
+      }catch(e){ hold.innerHTML='<span style="color:var(--rank3)">'+esc(e.message)+'</span>'; }
+    })();
   }catch(e){box.innerHTML='<div class="loading" style="color:var(--rank3)">'+esc(e.message)+'</div>';}
 }
 
