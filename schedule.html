@@ -77,8 +77,8 @@ a{color:inherit;text-decoration:none}
 .tetris-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .tetris-inner{display:grid;gap:2px;min-width:600px}
 .tetris-cell{border:1px solid var(--border);padding:3px;font-size:9px;min-height:40px;background:var(--bg3)}
-.tt-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
-.tt-table{border-collapse:separate;border-spacing:0;min-width:900px;width:max-content}
+.tt-wrap{padding:0;margin:0;width:100%;overflow:auto;border:1px solid var(--border);border-radius:10px}
+.tt-table{border-collapse:separate;border-spacing:0;min-width:900px;width:100%;max-width:100%}
 .tt-table th,.tt-table td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;vertical-align:top;font-size:11px}
 .tt-table th:first-child,.tt-table td:first-child{position:sticky;left:0;background:var(--bg2);z-index:2}
 .tt-h-day{min-width:60px;max-width:80px;text-align:center;color:var(--text2);font-size:9px;padding:3px 2px;white-space:nowrap}
@@ -111,8 +111,8 @@ a{color:inherit;text-decoration:none}
 .pool-city{border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:10px;background:var(--bg3)}
 .pool-city-title{font-size:12px;font-weight:600;margin-bottom:6px}
 .pool-city-list{display:flex;flex-wrap:wrap;gap:6px}
-.sm-wrap{overflow:auto;max-height:65vh;position:relative;border:1px solid var(--border);border-radius:10px;scrollbar-width:thin}
-.sm-table{width:100%;border-collapse:separate;border-spacing:0;font-size:10px;min-width:max(100%,600px)}
+.sm-wrap{padding:0;margin:0;width:100%;overflow:auto;max-height:65vh;position:relative;border:1px solid var(--border);border-radius:10px;scrollbar-width:thin}
+.sm-table{width:100%;border-collapse:separate;border-spacing:0;font-size:10px;min-width:max(100%,600px);max-width:100%}
 .sm-table th,.sm-table td{border:1px solid var(--border);padding:2px 3px;text-align:center;min-width:50px;max-width:70px}
 .sm-table th{font-size:9px;color:var(--text3);position:sticky;top:0;background:var(--bg2);z-index:1}
 .sm-table th:first-child,.sm-table td.sm-name{text-align:left;white-space:nowrap;font-size:10px;font-weight:500;position:sticky;left:0;background:var(--bg2);z-index:2;min-width:120px;max-width:160px;overflow:hidden;text-overflow:ellipsis}
@@ -122,8 +122,13 @@ a{color:inherit;text-decoration:none}
 .sm-cell.drop-over{outline:2px solid var(--accent);outline-offset:-1px}
 .sm-cell--force{box-shadow:inset 0 0 0 2px rgba(245,166,35,.85)}
 #panel-2{width:100%;max-width:100%;box-sizing:border-box}
-#panel-2 .section{width:100%;max-width:none;box-sizing:border-box;padding:12px;margin-bottom:10px}
-#panel-2 .section-title{margin-bottom:8px}
+#panel-2 .section.tetris-grid,
+#panel-2 .section:has(#staff-matrix-placeholder){width:100%;max-width:none;box-sizing:border-box;padding:0;margin-bottom:10px;overflow:hidden}
+#panel-2 .section.tetris-grid > .section-title,
+#panel-2 .section:has(#staff-matrix-placeholder) > .section-title{padding:12px 12px 8px;margin-bottom:0}
+#panel-2 .section:has(#ph-pool),
+#panel-2 .section:first-of-type{width:100%;max-width:none;box-sizing:border-box;padding:12px;margin-bottom:10px}
+#panel-2 .section:has(#ph-pool) .section-title{margin-bottom:8px}
 #panel-2 > div:not(.section){width:100%;box-sizing:border-box}
 @media(max-width:768px){
   .header{padding:10px 14px}
