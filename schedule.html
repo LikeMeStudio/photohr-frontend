@@ -44,6 +44,9 @@ a{color:inherit;text-decoration:none}
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th,.tbl td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
 .tbl th{color:var(--text3);font-size:11px}
+.sub-cal-cell{width:22px;height:22px;font-size:9px;text-align:center;line-height:22px;border-radius:3px;display:inline-block;vertical-align:middle;color:var(--text)}
+#submissions-wrap .submissions-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+#submissions-wrap .tbl-sub-cal th.sub-cal-day,#submissions-wrap .tbl-sub-cal td.sub-cal-td{text-align:center;padding:4px 2px;white-space:nowrap}
 .row-ok{background:rgba(62,207,142,.08)}.row-late{background:rgba(245,166,35,.1)}.row-none{background:rgba(242,85,85,.06)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
 .overlay.open{display:flex}
@@ -416,6 +419,10 @@ a{color:inherit;text-decoration:none}
   <select class="fselect" id="np-city">
     <option value="">Все сотрудники</option>
   </select>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
+    <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod(1)" title="Если сегодня после 20-го числа, подставляется следующий календарный месяц">1–15 текущего месяца</button>
+    <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod(2)" title="Если сегодня после 20-го числа, подставляется следующий календарный месяц">16–конец текущего месяца</button>
+  </div>
   <div class="section-title">Начало</div><input class="fin" type="date" id="np-start"/>
   <div class="section-title">Конец</div><input class="fin" type="date" id="np-end"/>
   <div class="section-title">Дедлайн подачи</div><input class="fin" type="date" id="np-dead"/>
@@ -1114,17 +1121,46 @@ async function deletePeriod(id){
   }catch(e){showToast(e.message,true);}
 }
 
+function enumeratePeriodDates(from,to){
+  const out=[];const s=parseDateLocal(from),e=parseDateLocal(to);
+  if(!s||!e)return out;
+  for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)) out.push(new Date(d).toISOString().slice(0,10));
+  return out;
+}
+function subMiniCalCell(status,submitted){
+  if(!submitted)return'<span class="sub-cal-cell" style="background:rgba(144,144,168,.15)" title="Заявка не подана"></span>';
+  const map={
+    available_full:['rgba(62,207,142,.3)','✓','Весь день'],
+    unavailable:['rgba(242,85,85,.2)','✕','Недоступен'],
+    day_off:['rgba(245,166,35,.2)','?','Под вопросом'],
+    available_morning:['rgba(106,166,232,.25)','У','Утро'],
+    available_evening:['rgba(155,141,255,.25)','В','Вечер'],
+  };
+  const x=map[status];
+  if(!x)return'<span class="sub-cal-cell" style="background:rgba(144,144,168,.12)" title="Нет отметки"></span>';
+  return`<span class="sub-cal-cell" style="background:${x[0]}" title="${esc(x[2])}">${esc(x[1])}</span>`;
+}
 async function loadSubmissions(){
   const pid=document.getElementById('sub-period').value;if(!pid)return;
   try{
     const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(pid));
     currentSubmissions=data.submissions||[];
     currentPeriodMeta=data.period||null;
+    const from=String(currentPeriodMeta?.period_start||'').slice(0,10);
+    const to=String(currentPeriodMeta?.period_end||'').slice(0,10);
+    const periodDates=enumeratePeriodDates(from,to);
+    const dayHeader=periodDates.map(ds=>{
+      const dn=parseInt(String(ds).slice(8,10),10)||'';
+      return`<th class="sub-cal-day" title="${esc(ds)}">${dn}</th>`;
+    }).join('');
     const rows=currentSubmissions.map(s=>{
       const cls=s.on_time?'row-ok':(s.submitted_at?'row-late':'row-none');
-      return`<tr class="${cls}" style="cursor:pointer" onclick="openSubmissionDetail('${s.id}')"><td>${esc(s.name)}</td><td>${s.submitted_at?'✓':'—'}</td><td>${s.total_days||0}</td><td>${s.full_days||0}</td><td>${s.morning_days||0}</td><td>${s.evening_days||0}</td></tr>`;
+      const idJs=JSON.stringify(String(s.id));
+      const byD={};(s.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
+      const cells=periodDates.map(ds=>`<td class="sub-cal-td">${subMiniCalCell(byD[ds],!!s.submitted_at)}</td>`).join('');
+      return`<tr class="${cls}" style="cursor:pointer" onclick="openSubmissionDetail(${idJs})"><td>${esc(s.name)}</td><td>${s.submitted_at?'✓':'—'}</td>${cells}</tr>`;
     }).join('');
-    document.getElementById('submissions-wrap').innerHTML=`<table class="tbl"><thead><tr><th>Фотограф</th><th>Подана</th><th>Дней</th><th>Полных</th><th>Утро</th><th>Вечер</th></tr></thead><tbody>${rows}</tbody></table>`;
+    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal"><thead><tr><th>Фотограф</th><th>Подана</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
 }
 
@@ -1155,6 +1191,25 @@ async function openSubmissionDetail(phId){
 }
 
 function openPeriodModal(){initPeriodCityFilter();document.getElementById('period-modal').classList.add('open');}
+function npSuggestedYearMonth(){
+  const d=new Date();
+  let y=d.getFullYear(),m=d.getMonth();
+  if(d.getDate()>20){m++;if(m>11){m=0;y++;}}
+  return{y,m};
+}
+function npQuickPeriod(half){
+  const {y,m}=npSuggestedYearMonth();
+  const p=n=>String(n).padStart(2,'0');
+  const ym=`${y}-${p(m+1)}`;
+  if(half===1){
+    document.getElementById('np-start').value=`${ym}-01`;
+    document.getElementById('np-end').value=`${ym}-15`;
+  }else{
+    const last=new Date(y,m+1,0).getDate();
+    document.getElementById('np-start').value=`${ym}-16`;
+    document.getElementById('np-end').value=`${ym}-${p(last)}`;
+  }
+}
 async function createPeriod(){
   const period_start=document.getElementById('np-start').value;
   const period_end=document.getElementById('np-end').value;
