@@ -1661,15 +1661,19 @@ function parseDragJson(raw){
 }
 function startVenueChipDrag(ev){
   console.log('[startVenueChipDrag] called');
-  const el=ev.currentTarget;
-  const venueId=el.getAttribute('data-venue-id');
-  if(!venueId)return;
-  const v=getVenueById(venueId);
-  const venueShort=(v&&String(v.short_name||'').trim())||(el.textContent||'').trim()||'?';
-  const payload=JSON.stringify({type:'venue',venueId:String(venueId),venueShort});
-  ev.dataTransfer.setData('text/plain',payload);
-  try{ ev.dataTransfer.setData('application/json',payload); }catch(_){}
-  ev.dataTransfer.effectAllowed='copy';
+  try{
+    const el=ev.target&&ev.target.closest?ev.target.closest('[data-venue-id]'):null;
+    if(!el){ console.error('[startVenueChipDrag] no venue element'); return; }
+    const venueId=el.dataset.venueId||'';
+    const venueShort=(el.dataset.venueShort||'').trim()||String(el.textContent||'').trim()||'?';
+    const payload=JSON.stringify({type:'venue',venueId:String(venueId),venueShort:venueShort});
+    console.log('[startVenueChipDrag] payload:', payload);
+    ev.dataTransfer.setData('text/plain',payload);
+    try{ ev.dataTransfer.setData('application/json',payload); }catch(_){}
+    ev.dataTransfer.effectAllowed='copy';
+  }catch(e){
+    console.error('[startVenueChipDrag] ERROR:', e.message, e.stack);
+  }
 }
 function renderVenueChips(){
   const container=document.getElementById('venue-chips-for-matrix');
@@ -1684,7 +1688,7 @@ function renderVenueChips(){
     const pal=venuePaletteStyle(v.id);
     const hex=pal.hex;
     const sid=esc(String(v.id));
-    return`<div class="venue-chip-drag" draggable="true" data-venue-id="${sid}" ondragstart="startVenueChipDrag(event)" style="background:${hex}22;border:2px solid ${hex};color:${hex};padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:grab;user-select:none">${esc(v.short)}</div>`;
+    return`<div class="venue-chip-drag" draggable="true" data-venue-id="${sid}" data-venue-short="${esc(v.short)}" ondragstart="startVenueChipDrag(event)" style="background:${hex}22;border:2px solid ${hex};color:${hex};padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:grab;user-select:none">${esc(v.short)}</div>`;
   }).join(''):'<span style="color:var(--text3);font-size:12px">Нет площадок</span>';
 }
 function matrixEventTimesForCell(venueId,dateStr){
