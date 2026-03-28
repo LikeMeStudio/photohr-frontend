@@ -143,8 +143,8 @@ a{color:inherit;text-decoration:none}
 .sm-table thead th:first-child{z-index:3}
 .sm-cell{display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;font-size:9px;font-weight:600;border-radius:3px;transition:opacity .1s;box-sizing:border-box;padding:2px 3px;width:100%;min-height:28px}
 .sm-cell > *{pointer-events:none}
-.sm-cell > .sm-cell-drag{display:flex;align-items:center;justify-content:center;flex:1;align-self:stretch;width:100%;min-height:24px;box-sizing:border-box;pointer-events:auto;cursor:grab;user-select:none;-webkit-user-select:none}
-.sm-cell > .sm-cell-drag:active{cursor:grabbing}
+.sm-cell[draggable="true"]{cursor:grab}
+.sm-cell[draggable="true"]:active{cursor:grabbing}
 .sm-cell:hover{opacity:.85}
 .sm-cell.drop-over{outline:2px solid var(--accent);outline-offset:-1px}
 .sm-cell--force{box-shadow:inset 0 0 0 2px rgba(245,166,35,.85)}
@@ -1761,19 +1761,47 @@ function venuesOnMatrixDate(ds){
   const seen=new Set();
   return out.filter(v=>{if(seen.has(v.id))return false;seen.add(v.id);return true;});
 }
-function startMatrixCellDrag(ev){
-  console.log('[startMatrixCellDrag] called');
-  const el=ev.currentTarget;
-  const enc=el.getAttribute('data-matrix-drag');
-  if(!enc) return;
-  try{
-    const p=parseDragJson(decodeURIComponent(enc));
-    if(!p) return;
-    p.type='matrix-cell';
-    if(!p.fromName&&p.fromPname) p.fromName=p.fromPname;
-    ev.dataTransfer.setData('text/plain',JSON.stringify(p));
-    ev.dataTransfer.effectAllowed='move';
-  }catch(e){ console.error('[startMatrixCellDrag]', e.message); }
+function startMatrixCellDrag(ev,cell){
+  const el=cell||ev.currentTarget;
+  const d=el.dataset;
+  if(!d.assignmentId) return;
+  const payload={
+    type:'matrix-cell',
+    fromPid:d.photographerId,
+    fromDate:d.date,
+    fromName:d.pname||'',
+    fromPname:d.pname||'',
+    assignmentId:d.assignmentId,
+    shiftId:d.shiftId||'',
+    venueId:d.venueId||'',
+    venueShort:d.venueShort||'',
+    roleInShift:d.role||'photographer',
+  };
+  ev.dataTransfer.setData('text/plain',JSON.stringify(payload));
+  ev.dataTransfer.effectAllowed='move';
+}
+function staffMatrixCellClick(ev){
+  const cell=ev.currentTarget;
+  if(!cell.dataset.assignmentId) return;
+  smCellClick(ev,cell.dataset.photographerId,cell.dataset.date,cell.dataset.pname||'');
+}
+function staffMatrixDragOver(ev){
+  ev.preventDefault();
+  try{ ev.dataTransfer.dropEffect='copy'; }catch(_){}
+  ev.currentTarget.classList.add('drop-over');
+}
+function staffMatrixDragLeave(ev){ ev.currentTarget.classList.remove('drop-over'); }
+function staffMatrixDrop(ev){ dropStaffMatrixCell(ev,ev.currentTarget); }
+function staffMatrixDragStart(ev){ startMatrixCellDrag(ev,ev.currentTarget); }
+function bindStaffMatrixCells(container){
+  if(!container) return;
+  container.querySelectorAll('.sm-cell').forEach(cell=>{
+    cell.addEventListener('click',staffMatrixCellClick);
+    cell.addEventListener('dragover',staffMatrixDragOver);
+    cell.addEventListener('dragleave',staffMatrixDragLeave);
+    cell.addEventListener('drop',staffMatrixDrop);
+    if(cell.getAttribute('draggable')==='true') cell.addEventListener('dragstart',staffMatrixDragStart);
+  });
 }
 async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const fromPid=payload.fromPid,targetDateNorm=String(targetDate).slice(0,10);
@@ -1838,12 +1866,6 @@ function startTetrisPillDrag(ev){
   ev.dataTransfer.setData('text/plain',payload);
   ev.dataTransfer.effectAllowed='copy';
 }
-function dragOverStaffMatrix(ev){
-  ev.preventDefault();
-  try{ ev.dataTransfer.dropEffect='copy'; }catch(_){}
-  ev.currentTarget.classList.add('drop-over');
-}
-function dragLeaveStaffMatrix(ev){ ev.currentTarget.classList.remove('drop-over'); }
 async function dropStaffMatrixCell(ev,el){
   if(!el) el=ev.currentTarget;
   ev.preventDefault(); ev.stopPropagation();
@@ -2033,33 +2055,22 @@ async function renderStaffMatrix(){
         const hasAsg=list.length>0;
         const primary=list[0];
         const labelInner=hasAsg?`<span style="color:${venuePaletteStyle(primary.venue_id).hex}">${esc(txt)}</span>`:'';
-        const clickAttr=hasAsg?`onclick="smCellClick(event,'${pid}','${ds}',${JSON.stringify(rawName)})"`:''; 
-        let cellBody='';
-        if(hasAsg){
-          const dragPayload={
-            type:'matrix-cell',
-            assignmentId:String(primary.assignment_id||primary.id),
-            shiftId:String(primary.shift_id),
-            roleInShift:primary.role_in_shift||'photographer',
-            fromPid:pid,fromDate:ds,fromPname:rawName,fromName:rawName,
-            venueId:String(primary.venue_id),
-            venueShort:shortVenueLabel(primary),
-          };
-          const encDrag=encodeURIComponent(JSON.stringify(dragPayload));
-          cellBody=`<span class="sm-cell-drag" draggable="true" data-matrix-drag="${encDrag}" ondragstart="startMatrixCellDrag(event)">${labelInner}</span>`;
-        }else{
-          cellBody=labelInner;
-        }
+        const aid=hasAsg?String(primary.assignment_id||primary.id):'';
+        const sid=hasAsg?String(primary.shift_id):'';
+        const vid=hasAsg?String(primary.venue_id):'';
+        const vshort=hasAsg?esc(shortVenueLabel(primary)):'';
+        const roleEsc=hasAsg?esc(primary.role_in_shift||'photographer'):'';
         row+=`<td><div class="sm-cell${forceCls}" style="background:${bg}" title="${esc(st||'нет заявки')}"
           data-photographer-id="${esc(pid)}" data-date="${esc(ds)}" data-pname="${pname}"
-          ${clickAttr}
-          ondragover="dragOverStaffMatrix(event)" ondragleave="dragLeaveStaffMatrix(event)"
-          ondrop="dropStaffMatrixCell(event,this)">${cellBody}</div></td>`;
+          data-assignment-id="${esc(aid)}" data-shift-id="${esc(sid)}" data-venue-id="${esc(vid)}"
+          data-venue-short="${vshort}" data-role="${roleEsc}"
+          draggable="${hasAsg?'true':'false'}">${labelInner}</div></td>`;
       });
       return row+'</tr>';
     }).join('');
     ph.innerHTML=photographers.length?`<div class="sm-wrap"><table class="sm-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`
       :'<div style="font-size:12px;color:var(--text3)">Нет сотрудников для выбранного города</div>';
+    if(photographers.length) bindStaffMatrixCells(ph);
     renderVenueChips();
   }catch(e){ ph.innerHTML=`<div style="color:var(--rank3);font-size:12px">${esc(e.message)}</div>`; }
 }
