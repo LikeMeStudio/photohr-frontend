@@ -570,6 +570,7 @@ function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeIt
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
+function dayTypeFromYmd(ymd){const d=parseDateLocal(ymd);if(!d)return'weekday';const dow=d.getDay();return dow===0||dow===6?'weekend':'weekday';}
 function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 function fmtDateShort(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).replace('.','');}
 function fmtTime(v){const s=String(v||'');if(!s)return'—';return s.length>=5?s.slice(0,5):s;}
@@ -1712,14 +1713,12 @@ function parseDragJson(raw){
   try{ return JSON.parse(s); }catch(e){ console.error('[JSON.parse error]', e.message, 'raw:', JSON.stringify(raw)); return null; }
 }
 function startVenueChipDrag(ev){
-  console.log('[startVenueChipDrag] called');
   try{
     const el=ev.target&&ev.target.closest?ev.target.closest('[data-venue-id]'):null;
     if(!el){ console.error('[startVenueChipDrag] no venue element'); return; }
     const venueId=el.dataset.venueId||'';
     const venueShort=(el.dataset.venueShort||'').trim()||String(el.textContent||'').trim()||'?';
     const payload=JSON.stringify({type:'venue',venueId:String(venueId),venueShort:venueShort});
-    console.log('[startVenueChipDrag] payload:', payload);
     ev.dataTransfer.setData('text/plain',payload);
     try{ ev.dataTransfer.setData('application/json',payload); }catch(_){}
     ev.dataTransfer.effectAllowed='all';
@@ -1764,7 +1763,6 @@ function venuesOnMatrixDate(ds){
   return out.filter(v=>{if(seen.has(v.id))return false;seen.add(v.id);return true;});
 }
 function startMatrixCellDrag(ev,cell){
-  console.log('[startMatrixCellDrag] called');
   const el=cell||ev.currentTarget;
   const d=el.dataset;
   const aid=String(d.assignmentId||'').trim();
@@ -1790,7 +1788,6 @@ function staffMatrixCellClick(ev){
   smCellClick(ev,cell.dataset.photographerId,cell.dataset.date,cell.dataset.pname||'');
 }
 function staffMatrixDragOver(ev){
-  console.log('[dragover] fired on', ev.currentTarget.dataset.date, ev.currentTarget.dataset.photographerId);
   ev.preventDefault();
   ev.stopPropagation();
   try{ ev.dataTransfer.dropEffect='move'; }catch(_){}
@@ -1798,15 +1795,9 @@ function staffMatrixDragOver(ev){
 }
 function staffMatrixDragLeave(ev){ ev.currentTarget.classList.remove('drop-over'); }
 async function staffMatrixDrop(ev){
-  console.log('[drop] fired on', ev.currentTarget.dataset.date);
-  console.log('[staffMatrixDrop] fired');
-  let rawPeek='';
-  try{ rawPeek=String(ev.dataTransfer.getData('text/plain')||''); }catch(_){}
-  console.log('[staffMatrixDrop] raw:', rawPeek);
   await dropStaffMatrixCell(ev,ev.currentTarget);
 }
 function staffMatrixDragStart(ev){
-  console.log('[staffMatrixDragStart]');
   startMatrixCellDrag(ev,ev.currentTarget);
 }
 function bindStaffMatrixCells(container){
@@ -1827,11 +1818,6 @@ function bindStaffMatrixCells(container){
       cell.draggable=false;
     }
   });
-  const allCells=container.querySelectorAll('.sm-cell');
-  console.log('[bind] total sm-cells:', allCells.length, 'with dragover listeners');
-  const draggableCells=container.querySelectorAll('.sm-cell[draggable="true"]');
-  console.log('[matrix] draggable cells count:', draggableCells.length);
-  draggableCells.forEach((c,i)=>{ if(i<3) console.log('[matrix] draggable cell:', c.dataset.photographerId, c.dataset.date, c.dataset.assignmentId); });
 }
 async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const fromPid=payload.fromPid,targetDateNorm=String(targetDate).slice(0,10);
@@ -1876,12 +1862,18 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const roleB=targetAsg.role_in_shift||poolRole;
   const keyA=`${sourceAsg.venue_id}|${srcDate}`;
   const keyB=`${targetAsg.venue_id}|${String(targetAsg.event_date).slice(0,10)}`;
+  const fromAid=String(sourceAsg.assignment_id!=null?sourceAsg.assignment_id:sourceAsg.id||'').trim();
+  const toAid=String(targetAsg.assignment_id!=null?targetAsg.assignment_id:targetAsg.id||'').trim();
+  const fromShiftId=String(sourceAsg.shift_id||'').trim();
+  const toShiftId=String(targetAsg.shift_id||'').trim();
+  if(!fromAid||!toAid){ showToast('Не удалось определить id назначения',true); return; }
+  if(!fromShiftId||!toShiftId){ showToast('Не удалось определить смену',true); return; }
   try{
-    await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
-    await api('DELETE',`/shift-assignments/${targetAsg.assignment_id||targetAsg.id}`);
-    const r1=await assignToShift(sourceAsg.shift_id,targetPid,roleA,keyA,targetPname||'',opts);
+    await api('DELETE',`/shift-assignments/${fromAid}`);
+    await api('DELETE',`/shift-assignments/${toAid}`);
+    const r1=await assignToShift(toShiftId,fromPid,roleB,keyB,payload.fromPname||'',opts);
     if(r1&&r1.conflict){ showToast('Не удалось поменять местами',true); await renderTetris(); await renderStaffMatrix(); return; }
-    const r2=await assignToShift(targetAsg.shift_id,fromPid,roleB,keyB,payload.fromPname||'',opts);
+    const r2=await assignToShift(fromShiftId,targetPid,roleA,keyA,targetPname||'',opts);
     if(r2&&r2.conflict){ showToast('Не удалось поменять местами',true); await renderTetris(); await renderStaffMatrix(); return; }
     showToast('Поменяно местами');
   }catch(e){ showToast(e.message,true); return; }
@@ -1897,7 +1889,6 @@ function startTetrisPillDrag(ev){
   ev.dataTransfer.effectAllowed='copy';
 }
 async function dropStaffMatrixCell(ev,el){
-  console.log('[dropStaffMatrixCell] entry');
   if(!el) el=ev.currentTarget;
   ev.preventDefault(); ev.stopPropagation();
   el.classList.remove('drop-over');
@@ -1912,7 +1903,6 @@ async function dropStaffMatrixCell(ev,el){
   const name=pname||'';
   const data=parseDragJson(raw);
   if(data&&(data.type==='matrix-cell'||data.type==='matrix-assign'||(data.fromPid&&data.assignmentId))){
-    console.log('[matrix drop] matrix-cell payload:', data);
     await handleMatrixAssignDrop(data,pid,dateStr,name);
     return;
   }
@@ -1925,7 +1915,7 @@ async function dropStaffMatrixCell(ev,el){
     if(!events.length){
       if(!confirm(`Нет мероприятия «${venueShort}» на ${fmtDate(date)}. Создать?`)) return;
       try{
-        createdResp=await api('POST','/events',{venue_id:vid,event_date:date,schedule_status:'draft'});
+        createdResp=await api('POST','/events',{venue_id:vid,event_date:date,schedule_status:'draft',day_type:dayTypeFromYmd(date)});
         showToast('Мероприятие создано');
         await renderTetris();
         await renderStaffMatrix();
@@ -2282,7 +2272,7 @@ async function dropPoolOnCell(ev,key){
     const vname=v?.name||'площадку';
     if(!confirm(`На ${fmtDate(ds)} нет мероприятия для «${vname}». Создать?`)) return;
     try{
-      const created=await api('POST','/events',{venue_id:vid,event_date:ds,schedule_status:'draft'});
+      const created=await api('POST','/events',{venue_id:vid,event_date:ds,schedule_status:'draft',day_type:dayTypeFromYmd(ds)});
       showToast('Мероприятие создано');
       await loadTab0();
       await loadPool(poolRole);
