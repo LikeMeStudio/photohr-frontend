@@ -1224,7 +1224,7 @@ async function accPropose(){
   if(!accCtx)return;
   const {phId,ds,newStatus}=accCtx;
   try{
-    await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}],force:false});
+    await api('POST','/availability/propose-change',{photographer_id:phId,date:String(ds).slice(0,10),new_status:newStatus});
     showToast('Предложение отправлено сотруднику');
     closeAvailChangeConfirm();
     await loadSubmissions();
@@ -1251,6 +1251,8 @@ function formatAvailHistoryLine(h){
   if(act==='self_edit') return `${esc(when)} — Фотограф изменил ${esc(d)}: ${esc(os)} → ${esc(ns)}`;
   if(act==='hr_forced_change') return `${esc(when)} — HR изменил ${esc(d)}: ${esc(os)} → ${esc(ns)} (принудительно)`;
   if(act==='hr_proposed_change') return `${esc(when)} — HR предложил изменить ${esc(d)}: ${esc(os)} → ${esc(ns)}`;
+  if(act==='photographer_accepted_change') return `${esc(when)} — Фотограф подтвердил предложение HR: ${esc(d)} — ${esc(os)} → ${esc(ns)}`;
+  if(act==='photographer_rejected_change') return `${esc(when)} — Фотограф отклонил предложение HR (${esc(d)}: остаётся ${esc(os)})`;
   if(act==='proposal_accepted') return `${esc(when)} — Фотограф подтвердил предложение HR (${esc(d)})`;
   if(act==='proposal_rejected') return `${esc(when)} — Фотограф отклонил предложение HR (${esc(d)}: возврат к ${esc(ns)})`;
   return `${esc(when)} — ${esc(d)}: ${esc(os)} → ${esc(ns)}${act?` · ${esc(act)}`:''}`;
@@ -1386,7 +1388,6 @@ async function loadSubmissions(){
     }).join('');
     const rows=currentSubmissions.map(s=>{
       const cls=s.on_time?'row-ok':(s.submitted_at?'row-late':'row-none');
-      const idJs=JSON.stringify(String(s.id));
       const byD={};(s.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
       const cells=periodDates.map(ds=>subCalCellInteractive(s.id,s.name,ds,byD[ds],!!s.submitted_at)).join('');
       const td=submissionCheckCellHtml(s);
@@ -1396,9 +1397,14 @@ async function loadSubmissions(){
       const tdU=`<td class="sub-stat-col">${s.morning_days!=null?Number(s.morning_days):0}</td>`;
       const tdV=`<td class="sub-stat-col">${s.evening_days!=null?Number(s.evening_days):0}</td>`;
       const tdZn=`<td class="sub-stat-col">${s.busy_days!=null?Number(s.busy_days):0}</td>`;
-      return`<tr class="${cls}"><td class="sub-name-cell" onclick="event.stopPropagation();openSubmissionDetail(${idJs})">${esc(s.name)}</td>${td}${tdDn}${tdSv}${tdU}${tdV}${tdZn}${cells}</tr>`;
+      return`<tr class="${cls}"><td class="sub-name-cell" data-phid="${esc(String(s.id))}" role="button" tabindex="0">${esc(s.name)}</td>${td}${tdDn}${tdSv}${tdU}${tdV}${tdZn}${cells}</tr>`;
     }).join('');
-    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal"><thead><tr><th>Фотограф</th><th>✓</th><th title="Свободных слотов (весь день + утро + вечер)">Дн</th><th title="Свободен весь день">Св</th><th title="Утро">У</th><th title="Вечер">В</th><th title="Занято / под вопросом">Зн</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal" id="submissions-cal-table"><thead><tr><th>Фотограф</th><th>✓</th><th title="Свободных слотов (весь день + утро + вечер)">Дн</th><th title="Свободен весь день">Св</th><th title="Утро">У</th><th title="Вечер">В</th><th title="Занято / под вопросом">Зн</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    document.getElementById('submissions-cal-table')?.querySelectorAll('.sub-name-cell').forEach((cell)=>{
+      const open=(ev)=>{ev.stopPropagation();const id=cell.getAttribute('data-phid');if(id) openSubmissionDetail(id);};
+      cell.addEventListener('click',open);
+      cell.addEventListener('keydown',(ev)=>{if(ev.key==='Enter'||ev.key===' ') { ev.preventDefault(); open(ev); }});
+    });
     updateSubmissionHeaderStats();
   }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
 }

@@ -408,14 +408,14 @@ function myAvailShortLabel(status){
 function ruAvailStatusBrief(x){
   return {available_full:'свободен весь день',unavailable:'занят',day_off:'под вопросом',available_morning:'утро',available_evening:'вечер'}[x]||x||'—';
 }
-async function respondHrAvailProposal(ds,accept){
+async function respondAvailProposal(historyId,response){
   try{
-    await api('POST','/availability/hr-proposal/respond',{date:String(ds).slice(0,10),accept});
-    showToast(accept?'Изменение подтверждено':'Предложение отклонено, восстановлен прежний статус');
+    await api('POST','/availability/respond-proposal',{history_id:historyId,response});
+    showToast(response==='accept'?'Изменение подтверждено':'Предложение отклонено');
     await loadSchedulePanel(currentUser.photographer_id);
   }catch(e){showToast(e.message,true);}
 }
-function renderMyScheduleGrid(from, to, assignments, availability){
+function renderMyScheduleGrid(from, to, assignments, availability, pendingByDate){
   const holder=document.getElementById('my-sched-holder');
   if(!holder) return;
   const days=buildDateRange(from,to);
@@ -429,7 +429,7 @@ function renderMyScheduleGrid(from, to, assignments, availability){
   const availBy={};
   (availability||[]).forEach(r=>{
     const ds=String(r.avail_date||'').slice(0,10);
-    if(ds) availBy[ds]={status:r.status||'unavailable',pending:r.changed_by_hr===true&&r.hr_confirmed===false};
+    if(ds) availBy[ds]={status:r.status||'unavailable',pending:!!(pendingByDate&&pendingByDate[ds])};
   });
   const todayStr=new Date().toISOString().slice(0,10);
   const first=parseDateLocal(days[0]);
@@ -539,23 +539,26 @@ async function loadSchedulePanel(phId){
         try{
           const qf=encodeURIComponent(st.period_start);
           const qt=encodeURIComponent(st.period_end);
-          const [cal,avail,histHr]=await Promise.all([
+          const [cal,avail,histHr,pendingProps]=await Promise.all([
             api('GET',`/schedule/my-calendar?from=${qf}&to=${qt}`),
             api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${qf}&to=${qt}`).catch(()=>[]),
             api('GET',`/availability/history?photographer_id=${encodeURIComponent(phId)}&from=${qf}&to=${qt}`).catch(()=>[]),
+            api('GET','/availability/pending-proposals').catch(()=>[]),
           ]);
-          renderMyScheduleGrid(st.period_start, st.period_end, cal||[], avail||[]);
+          const pendingByDate={};
+          (pendingProps||[]).forEach(p=>{ const d=String(p.avail_date||'').slice(0,10); if(d) pendingByDate[d]=p; });
+          renderMyScheduleGrid(st.period_start, st.period_end, cal||[], avail||[], pendingByDate);
           const nEl=document.getElementById('avail-hr-notices');
           if(nEl){
-            const proposals=(avail||[]).filter(r=>r.changed_by_hr===true&&r.hr_confirmed===false);
-            const propBlocks=proposals.map(r=>{
-              const ds=String(r.avail_date||'').slice(0,10);
-              const stLabel=myAvailShortLabel(r.status||'');
-              const dsJs=JSON.stringify(ds);
-              return `<div style="padding:10px;border:1px solid rgba(245,166,35,.5);border-radius:10px;background:rgba(245,166,35,.1);margin-bottom:8px;font-size:12px">HR предлагает изменить <b>${esc(fmtDate(ds))}</b> на «${esc(stLabel)}». Подтвердите или отклоните.
+            const propBlocks=(pendingProps||[]).map(p=>{
+              const ds=String(p.avail_date||'').slice(0,10);
+              const stLabel=myAvailShortLabel(p.new_status||'');
+              const hid=JSON.stringify(String(p.id));
+              const fromLabel=myAvailShortLabel(p.old_status||'');
+              return `<div style="padding:10px;border:1px solid rgba(245,166,35,.5);border-radius:10px;background:rgba(245,166,35,.1);margin-bottom:8px;font-size:12px">HR предлагает для <b>${esc(fmtDate(ds))}</b>: «${esc(fromLabel)}» → «${esc(stLabel)}». Подтвердите или отклоните.
               <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-                <button type="button" class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondHrAvailProposal(${dsJs},true)">Подтвердить</button>
-                <button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="respondHrAvailProposal(${dsJs},false)">Отклонить</button>
+                <button type="button" class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick='respondAvailProposal(${hid},"accept")'>Подтвердить</button>
+                <button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick='respondAvailProposal(${hid},"reject")'>Отклонить</button>
               </div></div>`;
             }).join('');
             const forced=(histHr||[]).filter(h=>h.action==='hr_forced_change').slice(0,12);
