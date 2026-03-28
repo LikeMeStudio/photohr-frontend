@@ -2338,7 +2338,6 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
     await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift});
     if(!opts?.skipToast) showToast('Назначено');
   }catch(e){
-    if(e&&e.status===409){ return { conflict: true }; }
     if(needsForceAssignmentError(e)){
       const forceStatus=await chooseForceAssignOption({name:photographerName||'Сотрудник',date:(key||'').split('|')[1]||''});
       if(forceStatus==='cancel') return;
@@ -2350,7 +2349,8 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
         if(e2&&e2.status===409){ return { conflict: true }; }
         showToast(e2.message||'Ошибка назначения',true); return;
       }
-    }else{ showToast(e.message,true); return; }
+    }else if(e&&e.status===409){ return { conflict: true }; }
+    else{ showToast(e.message,true); return; }
   }
   if(!opts?.skipLoadPoolTetris){
     await loadPool(poolRole);
