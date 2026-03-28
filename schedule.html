@@ -1636,7 +1636,10 @@ function venueIdMatch(a,b){
   if(sa.toLowerCase()===sb.toLowerCase()) return true;
   return sa.replace(/-/g,'').toLowerCase()===sb.replace(/-/g,'').toLowerCase();
 }
-function findShiftForVenueDateRole(venueId,dateStr,role){
+function keyForTetrisEvent(ev){
+  return `${String(ev.venue_id)}|${String(ev.event_date).slice(0,10)}`;
+}
+function findEventsForVenueDate(venueId,dateStr){
   const ds=String(dateStr??'').trim().slice(0,10);
   const vid=String(venueId??'').trim();
   let list=tetrisEventsByKey[`${vid}|${ds}`]||[];
@@ -1660,18 +1663,37 @@ function findShiftForVenueDateRole(venueId,dateStr,role){
       return true;
     });
   }
+  return list;
+}
+function findShiftWithCapacityForRole(events,role){
   const r=role||poolRole||'photographer';
-  const keyFor=(ev)=>`${String(ev.venue_id)}|${String(ev.event_date).slice(0,10)}`;
-  for(const ev of list){
+  for(const ev of events){
     const sum=ev.shifts_summary||[];
     const sh=sum.find(s=>{
       if(!s.id) return false;
       const sr=s.role||s.target_role||'photographer';
       return sr===r&&Number(s.required||0)>Number(s.assigned||0);
     });
-    if(sh) return {shift:sh,key:keyFor(ev),ev};
+    if(sh) return {shift:sh,key:keyForTetrisEvent(ev),ev};
   }
   return null;
+}
+function findAnyShiftForRole(events,role){
+  const r=role||poolRole||'photographer';
+  for(const ev of events){
+    const sum=ev.shifts_summary||[];
+    const sh=sum.find(s=>{
+      if(!s.id) return false;
+      const sr=s.role||s.target_role||'photographer';
+      return sr===r;
+    });
+    if(sh) return {shift:sh,key:keyForTetrisEvent(ev),ev};
+  }
+  return null;
+}
+function findShiftForVenueDateRole(venueId,dateStr,role){
+  const list=findEventsForVenueDate(venueId,dateStr);
+  return findShiftWithCapacityForRole(list,role);
 }
 function parseDragJson(raw){
   const s=String(raw||'').trim();
@@ -1829,18 +1851,46 @@ async function dropStaffMatrixCell(ev,el){
   if(data&&data.type==='venue'){
     const date=String(dateStr).trim().slice(0,10);
     const vid=String(data.venueId||'');
-    const found=findShiftForVenueDateRole(vid,dateStr,poolRole);
+    const venueShort=String(data.venueShort||'площадка');
+    let events=findEventsForVenueDate(vid,date);
+    let createdResp=null;
+    if(!events.length){
+      if(!confirm(`Нет мероприятия «${venueShort}» на ${fmtDate(date)}. Создать?`)) return;
+      try{
+        createdResp=await api('POST','/events',{venue_id:vid,event_date:date,schedule_status:'draft'});
+        showToast('Мероприятие создано');
+        await renderTetris();
+        await renderStaffMatrix();
+        events=findEventsForVenueDate(vid,date);
+        if(!events.length){
+          const shifts=(createdResp&&createdResp.shifts)||[];
+          const sh=shifts.find(s=>(s.target_role||s.role)===poolRole)||shifts[0];
+          if(sh){
+            await assignToShift(sh.id,pid,poolRole,`${vid}|${date}`,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+            await renderTetris();
+            await renderStaffMatrix();
+            return;
+          }
+          showToast('Мероприятие создано, но смена не найдена',true);
+          return;
+        }
+      }catch(e){ showToast(e.message||'Ошибка создания',true); return; }
+    }
+    let found=findShiftWithCapacityForRole(events,poolRole);
     if(!found){
-      const matching=Object.values(tetrisEventsByKey).flat().filter(e=>venueIdMatch(e.venue_id,vid)&&String(e.event_date??'').slice(0,10)===date);
-      console.log('[venue drop] no shift', {venueId:vid,date,directKey:`${vid}|${date}`,eventsFound:matching.length,poolRole});
-      const msg=matching.length
-        ? 'На эту дату нет свободной смены для выбранной роли (все места заняты или роль не совпадает)'
-        : 'Нет мероприятия для этой площадки на эту дату';
-      showToast(msg,true);
-      return;
+      const any=findAnyShiftForRole(events,poolRole);
+      if(any){
+        const roleLabel=ROLE_SHORT[poolRole]||poolRole;
+        if(!confirm(`Все места для роли «${roleLabel}» заняты. Назначить сверх нормы?`)) return;
+        found=any;
+      }else{
+        showToast('Нет смены для роли '+(ROLE_SHORT[poolRole]||poolRole),true);
+        return;
+      }
     }
     await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
+    await renderStaffMatrix();
     return;
   }
   if(data&&data.kind==='tetris-pill'){
