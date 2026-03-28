@@ -47,6 +47,13 @@ a{color:inherit;text-decoration:none}
 .sub-cal-cell{width:22px;height:22px;font-size:9px;text-align:center;line-height:22px;border-radius:3px;display:inline-block;vertical-align:middle;color:var(--text)}
 #submissions-wrap .submissions-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 #submissions-wrap .tbl-sub-cal th.sub-cal-day,#submissions-wrap .tbl-sub-cal td.sub-cal-td{text-align:center;padding:4px 2px;white-space:nowrap}
+#submissions-wrap .sub-name-cell{cursor:pointer;text-decoration:underline;text-decoration-color:var(--text3)}
+#submissions-wrap .sub-check-col{width:36px;text-align:center;vertical-align:middle}
+#submissions-wrap .sub-stat-col{width:28px;font-size:10px;text-align:center;padding:4px 2px!important;vertical-align:middle}
+#sub-cal-menu{position:fixed;z-index:600;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:8px;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:12px}
+#sub-cal-menu .opt{display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:8px;cursor:pointer;font-size:11px;margin-bottom:4px}
+#sub-cal-menu .opt:last-child{margin-bottom:0}
+#sub-cal-menu .opt-sm{font-size:10px;color:var(--text3);padding:4px 6px;margin-bottom:4px}
 .row-ok{background:rgba(62,207,142,.08)}.row-late{background:rgba(245,166,35,.1)}.row-none{background:rgba(242,85,85,.06)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
 .overlay.open{display:flex}
@@ -422,9 +429,15 @@ a{color:inherit;text-decoration:none}
   <select class="fselect" id="np-city">
     <option value="">Все сотрудники</option>
   </select>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px">
-    <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod(1)" title="Если сегодня после 20-го числа, подставляется следующий календарный месяц">1–15 текущего месяца</button>
-    <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod(2)" title="Если сегодня после 20-го числа, подставляется следующий календарный месяц">16–конец текущего месяца</button>
+  <div style="display:flex;flex-direction:column;gap:6px;margin:10px 0 4px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod('c1')">1–15 этого мес.</button>
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod('c2')">16–конец этого мес.</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod('n1')">1–15 след. мес.</button>
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod('n2')">16–конец след. мес.</button>
+    </div>
   </div>
   <div class="section-title">Начало</div><input class="fin" type="date" id="np-start"/>
   <div class="section-title">Конец</div><input class="fin" type="date" id="np-end"/>
@@ -493,6 +506,8 @@ let scheduleViewStatus='draft';
 let showArchivedPeriods=false;
 let currentSubmissions=[];
 let currentPeriodMeta=null;
+let lastSubmissionEventsCache=[];
+let subCalMenuEl=null;
 let tetrisEventsByKey={};
 const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
 let poolRole='photographer';
@@ -1090,7 +1105,7 @@ async function loadPeriodsSubs(){
         </div>
       </div>
     `).join('')||'—';
-    if(visible.length) loadSubmissions(); else document.getElementById('submissions-wrap').innerHTML='<div class="loading">Нет периодов</div>';
+    if(visible.length) loadSubmissions(); else{document.getElementById('submissions-wrap').innerHTML='<div class="loading">Нет периодов</div>';currentSubmissions=[];lastSubmissionEventsCache=[];const hs=document.getElementById('hstats');if(hs) hs.innerHTML='';}
   }catch(e){document.getElementById('periods-list').innerHTML=esc(e.message);}
 }
 
@@ -1144,6 +1159,104 @@ function subMiniCalCell(status,submitted){
   if(!x)return'<span class="sub-cal-cell" style="background:rgba(144,144,168,.12)" title="Нет отметки"></span>';
   return`<span class="sub-cal-cell" style="background:${x[0]}" title="${esc(x[2])}">${esc(x[1])}</span>`;
 }
+function subCalCellInteractive(phId,pname,ds,status,submitted){
+  const idJs=JSON.stringify(String(phId));
+  const dsJs=JSON.stringify(String(ds).slice(0,10));
+  const nmJs=JSON.stringify(pname||'');
+  if(!submitted)return`<td class="sub-cal-td" onclick="event.stopPropagation()"><span class="sub-cal-cell" style="background:rgba(144,144,168,.15)" title="Заявка не подана"></span></td>`;
+  const map={
+    available_full:['rgba(62,207,142,.3)','✓','Весь день'],
+    unavailable:['rgba(242,85,85,.2)','✕','Недоступен'],
+    day_off:['rgba(245,166,35,.2)','?','Под вопросом'],
+    available_morning:['rgba(106,166,232,.25)','У','Утро'],
+    available_evening:['rgba(155,141,255,.25)','В','Вечер'],
+  };
+  const x=map[status];
+  const inner=!x?`<span class="sub-cal-cell" style="background:rgba(144,144,168,.12);cursor:pointer" title="Нет отметки" onclick='subCalOpenStatusMenu(event,${idJs},${dsJs},${nmJs})' oncontextmenu='event.preventDefault();subCalOpenAssignMenu(event,${idJs},${dsJs},${nmJs})'> </span>`
+    :`<span class="sub-cal-cell" style="background:${x[0]};cursor:pointer" title="${esc(x[2])}" onclick='subCalOpenStatusMenu(event,${idJs},${dsJs},${nmJs})' oncontextmenu='event.preventDefault();subCalOpenAssignMenu(event,${idJs},${dsJs},${nmJs})'>${esc(x[1])}</span>`;
+  return`<td class="sub-cal-td" onclick="event.stopPropagation()">${inner}</td>`;
+}
+function closeSubCalMenu(){if(subCalMenuEl){subCalMenuEl.remove();subCalMenuEl=null;}document.removeEventListener('click',closeSubCalMenuDoc,true);}
+function closeSubCalMenuDoc(ev){if(subCalMenuEl&&!subCalMenuEl.contains(ev.target)) closeSubCalMenu();}
+function subCalOpenStatusMenu(ev,phId,ds,pname){
+  ev.stopPropagation();closeSubCalMenu();
+  const m=document.createElement('div');m.id='sub-cal-menu';
+  const opts=[
+    ['available_full','🟢 Свободен весь день'],
+    ['unavailable','🔴 Занят'],
+    ['day_off','🟡 Под вопросом'],
+    ['available_morning','🔵 Свободен утром'],
+    ['available_evening','🟣 Свободен вечером'],
+  ];
+  m.innerHTML=opts.map(([st,lb])=>`<button type="button" class="opt" onclick='subCalApplyStatus(${JSON.stringify(phId)},${JSON.stringify(ds)},${JSON.stringify(st)})'>${esc(lb)}</button>`).join('')+
+    `<div class="opt-sm">Назначение смены: правый клик по ячейке</div>`;
+  document.body.appendChild(m);subCalMenuEl=m;
+  const r=m.getBoundingClientRect();let x=ev.clientX,y=ev.clientY;if(x+r.width>innerWidth-8)x=innerWidth-8-r.width;if(y+r.height>innerHeight-8)y=innerHeight-8-r.height;
+  m.style.left=x+'px';m.style.top=y+'px';
+  setTimeout(()=>document.addEventListener('click',closeSubCalMenuDoc,true),0);
+}
+async function subCalApplyStatus(phId,ds,status){
+  closeSubCalMenu();
+  try{
+    await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status}]});
+    showToast('Сохранено');
+    await loadSubmissions();
+  }catch(e){showToast(e.message,true);}
+}
+function subCalOpenAssignMenu(ev,phId,ds,pname){
+  ev.stopPropagation();closeSubCalMenu();
+  const m=document.createElement('div');m.id='sub-cal-menu';
+  const shifts=[];
+  (lastSubmissionEventsCache||[]).forEach(evItem=>{
+    if(String(evItem.event_date||'').slice(0,10)!==String(ds).slice(0,10)) return;
+    (evItem.shifts_summary||[]).forEach(sh=>{
+      if(!sh.id) return;
+      const gap=Number(sh.required||0)-Number(sh.assigned||0);
+      if(gap<=0) return;
+      shifts.push({shiftId:sh.id,venue:evItem.venue_name||'',shiftName:sh.shift_name||'Смена',role:sh.role||'photographer'});
+    });
+  });
+  if(!shifts.length){
+    m.innerHTML=`<div class="opt-sm">Нет свободных смен на эту дату</div><button type="button" class="opt" onclick='closeSubCalMenu()'>Закрыть</button>`;
+  }else{
+    const rj=r=>JSON.stringify(r||'photographer');
+    m.innerHTML=`<div class="opt-sm">Площадка · смена</div>`+shifts.map(s=>`<button type="button" class="opt" onclick='subCalAssignShift(${JSON.stringify(s.shiftId)},${JSON.stringify(phId)},${JSON.stringify(pname)},${JSON.stringify('pending_confirmation')},${rj(s.role)})'>Предложить: ${esc(s.venue)} — ${esc(s.shiftName)}</button>`).join('')+
+      shifts.map(s=>`<button type="button" class="opt" onclick='subCalAssignShift(${JSON.stringify(s.shiftId)},${JSON.stringify(phId)},${JSON.stringify(pname)},${JSON.stringify('confirmed')},${rj(s.role)})'>Принудительно: ${esc(s.venue)} — ${esc(s.shiftName)}</button>`).join('');
+  }
+  document.body.appendChild(m);subCalMenuEl=m;
+  const r=m.getBoundingClientRect();let x=ev.clientX,y=ev.clientY;if(x+r.width>innerWidth-8)x=innerWidth-8-r.width;if(y+r.height>innerHeight-8)y=innerHeight-8-r.height;
+  m.style.left=x+'px';m.style.top=y+'px';
+  setTimeout(()=>document.addEventListener('click',closeSubCalMenuDoc,true),0);
+}
+async function subCalAssignShift(shiftId,phId,pname,forceStatus,roleInShift){
+  closeSubCalMenu();
+  try{
+    await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:phId,role_in_shift:roleInShift||'photographer',force:true,force_status:forceStatus});
+    showToast(forceStatus==='confirmed'?'Назначено':'Предложение отправлено');
+    updateSubmissionHeaderStats();
+  }catch(e){showToast(e.message,true);}
+}
+function submissionCheckCellHtml(s){
+  if(!s.submitted_at)return`<td class="sub-check-col" style="background:rgba(242,85,85,.15);color:var(--rank3);font-weight:600">—</td>`;
+  const ok=s.on_time===true||s.on_time==='t';
+  const col=ok?'var(--rank1)':'var(--rank2)';
+  return`<td class="sub-check-col" style="color:${col};font-weight:700">✓</td>`;
+}
+function updateSubmissionHeaderStats(){
+  const el=document.getElementById('hstats');if(!el)return;
+  const subs=currentSubmissions||[];
+  const total=subs.length;
+  const subm=subs.filter(s=>s.submitted_at).length;
+  const evs=lastSubmissionEventsCache||[];
+  const evCount=evs.length;
+  let req=0,asg=0,gap=0;
+  evs.forEach(e=>{(e.shifts_summary||[]).forEach(sh=>{const r=Number(sh.required||0),a=Number(sh.assigned||0);req+=r;asg+=a;const g=r-a;if(g>0)gap+=g;});});
+  const pct=req>0?Math.round(100*asg/req):0;
+  el.innerHTML=`<div class="stat"><div class="stat-num">${esc(String(subm))}/${esc(String(total))}</div><div class="stat-lbl">Подали заявки</div></div>
+    <div class="stat"><div class="stat-num">${esc(String(evCount))}</div><div class="stat-lbl">Мероприятий</div></div>
+    <div class="stat"><div class="stat-num">${esc(String(pct))}%</div><div class="stat-lbl">Заполнено</div></div>
+    <div class="stat"><div class="stat-num">${esc(String(gap))}</div><div class="stat-lbl">Нехватка смен</div></div>`;
+}
 async function loadSubmissions(){
   const pid=document.getElementById('sub-period').value;if(!pid)return;
   try{
@@ -1152,6 +1265,10 @@ async function loadSubmissions(){
     currentPeriodMeta=data.period||null;
     const from=String(currentPeriodMeta?.period_start||'').slice(0,10);
     const to=String(currentPeriodMeta?.period_end||'').slice(0,10);
+    const city=currentPeriodMeta?.city||'';
+    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+    const cal=await api('GET',`/events/calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&schedule_status=confirmed${cityParam}`).catch(()=>({events:[]}));
+    lastSubmissionEventsCache=cal.events||[];
     const periodDates=enumeratePeriodDates(from,to);
     const dayHeader=periodDates.map(ds=>{
       const dn=parseInt(String(ds).slice(8,10),10)||'';
@@ -1161,10 +1278,17 @@ async function loadSubmissions(){
       const cls=s.on_time?'row-ok':(s.submitted_at?'row-late':'row-none');
       const idJs=JSON.stringify(String(s.id));
       const byD={};(s.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
-      const cells=periodDates.map(ds=>`<td class="sub-cal-td">${subMiniCalCell(byD[ds],!!s.submitted_at)}</td>`).join('');
-      return`<tr class="${cls}" style="cursor:pointer" onclick="openSubmissionDetail(${idJs})"><td>${esc(s.name)}</td><td>${s.submitted_at?'✓':'—'}</td>${cells}</tr>`;
+      const cells=periodDates.map(ds=>subCalCellInteractive(s.id,s.name,ds,byD[ds],!!s.submitted_at)).join('');
+      const td=submissionCheckCellHtml(s);
+      const tdDn=`<td class="sub-stat-col">${s.total_days!=null?Number(s.total_days):0}</td>`;
+      const tdSv=`<td class="sub-stat-col">${s.full_days!=null?Number(s.full_days):0}</td>`;
+      const tdZn=`<td class="sub-stat-col">${s.busy_days!=null?Number(s.busy_days):0}</td>`;
+      const tdU=`<td class="sub-stat-col">${s.morning_days!=null?Number(s.morning_days):0}</td>`;
+      const tdV=`<td class="sub-stat-col">${s.evening_days!=null?Number(s.evening_days):0}</td>`;
+      return`<tr class="${cls}"><td class="sub-name-cell" onclick="event.stopPropagation();openSubmissionDetail(${idJs})">${esc(s.name)}</td>${td}${tdDn}${tdSv}${tdZn}${tdU}${tdV}${cells}</tr>`;
     }).join('');
-    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal"><thead><tr><th>Фотограф</th><th>Подана</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal"><thead><tr><th>Фотограф</th><th>✓</th><th title="Дней">Дн</th><th title="Полных">Св</th><th title="Занято/вопрос">Зн</th><th title="Утро">У</th><th title="Вечер">В</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    updateSubmissionHeaderStats();
   }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
 }
 
@@ -1174,38 +1298,102 @@ async function openSubmissionDetail(phId){
     const from=String(currentPeriodMeta.period_start||'').slice(0,10);
     const to=String(currentPeriodMeta.period_end||'').slice(0,10);
     const person=currentSubmissions.find(s=>String(s.id)===String(phId));
-    const rows=await api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    const assigns=await api('GET',`/schedule/photographer-assignments?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]);
+    const [rows,assigns,hist]=await Promise.all([
+      api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+      api('GET',`/schedule/photographer-assignments?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]),
+      api('GET',`/availability/history?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]),
+    ]);
     const byDate={}; (rows||[]).forEach(r=>{byDate[String(r.avail_date).slice(0,10)]=r;});
     const days=[]; const s=parseDateLocal(from),e=parseDateLocal(to);
     for(let d=new Date(s); d<=e; d.setDate(d.getDate()+1)){ days.push(new Date(d).toISOString().slice(0,10)); }
     const cells=days.map(ds=>{const r=byDate[ds]; const lbl=r?(r.status==='available_full'?'🟢 Весь день':r.status==='available_morning'?'🔵 Утро':r.status==='available_evening'?'🟣 Вечер':r.status==='day_off'?'🟡 Под вопросом':'🔴 Занят'):'—'; const tm=(r&&r.available_from&&r.available_to)?`<div style="font-size:10px;color:var(--text3)">${esc(r.available_from)}-${esc(r.available_to)}</div>`:''; return `<div class="tetris-cell"><b>${esc(fmtDate(ds))}</b><div>${lbl}</div>${tm}</div>`;}).join('');
     const comments=[...new Set((rows||[]).map(r=>(r.notes||'').trim()).filter(Boolean))];
     const commentsHtml=comments.length?comments.map(c=>`<div style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-top:4px;background:var(--bg3)">💬 ${esc(c)}</div>`).join(''):'<div style="color:var(--text3)">—</div>';
+    const histRows=(hist||[]).filter(h=>h.old_status!==h.new_status);
+    const histHtml=histRows.length?histRows.slice(0,40).map(h=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${esc(String(h.avail_date).slice(0,10))}: ${esc(h.old_status||'—')} → ${esc(h.new_status||'—')} · ${h.changed_at?esc(new Date(h.changed_at).toLocaleString('ru-RU')):''}</div>`).join(''):'<div style="color:var(--text3)">Нет записей об изменениях статусов</div>';
     const declinedList=(assigns||[]).filter(a=>a.status==='declined');
     const declinedBlock=declinedList.length?`<div style="padding:10px;border-radius:10px;background:rgba(242,85,85,.1);border:1px solid rgba(242,85,85,.45);margin-bottom:12px"><div class="section-title" style="margin-bottom:8px">❌ Отклонённые смены</div>${declinedList.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><div>${esc(fmtDate(a.event_date))}, ${esc(a.venue_name||'')} — ${esc(a.decline_reason||'—')}</div>${a.decline_comment?`<div style="color:var(--text2);margin-top:4px">Комментарий: «${esc(a.decline_comment)}»</div>`:''}</div>`).join('')}</div>`:'';
     const assignHtml=(assigns||[]).filter(a=>a.status!=='declined').map(a=>{
       const st=a.status==='confirmed'?'✅ ПОДТВЕРЖДЕНО':a.status==='pending_confirmation'?'⏳ ОЖИДАЕТ ПОДТВЕРЖДЕНИЯ':`• ${a.status||'—'}`;
       return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(fmtDate(a.event_date))}, ${esc(a.venue_name||'')} — ${st}</div>`;
     }).join('')||'<div style="color:var(--text3)">Нет назначений за период</div>';
+    const pidJs=JSON.stringify(String(phId));
+    const pnameJs=JSON.stringify(person?.name||'');
+    const quickBtns=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn btn-ghost" style="font-size:11px" onclick='submissionOpenAssignPicker(${pidJs},${pnameJs},"pending_confirmation")'>Предложить смену</button><button type="button" class="btn btn-ghost" style="font-size:11px" onclick='submissionOpenAssignPicker(${pidJs},${pnameJs},"confirmed")'>Назначить принудительно</button></div>`;
     document.getElementById('subm-title').textContent=`Заявка: ${person?.name||'—'}`;
-    document.getElementById('subm-body').innerHTML=`<div style="margin-bottom:8px">Период: ${esc(fmtDate(from))} → ${esc(fmtDate(to))}</div><div style="margin-bottom:10px;color:var(--text2)">Подана: ${person?.submitted_at?esc(new Date(person.submitted_at).toLocaleString('ru-RU')):'—'} · Версия: ${Number(person?.max_version||1)}</div>${declinedBlock}<div class="section-title">Комментарий к заявке</div>${commentsHtml}<div class="section-title" style="margin-top:10px">Доступность по дням</div><div class="tetris-inner" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${cells}</div><div class="section-title" style="margin-top:10px">Назначения за период</div>${assignHtml}<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-ghost" onclick="document.getElementById('submission-modal').classList.remove('open')">Закрыть</button></div>`;
+    document.getElementById('subm-body').innerHTML=`<div style="margin-bottom:8px">Период: ${esc(fmtDate(from))} → ${esc(fmtDate(to))}</div><div style="margin-bottom:10px;color:var(--text2)">Подана: ${person?.submitted_at?esc(new Date(person.submitted_at).toLocaleString('ru-RU')):'—'} · Версия: ${Number(person?.max_version||1)}</div>
+      <div class="section-title">Сообщение сотруднику</div>
+      <textarea id="subm-msg-body" class="fin" style="width:100%;min-height:72px;font-size:12px" placeholder="Текст комментария (увидит сотрудник во вкладке Комментарии)"></textarea>
+      <div style="margin-top:8px"><button type="button" class="btn btn-primary" style="font-size:12px" onclick='submissionSendComment(${pidJs})'>Отправить</button></div>
+      <div class="section-title" style="margin-top:12px">Быстрые действия</div>${quickBtns}
+      <div id="subm-assign-picker" style="margin-top:8px"></div>
+      <div class="section-title" style="margin-top:12px">История изменений статусов</div><div style="max-height:140px;overflow:auto;margin-bottom:8px">${histHtml}</div>
+      ${declinedBlock}<div class="section-title">Комментарий к заявке</div>${commentsHtml}<div class="section-title" style="margin-top:10px">Доступность по дням</div><div class="tetris-inner" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${cells}</div><div class="section-title" style="margin-top:10px">Назначения за период</div>${assignHtml}<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-ghost" onclick="document.getElementById('submission-modal').classList.remove('open')">Закрыть</button></div>`;
     document.getElementById('submission-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
+}
+async function submissionSendComment(phId){
+  const el=document.getElementById('subm-msg-body');
+  const body=(el?.value||'').trim();
+  if(!body){showToast('Введите текст',true);return;}
+  try{
+    await api('POST',`/photographers/${encodeURIComponent(phId)}/comments`,{body,comment_type:'general',visibility:'managers'});
+    showToast('Комментарий отправлен');
+    if(el) el.value='';
+  }catch(e){showToast(e.message,true);}
+}
+function submissionOpenAssignPicker(phId,pname,forceStatus){
+  const box=document.getElementById('subm-assign-picker');
+  if(!box||!currentPeriodMeta)return;
+  const days=enumeratePeriodDates(currentPeriodMeta.period_start,currentPeriodMeta.period_end);
+  const opts=days.map(ds=>`<option value="${esc(ds)}">${esc(fmtDate(ds))}</option>`).join('');
+  box.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Дата и площадка</div><select id="subm-pick-date" class="fselect" style="width:100%;margin-bottom:6px">${opts}</select><div id="subm-pick-shifts"></div><button type="button" class="btn btn-primary" style="font-size:11px;margin-top:8px" onclick='submissionRunPickedAssign(${JSON.stringify(phId)},${JSON.stringify(pname)},${JSON.stringify(forceStatus)})'>Назначить</button>`;
+  const upd=()=>{
+    const ds=document.getElementById('subm-pick-date')?.value;
+    const sh=document.getElementById('subm-pick-shifts');
+    if(!ds||!sh)return;
+    const shifts=[];
+    (lastSubmissionEventsCache||[]).forEach(evItem=>{
+      if(String(evItem.event_date||'').slice(0,10)!==String(ds).slice(0,10)) return;
+      (evItem.shifts_summary||[]).forEach(s=>{
+        if(!s.id) return;
+        const gap=Number(s.required||0)-Number(s.assigned||0);
+        if(gap<=0) return;
+        shifts.push({id:s.id,label:`${evItem.venue_name||''} — ${s.shift_name||'Смена'}`,role:s.role||'photographer'});
+      });
+    });
+    sh.innerHTML=shifts.length?`<select id="subm-pick-shift" class="fselect" style="width:100%">${shifts.map(x=>`<option value="${esc(x.id)}" data-role="${esc(x.role||'photographer')}">${esc(x.label)}</option>`).join('')}`:'<span style="color:var(--rank3);font-size:11px">Нет свободных смен</span>';
+  };
+  document.getElementById('subm-pick-date')?.addEventListener('change',upd);
+  upd();
+}
+async function submissionRunPickedAssign(phId,pname,forceStatus){
+  const sid=document.getElementById('subm-pick-shift')?.value;
+  if(!sid){showToast('Выберите смену',true);return;}
+  try{
+    const role=document.getElementById('subm-pick-shift')?.selectedOptions?.[0]?.dataset?.role||'photographer';
+    await api('POST',`/shifts/${sid}/assignments`,{photographer_id:phId,role_in_shift:role,force:true,force_status:forceStatus});
+    showToast(forceStatus==='confirmed'?'Назначено':'Предложение отправлено');
+    updateSubmissionHeaderStats();
   }catch(e){showToast(e.message,true);}
 }
 
 function openPeriodModal(){initPeriodCityFilter();document.getElementById('period-modal').classList.add('open');}
-function npSuggestedYearMonth(){
+function npMonthYear(offset){
   const d=new Date();
-  let y=d.getFullYear(),m=d.getMonth();
-  if(d.getDate()>20){m++;if(m>11){m=0;y++;}}
+  let y=d.getFullYear(),m=d.getMonth()+offset;
+  while(m>11){m-=12;y++;}
+  while(m<0){m+=12;y--;}
   return{y,m};
 }
-function npQuickPeriod(half){
-  const {y,m}=npSuggestedYearMonth();
+function npQuickPeriod(which){
+  const cur=npMonthYear(0);
+  const nxt=npMonthYear(1);
+  const pick=(which==='c1'||which==='c2')?cur:nxt;
+  const y=pick.y,m=pick.m;
   const p=n=>String(n).padStart(2,'0');
   const ym=`${y}-${p(m+1)}`;
-  if(half===1){
+  if(which==='c1'||which==='n1'){
     document.getElementById('np-start').value=`${ym}-01`;
     document.getElementById('np-end').value=`${ym}-15`;
   }else{
@@ -1629,8 +1817,10 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
       }catch(e2){ showToast(e2.message||'Ошибка назначения',true); return; }
     }else{ showToast(e.message,true); return; }
   }
-  await loadPool(poolRole);
-  await renderTetris();
+  if(!opts?.skipLoadPoolTetris){
+    await loadPool(poolRole);
+    await renderTetris();
+  }
   if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
 }
 async function removeAssignment(assignmentId,key,opts){
@@ -2023,6 +2213,7 @@ async function saveVenueSettings(){
     initTetrisCityFilter();
     initPeriodCityFilter();
     setScheduleStatus('draft');
+    await loadPeriodsSubs();
   }catch(e){showToast(e.message,true);}
 })();
 </script>

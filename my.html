@@ -101,6 +101,9 @@ a{color:inherit;text-decoration:none}
 .my-sched-day .times{font-size:9px;color:var(--text2);margin-top:2px}
 .my-sched-day .crew{font-size:9px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .my-sched-day.off{background:var(--bg2)}
+.my-sched-day .avail-only-lbl{font-size:9px;color:var(--text2);margin-top:4px;line-height:1.25}
+.my-sched-legend{margin-top:10px;font-size:10px;color:var(--text3);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.my-sched-legend .lg-sq{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
 .my-sched-day .status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px}
 .my-sched-day .status-confirmed{background:var(--rank1)}
 .my-sched-day .status-pending{background:var(--rank2)}
@@ -382,7 +385,26 @@ function selectMyPeriod(periodId){
   loadSchedulePanel(availEditor.photographerId);
 }
 
-function renderMyScheduleGrid(from, to, assignments){
+function myAvailCellStyle(status){
+  const m={
+    available_full:{bg:'rgba(62,207,142,.12)',bd:'rgba(62,207,142,.28)'},
+    unavailable:{bg:'rgba(242,85,85,.1)',bd:'rgba(242,85,85,.32)'},
+    day_off:{bg:'rgba(245,166,35,.1)',bd:'rgba(245,166,35,.28)'},
+    available_morning:{bg:'rgba(106,166,232,.12)',bd:'rgba(106,166,232,.28)'},
+    available_evening:{bg:'rgba(155,141,255,.12)',bd:'rgba(155,141,255,.28)'},
+  };
+  const x=m[status];
+  return x?`background:${x.bg};border-color:${x.bd}`:'';
+}
+function myAvailShortLabel(status){
+  if(status==='available_full') return 'Свободен';
+  if(status==='unavailable') return 'Занят';
+  if(status==='day_off') return 'Под вопросом';
+  if(status==='available_morning') return 'Утро';
+  if(status==='available_evening') return 'Вечер';
+  return '';
+}
+function renderMyScheduleGrid(from, to, assignments, availability){
   const holder=document.getElementById('my-sched-holder');
   if(!holder) return;
   const days=buildDateRange(from,to);
@@ -392,6 +414,11 @@ function renderMyScheduleGrid(from, to, assignments){
     const ds=String(a.event_date||'').slice(0,10);
     if(!byDate[ds]) byDate[ds]=[];
     byDate[ds].push(a);
+  });
+  const availBy={};
+  (availability||[]).forEach(r=>{
+    const ds=String(r.avail_date||'').slice(0,10);
+    if(ds) availBy[ds]=r.status||'unavailable';
   });
   const todayStr=new Date().toISOString().slice(0,10);
   const first=parseDateLocal(days[0]);
@@ -404,10 +431,12 @@ function renderMyScheduleGrid(from, to, assignments){
     const isToday=ds===todayStr;
     const isPast=ds<todayStr;
     const items=byDate[ds]||[];
+    const avSt=availBy[ds];
+    const cellStyle=avSt?myAvailCellStyle(avSt):'';
     let cls='my-sched-day';
     if(isToday) cls+=' today';
     if(isPast) cls+=' past';
-    if(!items.length) cls+=' off';
+    if(!items.length&&!avSt) cls+=' off';
     let inner=`<div class="num">${dt?dt.getDate():''}</div>`;
     if(items.length){
       items.forEach(a=>{
@@ -423,13 +452,24 @@ function renderMyScheduleGrid(from, to, assignments){
         inner+=`<div class="times">${esc(timeStr)}</div>`;
         if(crewParts.length) inner+=`<div class="crew">${crewParts.join(' · ')}</div>`;
       });
+    } else if(avSt){
+      inner+=`<div class="avail-only-lbl">${esc(myAvailShortLabel(avSt))}</div>`;
     } else {
       inner+='<div style="color:var(--text3);font-size:10px">—</div>';
     }
-    h+=`<div class="${cls}">${inner}</div>`;
+    h+=`<div class="${cls}"${cellStyle?` style="${cellStyle}"`:''}>${inner}</div>`;
   });
   h+='</div>';
-  const legend='<div style="margin-top:8px;font-size:10px;color:var(--text3);display:flex;gap:12px;flex-wrap:wrap"><span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rank1);margin-right:3px"></span>Подтверждено</span><span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rank2);margin-right:3px"></span>Ожидает</span></div>';
+  const legend=`<div class="my-sched-legend">
+    <span><span class="lg-sq" style="background:rgba(62,207,142,.25)"></span>Весь день</span>
+    <span><span class="lg-sq" style="background:rgba(242,85,85,.2)"></span>Занят</span>
+    <span><span class="lg-sq" style="background:rgba(245,166,35,.2)"></span>Под вопросом</span>
+    <span><span class="lg-sq" style="background:rgba(106,166,232,.22)"></span>Утро</span>
+    <span><span class="lg-sq" style="background:rgba(155,141,255,.22)"></span>Вечер</span>
+    <span style="opacity:.6">·</span>
+    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rank1);margin-right:4px;vertical-align:middle"></span>Подтверждено</span>
+    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rank2);margin-right:4px;vertical-align:middle"></span>Ожидает</span>
+  </div>`;
   holder.innerHTML=h+legend;
 }
 
@@ -484,8 +524,13 @@ async function loadSchedulePanel(phId){
     if(st?.period_start && st?.period_end){
       (async()=>{
         try{
-          const cal=await api('GET',`/schedule/my-calendar?from=${encodeURIComponent(st.period_start)}&to=${encodeURIComponent(st.period_end)}`);
-          renderMyScheduleGrid(st.period_start, st.period_end, cal||[]);
+          const qf=encodeURIComponent(st.period_start);
+          const qt=encodeURIComponent(st.period_end);
+          const [cal,avail]=await Promise.all([
+            api('GET',`/schedule/my-calendar?from=${qf}&to=${qt}`),
+            api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${qf}&to=${qt}`).catch(()=>[]),
+          ]);
+          renderMyScheduleGrid(st.period_start, st.period_end, cal||[], avail||[]);
         }catch(e){
           console.error('my-calendar load error', e);
           const h=document.getElementById('my-sched-holder');
