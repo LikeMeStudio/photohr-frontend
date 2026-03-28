@@ -1586,10 +1586,16 @@ function hexToRgba(hex,a){
   const r=parseInt(v.slice(0,2),16),g=parseInt(v.slice(2,4),16),b=parseInt(v.slice(4,6),16);
   return `rgba(${r},${g},${b},${a})`;
 }
+function normalizeVenueDisplayColor(c){
+  const s=String(c==null?'':c).trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  if(/^#[0-9a-fA-F]{3}$/.test(s)) return '#'+s.slice(1).split('').map(ch=>ch+ch).join('').toLowerCase();
+  return '';
+}
 function venuePaletteStyle(venueId){
   const v=getVenueById(venueId);
-  const custom=(v&&v.display_color)?String(v.display_color).trim():'';
-  if(custom&&/^#[0-9a-fA-F]{6}$/.test(custom)) return {hex:custom,bg:hexToRgba(custom,0.25)};
+  const custom=normalizeVenueDisplayColor(v&&v.display_color);
+  if(custom) return {hex:custom,bg:hexToRgba(custom,0.25)};
   const s=String(venueId||'0');
   let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
   const hex=VENUE_COLORS[h%VENUE_COLORS.length];
@@ -2280,6 +2286,7 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
     await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift});
     showToast('Назначено');
   }catch(e){
+    if(e&&e.status===409){ showToast('Сотрудник уже назначен на эту смену'); return; }
     if(needsForceAssignmentError(e)){
       const forceStatus=await chooseForceAssignOption({name:photographerName||'Сотрудник',date:(key||'').split('|')[1]||''});
       if(forceStatus==='cancel') return;
@@ -2287,7 +2294,10 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
       try{
         await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift,force:true,force_status:forceStatus});
         showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
-      }catch(e2){ showToast(e2.message||'Ошибка назначения',true); return; }
+      }catch(e2){
+        if(e2&&e2.status===409){ showToast('Сотрудник уже назначен на эту смену'); return; }
+        showToast(e2.message||'Ошибка назначения',true); return;
+      }
     }else{ showToast(e.message,true); return; }
   }
   if(!opts?.skipLoadPoolTetris){
@@ -2545,7 +2555,8 @@ function openVenueSettings(venueId){
   const pr=Number(v.priority_level??2);
   const diff=String(v.difficulty||'normal');
   document.getElementById('vs-title').textContent=`Настройки: ${v.name}`;
-  const dcRaw=(v.display_color&&/^#[0-9a-fA-F]{6}$/.test(String(v.display_color).trim()))?String(v.display_color).trim():venuePaletteStyle(v.id).hex;
+  const dcRaw=normalizeVenueDisplayColor(v.display_color)||venuePaletteStyle(v.id).hex;
+  const dcAttr=normalizeVenueDisplayColor(dcRaw)||'#888888';
   const vsUnifiedCols=['weekday','weekend','holiday'].map((kind)=>{
     const slot=venueSettingsShiftState[vsKindKey(kind)];
     const a=slot.print_operator[0]||{start:'09:30',end:'22:00',required_count:1};
@@ -2584,8 +2595,8 @@ function openVenueSettings(venueId){
       <option value="normal" ${diff==='normal'?'selected':''}>Обычная</option>
       <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
     </select>
-    <span class="vs-lbl" style="font-size:10px">Цвет:</span><input type="color" id="vs-display-color" value="${esc(dcRaw)}" title="Цвет в матрице" />
-    <span class="vs-lbl" style="font-size:10px">Палитра:</span><span style="display:inline-flex;gap:3px;flex-wrap:wrap">${VENUE_COLORS.map(c=>`<button type="button" class="btn btn-ghost" style="padding:2px 4px;min-width:22px;font-size:9px" onclick="document.getElementById('vs-display-color').value='${c}'" title="${c}">■</button>`).join('')}</span>
+    <span class="vs-lbl" style="font-size:10px">Цвет:</span><input type="color" id="vs-color" value="${dcAttr}" title="Цвет в матрице" />
+    <span class="vs-lbl" style="font-size:10px">Палитра:</span><span style="display:inline-flex;gap:3px;flex-wrap:wrap">${VENUE_COLORS.map(c=>`<button type="button" class="btn btn-ghost" style="padding:2px 4px;min-width:22px;font-size:9px" onclick="document.getElementById('vs-color').value='${c}'" title="${c}">■</button>`).join('')}</span>
     <span class="vs-lbl" style="font-size:10px">VCH:</span><input class="fin" id="vs-short-name" value="${esc(v.short_name!=null&&v.short_name!==undefined?v.short_name:'')}" placeholder="?" />
     <span class="vs-lbl" style="font-size:10px">Город:</span><input class="fin" id="vs-city" value="${esc(v.city||'')}" />
     <span class="vs-lbl" style="font-size:10px">Категория:</span><input class="fin" id="vs-category" value="${esc(v.category||'')}" />
@@ -2645,7 +2656,7 @@ async function saveVenueSettings(){
       times_weekday:tw,times_weekend:tww,times_holiday:th,
       staffing_min,staffing_max,staffing_weekday,
       short_name:(document.getElementById('vs-short-name')?.value??'').trim()||null,
-      display_color:(document.getElementById('vs-display-color')?.value||'').trim()||null,
+      display_color:normalizeVenueDisplayColor(document.getElementById('vs-color')?.value)||null,
       priority_level:parseInt(document.getElementById('vs-priority')?.value||'2',10)||2,
       difficulty:document.getElementById('vs-difficulty')?.value||'normal',
       city:(document.getElementById('vs-city')?.value||'').trim(),
