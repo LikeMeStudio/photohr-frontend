@@ -327,7 +327,8 @@ function renderAvailabilityEditor(){
   days.forEach(ds=>{
     const dt=parseDateLocal(ds), cur=availEditor.entries[ds]||{}, st=cur.status||'';
     const t=(st==='available_morning'||st==='available_evening')&&cur.available_from&&cur.available_to?`${cur.available_from}-${cur.available_to}`:'';
-    h+=`<div class="avail-day ${availClass(st)} ${availEditor.selectedDate===ds?'sel':''}" onclick="openDayMenu('${ds}',event)"><div class="num">${dt?dt.getDate():''}</div><div class="lbl">${esc(AV_LABELS[st]||'—')}</div>${t?`<div class="lbl">${esc(t)}</div>`:''}</div>`;
+    const pend=cur.changed_by_hr===true&&cur.hr_confirmed===false;
+    h+=`<div class="avail-day ${availClass(st)} ${availEditor.selectedDate===ds?'sel':''}" onclick="openDayMenu('${ds}',event)"><div class="num">${dt?dt.getDate():''}</div><div class="lbl">${esc(AV_LABELS[st]||'—')}</div>${t?`<div class="lbl">${esc(t)}</div>`:''}${pend?'<div class="lbl" style="color:var(--rank2);font-size:9px">HR</div>':''}</div>`;
   });
   h+='</div>';
   const legend=`<div class="avail-legend">
@@ -404,6 +405,16 @@ function myAvailShortLabel(status){
   if(status==='available_evening') return 'Вечер';
   return '';
 }
+function ruAvailStatusBrief(x){
+  return {available_full:'свободен весь день',unavailable:'занят',day_off:'под вопросом',available_morning:'утро',available_evening:'вечер'}[x]||x||'—';
+}
+async function respondHrAvailProposal(ds,accept){
+  try{
+    await api('POST','/availability/hr-proposal/respond',{date:String(ds).slice(0,10),accept});
+    showToast(accept?'Изменение подтверждено':'Предложение отклонено, восстановлен прежний статус');
+    await loadSchedulePanel(currentUser.photographer_id);
+  }catch(e){showToast(e.message,true);}
+}
 function renderMyScheduleGrid(from, to, assignments, availability){
   const holder=document.getElementById('my-sched-holder');
   if(!holder) return;
@@ -418,7 +429,7 @@ function renderMyScheduleGrid(from, to, assignments, availability){
   const availBy={};
   (availability||[]).forEach(r=>{
     const ds=String(r.avail_date||'').slice(0,10);
-    if(ds) availBy[ds]=r.status||'unavailable';
+    if(ds) availBy[ds]={status:r.status||'unavailable',pending:r.changed_by_hr===true&&r.hr_confirmed===false};
   });
   const todayStr=new Date().toISOString().slice(0,10);
   const first=parseDateLocal(days[0]);
@@ -431,7 +442,8 @@ function renderMyScheduleGrid(from, to, assignments, availability){
     const isToday=ds===todayStr;
     const isPast=ds<todayStr;
     const items=byDate[ds]||[];
-    const avSt=availBy[ds];
+    const av=availBy[ds];
+    const avSt=av?.status;
     const cellStyle=avSt?myAvailCellStyle(avSt):'';
     let cls='my-sched-day';
     if(isToday) cls+=' today';
@@ -454,6 +466,7 @@ function renderMyScheduleGrid(from, to, assignments, availability){
       });
     } else if(avSt){
       inner+=`<div class="avail-only-lbl">${esc(myAvailShortLabel(avSt))}</div>`;
+      if(av?.pending) inner+=`<div style="font-size:9px;color:var(--rank2);margin-top:2px">HR · подтвердите</div>`;
     } else {
       inner+='<div style="color:var(--text3);font-size:10px">—</div>';
     }
@@ -511,7 +524,7 @@ async function loadSchedulePanel(phId){
     const periodsUi=myPeriods.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${myPeriods.map(p=>`<button class="btn ${p.period_id===mySelectedPeriodId?'btn-primary':'btn-ghost'}" style="padding:5px 10px;font-size:11px" onclick="selectMyPeriod('${p.period_id}')">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${p.submitted?'✓':'•'})</button>`).join('')}</div>`:'';
     box.innerHTML=`
       <div class="section"><div class="section-title">Период заявок</div>${periodsUi}<div style="font-size:13px">${st?`${esc(fmtDate(st.period_start))} → ${esc(fmtDate(st.period_end))}<br>Дедлайн: ${esc(fmtDate(st.submit_deadline))} · ${esc(statusHuman(st))}`:'Нет открытого периода'}</div><div id="avail-editor" style="margin-top:12px"></div></div>
-      <div class="section"><div class="section-title">📅 Моё расписание</div><div id="my-sched-holder"><div class="loading">Загрузка...</div></div></div>
+      <div class="section"><div class="section-title">📅 Моё расписание</div><div id="avail-hr-notices" style="margin-bottom:10px"></div><div id="my-sched-holder"><div class="loading">Загрузка...</div></div></div>
       <div class="section"><div class="section-title">Профиль</div><div style="font-size:13px">Город: ${esc(ph.city||'—')}</div></div>
       <div class="section"><div class="section-title">Ближайшие смены</div>${forcedNotices}${upHtml}</div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
@@ -526,11 +539,33 @@ async function loadSchedulePanel(phId){
         try{
           const qf=encodeURIComponent(st.period_start);
           const qt=encodeURIComponent(st.period_end);
-          const [cal,avail]=await Promise.all([
+          const [cal,avail,histHr]=await Promise.all([
             api('GET',`/schedule/my-calendar?from=${qf}&to=${qt}`),
             api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${qf}&to=${qt}`).catch(()=>[]),
+            api('GET',`/availability/history?photographer_id=${encodeURIComponent(phId)}&from=${qf}&to=${qt}`).catch(()=>[]),
           ]);
           renderMyScheduleGrid(st.period_start, st.period_end, cal||[], avail||[]);
+          const nEl=document.getElementById('avail-hr-notices');
+          if(nEl){
+            const proposals=(avail||[]).filter(r=>r.changed_by_hr===true&&r.hr_confirmed===false);
+            const propBlocks=proposals.map(r=>{
+              const ds=String(r.avail_date||'').slice(0,10);
+              const stLabel=myAvailShortLabel(r.status||'');
+              const dsJs=JSON.stringify(ds);
+              return `<div style="padding:10px;border:1px solid rgba(245,166,35,.5);border-radius:10px;background:rgba(245,166,35,.1);margin-bottom:8px;font-size:12px">HR предлагает изменить <b>${esc(fmtDate(ds))}</b> на «${esc(stLabel)}». Подтвердите или отклоните.
+              <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                <button type="button" class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="respondHrAvailProposal(${dsJs},true)">Подтвердить</button>
+                <button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="respondHrAvailProposal(${dsJs},false)">Отклонить</button>
+              </div></div>`;
+            }).join('');
+            const forced=(histHr||[]).filter(h=>h.action==='hr_forced_change').slice(0,12);
+            const forcedBlocks=forced.map(h=>{
+              const when=h.changed_at?new Date(h.changed_at).toLocaleString('ru-RU'):'';
+              const d=String(h.avail_date||'').slice(0,10);
+              return `<div style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);margin-bottom:6px;font-size:11px;color:var(--text2)"><b>HR изменил вашу доступность</b> (${esc(when)}): ${esc(fmtDate(d))} — ${esc(ruAvailStatusBrief(h.old_status))} → ${esc(ruAvailStatusBrief(h.new_status))}</div>`;
+            }).join('');
+            nEl.innerHTML=(propBlocks+forcedBlocks)||'';
+          }
         }catch(e){
           console.error('my-calendar load error', e);
           const h=document.getElementById('my-sched-holder');
@@ -548,7 +583,7 @@ async function loadSchedulePanel(phId){
       const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Приём закрыт. Обратитесь к HR.</div>';
     } else if(st?.period_start&&st?.period_end){
       const rows=await api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(st.period_start)}&to=${encodeURIComponent(st.period_end)}`).catch(()=>[]);
-      (rows||[]).forEach(r=>{ const ds=String(r.avail_date||'').slice(0,10); availEditor.entries[ds]={status:r.status||'unavailable',available_from:r.available_from||null,available_to:r.available_to||null,notes:r.notes||null}; });
+      (rows||[]).forEach(r=>{ const ds=String(r.avail_date||'').slice(0,10); availEditor.entries[ds]={status:r.status||'unavailable',available_from:r.available_from||null,available_to:r.available_to||null,notes:r.notes||null,changed_by_hr:!!r.changed_by_hr,hr_confirmed:r.hr_confirmed}; });
       if(isPremiumSchedule()){
         const all=buildDateRange(st.period_start, st.period_end);
         all.forEach(ds=>{ if(!availEditor.entries[ds]) availEditor.entries[ds]={status:'available_full'}; });

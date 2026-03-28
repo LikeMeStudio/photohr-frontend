@@ -56,6 +56,10 @@ a{color:inherit;text-decoration:none}
 #sub-cal-menu .opt:last-child{margin-bottom:0}
 #sub-cal-menu .opt-sm{font-size:10px;color:var(--text3);padding:4px 6px;margin-bottom:4px}
 .row-ok{background:rgba(62,207,142,.08)}.row-late{background:rgba(245,166,35,.1)}.row-none{background:rgba(242,85,85,.06)}
+.subm-tabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px;flex-wrap:wrap}
+.subm-tab-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;color:var(--text2)}
+.subm-tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.subm-hist-row{font-size:12px;padding:8px 0;border-bottom:1px solid var(--border);line-height:1.35;color:var(--text2)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
 .overlay.open{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
@@ -472,6 +476,18 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
+<div class="overlay" id="avail-change-confirm-modal" onclick="if(event.target===this)closeAvailChangeConfirm()">
+<div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+  <div class="modal-title"><span id="acc-title">Изменить статус?</span><button type="button" class="dr-close" onclick="closeAvailChangeConfirm()">×</button></div>
+  <div id="acc-transition" style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.4"></div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button type="button" class="btn btn-ghost" onclick="accPropose()">Предложить изменение</button>
+    <button type="button" class="btn btn-primary" onclick="accForce()">Изменить принудительно</button>
+    <button type="button" class="btn btn-ghost" onclick="closeAvailChangeConfirm()">Отмена</button>
+  </div>
+</div>
+</div>
+
 <div class="overlay" id="tetris-cell-modal" onclick="if(event.target===this)this.classList.remove('open')">
 <div class="modal" style="max-width:640px">
   <div class="modal-title"><span id="tc-title">Смена</span><button class="dr-close" onclick="document.getElementById('tetris-cell-modal').classList.remove('open')">×</button></div>
@@ -502,6 +518,7 @@ a{color:inherit;text-decoration:none}
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
+let accCtx=null,__submCtx=null;
 let refreshLock=null,schMonth=new Date().getMonth(),schYear=new Date().getFullYear(),venuesList=[],calDataCache=null,dragVenueId=null;
 let bulkState={venueId:null,selectedDates:new Set(),existingDates:new Set(),existingMap:{},pendingDeleteDates:new Set()};
 let singleCreateState={venueId:null,date:''};
@@ -1188,6 +1205,65 @@ function subCalCellInteractive(phId,pname,ds,status,submitted){
 }
 function closeSubCalMenu(){if(subCalMenuEl){subCalMenuEl.remove();subCalMenuEl=null;}document.removeEventListener('click',closeSubCalMenuDoc,true);}
 function closeSubCalMenuDoc(ev){if(subCalMenuEl&&!subCalMenuEl.contains(ev.target)) closeSubCalMenu();}
+function availStatusRu(s){
+  if(s==null||s==='')return'—';
+  const m={available_full:'Свободен весь день',unavailable:'Занят',day_off:'Под вопросом',available_morning:'Свободен утром',available_evening:'Свободен вечером'};
+  return m[s]||String(s);
+}
+function closeAvailChangeConfirm(){document.getElementById('avail-change-confirm-modal')?.classList.remove('open');accCtx=null;}
+async function accPropose(){
+  if(!accCtx)return;
+  const {phId,ds,newStatus}=accCtx;
+  try{
+    await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}],force:false});
+    showToast('Предложение отправлено сотруднику');
+    closeAvailChangeConfirm();
+    await loadSubmissions();
+  }catch(e){showToast(e.message,true);}
+}
+async function accForce(){
+  if(!accCtx)return;
+  const {phId,ds,newStatus}=accCtx;
+  try{
+    await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}],force:true});
+    showToast('Изменено принудительно');
+    closeAvailChangeConfirm();
+    await loadSubmissions();
+  }catch(e){showToast(e.message,true);}
+}
+function formatAvailHistoryLine(h){
+  const when=h.changed_at?new Date(h.changed_at).toLocaleString('ru-RU'):'';
+  const d=h.avail_date?fmtDate(String(h.avail_date).slice(0,10)):'';
+  const who=esc(h.changed_by_name||'');
+  const os=availStatusRu(h.old_status);
+  const ns=availStatusRu(h.new_status);
+  const act=h.action||'';
+  if(act==='initial_submit') return `${esc(when)} — ${who||'Сотрудник'}: первая подача заявки`;
+  if(act==='self_edit') return `${esc(when)} — Фотограф изменил ${esc(d)}: ${esc(os)} → ${esc(ns)}`;
+  if(act==='hr_forced_change') return `${esc(when)} — HR изменил ${esc(d)}: ${esc(os)} → ${esc(ns)} (принудительно)`;
+  if(act==='hr_proposed_change') return `${esc(when)} — HR предложил изменить ${esc(d)}: ${esc(os)} → ${esc(ns)}`;
+  if(act==='proposal_accepted') return `${esc(when)} — Фотограф подтвердил предложение HR (${esc(d)})`;
+  if(act==='proposal_rejected') return `${esc(when)} — Фотограф отклонил предложение HR (${esc(d)}: возврат к ${esc(ns)})`;
+  return `${esc(when)} — ${esc(d)}: ${esc(os)} → ${esc(ns)}${act?` · ${esc(act)}`:''}`;
+}
+function switchSubmTab(ix){
+  document.querySelectorAll('.subm-tab-btn').forEach((b,i)=>b.classList.toggle('active',i===ix));
+  ['subm-tab-app','subm-tab-hist','subm-tab-comm'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=i===ix?'block':'none';
+  });
+  if(ix===2) loadSubmCommentsTab();
+}
+async function loadSubmCommentsTab(){
+  const c=__submCtx;if(!c)return;
+  const list=document.getElementById('subm-comm-list');
+  if(!list)return;
+  list.innerHTML='Загрузка…';
+  try{
+    const rows=await api('GET',`/photographers/${encodeURIComponent(c.phId)}/comments`);
+    list.innerHTML=(rows||[]).length?(rows||[]).map(cm=>`<div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg3)"><div style="font-size:10px;color:var(--text3)">${esc(cm.author_name||'')} · ${cm.created_at?new Date(cm.created_at).toLocaleString('ru-RU'):''}</div><div style="margin-top:4px">${esc(cm.body||'')}</div></div>`).join(''):'<div style="color:var(--text3)">Пока нет комментариев</div>';
+  }catch(e){list.innerHTML='<span style="color:var(--rank3)">'+esc(e.message)+'</span>';}
+}
 function subCalOpenStatusMenu(ev,phId,ds,pname){
   ev.stopPropagation();closeSubCalMenu();
   const m=document.createElement('div');m.id='sub-cal-menu';
@@ -1205,13 +1281,28 @@ function subCalOpenStatusMenu(ev,phId,ds,pname){
   m.style.left=x+'px';m.style.top=y+'px';
   setTimeout(()=>document.addEventListener('click',closeSubCalMenuDoc,true),0);
 }
-async function subCalApplyStatus(phId,ds,status){
+async function subCalApplyStatus(phId,ds,newStatus){
   closeSubCalMenu();
-  try{
-    await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status}]});
-    showToast('Сохранено');
-    await loadSubmissions();
-  }catch(e){showToast(e.message,true);}
+  const person=currentSubmissions.find(s=>String(s.id)===String(phId));
+  const byD={};(person?.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
+  const oldSt=byD[String(ds).slice(0,10)]??null;
+  if(String(oldSt||'')===String(newStatus)){showToast('Уже выбрано');return;}
+  const isOwn=currentUser?.photographer_id&&String(currentUser.photographer_id)===String(phId);
+  const isHr=['hr_manager','hr_director','exec_director','admin'].includes(currentUser?.role||'');
+  if(isOwn){
+    try{
+      await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}]});
+      showToast('Сохранено');
+      await loadSubmissions();
+    }catch(e){showToast(e.message,true);}
+    return;
+  }
+  if(!isHr){showToast('Недостаточно прав',true);return;}
+  accCtx={phId,ds,newStatus,oldSt,pname:person?.name||'—'};
+  const t=document.getElementById('acc-title'),tr=document.getElementById('acc-transition'),ov=document.getElementById('avail-change-confirm-modal');
+  if(t) t.textContent=`Изменить статус для ${accCtx.pname} на ${fmtDate(ds)}?`;
+  if(tr) tr.textContent=`${availStatusRu(oldSt)} → ${availStatusRu(newStatus)}`;
+  if(ov) ov.classList.add('open');
 }
 function subCalOpenAssignMenu(ev,phId,ds,pname){
   ev.stopPropagation();closeSubCalMenu();
@@ -1290,14 +1381,15 @@ async function loadSubmissions(){
       const byD={};(s.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
       const cells=periodDates.map(ds=>subCalCellInteractive(s.id,s.name,ds,byD[ds],!!s.submitted_at)).join('');
       const td=submissionCheckCellHtml(s);
-      const tdDn=`<td class="sub-stat-col">${s.total_days!=null?Number(s.total_days):0}</td>`;
+      const free=Number(s.free_days!=null?s.free_days:0);
+      const tdDn=`<td class="sub-stat-col">${free}</td>`;
       const tdSv=`<td class="sub-stat-col">${s.full_days!=null?Number(s.full_days):0}</td>`;
-      const tdZn=`<td class="sub-stat-col">${s.busy_days!=null?Number(s.busy_days):0}</td>`;
       const tdU=`<td class="sub-stat-col">${s.morning_days!=null?Number(s.morning_days):0}</td>`;
       const tdV=`<td class="sub-stat-col">${s.evening_days!=null?Number(s.evening_days):0}</td>`;
-      return`<tr class="${cls}"><td class="sub-name-cell" onclick="event.stopPropagation();openSubmissionDetail(${idJs})">${esc(s.name)}</td>${td}${tdDn}${tdSv}${tdZn}${tdU}${tdV}${cells}</tr>`;
+      const tdZn=`<td class="sub-stat-col">${s.busy_days!=null?Number(s.busy_days):0}</td>`;
+      return`<tr class="${cls}"><td class="sub-name-cell" onclick="event.stopPropagation();openSubmissionDetail(${idJs})">${esc(s.name)}</td>${td}${tdDn}${tdSv}${tdU}${tdV}${tdZn}${cells}</tr>`;
     }).join('');
-    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal"><thead><tr><th>Фотограф</th><th>✓</th><th title="Дней">Дн</th><th title="Полных">Св</th><th title="Занято/вопрос">Зн</th><th title="Утро">У</th><th title="Вечер">В</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal"><thead><tr><th>Фотограф</th><th>✓</th><th title="Свободных слотов (весь день + утро + вечер)">Дн</th><th title="Свободен весь день">Св</th><th title="Утро">У</th><th title="Вечер">В</th><th title="Занято / под вопросом">Зн</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
     updateSubmissionHeaderStats();
   }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
 }
@@ -1313,14 +1405,14 @@ async function openSubmissionDetail(phId){
       api('GET',`/schedule/photographer-assignments?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]),
       api('GET',`/availability/history?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]),
     ]);
+    __submCtx={phId:String(phId),from,to,person,hist:hist||[]};
     const byDate={}; (rows||[]).forEach(r=>{byDate[String(r.avail_date).slice(0,10)]=r;});
     const days=[]; const s=parseDateLocal(from),e=parseDateLocal(to);
     for(let d=new Date(s); d<=e; d.setDate(d.getDate()+1)){ days.push(new Date(d).toISOString().slice(0,10)); }
-    const cells=days.map(ds=>{const r=byDate[ds]; const lbl=r?(r.status==='available_full'?'🟢 Весь день':r.status==='available_morning'?'🔵 Утро':r.status==='available_evening'?'🟣 Вечер':r.status==='day_off'?'🟡 Под вопросом':'🔴 Занят'):'—'; const tm=(r&&r.available_from&&r.available_to)?`<div style="font-size:10px;color:var(--text3)">${esc(r.available_from)}-${esc(r.available_to)}</div>`:''; return `<div class="tetris-cell"><b>${esc(fmtDate(ds))}</b><div>${lbl}</div>${tm}</div>`;}).join('');
-    const comments=[...new Set((rows||[]).map(r=>(r.notes||'').trim()).filter(Boolean))];
-    const commentsHtml=comments.length?comments.map(c=>`<div style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-top:4px;background:var(--bg3)">💬 ${esc(c)}</div>`).join(''):'<div style="color:var(--text3)">—</div>';
-    const histRows=(hist||[]).filter(h=>h.old_status!==h.new_status);
-    const histHtml=histRows.length?histRows.slice(0,40).map(h=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${esc(String(h.avail_date).slice(0,10))}: ${esc(h.old_status||'—')} → ${esc(h.new_status||'—')} · ${h.changed_at?esc(new Date(h.changed_at).toLocaleString('ru-RU')):''}</div>`).join(''):'<div style="color:var(--text3)">Нет записей об изменениях статусов</div>';
+    const cells=days.map(ds=>{const r=byDate[ds]; const lbl=r?(r.status==='available_full'?'🟢 Весь день':r.status==='available_morning'?'🔵 Утро':r.status==='available_evening'?'🟣 Вечер':r.status==='day_off'?'🟡 Под вопросом':'🔴 Занят'):'—'; const tm=(r&&r.available_from&&r.available_to)?`<div style="font-size:10px;color:var(--text3)">${esc(r.available_from)}-${esc(r.available_to)}</div>`:''; const pend=r&&r.changed_by_hr===true&&r.hr_confirmed===false?`<div style="font-size:10px;color:var(--rank2);margin-top:4px">⏳ Ждёт подтверждения сотрудника</div>`:''; return `<div class="tetris-cell"><b>${esc(fmtDate(ds))}</b><div>${lbl}</div>${tm}${pend}</div>`;}).join('');
+    const dayNotes=[...new Set((rows||[]).map(r=>(r.notes||'').trim()).filter(Boolean))];
+    const dayNotesHtml=dayNotes.length?dayNotes.map(c=>`<div style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-top:4px;background:var(--bg3)">${esc(c)}</div>`).join(''):'<div style="color:var(--text3)">—</div>';
+    const histHtml=(hist||[]).length?(hist||[]).map(h=>`<div class="subm-hist-row">${formatAvailHistoryLine(h)}</div>`).join(''):'<div style="color:var(--text3)">Нет записей</div>';
     const declinedList=(assigns||[]).filter(a=>a.status==='declined');
     const declinedBlock=declinedList.length?`<div style="padding:10px;border-radius:10px;background:rgba(242,85,85,.1);border:1px solid rgba(242,85,85,.45);margin-bottom:12px"><div class="section-title" style="margin-bottom:8px">❌ Отклонённые смены</div>${declinedList.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><div>${esc(fmtDate(a.event_date))}, ${esc(a.venue_name||'')} — ${esc(a.decline_reason||'—')}</div>${a.decline_comment?`<div style="color:var(--text2);margin-top:4px">Комментарий: «${esc(a.decline_comment)}»</div>`:''}</div>`).join('')}</div>`:'';
     const assignHtml=(assigns||[]).filter(a=>a.status!=='declined').map(a=>{
@@ -1330,26 +1422,38 @@ async function openSubmissionDetail(phId){
     const pidJs=JSON.stringify(String(phId));
     const pnameJs=JSON.stringify(person?.name||'');
     const quickBtns=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn btn-ghost" style="font-size:11px" onclick='submissionOpenAssignPicker(${pidJs},${pnameJs},"pending_confirmation")'>Предложить смену</button><button type="button" class="btn btn-ghost" style="font-size:11px" onclick='submissionOpenAssignPicker(${pidJs},${pnameJs},"confirmed")'>Назначить принудительно</button></div>`;
-    document.getElementById('subm-title').textContent=`Заявка: ${person?.name||'—'}`;
-    document.getElementById('subm-body').innerHTML=`<div style="margin-bottom:8px">Период: ${esc(fmtDate(from))} → ${esc(fmtDate(to))}</div><div style="margin-bottom:10px;color:var(--text2)">Подана: ${person?.submitted_at?esc(new Date(person.submitted_at).toLocaleString('ru-RU')):'—'} · Версия: ${Number(person?.max_version||1)}</div>
-      <div class="section-title">Сообщение сотруднику</div>
-      <textarea id="subm-msg-body" class="fin" style="width:100%;min-height:72px;font-size:12px" placeholder="Текст комментария (увидит сотрудник во вкладке Комментарии)"></textarea>
-      <div style="margin-top:8px"><button type="button" class="btn btn-primary" style="font-size:12px" onclick='submissionSendComment(${pidJs})'>Отправить</button></div>
+    const tabAppHtml=`<div style="margin-bottom:8px">Период: ${esc(fmtDate(from))} → ${esc(fmtDate(to))}</div><div style="margin-bottom:10px;color:var(--text2)">Подана: ${person?.submitted_at?esc(new Date(person.submitted_at).toLocaleString('ru-RU')):'—'} · Версия: ${Number(person?.max_version||1)}</div>
       <div class="section-title" style="margin-top:12px">Быстрые действия</div>${quickBtns}
       <div id="subm-assign-picker" style="margin-top:8px"></div>
-      <div class="section-title" style="margin-top:12px">История изменений статусов</div><div style="max-height:140px;overflow:auto;margin-bottom:8px">${histHtml}</div>
-      ${declinedBlock}<div class="section-title">Комментарий к заявке</div>${commentsHtml}<div class="section-title" style="margin-top:10px">Доступность по дням</div><div class="tetris-inner" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${cells}</div><div class="section-title" style="margin-top:10px">Назначения за период</div>${assignHtml}<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-ghost" onclick="document.getElementById('submission-modal').classList.remove('open')">Закрыть</button></div>`;
+      ${declinedBlock}<div class="section-title" style="margin-top:12px">Примечания к дням</div>${dayNotesHtml}
+      <div class="section-title" style="margin-top:10px">Доступность по дням</div><div class="tetris-inner" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${cells}</div>
+      <div class="section-title" style="margin-top:10px">Назначения за период</div>${assignHtml}
+      <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-ghost" onclick="document.getElementById('submission-modal').classList.remove('open')">Закрыть</button></div>`;
+    const tabCommHtml=`<div id="subm-comm-list" style="min-height:40px;color:var(--text3)">Откройте вкладку — список загрузится автоматически</div>
+      <textarea id="subm-comm-body" class="fin" style="width:100%;min-height:72px;font-size:12px;margin-top:10px" placeholder="Комментарий к сотруднику"></textarea>
+      <div style="margin-top:8px"><button type="button" class="btn btn-primary" style="font-size:12px" onclick='submissionSendComment(${pidJs})'>Отправить</button></div>`;
+    document.getElementById('subm-title').textContent=`Заявка: ${person?.name||'—'}`;
+    document.getElementById('subm-body').innerHTML=`<div class="subm-tabs">
+      <button type="button" class="subm-tab-btn active" onclick="switchSubmTab(0)">📋 Заявка</button>
+      <button type="button" class="subm-tab-btn" onclick="switchSubmTab(1)">📜 История</button>
+      <button type="button" class="subm-tab-btn" onclick="switchSubmTab(2)">💬 Комментарии</button>
+    </div>
+    <div id="subm-tab-app">${tabAppHtml}</div>
+    <div id="subm-tab-hist" style="display:none;max-height:52vh;overflow:auto">${histHtml}</div>
+    <div id="subm-tab-comm" style="display:none">${tabCommHtml}</div>`;
+    switchSubmTab(0);
     document.getElementById('submission-modal').classList.add('open');
   }catch(e){showToast(e.message,true);}
 }
 async function submissionSendComment(phId){
-  const el=document.getElementById('subm-msg-body');
+  const el=document.getElementById('subm-comm-body');
   const body=(el?.value||'').trim();
   if(!body){showToast('Введите текст',true);return;}
   try{
     await api('POST',`/photographers/${encodeURIComponent(phId)}/comments`,{body,comment_type:'general',visibility:'managers'});
     showToast('Комментарий отправлен');
     if(el) el.value='';
+    await loadSubmCommentsTab();
   }catch(e){showToast(e.message,true);}
 }
 function submissionOpenAssignPicker(phId,pname,forceStatus){
