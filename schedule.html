@@ -1791,11 +1791,23 @@ function staffMatrixCellClick(ev){
 }
 function staffMatrixDragOver(ev){
   ev.preventDefault();
-  try{ ev.dataTransfer.dropEffect='copy'; }catch(_){}
+  try{
+    const ea=String(ev.dataTransfer.effectAllowed||'').toLowerCase();
+    if(ea==='move') ev.dataTransfer.dropEffect='move';
+    else if(ea==='copy') ev.dataTransfer.dropEffect='copy';
+    else if(ea==='copymove'||ea==='all'||ea==='uninitialized'||!ea) ev.dataTransfer.dropEffect='copy';
+    else ev.dataTransfer.dropEffect='move';
+  }catch(_){}
   ev.currentTarget.classList.add('drop-over');
 }
 function staffMatrixDragLeave(ev){ ev.currentTarget.classList.remove('drop-over'); }
-function staffMatrixDrop(ev){ dropStaffMatrixCell(ev,ev.currentTarget); }
+async function staffMatrixDrop(ev){
+  console.log('[staffMatrixDrop] fired');
+  let rawPeek='';
+  try{ rawPeek=String(ev.dataTransfer.getData('text/plain')||''); }catch(_){}
+  console.log('[staffMatrixDrop] raw:', rawPeek);
+  await dropStaffMatrixCell(ev,ev.currentTarget);
+}
 function staffMatrixDragStart(ev){
   console.log('[staffMatrixDragStart]');
   startMatrixCellDrag(ev,ev.currentTarget);
@@ -1885,6 +1897,7 @@ function startTetrisPillDrag(ev){
   ev.dataTransfer.effectAllowed='copy';
 }
 async function dropStaffMatrixCell(ev,el){
+  console.log('[dropStaffMatrixCell] entry');
   if(!el) el=ev.currentTarget;
   ev.preventDefault(); ev.stopPropagation();
   el.classList.remove('drop-over');
@@ -1899,6 +1912,7 @@ async function dropStaffMatrixCell(ev,el){
   const name=pname||'';
   const data=parseDragJson(raw);
   if(data&&(data.type==='matrix-cell'||data.type==='matrix-assign'||(data.fromPid&&data.assignmentId))){
+    console.log('[matrix drop] matrix-cell payload:', data);
     await handleMatrixAssignDrop(data,pid,dateStr,name);
     return;
   }
