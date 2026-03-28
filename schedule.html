@@ -1789,9 +1789,13 @@ function dragOverStaffMatrix(ev){
   ev.currentTarget.classList.add('drop-over');
 }
 function dragLeaveStaffMatrix(ev){ ev.currentTarget.classList.remove('drop-over'); }
-async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
+async function dropStaffMatrixCell(ev,el){
+  if(!el) el=ev.currentTarget;
   ev.preventDefault(); ev.stopPropagation();
-  ev.currentTarget.classList.remove('drop-over');
+  el.classList.remove('drop-over');
+  const photographerId=el.dataset.photographerId||'';
+  const dateStr=el.dataset.date||'';
+  const pname=el.dataset.pname||'';
   let raw=String(ev.dataTransfer.getData('text/plain')||'');
   if(!raw.trim()){
     try{ raw=String(ev.dataTransfer.getData('application/json')||''); }catch(_){}
@@ -1945,11 +1949,11 @@ async function renderStaffMatrix(){
           dragAttr=` draggable="true" data-matrix-drag="${encodeURIComponent(JSON.stringify(dragPayload))}" ondragstart="startMatrixCellDrag(event)"`;
         }
         row+=`<td><div class="sm-cell${forceCls}" style="background:${bg}" title="${esc(st||'нет заявки')}"
-          data-pid="${esc(pid)}" data-ds="${esc(ds)}" data-pname="${pname}"
+          data-photographer-id="${esc(pid)}" data-date="${esc(ds)}" data-pname="${pname}"
           ${dragAttr}
           ${clickAttr}
           ondragover="dragOverStaffMatrix(event)" ondragleave="dragLeaveStaffMatrix(event)"
-          ondrop="dropStaffMatrixCell(event,'${pid}','${ds}',${JSON.stringify(rawName)})">${cellInner}</div></td>`;
+          ondrop="dropStaffMatrixCell(event,this)">${cellInner}</div></td>`;
       });
       return row+'</tr>';
     }).join('');
