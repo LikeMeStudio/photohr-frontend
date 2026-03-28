@@ -1838,7 +1838,6 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const fromName=String(payload.fromName||payload.fromPname||'Сотрудник');
   const fromVenueShort=String(payload.venueShort||shortVenueLabel({venue_short_name:sourceAsg.venue_short_name,venue_name:sourceAsg.venue_name}));
   const venueIdForMove=String(payload.venueId||sourceAsg.venue_id||'');
-  const opts={skipOpenTetris:true,skipLoadPoolTetris:true,skipToast:true};
   if(!targetList.length){
     const targetLabel=String(targetPname||'другому сотруднику');
     if(!confirm(`Переместить ${fromName} с ${fromVenueShort} (${fmtDate(srcDate)}) → ${targetLabel} на ${fmtDate(targetDateNorm)}?`)) return;
@@ -1847,8 +1846,11 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
       const events=findEventsForVenueDate(venueIdForMove,targetDateNorm);
       const found=findAnyShiftForRole(events,roleSrc);
       if(!found){ showToast('На эту дату нет смены для роли',true); await renderTetris(); await renderStaffMatrix(); return; }
-      const r=await assignToShift(found.shift.id,targetPid,roleSrc,found.key,targetLabel,opts);
-      if(r&&r.conflict){ await renderTetris(); await renderStaffMatrix(); return; }
+      try{
+        await api('POST',`/shifts/${found.shift.id}/assignments`,{photographer_id:targetPid,role_in_shift:roleSrc,force:true,force_status:'confirmed'});
+      }catch(e2){
+        showToast(e2.message||'Ошибка назначения',true); await renderTetris(); await renderStaffMatrix(); return;
+      }
       showToast('Перемещено');
     }catch(e){ showToast(e.message,true); return; }
     await renderTetris();
@@ -1872,10 +1874,8 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   try{
     await api('DELETE',`/shift-assignments/${fromAid}`);
     await api('DELETE',`/shift-assignments/${toAid}`);
-    const r1=await assignToShift(toShiftId,fromPid,roleB,keyB,payload.fromPname||'',opts);
-    if(r1&&r1.conflict){ showToast('Не удалось поменять местами',true); await renderTetris(); await renderStaffMatrix(); return; }
-    const r2=await assignToShift(fromShiftId,targetPid,roleA,keyA,targetPname||'',opts);
-    if(r2&&r2.conflict){ showToast('Не удалось поменять местами',true); await renderTetris(); await renderStaffMatrix(); return; }
+    await api('POST',`/shifts/${toShiftId}/assignments`,{photographer_id:fromPid,role_in_shift:roleB,force:true,force_status:'confirmed'});
+    await api('POST',`/shifts/${fromShiftId}/assignments`,{photographer_id:targetPid,role_in_shift:roleA,force:true,force_status:'confirmed'});
     showToast('Поменяно местами');
   }catch(e){ showToast(e.message,true); return; }
   await renderTetris();
