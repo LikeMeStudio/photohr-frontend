@@ -948,9 +948,9 @@ async function api(method, path, body) {
   return res.json();
 }
 
-/** Редирект фотографа на my.html не делаем, если в URL есть query (deep links: ?profile=1, ?open=…). */
+/** Только роль photographer_user → my.html; HR/админы остаются на index. Не редиректим при query в URL (deep links). */
 function shouldRedirectPhotographerUserToMy() {
-  if (!currentUser || currentUser.role !== 'photographer_user' || !currentUser.photographer_id) return false;
+  if (!currentUser || currentUser.role !== 'photographer_user') return false;
   const q = new URLSearchParams(window.location.search);
   if (q.toString().length > 0) return false;
   return true;
@@ -1317,9 +1317,7 @@ function setupToolbarActions() {
     navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
     navBtns.push('<a class="f-btn" href="aquagrim.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Аквагрим</a>');
   }
-  if (currentUser.photographer_id) {
-    navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  }
+  navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
   nav.innerHTML = navBtns.join('');
 
   // Toolbar actions

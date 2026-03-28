@@ -443,9 +443,7 @@ function setupNav(activeKey) {
     navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
     navBtns.push(a('aquagrim', 'aquagrim.html', 'Аквагрим'));
   }
-  if (currentUser.photographer_id) {
-    navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  }
+  navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
   document.getElementById('nav-links').innerHTML = navBtns.join('');
 }
 const SRC_LABELS = { hh:'HH', avito:'Avito', referral:'Реферал', telegram:'TG', manual:'Вручную', website:'Сайт', other:'Другое' };
