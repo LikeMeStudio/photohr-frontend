@@ -1722,7 +1722,7 @@ function startVenueChipDrag(ev){
     console.log('[startVenueChipDrag] payload:', payload);
     ev.dataTransfer.setData('text/plain',payload);
     try{ ev.dataTransfer.setData('application/json',payload); }catch(_){}
-    ev.dataTransfer.effectAllowed='copy';
+    ev.dataTransfer.effectAllowed='all';
   }catch(e){
     console.error('[startVenueChipDrag] ERROR:', e.message, e.stack);
   }
@@ -1791,13 +1791,8 @@ function staffMatrixCellClick(ev){
 }
 function staffMatrixDragOver(ev){
   ev.preventDefault();
-  try{
-    const ea=String(ev.dataTransfer.effectAllowed||'').toLowerCase();
-    if(ea==='move') ev.dataTransfer.dropEffect='move';
-    else if(ea==='copy') ev.dataTransfer.dropEffect='copy';
-    else if(ea==='copymove'||ea==='all'||ea==='uninitialized'||!ea) ev.dataTransfer.dropEffect='copy';
-    else ev.dataTransfer.dropEffect='move';
-  }catch(_){}
+  ev.stopPropagation();
+  try{ ev.dataTransfer.dropEffect='move'; }catch(_){}
   ev.currentTarget.classList.add('drop-over');
 }
 function staffMatrixDragLeave(ev){ ev.currentTarget.classList.remove('drop-over'); }
