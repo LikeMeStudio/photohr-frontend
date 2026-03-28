@@ -948,6 +948,14 @@ async function api(method, path, body) {
   return res.json();
 }
 
+/** Редирект фотографа на my.html не делаем, если в URL есть query (deep links: ?profile=1, ?open=…). */
+function shouldRedirectPhotographerUserToMy() {
+  if (!currentUser || currentUser.role !== 'photographer_user' || !currentUser.photographer_id) return false;
+  const q = new URLSearchParams(window.location.search);
+  if (q.toString().length > 0) return false;
+  return true;
+}
+
 // ── AUTH ──
 async function login() {
   const email = document.getElementById('l-email').value.trim();
@@ -980,6 +988,10 @@ async function login() {
     localStorage.setItem('fhr_refresh', refreshToken);
     localStorage.setItem('fhr_access', accessToken);
     currentUser = json.user;
+    if (shouldRedirectPhotographerUserToMy()) {
+      location.href = 'my.html';
+      return;
+    }
     startApp();
   } catch (e) { showLoginErr(e.message); }
   finally { btn.textContent = 'Войти'; btn.disabled = false; }
@@ -1305,8 +1317,8 @@ function setupToolbarActions() {
     navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
     navBtns.push('<a class="f-btn" href="aquagrim.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Аквагрим</a>');
   }
-  if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
-    navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📷 Мой профиль</a>');
+  if (currentUser.photographer_id) {
+    navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
   }
   nav.innerHTML = navBtns.join('');
 
@@ -4453,8 +4465,13 @@ document.addEventListener('keydown', e=>{
   if (checkGoogleOAuthReturn()) return;
   await checkEmailVerification();
   const ok = await tryAutoLogin();
-  if (ok) startApp();
-  else document.getElementById('login-screen').style.display = 'flex';
+  if (ok) {
+    if (shouldRedirectPhotographerUserToMy()) {
+      location.href = 'my.html';
+      return;
+    }
+    startApp();
+  } else document.getElementById('login-screen').style.display = 'flex';
 })();
 </script>
 </body>
