@@ -1790,6 +1790,7 @@ function staffMatrixCellClick(ev){
   smCellClick(ev,cell.dataset.photographerId,cell.dataset.date,cell.dataset.pname||'');
 }
 function staffMatrixDragOver(ev){
+  console.log('[dragover] fired on', ev.currentTarget.dataset.date, ev.currentTarget.dataset.photographerId);
   ev.preventDefault();
   ev.stopPropagation();
   try{ ev.dataTransfer.dropEffect='move'; }catch(_){}
@@ -1797,6 +1798,7 @@ function staffMatrixDragOver(ev){
 }
 function staffMatrixDragLeave(ev){ ev.currentTarget.classList.remove('drop-over'); }
 async function staffMatrixDrop(ev){
+  console.log('[drop] fired on', ev.currentTarget.dataset.date);
   console.log('[staffMatrixDrop] fired');
   let rawPeek='';
   try{ rawPeek=String(ev.dataTransfer.getData('text/plain')||''); }catch(_){}
@@ -1809,6 +1811,7 @@ function staffMatrixDragStart(ev){
 }
 function bindStaffMatrixCells(container){
   if(!container) return;
+  // dragover / dragleave / drop на каждой ячейке (в т.ч. пустых); dragstart только при assignmentId
   container.querySelectorAll('.sm-cell').forEach(cell=>{
     cell.addEventListener('click',staffMatrixCellClick);
     cell.addEventListener('dragover',staffMatrixDragOver);
@@ -1824,6 +1827,8 @@ function bindStaffMatrixCells(container){
       cell.draggable=false;
     }
   });
+  const allCells=container.querySelectorAll('.sm-cell');
+  console.log('[bind] total sm-cells:', allCells.length, 'with dragover listeners');
   const draggableCells=container.querySelectorAll('.sm-cell[draggable="true"]');
   console.log('[matrix] draggable cells count:', draggableCells.length);
   draggableCells.forEach((c,i)=>{ if(i<3) console.log('[matrix] draggable cell:', c.dataset.photographerId, c.dataset.date, c.dataset.assignmentId); });
