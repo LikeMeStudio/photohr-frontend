@@ -1840,13 +1840,14 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const venueIdForMove=String(payload.venueId||sourceAsg.venue_id||'');
   const opts={skipOpenTetris:true,skipLoadPoolTetris:true,skipToast:true};
   if(!targetList.length){
-    if(!confirm(`Переместить ${fromName} с ${fromVenueShort} (${fmtDate(srcDate)}) на ${fmtDate(targetDateNorm)}?`)) return;
+    const targetLabel=String(targetPname||'другому сотруднику');
+    if(!confirm(`Переместить ${fromName} с ${fromVenueShort} (${fmtDate(srcDate)}) → ${targetLabel} на ${fmtDate(targetDateNorm)}?`)) return;
     try{
       await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
       const events=findEventsForVenueDate(venueIdForMove,targetDateNorm);
       const found=findAnyShiftForRole(events,roleSrc);
       if(!found){ showToast('На эту дату нет смены для роли',true); await renderTetris(); await renderStaffMatrix(); return; }
-      const r=await assignToShift(found.shift.id,fromPid,roleSrc,found.key,fromName,opts);
+      const r=await assignToShift(found.shift.id,targetPid,roleSrc,found.key,targetLabel,opts);
       if(r&&r.conflict){ await renderTetris(); await renderStaffMatrix(); return; }
       showToast('Перемещено');
     }catch(e){ showToast(e.message,true); return; }
