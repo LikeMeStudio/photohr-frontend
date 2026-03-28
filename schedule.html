@@ -1765,7 +1765,8 @@ function startMatrixCellDrag(ev){
   try{
     const p=parseDragJson(decodeURIComponent(enc));
     if(!p) return;
-    p.type='matrix-assign';
+    p.type='matrix-cell';
+    if(!p.fromName&&p.fromPname) p.fromName=p.fromPname;
     ev.dataTransfer.setData('text/plain',JSON.stringify(p));
     ev.dataTransfer.effectAllowed='move';
   }catch(e){ console.error('[startMatrixCellDrag]', e.message); }
@@ -1785,30 +1786,30 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   if(!sourceAsg){ showToast('Назначение не найдено',true); return; }
   const srcDate=String(sourceAsg.event_date).slice(0,10);
   const targetList=(assigns||[]).filter(a=>String(a.photographer_id)===String(targetPid)&&String(a.event_date).slice(0,10)===targetDateNorm);
-  const roleSrc=sourceAsg.role_in_shift||poolRole;
-  const opts={skipOpenTetris:true,skipLoadPoolTetris:true};
+  const roleSrc=payload.roleInShift||sourceAsg.role_in_shift||poolRole;
+  const fromName=String(payload.fromName||payload.fromPname||'Сотрудник');
+  const fromVenueShort=String(payload.venueShort||shortVenueLabel({venue_short_name:sourceAsg.venue_short_name,venue_name:sourceAsg.venue_name}));
+  const venueIdForMove=String(payload.venueId||sourceAsg.venue_id||'');
+  const opts={skipOpenTetris:true,skipLoadPoolTetris:true,skipToast:true};
   if(!targetList.length){
+    if(!confirm(`Переместить ${fromName} с ${fromVenueShort} (${fmtDate(srcDate)}) на ${fmtDate(targetDateNorm)}?`)) return;
     try{
       await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
-      if(srcDate===targetDateNorm){
-        const key=`${sourceAsg.venue_id}|${srcDate}`;
-        await assignToShift(sourceAsg.shift_id,targetPid,roleSrc,key,targetPname||'',opts);
-      }else{
-        const found=findShiftForVenueDateRole(sourceAsg.venue_id,targetDateNorm,roleSrc);
-        if(!found){ showToast('На эту дату нет свободной смены на площадке',true); await renderTetris(); return; }
-        await assignToShift(found.shift.id,targetPid,roleSrc,found.key,targetPname||'',opts);
-      }
+      const events=findEventsForVenueDate(venueIdForMove,targetDateNorm);
+      const found=findAnyShiftForRole(events,roleSrc);
+      if(!found){ showToast('На эту дату нет смены для роли',true); await renderTetris(); await renderStaffMatrix(); return; }
+      const r=await assignToShift(found.shift.id,fromPid,roleSrc,found.key,fromName,opts);
+      if(r&&r.conflict){ await renderTetris(); await renderStaffMatrix(); return; }
       showToast('Перемещено');
     }catch(e){ showToast(e.message,true); return; }
     await renderTetris();
+    await renderStaffMatrix();
     return;
   }
   const targetAsg=targetList[0];
-  const nameA=String(payload.fromPname||'Сотрудник 1');
   const nameB=String(targetPname||'Сотрудник 2');
-  const shortA=shortVenueLabel({venue_short_name:sourceAsg.venue_short_name,venue_name:sourceAsg.venue_name});
   const shortB=shortVenueLabel({venue_short_name:targetAsg.venue_short_name,venue_name:targetAsg.venue_name});
-  if(!confirm(`Поменять местами?\n${nameA}: ${shortA} ↔ ${nameB}: ${shortB}`)) return;
+  if(!confirm(`Поменять местами?\n${fromName}: ${fromVenueShort} → ${shortB}\n${nameB}: ${shortB} → ${fromVenueShort}`)) return;
   const roleA=sourceAsg.role_in_shift||poolRole;
   const roleB=targetAsg.role_in_shift||poolRole;
   const keyA=`${sourceAsg.venue_id}|${srcDate}`;
@@ -1816,11 +1817,14 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   try{
     await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
     await api('DELETE',`/shift-assignments/${targetAsg.assignment_id||targetAsg.id}`);
-    await assignToShift(sourceAsg.shift_id,targetPid,roleA,keyA,targetPname||'',opts);
-    await assignToShift(targetAsg.shift_id,fromPid,roleB,keyB,payload.fromPname||'',opts);
+    const r1=await assignToShift(sourceAsg.shift_id,targetPid,roleA,keyA,targetPname||'',opts);
+    if(r1&&r1.conflict){ showToast('Не удалось поменять местами',true); await renderTetris(); await renderStaffMatrix(); return; }
+    const r2=await assignToShift(targetAsg.shift_id,fromPid,roleB,keyB,payload.fromPname||'',opts);
+    if(r2&&r2.conflict){ showToast('Не удалось поменять местами',true); await renderTetris(); await renderStaffMatrix(); return; }
     showToast('Поменяно местами');
   }catch(e){ showToast(e.message,true); return; }
   await renderTetris();
+  await renderStaffMatrix();
 }
 function startTetrisPillDrag(ev){
   const el=ev.currentTarget;
@@ -1850,7 +1854,7 @@ async function dropStaffMatrixCell(ev,el){
   const pid=String(photographerId||'');
   const name=pname||'';
   const data=parseDragJson(raw);
-  if(data&&data.type==='matrix-assign'){
+  if(data&&(data.type==='matrix-cell'||data.type==='matrix-assign'||(data.fromPid&&data.assignmentId))){
     await handleMatrixAssignDrop(data,pid,dateStr,name);
     return;
   }
@@ -2028,7 +2032,15 @@ async function renderStaffMatrix(){
         const clickAttr=hasAsg?`onclick="smCellClick(event,'${pid}','${ds}',${JSON.stringify(rawName)})"`:''; 
         let dragAttr='';
         if(hasAsg){
-          const dragPayload={assignmentId:String(primary.assignment_id||primary.id),shiftId:String(primary.shift_id),roleInShift:primary.role_in_shift||'photographer',fromPid:pid,fromDate:ds,fromPname:rawName,venueId:String(primary.venue_id),venueShort:shortVenueLabel(primary)};
+          const dragPayload={
+            type:'matrix-cell',
+            assignmentId:String(primary.assignment_id||primary.id),
+            shiftId:String(primary.shift_id),
+            roleInShift:primary.role_in_shift||'photographer',
+            fromPid:pid,fromDate:ds,fromPname:rawName,fromName:rawName,
+            venueId:String(primary.venue_id),
+            venueShort:shortVenueLabel(primary),
+          };
           dragAttr=` draggable="true" data-matrix-drag="${encodeURIComponent(JSON.stringify(dragPayload))}" ondragstart="startMatrixCellDrag(event)"`;
         }
         row+=`<td><div class="sm-cell${forceCls}" style="background:${bg}" title="${esc(st||'нет заявки')}"
@@ -2284,18 +2296,18 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
   const roleInShift=role||'photographer';
   try{
     await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift});
-    showToast('Назначено');
+    if(!opts?.skipToast) showToast('Назначено');
   }catch(e){
-    if(e&&e.status===409){ showToast('Сотрудник уже назначен на эту смену'); return; }
+    if(e&&e.status===409){ return { conflict: true }; }
     if(needsForceAssignmentError(e)){
       const forceStatus=await chooseForceAssignOption({name:photographerName||'Сотрудник',date:(key||'').split('|')[1]||''});
       if(forceStatus==='cancel') return;
       console.log('force assign:',{shiftId:sid,photographerId:pid,forceStatus,role:roleInShift});
       try{
         await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift,force:true,force_status:forceStatus});
-        showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
+        if(!opts?.skipToast) showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
       }catch(e2){
-        if(e2&&e2.status===409){ showToast('Сотрудник уже назначен на эту смену'); return; }
+        if(e2&&e2.status===409){ return { conflict: true }; }
         showToast(e2.message||'Ошибка назначения',true); return;
       }
     }else{ showToast(e.message,true); return; }
