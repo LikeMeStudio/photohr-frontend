@@ -139,6 +139,8 @@ a{color:inherit;text-decoration:none}
 .sm-cell:hover{opacity:.85}
 .sm-cell.drop-over{outline:2px solid var(--accent);outline-offset:-1px}
 .sm-cell--force{box-shadow:inset 0 0 0 2px rgba(245,166,35,.85)}
+.sm-cell[draggable="true"]{cursor:grab}
+.venue-chip-drag{flex-shrink:0}
 #panel-2{width:100%;max-width:100%;box-sizing:border-box}
 #panel-2 .section{width:100%;max-width:none;box-sizing:border-box;padding:12px 12px 12px 12px;margin:0 0 10px 0}
 #panel-2 .section-title{margin-bottom:8px;padding:0}
@@ -287,11 +289,16 @@ a{color:inherit;text-decoration:none}
       <div id="tetris-placeholder" class="loading">Укажите период и загрузите данные календаря</div>
     </div>
     <div class="section">
+      <div class="section-title">Пул сотрудников по городам</div>
+      <div id="ph-pool"></div>
+    </div>
+    <div class="section">
       <div class="section-title">👥 Расстановка по сотрудникам</div>
       <div id="staff-matrix-placeholder" class="loading">Загрузка...</div>
     </div>
-    <div class="section"><div class="section-title">Пул сотрудников по городам</div>
-      <div id="ph-pool"></div>
+    <div class="section">
+      <div class="section-title">🏢 Площадки для назначения</div>
+      <div id="venue-chips-for-matrix" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
   </div>
   <div id="panel-3" class="sched-panel" style="display:none">
@@ -519,6 +526,7 @@ let draggingPoolPhotographerCity='';
 let tetrisPeriods=[];
 let forceAssignResolver=null;
 let cityPoolRoles={};
+let scmState=null;
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
@@ -534,6 +542,7 @@ function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').repla
 function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
 function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 function fmtDateShort(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).replace('.','');}
+function fmtTime(v){const s=String(v||'');if(!s)return'—';return s.length>=5?s.slice(0,5):s;}
 function periodStatusLabel(s){if(s==='open')return'открыт';if(s==='locked')return'закрыт';if(s==='paused')return'пауза';return s||'';}
 
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
@@ -1476,6 +1485,125 @@ function findFirstShiftForPoolDropOnMatrix(dateStr){
   }
   return null;
 }
+function findShiftForVenueDateRole(venueId,dateStr,role){
+  const key=`${venueId}|${String(dateStr).slice(0,10)}`;
+  const list=tetrisEventsByKey[key]||[];
+  const r=role||poolRole||'photographer';
+  for(const ev of list){
+    const sum=ev.shifts_summary||[];
+    const sh=sum.find(s=>s.id&&(s.role||'photographer')===r&&Number(s.required||0)>Number(s.assigned||0));
+    if(sh) return {shift:sh,key,ev};
+  }
+  return null;
+}
+function renderVenueChips(){
+  const container=document.getElementById('venue-chips-for-matrix');
+  if(!container) return;
+  const venueMap={};
+  Object.values(tetrisEventsByKey).flat().forEach(ev=>{
+    const id=ev.venue_id;if(!id||venueMap[id]) return;
+    venueMap[id]={id,name:ev.venue_name||'',short:(ev.venue_short_name||ev.venue_name||'').trim()||'?'};
+  });
+  const venues=Object.values(venueMap);
+  container.innerHTML=venues.length?venues.map(v=>{
+    const pal=venuePaletteStyle(v.id);
+    const hex=pal.hex;
+    const enc=encodeURIComponent(JSON.stringify({type:'venue',venueId:String(v.id),venueShort:v.short}));
+    return`<div class="venue-chip-drag" draggable="true" data-venue-chip="${enc}" style="background:${hex}22;border:2px solid ${hex};color:${hex};padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:grab;user-select:none">${esc(v.short)}</div>`;
+  }).join(''):'<span style="color:var(--text3);font-size:12px">Нет площадок</span>';
+  container.querySelectorAll('[data-venue-chip]').forEach(el=>{
+    el.addEventListener('dragstart',e=>{
+      try{
+        const raw=decodeURIComponent(el.getAttribute('data-venue-chip')||'');
+        e.dataTransfer.setData('text/plain',raw);
+        e.dataTransfer.effectAllowed='copy';
+      }catch(_){}
+    });
+  });
+}
+function matrixEventTimesForCell(venueId,dateStr){
+  const list=tetrisEventsByKey[`${venueId}|${String(dateStr).slice(0,10)}`]||[];
+  const ev=list[0];
+  if(!ev) return'';
+  const t0=fmtTime(ev.staff_arrival||ev.event_start||'');
+  const t1=fmtTime(ev.event_end||'');
+  if(t1&&t1!=='—') return`${t0} → ${t1}`;
+  return t0||'';
+}
+function venuesOnMatrixDate(ds){
+  const out=[];
+  const suf='|'+String(ds).slice(0,10);
+  Object.keys(tetrisEventsByKey).filter(k=>k.endsWith(suf)).forEach(k=>{
+    const vid=k.split('|')[0];
+    const ev=(tetrisEventsByKey[k]||[])[0];
+    if(ev) out.push({id:vid,name:ev.venue_name||'',short:ev.venue_short_name||ev.venue_name||''});
+  });
+  const seen=new Set();
+  return out.filter(v=>{if(seen.has(v.id))return false;seen.add(v.id);return true;});
+}
+function startMatrixCellDrag(ev){
+  const el=ev.currentTarget;
+  const enc=el.getAttribute('data-matrix-drag');
+  if(!enc) return;
+  try{
+    const p=JSON.parse(decodeURIComponent(enc));
+    p.type='matrix-assign';
+    ev.dataTransfer.setData('text/plain',JSON.stringify(p));
+    ev.dataTransfer.effectAllowed='move';
+  }catch(_){}
+}
+async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
+  const fromPid=payload.fromPid,targetDateNorm=String(targetDate).slice(0,10);
+  if(String(fromPid)===String(targetPid)&&String(payload.fromDate).slice(0,10)===targetDateNorm) return;
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city')?.value||'';
+  const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
+  let assigns;
+  try{ assigns=await api('GET',`/staffing/assignments-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityQ}`); }catch(e){ showToast(e.message,true); return; }
+  const aid=String(payload.assignmentId||'');
+  const sourceAsg=(assigns||[]).find(a=>String(a.assignment_id||a.id)===aid);
+  if(!sourceAsg){ showToast('Назначение не найдено',true); return; }
+  const srcDate=String(sourceAsg.event_date).slice(0,10);
+  const targetList=(assigns||[]).filter(a=>String(a.photographer_id)===String(targetPid)&&String(a.event_date).slice(0,10)===targetDateNorm);
+  const roleSrc=sourceAsg.role_in_shift||poolRole;
+  const opts={skipOpenTetris:true,skipLoadPoolTetris:true};
+  if(!targetList.length){
+    try{
+      await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
+      if(srcDate===targetDateNorm){
+        const key=`${sourceAsg.venue_id}|${srcDate}`;
+        await assignToShift(sourceAsg.shift_id,targetPid,roleSrc,key,targetPname||'',opts);
+      }else{
+        const found=findShiftForVenueDateRole(sourceAsg.venue_id,targetDateNorm,roleSrc);
+        if(!found){ showToast('На эту дату нет свободной смены на площадке',true); await renderTetris(); return; }
+        await assignToShift(found.shift.id,targetPid,roleSrc,found.key,targetPname||'',opts);
+      }
+      showToast('Перемещено');
+    }catch(e){ showToast(e.message,true); return; }
+    await renderTetris();
+    return;
+  }
+  const targetAsg=targetList[0];
+  const nameA=String(payload.fromPname||'Сотрудник 1');
+  const nameB=String(targetPname||'Сотрудник 2');
+  const shortA=shortVenueLabel({venue_short_name:sourceAsg.venue_short_name,venue_name:sourceAsg.venue_name});
+  const shortB=shortVenueLabel({venue_short_name:targetAsg.venue_short_name,venue_name:targetAsg.venue_name});
+  if(!confirm(`Поменять местами?\n${nameA}: ${shortA} ↔ ${nameB}: ${shortB}`)) return;
+  const roleA=sourceAsg.role_in_shift||poolRole;
+  const roleB=targetAsg.role_in_shift||poolRole;
+  const keyA=`${sourceAsg.venue_id}|${srcDate}`;
+  const keyB=`${targetAsg.venue_id}|${String(targetAsg.event_date).slice(0,10)}`;
+  try{
+    await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
+    await api('DELETE',`/shift-assignments/${targetAsg.assignment_id||targetAsg.id}`);
+    await assignToShift(sourceAsg.shift_id,targetPid,roleA,keyA,targetPname||'',opts);
+    await assignToShift(targetAsg.shift_id,fromPid,roleB,keyB,payload.fromPname||'',opts);
+    showToast('Поменяно местами');
+  }catch(e){ showToast(e.message,true); return; }
+  await renderTetris();
+}
 function startTetrisPillDrag(ev){
   const el=ev.currentTarget;
   const payload=JSON.stringify({
@@ -1493,40 +1621,83 @@ async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
   const name=pname||'';
   let tetrisPayload=null;
   if(raw.trim().startsWith('{')){ try{ tetrisPayload=JSON.parse(raw); }catch(_){} }
+  if(tetrisPayload&&tetrisPayload.type==='matrix-assign'){
+    await handleMatrixAssignDrop(tetrisPayload,pid,dateStr,name);
+    return;
+  }
+  if(tetrisPayload&&tetrisPayload.type==='venue'){
+    const found=findShiftForVenueDateRole(tetrisPayload.venueId,dateStr,poolRole);
+    if(!found){ showToast('Нет свободной смены для выбранной роли на этой площадке и дате',true); return; }
+    await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+    await renderTetris();
+    return;
+  }
   if(tetrisPayload&&tetrisPayload.kind==='tetris-pill'){
     const shiftId=tetrisPayload.shiftId||'';
     const key=tetrisPayload.key||'';
     const list=tetrisEventsByKey[key]||[];
     const evItem=list.find(x=>String(x.id)===String(tetrisPayload.eventId))||list[0];
     if(!evItem||!shiftId){ showToast('Не найдена смена для этой площадки',true); return; }
-    await assignToShift(shiftId,pid,poolRole,key,name,{skipOpenTetris:true});
+    await assignToShift(shiftId,pid,poolRole,key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+    await renderTetris();
     return;
   }
   const poolId=draggingPoolPhotographerId||String(raw.split('|')[0]||'');
   const poolName=draggingPoolPhotographerName||String(raw.split('|')[1]||'');
-  if(!poolId){ showToast('Перетащите плашку площадки из тетриса или сотрудника из пула',true); return; }
+  if(!poolId){ showToast('Перетащите чип площадки, плашку из тетриса или сотрудника из пула',true); return; }
   const found=findFirstShiftForPoolDropOnMatrix(dateStr);
   if(!found){ showToast('Нет свободной смены на эту дату (выберите площадку в тетрисе и перетащите её ячейку)',true); return; }
-  await assignToShift(found.shift.id,poolId,poolRole,found.key,poolName||name,{skipOpenTetris:true});
+  await assignToShift(found.shift.id,poolId,poolRole,found.key,poolName||name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+  await renderTetris();
 }
 async function removeAssignmentFromMatrix(aid,rk){
-  await removeAssignment(aid,rk,{skipOpenTetris:true});
+  await removeAssignment(aid,rk,{skipOpenTetris:true,skipLoadPoolTetris:true});
   document.getElementById('staff-cell-modal')?.classList.remove('open');
 }
+async function scmApplyReassign(){
+  if(!scmState)return;
+  const sel=document.getElementById('scm-reassign-venue');
+  const vid=sel?.value||'';
+  if(!vid){showToast('Выберите площадку',true);return;}
+  const ass=scmState.items[0];
+  if(!ass)return;
+  const ds=String(scmState.ds).slice(0,10);
+  const rk=`${ass.venue_id}|${ds}`;
+  const aid=String(ass.assignment_id||ass.id||'');
+  const role=ass.role_in_shift||poolRole;
+  try{
+    await api('DELETE',`/shift-assignments/${aid}`);
+    const found=findShiftForVenueDateRole(vid,ds,role);
+    if(!found){showToast('Нет свободной смены на выбранной площадке',true); await renderTetris(); document.getElementById('staff-cell-modal')?.classList.remove('open'); return;}
+    await assignToShift(found.shift.id,scmState.pid,role,found.key,scmState.pname||'',{skipOpenTetris:true,skipLoadPoolTetris:true});
+    document.getElementById('staff-cell-modal')?.classList.remove('open');
+    await renderTetris();
+    showToast('Переназначено');
+  }catch(e){showToast(e.message,true);}
+}
 function openStaffMatrixCell(photographerId,photographerName,dateStr,items){
+  scmState={pid:String(photographerId),pname:photographerName||'',ds:String(dateStr).slice(0,10),items:(items||[]).slice()};
   const ds=fmtDate(dateStr);
   document.getElementById('scm-title').textContent=`${esc(photographerName||'—')} · ${ds}`;
+  const vopts=venuesOnMatrixDate(dateStr).filter(v=>String(v.id)!==String((items||[])[0]?.venue_id||''));
+  const reassignBlock=vopts.length?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+    <div class="section-title" style="font-size:12px;margin-bottom:6px">Переназначить на другую площадку</div>
+    <select id="scm-reassign-venue" class="fselect" style="width:100%;margin-bottom:8px">${vopts.map(v=>`<option value="${esc(v.id)}">${esc(v.short||v.name)}</option>`).join('')}</select>
+    <button type="button" class="btn btn-primary" style="font-size:11px" onclick="scmApplyReassign()">Переназначить</button>
+  </div>`:'';
   const body=(items||[]).map(a=>{
     const rk=`${a.venue_id}|${String(a.event_date).slice(0,10)}`;
     const aid=String(a.assignment_id||a.id||'');
     const forced=!!a.forced;
+    const tm=matrixEventTimesForCell(a.venue_id,dateStr);
     return`<div style="padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;background:var(--bg3)">
       <div style="font-weight:600;margin-bottom:4px">${esc(a.venue_name||'—')}</div>
+      <div style="color:var(--text2);font-size:11px;margin-bottom:4px">${esc(fmtDate(String(a.event_date).slice(0,10)))}${tm?` · ${esc(tm)}`:''}</div>
       <div style="color:var(--text3);font-size:11px;margin-bottom:8px">${esc(ROLE_SHORT[a.role_in_shift]||a.role_in_shift||'—')}${forced?' · <span style="color:var(--rank2)">без заявки</span>':''}</div>
       <button type="button" class="btn btn-ghost" style="font-size:11px" onclick="removeAssignmentFromMatrix(${JSON.stringify(aid)},${JSON.stringify(rk)})">Снять назначение</button>
     </div>`;
   }).join('')||'<div style="color:var(--text3)">Нет данных</div>';
-  document.getElementById('scm-body').innerHTML=body;
+  document.getElementById('scm-body').innerHTML=body+reassignBlock;
   document.getElementById('staff-cell-modal').classList.add('open');
 }
 
@@ -1585,10 +1756,17 @@ async function renderStaffMatrix(){
           if(noSub||badSub||primary.forced) forceCls=' sm-cell--force';
         }
         const hasAsg=list.length>0;
-        const cellInner=hasAsg?`<span style="color:${venuePaletteStyle(list[0].venue_id).hex}">${esc(txt)}</span>`:'';
+        const primary=list[0];
+        const cellInner=hasAsg?`<span style="color:${venuePaletteStyle(primary.venue_id).hex}">${esc(txt)}</span>`:'';
         const clickAttr=hasAsg?`onclick="smCellClick(event,'${pid}','${ds}',${JSON.stringify(rawName)})"`:''; 
+        let dragAttr='';
+        if(hasAsg){
+          const dragPayload={assignmentId:String(primary.assignment_id||primary.id),shiftId:String(primary.shift_id),roleInShift:primary.role_in_shift||'photographer',fromPid:pid,fromDate:ds,fromPname:rawName,venueId:String(primary.venue_id),venueShort:shortVenueLabel(primary)};
+          dragAttr=` draggable="true" data-matrix-drag="${encodeURIComponent(JSON.stringify(dragPayload))}" ondragstart="startMatrixCellDrag(event)"`;
+        }
         row+=`<td><div class="sm-cell${forceCls}" style="background:${bg}" title="${esc(st||'нет заявки')}"
           data-pid="${esc(pid)}" data-ds="${esc(ds)}" data-pname="${pname}"
+          ${dragAttr}
           ${clickAttr}
           ondragover="dragOverStaffMatrix(event)" ondragleave="dragLeaveStaffMatrix(event)"
           ondrop="dropStaffMatrixCell(event,'${pid}','${ds}',${JSON.stringify(rawName)})">${cellInner}</div></td>`;
@@ -1597,6 +1775,7 @@ async function renderStaffMatrix(){
     }).join('');
     ph.innerHTML=photographers.length?`<div class="sm-wrap"><table class="sm-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`
       :'<div style="font-size:12px;color:var(--text3)">Нет сотрудников для выбранного города</div>';
+    renderVenueChips();
   }catch(e){ ph.innerHTML=`<div style="color:var(--rank3);font-size:12px">${esc(e.message)}</div>`; }
 }
 function smCellClick(ev,pid,ds,pname){
@@ -1824,7 +2003,13 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
   if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
 }
 async function removeAssignment(assignmentId,key,opts){
-  try{ await api('DELETE',`/shift-assignments/${assignmentId}`); showToast('Назначение снято'); await loadPool(poolRole); await renderTetris(); if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key); }catch(e){showToast(e.message,true);}
+  try{
+    await api('DELETE',`/shift-assignments/${assignmentId}`);
+    showToast('Назначение снято');
+    if(!opts?.skipLoadPoolTetris) await loadPool(poolRole);
+    await renderTetris();
+    if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
+  }catch(e){showToast(e.message,true);}
 }
 async function openTetrisCell(key,eventId){
   try{
