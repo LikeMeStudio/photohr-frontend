@@ -189,7 +189,16 @@ a{color:inherit;text-decoration:none}
 .vs-pr-flex #vs-short-name{width:64px}
 .vs-pr-flex #vs-city{width:96px}
 .vs-pr-flex #vs-category{width:110px}
-#venue-settings-modal .fin:not(.vs-time):not(.vs-num),#venue-settings-modal .fselect{padding:5px 6px;font-size:11px}
+#vs-display-color{width:36px;height:28px;padding:0;border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.vs-unified-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:300px;overflow:auto;padding:2px}
+.vs-ucol{border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--bg3)}
+.vs-uch{font-size:10px;font-weight:600;margin:0 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.02em}
+.vs-ugrid{display:grid;grid-template-columns:auto 1fr;gap:2px 6px;align-items:center;font-size:10px;margin-bottom:6px}
+.vs-ugrid .vs-lbl{margin:0}
+.vs-ucol .vs-ph-row,.vs-ucol .vs-ad-opmen-row{font-size:10px!important}
+.vs-ucol .fin.vs-time,.vs-ucol .fin.vs-num{padding:4px 6px!important;font-size:11px!important}
+.tt-drop-empty{min-height:36px;display:flex;align-items:center;justify-content:center}
+#venue-settings-modal .fin:not(.vs-time):not(.vs-num),#venue-settings-modal .fselect{padding:4px 6px;font-size:11px}
 .ov-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
 .ov-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
 .ov-num{font-family:Unbounded,sans-serif;font-size:24px;font-weight:700}
@@ -1550,6 +1559,9 @@ function hexToRgba(hex,a){
   return `rgba(${r},${g},${b},${a})`;
 }
 function venuePaletteStyle(venueId){
+  const v=getVenueById(venueId);
+  const custom=(v&&v.display_color)?String(v.display_color).trim():'';
+  if(custom&&/^#[0-9a-fA-F]{6}$/.test(custom)) return {hex:custom,bg:hexToRgba(custom,0.25)};
   const s=String(venueId||'0');
   let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
   const hex=VENUE_COLORS[h%VENUE_COLORS.length];
@@ -1584,7 +1596,7 @@ function findFirstShiftForPoolDropOnMatrix(dateStr){
     const list=tetrisEventsByKey[key]||[];
     for(const ev of list){
       if(city && ev.venue_city && String(ev.venue_city)!==String(city)) continue;
-      const shift=(ev.shifts_summary||[]).find(s=>s.id && (s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+      const shift=(ev.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
       if(shift) return {key,shift,ev};
     }
   }
@@ -1596,10 +1608,25 @@ function findShiftForVenueDateRole(venueId,dateStr,role){
   const r=role||poolRole||'photographer';
   for(const ev of list){
     const sum=ev.shifts_summary||[];
-    const sh=sum.find(s=>s.id&&(s.role||'photographer')===r&&Number(s.required||0)>Number(s.assigned||0));
+    const sh=sum.find(s=>{
+      if(!s.id) return false;
+      const sr=s.role||s.target_role||'photographer';
+      return sr===r&&Number(s.required||0)>Number(s.assigned||0);
+    });
     if(sh) return {shift:sh,key,ev};
   }
   return null;
+}
+function startVenueChipDrag(ev){
+  const el=ev.currentTarget;
+  const venueId=el.getAttribute('data-venue-id');
+  if(!venueId)return;
+  const v=getVenueById(venueId);
+  const venueShort=(v&&String(v.short_name||'').trim())||(el.textContent||'').trim()||'?';
+  const payload=JSON.stringify({type:'venue',venueId:String(venueId),venueShort});
+  ev.dataTransfer.setData('text/plain',payload);
+  try{ ev.dataTransfer.setData('application/json',payload); }catch(_){}
+  ev.dataTransfer.effectAllowed='copy';
 }
 function renderVenueChips(){
   const container=document.getElementById('venue-chips-for-matrix');
@@ -1613,18 +1640,9 @@ function renderVenueChips(){
   container.innerHTML=venues.length?venues.map(v=>{
     const pal=venuePaletteStyle(v.id);
     const hex=pal.hex;
-    const enc=encodeURIComponent(JSON.stringify({type:'venue',venueId:String(v.id),venueShort:v.short}));
-    return`<div class="venue-chip-drag" draggable="true" data-venue-chip="${enc}" style="background:${hex}22;border:2px solid ${hex};color:${hex};padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:grab;user-select:none">${esc(v.short)}</div>`;
+    const sid=esc(String(v.id));
+    return`<div class="venue-chip-drag" draggable="true" data-venue-id="${sid}" ondragstart="startVenueChipDrag(event)" style="background:${hex}22;border:2px solid ${hex};color:${hex};padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:grab;user-select:none">${esc(v.short)}</div>`;
   }).join(''):'<span style="color:var(--text3);font-size:12px">Нет площадок</span>';
-  container.querySelectorAll('[data-venue-chip]').forEach(el=>{
-    el.addEventListener('dragstart',e=>{
-      try{
-        const raw=decodeURIComponent(el.getAttribute('data-venue-chip')||'');
-        e.dataTransfer.setData('text/plain',raw);
-        e.dataTransfer.effectAllowed='copy';
-      }catch(_){}
-    });
-  });
 }
 function matrixEventTimesForCell(venueId,dateStr){
   const list=tetrisEventsByKey[`${venueId}|${String(dateStr).slice(0,10)}`]||[];
@@ -1717,7 +1735,7 @@ function startTetrisPillDrag(ev){
   ev.dataTransfer.setData('text/plain',payload);
   ev.dataTransfer.effectAllowed='copy';
 }
-function dragOverStaffMatrix(ev){ ev.preventDefault(); ev.currentTarget.classList.add('drop-over'); }
+function dragOverStaffMatrix(ev){ ev.preventDefault(); try{ ev.dataTransfer.dropEffect='copy'; }catch(_){} ev.currentTarget.classList.add('drop-over'); }
 function dragLeaveStaffMatrix(ev){ ev.currentTarget.classList.remove('drop-over'); }
 async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
   ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
@@ -1725,14 +1743,15 @@ async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
   const pid=String(photographerId||'');
   const name=pname||'';
   let tetrisPayload=null;
-  if(raw.trim().startsWith('{')){ try{ tetrisPayload=JSON.parse(raw); }catch(_){} }
+  try{ tetrisPayload=JSON.parse(raw); }catch(_){ tetrisPayload=null; }
   if(tetrisPayload&&tetrisPayload.type==='matrix-assign'){
     await handleMatrixAssignDrop(tetrisPayload,pid,dateStr,name);
     return;
   }
   if(tetrisPayload&&tetrisPayload.type==='venue'){
-    const found=findShiftForVenueDateRole(tetrisPayload.venueId,dateStr,poolRole);
-    if(!found){ showToast('Нет свободной смены для выбранной роли на этой площадке и дате',true); return; }
+    const vid=String(tetrisPayload.venueId||'');
+    const found=findShiftForVenueDateRole(vid,dateStr,poolRole);
+    if(!found){ showToast('Нет смены для этой площадки на эту дату',true); return; }
     await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
     return;
@@ -1905,9 +1924,11 @@ async function renderTetris(){
     const from=parseDateLocal(date_from), to=parseDateLocal(date_to);
     if(!from||!to||from>to){ document.getElementById('tetris-placeholder').innerHTML='<div class="loading">Некорректный период</div>'; await renderStaffMatrix(); return; }
     const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
-    const data=await api('GET',`/events/calendar-data?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityParam}&schedule_status=confirmed`);
+    const data=await api('GET',`/events/calendar-data?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityParam}`);
     const events=(data.events||[]).filter(e=>{
       const ds=String(e.event_date||'').slice(0,10);
+      const st=e.schedule_status||'draft';
+      if(!['draft','confirmed'].includes(st)) return false;
       return ds>=date_from&&ds<=date_to;
     });
     tetrisEventsByKey={};
@@ -1923,13 +1944,16 @@ async function renderTetris(){
       days.forEach(ds=>{
         const key=`${v.id}|${ds}`;
         const list=tetrisEventsByKey[key]||[];
-        if(!list.length){ row+=`<td><div class="tt-empty">—</div></td>`; return; }
+        if(!list.length){
+          row+=`<td><div class="tt-drop tt-drop-empty" data-key="${esc(key)}" data-event-id="" data-shift-id="" ondragover="event.preventDefault();try{event.dataTransfer.dropEffect='copy';}catch(_){}this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event)"><div class="tt-empty">—</div></div></td>`;
+          return;
+        }
         const cells=list.map(ev=>{
           const sum=ev.shifts_summary||[];
           const allRoles=[['photographer','ф'],['print_operator','о'],['manager','м'],['mentor','н'],['helper','п']];
           const roleStats=allRoles.filter(([role])=>tetrisFilter==='all'||role===tetrisFilter).map(([role,label])=>{
-            const req=sum.filter(x=>(x.role||'photographer')===role).reduce((s,x)=>s+Number(x.required||0),0);
-            const asg=sum.filter(x=>(x.role||'photographer')===role).reduce((s,x)=>s+Number(x.assigned||0),0);
+            const req=sum.filter(x=>(x.role||x.target_role||'photographer')===role).reduce((s,x)=>s+Number(x.required||0),0);
+            const asg=sum.filter(x=>(x.role||x.target_role||'photographer')===role).reduce((s,x)=>s+Number(x.assigned||0),0);
             return {role,label,req,asg};
           });
           const roleLines=tetrisFilter==='all'?roleStats.filter(r=>r.req>0||r.asg>0):roleStats;
@@ -1939,12 +1963,14 @@ async function renderTetris(){
           let pillClass='tt-pill';
           if(totalDeclined>0) pillClass+=' tt-pill--declined';
           else if(totalAsg===0&&totalReq===0) pillClass+=' tt-pill--empty';
-          const firstShift=(sum||[]).find(x=>(x.role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0))
+          const firstShift=(sum||[]).find(x=>(x.role||x.target_role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0))
             || (sum||[]).find(x=>x.id);
           const abbr=esc(ev.venue_short_name||ev.venue_name||'');
           const lines=roleLines.map(r=>{
-            const gap=r.req-r.asg;const color=gap<=0?(r.asg>r.req?'var(--staff-over)':'var(--rank1)'):gap<=2?'var(--rank2)':'var(--rank3)';
-            return `<div style="color:${color}">${r.label} ${r.asg}/${r.req}</div>`;
+            const gap=r.req-r.asg;
+            const bg=gap<=0?(r.asg>r.req?'rgba(106,166,232,.2)':'rgba(62,207,142,.2)'):gap<=2?'rgba(245,166,35,.2)':'rgba(242,85,85,.2)';
+            const color=gap<=0?(r.asg>r.req?'var(--staff-over)':'var(--rank1)'):gap<=2?'var(--rank2)':'var(--rank3)';
+            return `<div style="background:${bg};color:${color};border-radius:3px;padding:1px 3px;margin-top:1px;font-size:8px">${r.label} ${r.asg}/${r.req}</div>`;
           }).join('');
           return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" data-vid="${esc(ev.venue_id||'')}" data-ds="${esc(ds)}" data-tk="${esc(key)}" draggable="true" ondragstart="startTetrisPillDrag(event)" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')" style="cursor:pointer"><div class="tt-vn">${abbr}</div>${lines}${totalDeclined>0?` <span class="tt-decline-mark">❌${totalDeclined}</span>`:''}</div>`;
         }).join('');
@@ -2036,22 +2062,48 @@ async function loadPool(role){
 function startPoolDrag(ev,id,name,city){ draggingPoolPhotographerId=id; draggingPoolPhotographerName=name||''; draggingPoolPhotographerCity=city||''; ev.dataTransfer.setData('text/plain',`${id}|${name||''}|${city||''}`); }
 async function dropPoolOnCell(ev,key){
   ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
+  const dataKey=key||ev.currentTarget?.dataset?.key||'';
   const data=String(ev.dataTransfer.getData('text/plain')||'');
+  let jp=null; try{ jp=JSON.parse(data); }catch(_){}
+  if(jp&&jp.type==='venue') return;
   const pid=draggingPoolPhotographerId||String(data.split('|')[0]||'');
   const pname=draggingPoolPhotographerName||String(data.split('|')[1]||'');
   const pcity=draggingPoolPhotographerCity||String(data.split('|')[2]||'');
   if(!pid) return;
-  const list=tetrisEventsByKey[key]||[];
-  if(!list.length) return;
+  const list=tetrisEventsByKey[dataKey]||[];
+  if(!list.length){
+    const parts=String(dataKey).split('|');
+    const vid=parts[0], ds=parts.slice(1).join('|')||'';
+    const v=getVenueById(vid);
+    const vname=v?.name||'площадку';
+    if(!confirm(`На ${fmtDate(ds)} нет мероприятия для «${vname}». Создать?`)) return;
+    try{
+      const created=await api('POST','/events',{venue_id:vid,event_date:ds,schedule_status:'draft'});
+      showToast('Мероприятие создано');
+      await loadTab0();
+      await loadPool(poolRole);
+      await renderTetris();
+      const found=findShiftForVenueDateRole(vid,ds,poolRole);
+      if(!found){
+        const shifts=created.shifts||[];
+        const sh=shifts.find(s=>(s.target_role||s.role)===poolRole)||shifts[0];
+        if(sh) await assignToShift(sh.id,pid,poolRole,`${vid}|${ds}`,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
+        else showToast('Смена не создана — назначьте вручную',true);
+      }else{
+        await assignToShift(found.shift.id,pid,poolRole,found.key,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
+      }
+    }catch(e){ showToast(e.message,true); }
+    return;
+  }
   const evItem=list[0];
   if(pcity && evItem?.venue_city && String(pcity)!==String(evItem.venue_city)){
     if(!confirm(`Сотрудник из ${pcity}, площадка в ${evItem.venue_city}. Продолжить?`)) return;
   }
   const dsShift=String(ev.currentTarget?.dataset?.shiftId||'');
   const shift=(evItem.shifts_summary||[]).find(s=>String(s.id||'')===dsShift)
-    || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+    || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
   if(!shift){ showToast('Нет свободной позиции для выбранной роли', true); return; }
-  await assignToShift(shift.id,pid,poolRole,key,pname);
+  await assignToShift(shift.id,pid,poolRole,dataKey,pname);
 }
 function closeForceAssignModal(choice){
   document.getElementById('force-assign-modal')?.classList.remove('open');
@@ -2138,7 +2190,7 @@ async function openTetrisCell(key,eventId){
       const act=(x.assignments||[]).map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)} <span style="color:var(--text3);font-size:10px">(${esc(ROLE_SHORT[a.role_in_shift]||a.role_in_shift||'')})</span>${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick='removeAssignment(${JSON.stringify(String(a.id||''))},${JSON.stringify(key)})'>Снять</button></div>`).join('');
       const body=dec+(act||'<span style="color:var(--text3)">Нет активных назначений</span>');
       return`<div class="section" style="padding:10px;margin-bottom:8px">
-        <div><b>${esc(x.shift.shift_name||'Смена')}</b> (${esc(ROLE_SHORT[x.shift.role]||x.shift.role||'')}) · ${Number(x.shift.assigned||0)}/${Number(x.shift.required||0)}</div>
+        <div><b>${esc(x.shift.shift_name||'Смена')}</b> (${esc(ROLE_SHORT[x.shift.role||x.shift.target_role]||x.shift.role||x.shift.target_role||'')}) · ${Number(x.shift.assigned||0)}/${Number(x.shift.required||0)}</div>
         <div style="margin-top:6px">${body}</div>
       </div>`;
     }).join('');
@@ -2356,71 +2408,50 @@ function openVenueSettings(venueId){
   const pr=Number(v.priority_level??2);
   const diff=String(v.difficulty||'normal');
   document.getElementById('vs-title').textContent=`Настройки: ${v.name}`;
+  const dcRaw=(v.display_color&&/^#[0-9a-fA-F]{6}$/.test(String(v.display_color).trim()))?String(v.display_color).trim():venuePaletteStyle(v.id).hex;
+  const vsUnifiedCols=['weekday','weekend','holiday'].map((kind)=>{
+    const slot=venueSettingsShiftState[vsKindKey(kind)];
+    const a=slot.print_operator[0]||{start:'09:30',end:'22:00',required_count:1};
+    const m=slot.manager[0]||{start:'09:30',end:'22:00',required_count:1};
+    const lab=kind==='weekday'?'Будни':kind==='weekend'?'Выходные':'Праздники';
+    const twX=kind==='weekday'?tw:kind==='weekend'?tww:th;
+    const defX=kind==='weekday'?defWd:kind==='weekend'?defWe:defHol;
+    const ig=kind==='weekday'?'wd':kind==='weekend'?'we':'h';
+    return`<div class="vs-ucol">
+    <div class="vs-uch">${lab}</div>
+    <div class="vs-ugrid">
+      <span class="vs-lbl">Гости</span><input class="fin vs-time" id="vs-ev-${ig}-g" type="time" value="${esc(twX.guest_start||defX.guest_start||'')}" />
+      <span class="vs-lbl">Начало</span><input class="fin vs-time" id="vs-ev-${ig}-ev" type="time" value="${esc(twX.event_start||defX.event_start||'')}" />
+      <span class="vs-lbl">Конец</span><input class="fin vs-time" id="vs-ev-${ig}-en" type="time" value="${esc(twX.event_end||defX.event_end||'')}" />
+    </div>
+    <div id="vs-ph-${kind}-body"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:10px;margin:4px 0 6px;padding:4px 8px" onclick="vsAddPhShift('${kind}')">+ смена фото</button>
+    <div class="vs-hr"></div>
+    <div class="vs-ad-opmen-row"><span class="vs-lbl">Опер</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','print_operator',0,'required_count',this.value)"></div>
+    <div class="vs-ad-opmen-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
+  </div>`;
+  }).join('');
   document.getElementById('vs-body').innerHTML=`<div class="vs-wrap">
-<div class="vs-sec vs-sec-ev">
-  <div class="vs-sec-title">🎭 Мероприятие</div>
-  <div class="vs-grid3">
-    <div><div class="vs-sub">Будни</div>
-      <div class="vs-lbl">Гости</div><input class="fin vs-time" id="vs-ev-wd-g" type="time" value="${esc(tw.guest_start||defWd.guest_start||'')}" />
-      <div class="vs-lbl">Начало</div><input class="fin vs-time" id="vs-ev-wd-ev" type="time" value="${esc(tw.event_start||defWd.event_start||'')}" />
-      <div class="vs-lbl">Конец</div><input class="fin vs-time" id="vs-ev-wd-en" type="time" value="${esc(tw.event_end||defWd.event_end||'')}" />
-    </div>
-    <div><div class="vs-sub">Выходные</div>
-      <div class="vs-lbl">Гости</div><input class="fin vs-time" id="vs-ev-we-g" type="time" value="${esc(tww.guest_start||defWe.guest_start||'')}" />
-      <div class="vs-lbl">Начало</div><input class="fin vs-time" id="vs-ev-we-ev" type="time" value="${esc(tww.event_start||defWe.event_start||'')}" />
-      <div class="vs-lbl">Конец</div><input class="fin vs-time" id="vs-ev-we-en" type="time" value="${esc(tww.event_end||defWe.event_end||'')}" />
-    </div>
-    <div><div class="vs-sub">Праздники</div>
-      <div class="vs-lbl">Гости</div><input class="fin vs-time" id="vs-ev-h-g" type="time" value="${esc(th.guest_start||defHol.guest_start||'')}" />
-      <div class="vs-lbl">Начало</div><input class="fin vs-time" id="vs-ev-h-ev" type="time" value="${esc(th.event_start||defHol.event_start||'')}" />
-      <div class="vs-lbl">Конец</div><input class="fin vs-time" id="vs-ev-h-en" type="time" value="${esc(th.event_end||defHol.event_end||'')}" />
-    </div>
-  </div>
-</div>
-<div class="vs-sec vs-sec-ph">
-  <div class="vs-sec-title">📸 Смены фотографов</div>
-  <div class="vs-sub">Будни</div><div id="vs-ph-weekday-body"></div>
-  <button type="button" class="btn btn-ghost" style="font-size:11px;margin:4px 0 8px" onclick="vsAddPhShift('weekday')">+ Добавить смену</button>
-  <div class="vs-hr"></div>
-  <div class="vs-sub">Выходные</div><div id="vs-ph-weekend-body"></div>
-  <button type="button" class="btn btn-ghost" style="font-size:11px;margin:4px 0 8px" onclick="vsAddPhShift('weekend')">+ Добавить смену</button>
-  <div class="vs-hr"></div>
-  <div class="vs-sub">Праздники</div><div id="vs-ph-holiday-body"></div>
-  <button type="button" class="btn btn-ghost" style="font-size:11px;margin-top:4px" onclick="vsAddPhShift('holiday')">+ Добавить смену</button>
-</div>
-<div class="vs-sec vs-sec-ad">
-  <div class="vs-sec-title">🖨 Операторы печати / 👔 Менеджеры</div>
-  <div class="vs-ad-grid">
-    ${['weekday','weekend','holiday'].map((kind)=>{
-      const slot=venueSettingsShiftState[vsKindKey(kind)];
-      const a=slot.print_operator[0]||{start:'09:30',end:'22:00',required_count:1};
-      const m=slot.manager[0]||{start:'09:30',end:'22:00',required_count:1};
-      const lab=kind==='weekday'?'Будни':kind==='weekend'?'Выходные':'Праздники';
-      return`<div><div class="vs-sub">${lab}</div>
-        <div class="vs-ad-opmen-row"><span class="vs-lbl">Опер</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','print_operator',0,'required_count',this.value)"></div>
-        <div class="vs-ad-opmen-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
-      </div>`;
-    }).join('')}
-  </div>
-</div>
-<div class="vs-sec vs-sec-pr">
-  <div class="vs-sec-title">⚙️ Параметры</div>
-  <div class="vs-pr-flex">
-    <span class="vs-lbl">Приоритет:</span>
+<div class="vs-unified-grid">${vsUnifiedCols}</div>
+<div class="vs-sec vs-sec-pr" style="margin-top:8px;padding:8px">
+  <div class="vs-pr-flex" style="align-items:center">
+    <span class="vs-lbl" style="font-size:10px">Приоритет:</span>
     <select class="fselect" id="vs-priority">
       <option value="1" ${pr===1?'selected':''}>1 · высокий</option>
       <option value="2" ${pr===2?'selected':''}>2 · стандартный</option>
       <option value="3" ${pr===3?'selected':''}>3 · низкий</option>
     </select>
-    <span class="vs-lbl">Тяжёлость:</span>
+    <span class="vs-lbl" style="font-size:10px">Тяжёлость:</span>
     <select class="fselect" id="vs-difficulty">
       <option value="easy" ${diff==='easy'?'selected':''}>Лёгкая</option>
       <option value="normal" ${diff==='normal'?'selected':''}>Обычная</option>
       <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
     </select>
-    <span class="vs-lbl">Сокращение:</span><input class="fin" id="vs-short-name" value="${esc(v.short_name||'')}" placeholder="VCH" />
-    <span class="vs-lbl">Город:</span><input class="fin" id="vs-city" value="${esc(v.city||'')}" />
-    <span class="vs-lbl">Категория:</span><input class="fin" id="vs-category" value="${esc(v.category||'')}" />
+    <span class="vs-lbl" style="font-size:10px">Цвет:</span><input type="color" id="vs-display-color" value="${esc(dcRaw)}" title="Цвет в матрице" />
+    <span class="vs-lbl" style="font-size:10px">Палитра:</span><span style="display:inline-flex;gap:3px;flex-wrap:wrap">${VENUE_COLORS.map(c=>`<button type="button" class="btn btn-ghost" style="padding:2px 4px;min-width:22px;font-size:9px" onclick="document.getElementById('vs-display-color').value='${c}'" title="${c}">■</button>`).join('')}</span>
+    <span class="vs-lbl" style="font-size:10px">VCH:</span><input class="fin" id="vs-short-name" value="${esc(v.short_name!=null&&v.short_name!==undefined?v.short_name:'')}" placeholder="?" />
+    <span class="vs-lbl" style="font-size:10px">Город:</span><input class="fin" id="vs-city" value="${esc(v.city||'')}" />
+    <span class="vs-lbl" style="font-size:10px">Категория:</span><input class="fin" id="vs-category" value="${esc(v.category||'')}" />
   </div>
 </div>
 <div class="vs-sec">
@@ -2476,7 +2507,8 @@ async function saveVenueSettings(){
       default_shifts_holiday:holidayOut,
       times_weekday:tw,times_weekend:tww,times_holiday:th,
       staffing_min,staffing_max,staffing_weekday,
-      short_name:(document.getElementById('vs-short-name')?.value||'').trim()||null,
+      short_name:(document.getElementById('vs-short-name')?.value??'').trim()||null,
+      display_color:(document.getElementById('vs-display-color')?.value||'').trim()||null,
       priority_level:parseInt(document.getElementById('vs-priority')?.value||'2',10)||2,
       difficulty:document.getElementById('vs-difficulty')?.value||'normal',
       city:(document.getElementById('vs-city')?.value||'').trim(),
