@@ -143,10 +143,11 @@ a{color:inherit;text-decoration:none}
 .sm-table thead th:first-child{z-index:3}
 .sm-cell{display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;font-size:9px;font-weight:600;border-radius:3px;transition:opacity .1s;box-sizing:border-box;padding:2px 3px;width:100%;min-height:28px}
 .sm-cell > *{pointer-events:none}
+.sm-cell > .sm-cell-drag{display:flex;align-items:center;justify-content:center;flex:1;align-self:stretch;width:100%;min-height:24px;box-sizing:border-box;pointer-events:auto;cursor:grab;user-select:none;-webkit-user-select:none}
+.sm-cell > .sm-cell-drag:active{cursor:grabbing}
 .sm-cell:hover{opacity:.85}
 .sm-cell.drop-over{outline:2px solid var(--accent);outline-offset:-1px}
 .sm-cell--force{box-shadow:inset 0 0 0 2px rgba(245,166,35,.85)}
-.sm-cell[draggable="true"]{cursor:grab}
 .venue-chip-drag{flex-shrink:0}
 #panel-2{width:100%;max-width:100%;box-sizing:border-box}
 #panel-2 .section{width:100%;max-width:none;box-sizing:border-box;padding:12px 12px 12px 12px;margin:0 0 10px 0}
@@ -803,7 +804,9 @@ function filterVenueList(){
         const mc=(cfg.manager||[]).length;
         const bg=venueSidebarBg(cat);
         const bgStyle=bg?`background:${bg};`:'';
-        h+=`<div class="venue-drag" draggable="true" style="${bgStyle}" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')"><div class="venue-drag-top"><span class="venue-drag-name">${esc(v.name)}</span><span class="venue-gear" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span></div><div class="venue-meta"><span class="vm-ico">📸</span> ${pc} · <span class="vm-ico">🖨</span> ${ac} · <span class="vm-ico">👔</span> ${mc}</div></div>`;
+        const dc=normalizeVenueDisplayColor(v.display_color);
+        const nameStyle=dc?`color:${dc};border-left:3px solid ${dc};padding-left:6px`:'';
+        h+=`<div class="venue-drag" draggable="true" style="${bgStyle}" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')"><div class="venue-drag-top"><span class="venue-drag-name" style="${nameStyle}">${esc(v.name)}</span><span class="venue-gear" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span></div><div class="venue-meta"><span class="vm-ico">📸</span> ${pc} · <span class="vm-ico">🖨</span> ${ac} · <span class="vm-ico">👔</span> ${mc}</div></div>`;
       });
     });
   });
@@ -1759,6 +1762,7 @@ function venuesOnMatrixDate(ds){
   return out.filter(v=>{if(seen.has(v.id))return false;seen.add(v.id);return true;});
 }
 function startMatrixCellDrag(ev){
+  console.log('[startMatrixCellDrag] called');
   const el=ev.currentTarget;
   const enc=el.getAttribute('data-matrix-drag');
   if(!enc) return;
@@ -2028,9 +2032,9 @@ async function renderStaffMatrix(){
         }
         const hasAsg=list.length>0;
         const primary=list[0];
-        const cellInner=hasAsg?`<span style="color:${venuePaletteStyle(primary.venue_id).hex}">${esc(txt)}</span>`:'';
+        const labelInner=hasAsg?`<span style="color:${venuePaletteStyle(primary.venue_id).hex}">${esc(txt)}</span>`:'';
         const clickAttr=hasAsg?`onclick="smCellClick(event,'${pid}','${ds}',${JSON.stringify(rawName)})"`:''; 
-        let dragAttr='';
+        let cellBody='';
         if(hasAsg){
           const dragPayload={
             type:'matrix-cell',
@@ -2041,14 +2045,16 @@ async function renderStaffMatrix(){
             venueId:String(primary.venue_id),
             venueShort:shortVenueLabel(primary),
           };
-          dragAttr=` draggable="true" data-matrix-drag="${encodeURIComponent(JSON.stringify(dragPayload))}" ondragstart="startMatrixCellDrag(event)"`;
+          const encDrag=encodeURIComponent(JSON.stringify(dragPayload));
+          cellBody=`<span class="sm-cell-drag" draggable="true" data-matrix-drag="${encDrag}" ondragstart="startMatrixCellDrag(event)">${labelInner}</span>`;
+        }else{
+          cellBody=labelInner;
         }
         row+=`<td><div class="sm-cell${forceCls}" style="background:${bg}" title="${esc(st||'нет заявки')}"
           data-photographer-id="${esc(pid)}" data-date="${esc(ds)}" data-pname="${pname}"
-          ${dragAttr}
           ${clickAttr}
           ondragover="dragOverStaffMatrix(event)" ondragleave="dragLeaveStaffMatrix(event)"
-          ondrop="dropStaffMatrixCell(event,this)">${cellInner}</div></td>`;
+          ondrop="dropStaffMatrixCell(event,this)">${cellBody}</div></td>`;
       });
       return row+'</tr>';
     }).join('');
