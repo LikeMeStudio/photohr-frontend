@@ -184,6 +184,16 @@ a{color:inherit;text-decoration:none}
 .ov-tbl th,.ov-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
 .ov-tbl th{color:var(--text3);font-size:11px}
 #venue-settings-modal .modal{max-height:90vh;overflow-y:auto}
+.dd-body{max-height:65vh;overflow-y:auto;font-size:12px;padding:4px 0}
+.dd-event-card{border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--bg3)}
+.dd-event-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.dd-event-title{font-weight:600;font-size:13px;line-height:1.3;flex:1;min-width:0}
+.dd-summary{font-size:11px;color:var(--text2);line-height:1.45;margin-bottom:4px}
+.dd-edit{margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.dd-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.dd-field label{display:block;font-size:10px;color:var(--text3);margin-bottom:2px}
+.dd-field .fin,.dd-field .fselect{width:100%;padding:5px 6px;font-size:11px}
+.dd-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
 </style>
 </head>
 <body>
@@ -318,6 +328,13 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" onclick="document.getElementById('create-modal').classList.remove('open')">Отмена</button>
     <button class="btn btn-primary" onclick="createSingleEvent()">Создать</button>
   </div>
+</div>
+</div>
+
+<div class="overlay" id="day-detail-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal" style="max-width:560px">
+  <div class="modal-title"><span id="dd-title">День</span><button class="dr-close" onclick="document.getElementById('day-detail-modal').classList.remove('open')">×</button></div>
+  <div id="dd-body" class="dd-body">—</div>
 </div>
 </div>
 
@@ -550,12 +567,122 @@ function renderCalGrid(data){
       const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
       const onlyPh=aReq+mReq===0;
       const statLine=onlyPh?`📸${pAsg}/${pReq}`:`📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}`;
-      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}" onclick="event.stopPropagation()"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
     }).join('');
-    cells+=`<div class="cal-cell" data-date="${ds}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
+    cells+=`<div class="cal-cell" data-date="${ds}" onclick="dayCalCellClick(event,'${ds}')" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
     d++;
   }
   document.getElementById('sch-cal-grid').innerHTML=cells;
+}
+
+let dayDetailDateStr=null;
+function timeInputVal(v){if(v==null||v==='')return'';const s=String(v).trim();return s.length>=5?s.slice(0,5):s;}
+const DD_MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DD_WD=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+function fmtDayDetailTitle(ds){const d=parseDateLocal(ds);if(!d)return ds;return`${d.getDate()} ${DD_MONTHS[d.getMonth()]} (${DD_WD[d.getDay()]})`;}
+function dayCalCellClick(ev,ds){if(ev.target.closest('.ev-pill'))return;openDayDetail(ds);}
+function ddSid(id){return String(id).replace(/-/g,'_');}
+function buildDdVenueSelectHtml(){const city=document.getElementById('sch-city').value;let venues=(venuesList||[]).filter(v=>!city||(v.city||'')===city);venues.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ru'));return'<option value="">Выберите площадку</option>'+venues.map(v=>`<option value="${esc(v.id)}">${esc(v.name)}${v.city?` (${esc(v.city)})`:''}</option>`).join('');}
+function openDayDetail(dateStr){
+  dayDetailDateStr=dateStr;
+  document.getElementById('dd-title').textContent=fmtDayDetailTitle(dateStr);
+  const list=(calDataCache?.events||[]).filter(e=>String(e.event_date).slice(0,10)===dateStr);
+  list.sort((a,b)=>{const ta=(a.event_start||'').toString();const tb=(b.event_start||'').toString();if(ta!==tb)return ta.localeCompare(tb);return(a.venue_name||'').localeCompare(b.venue_name||'','ru');});
+  let cards='';
+  for(const e of list){
+    const sid=ddSid(e.id);
+    const vn=esc(e.venue_name||'—');
+    const sa=timeInputVal(e.staff_arrival),es=timeInputVal(e.event_start),ee=timeInputVal(e.event_end),aa=timeInputVal(e.admin_arrival),ma=timeInputVal(e.manager_arrival);
+    const ph=Number(e.required_photographers??e.need_photo??0)||0;
+    const op=Number(e.required_operators??e.need_ops??0)||0;
+    const adm=Number(e.required_admins??e.need_admin??0)||0;
+    const st=(e.schedule_status==='confirmed')?'confirmed':'draft';
+    const stLabel=st==='confirmed'?'✅ утверждено':'📝 черновик';
+    const idJs=JSON.stringify(String(e.id));
+    cards+=`<div class="dd-event-card" data-dd-ev="${esc(e.id)}">
+      <div class="dd-event-head">
+        <div class="dd-event-title">${vn}</div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:14px" onclick="ddToggleEdit(${idJs})" title="Редактирование">⚙️</button>
+          <button type="button" class="btn btn-ghost" style="padding:2px 8px;color:var(--rank3)" onclick="deleteDayEvent(${idJs})" title="Удалить">✕</button>
+        </div>
+      </div>
+      <div class="dd-summary" id="dd-sum-${sid}">
+        Сбор: <b>${sa||'—'}</b> · Начало: <b>${es||'—'}</b> · Окончание: <b>${ee||'—'}</b><br>
+        Фото: <b>${ph}</b> · Опер: <b>${op}</b> · Менеджер: <b>${adm}</b><br>
+        Статус: ${stLabel}
+      </div>
+      <div class="dd-edit" id="dd-edit-${sid}" style="display:none">
+        <div class="dd-fields">
+          <div class="dd-field"><label>Сбор</label><input type="time" class="fin" id="dd_${sid}_sa" value="${esc(sa)}"/></div>
+          <div class="dd-field"><label>Начало</label><input type="time" class="fin" id="dd_${sid}_es" value="${esc(es)}"/></div>
+          <div class="dd-field"><label>Окончание</label><input type="time" class="fin" id="dd_${sid}_ee" value="${esc(ee)}"/></div>
+          <div class="dd-field"><label>Админ</label><input type="time" class="fin" id="dd_${sid}_aa" value="${esc(aa)}"/></div>
+          <div class="dd-field"><label>Менеджер</label><input type="time" class="fin" id="dd_${sid}_ma" value="${esc(ma)}"/></div>
+          <div class="dd-field"><label>Фото</label><input type="number" min="0" class="fin" id="dd_${sid}_ph" value="${ph}"/></div>
+          <div class="dd-field"><label>Опер</label><input type="number" min="0" class="fin" id="dd_${sid}_op" value="${op}"/></div>
+          <div class="dd-field"><label>Менеджер (шт.)</label><input type="number" min="0" class="fin" id="dd_${sid}_ad" value="${adm}"/></div>
+          <div class="dd-field"><label>Статус</label>
+            <select class="fselect" id="dd_${sid}_st">
+              <option value="draft" ${st==='draft'?'selected':''}>черновик</option>
+              <option value="confirmed" ${st==='confirmed'?'selected':''}>утверждено</option>
+            </select>
+          </div>
+        </div>
+        <div class="dd-actions">
+          <button type="button" class="btn btn-primary" onclick="saveDayEvent(${idJs})">Сохранить</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const emptyMsg=list.length?'':'<div style="color:var(--text3);margin-bottom:10px">Нет мероприятий</div>';
+  const addLabel=list.length?'+ Добавить мероприятие на эту дату':'+ Создать';
+  const footer=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+    <div class="section-title" style="font-size:12px;margin-bottom:6px">${list.length?'Новое мероприятие':'Создать'}</div>
+    <select id="dd-add-venue" class="fselect" style="width:100%;margin-bottom:8px">${buildDdVenueSelectHtml()}</select>
+    <button type="button" class="btn btn-primary" onclick="ddAddEventOnDate()">${esc(addLabel)}</button>
+  </div>`;
+  document.getElementById('dd-body').innerHTML=emptyMsg+cards+footer;
+  document.getElementById('day-detail-modal').classList.add('open');
+}
+function ddToggleEdit(rawId){const sid=ddSid(rawId);const ed=document.getElementById('dd-edit-'+sid);if(!ed)return;ed.style.display=ed.style.display==='none'?'block':'none';}
+async function saveDayEvent(rawId){
+  const sid=ddSid(rawId);
+  const g=id=>{const el=document.getElementById(id);return el?(el.value||'').trim():'';};
+  const body={
+    staff_arrival:g(`dd_${sid}_sa`)||null,
+    event_start:g(`dd_${sid}_es`)||null,
+    event_end:g(`dd_${sid}_ee`)||null,
+    admin_arrival:g(`dd_${sid}_aa`)||null,
+    manager_arrival:g(`dd_${sid}_ma`)||null,
+    required_photographers:parseInt(document.getElementById(`dd_${sid}_ph`).value,10)||0,
+    required_operators:parseInt(document.getElementById(`dd_${sid}_op`).value,10)||0,
+    required_admins:parseInt(document.getElementById(`dd_${sid}_ad`).value,10)||0,
+    schedule_status:(document.getElementById(`dd_${sid}_st`)?.value)||'draft'
+  };
+  try{
+    await api('PATCH',`/events/${rawId}`,body);
+    showToast('Сохранено');
+    await loadTab0();
+    openDayDetail(dayDetailDateStr);
+  }catch(e){showToast(e.message,true);}
+}
+async function deleteDayEvent(rawId){
+  if(!confirm('Удалить это мероприятие?'))return;
+  try{
+    await api('DELETE',`/events/${rawId}`);
+    showToast('Удалено');
+    await loadTab0();
+    openDayDetail(dayDetailDateStr);
+  }catch(e){showToast(e.message,true);}
+}
+function ddAddEventOnDate(){
+  const sel=document.getElementById('dd-add-venue');
+  if(!sel){showToast('Форма не готова',true);return;}
+  const vid=sel.value;
+  if(!vid){showToast('Выберите площадку',true);return;}
+  document.getElementById('day-detail-modal').classList.remove('open');
+  openSingleCreate(vid,dayDetailDateStr);
 }
 
 function venueSidebarBg(category){
