@@ -54,8 +54,16 @@ a{color:inherit;text-decoration:none}
 .toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{padding:40px;text-align:center;color:var(--text3)}
 .venue-side{max-height:420px;overflow-y:auto}
-.venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:11px}
-.venue-meta{font-size:10px;color:var(--text3);margin-top:2px}
+.venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:12px;line-height:1.3}
+.venue-drag-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.venue-drag-name{flex:1;min-width:0;word-break:break-word}
+.venue-gear{font-size:20px;line-height:1;padding:4px;cursor:pointer;flex-shrink:0;-webkit-user-select:none;user-select:none}
+.venue-meta{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.3}
+.venue-meta .vm-ico{margin-right:4px;display:inline}
+.venue-city-heading{font-size:11px;font-weight:600;color:var(--text2);margin:10px 0 6px;padding:0 2px}
+.venue-city-heading:first-child{margin-top:0}
+.venue-cat-sub{font-size:10px;color:var(--text3);margin:4px 0 2px;padding:0 2px}
+.panel-0-toolbar .fselect,.panel-0-toolbar .btn{font-size:12px}
 .drag-ghost{position:fixed;pointer-events:none;z-index:9999;background:rgba(124,108,255,.2);border:1px dashed var(--accent);border-radius:8px;padding:6px 8px;font-size:11px}
 .shift-sec{padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
 .shift-sec.event{background:rgba(155,141,255,.08)}
@@ -137,23 +145,34 @@ a{color:inherit;text-decoration:none}
   .tabs-main{scrollbar-width:none}
   .main{padding:12px}
 }
-.vs-wrap{font-size:12px;color:var(--text)}
-.vs-sec{margin-bottom:10px;padding:10px;border-radius:8px;border:1px solid var(--border)}
+.vs-wrap{font-size:11px;color:var(--text)}
+.vs-sec{margin-bottom:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border)}
 .vs-sec-ev{background:rgba(155,141,255,.08)}
 .vs-sec-ph{background:rgba(124,108,255,.08)}
 .vs-sec-ad{background:rgba(62,207,142,.08)}
 .vs-sec-pr{background:rgba(245,166,35,.06)}
-.vs-sec-title{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
-.vs-sub{font-size:11px;font-weight:600;color:var(--text2);margin:6px 0 4px}
-.vs-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.vs-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vs-sec-title{font-size:12px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.vs-sub{font-size:11px;font-weight:600;color:var(--text2);margin:4px 0 3px}
+.vs-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.vs-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .vs-lbl{font-size:11px;color:var(--text3);margin-bottom:2px}
-.vs-time{width:80px;padding:5px 6px;font-size:12px}
-.vs-num{width:50px;padding:5px 4px;font-size:12px}
-.vs-ph-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;font-size:12px}
+.vs-time{width:76px;padding:5px 6px;font-size:11px}
+.vs-num{width:46px;padding:5px 4px;font-size:11px}
+.vs-ph-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:5px;font-size:11px}
 .vs-ph-row .vs-lbl{min-width:auto;margin:0}
 .vs-inline{display:inline-flex;align-items:center;gap:4px}
-.vs-hr{height:1px;background:var(--border);margin:8px 0;opacity:.7}
+.vs-hr{height:1px;background:var(--border);margin:6px 0;opacity:.7}
+.vs-ad-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.vs-ad-opmen-row{display:flex;flex-wrap:nowrap;align-items:center;gap:3px 4px;font-size:11px;margin-bottom:3px;min-width:0}
+.vs-ad-opmen-row .vs-lbl{flex-shrink:0;margin:0;white-space:nowrap}
+.vs-ad-opmen-row .fin.vs-time{width:68px;min-width:0;padding:5px 4px;font-size:11px}
+.vs-ad-opmen-row .fin.vs-num{width:38px;min-width:0;padding:5px 3px;font-size:11px}
+.vs-pr-flex{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.vs-pr-flex .fin,.vs-pr-flex .fselect{padding:5px 6px;font-size:11px}
+.vs-pr-flex #vs-short-name{width:64px}
+.vs-pr-flex #vs-city{width:96px}
+.vs-pr-flex #vs-category{width:110px}
+#venue-settings-modal .fin:not(.vs-time):not(.vs-num),#venue-settings-modal .fselect{padding:5px 6px;font-size:11px}
 .ov-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
 .ov-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
 .ov-num{font-family:Unbounded,sans-serif;font-size:24px;font-weight:700}
@@ -190,18 +209,14 @@ a{color:inherit;text-decoration:none}
     <button class="tab-main" data-i="3" onclick="switchMainTab(3)">📊 Обзор</button>
   </div>
   <div id="panel-0" class="sched-panel">
-    <div class="section" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-primary" id="status-draft-btn" onclick="setScheduleStatus('draft')">📝 Черновик (план)</button>
-      <button class="btn btn-ghost" id="status-confirmed-btn" onclick="setScheduleStatus('confirmed')">✅ Утверждённое</button>
-      <span style="flex:1"></span>
-      <button class="btn btn-ghost" id="confirm-schedule-btn" onclick="confirmSchedulePeriod()">Утвердить расписание</button>
-    </div>
-    <div class="section" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+    <div class="section panel-0-toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
       <select class="fselect" id="sch-city" onchange="loadTab0()"><option value="">Все города</option></select>
       <button class="btn btn-ghost" onclick="schPrevMonth()">◀</button>
       <span id="sch-month-lbl" style="font-family:Unbounded,sans-serif;font-size:14px">—</span>
       <button class="btn btn-ghost" onclick="schNextMonth()">▶</button>
-      <span style="flex:1"></span>
+      <button class="btn btn-primary" id="status-draft-btn" onclick="setScheduleStatus('draft')">📝 Черновик (план)</button>
+      <button class="btn btn-ghost" id="status-confirmed-btn" onclick="setScheduleStatus('confirmed')">✅ Утверждённое</button>
+      <button class="btn btn-ghost" id="confirm-schedule-btn" onclick="confirmSchedulePeriod()">Утвердить расписание</button>
       <button class="btn btn-ghost" onclick="openBulkFromButton()">+ Создать</button>
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -543,14 +558,44 @@ function renderCalGrid(data){
   document.getElementById('sch-cal-grid').innerHTML=cells;
 }
 
+function venueSidebarBg(category){
+  const c=String(category||'').toLowerCase();
+  if(c.includes('концерт')) return 'rgba(124,108,255,.1)';
+  if(c.includes('океанариум')) return 'rgba(106,166,232,.1)';
+  if(c.includes('парк')) return 'rgba(62,207,142,.1)';
+  return '';
+}
 function filterVenueList(){
   const q=(document.getElementById('venue-search').value||'').toLowerCase();
-  const city=document.getElementById('sch-city').value;
+  const cityFilter=document.getElementById('sch-city').value;
   const box=document.getElementById('venue-list');
-  const grp={};
-  venuesList.filter(v=>!city||(v.city||'')===city).filter(v=>!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q)).forEach(v=>{const c=v.category||'—';if(!grp[c])grp[c]=[];grp[c].push(v);});
+  const venues=venuesList.filter(v=>!cityFilter||(v.city||'')===cityFilter)
+    .filter(v=>!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q));
+  const byCity={};
+  venues.forEach(v=>{
+    const cty=(v.city||'').trim()||'Без города';
+    if(!byCity[cty]) byCity[cty]=[];
+    byCity[cty].push(v);
+  });
+  const cityOrder=Object.keys(byCity).sort((a,b)=>a.localeCompare(b,'ru'));
   let h='';
-  Object.keys(grp).sort().forEach(cat=>{h+=`<div style="font-size:10px;color:var(--text3);margin:6px 0 2px">${esc(cat)}</div>`;grp[cat].forEach(v=>{const cfg=normalizeCfg(v.default_shifts)||{};const pc=(cfg.photographer||[]).length||1;const ac=(cfg.print_operator||cfg.admin||[]).length;const mc=(cfg.manager||[]).length;h+=`<div class="venue-drag" draggable="true" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')">${esc(v.name)} <span style="float:right;cursor:pointer" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span><div class="venue-meta">📸${pc} смены · 🖨${ac} · 👔${mc}</div></div>`;});});
+  cityOrder.forEach(cty=>{
+    h+=`<div class="venue-city-heading">${esc(cty)}</div>`;
+    const grp={};
+    byCity[cty].forEach(v=>{const cat=v.category||'—';if(!grp[cat]) grp[cat]=[];grp[cat].push(v);});
+    Object.keys(grp).sort((a,b)=>a.localeCompare(b,'ru')).forEach(cat=>{
+      h+=`<div class="venue-cat-sub">${esc(cat)}</div>`;
+      grp[cat].forEach(v=>{
+        const cfg=normalizeCfg(v.default_shifts)||{};
+        const pc=(cfg.photographer||[]).length||1;
+        const ac=(cfg.print_operator||cfg.admin||[]).length;
+        const mc=(cfg.manager||[]).length;
+        const bg=venueSidebarBg(cat);
+        const bgStyle=bg?`background:${bg};`:'';
+        h+=`<div class="venue-drag" draggable="true" style="${bgStyle}" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')"><div class="venue-drag-top"><span class="venue-drag-name">${esc(v.name)}</span><span class="venue-gear" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span></div><div class="venue-meta"><span class="vm-ico">📸</span> ${pc} · <span class="vm-ico">🖨</span> ${ac} · <span class="vm-ico">👔</span> ${mc}</div></div>`;
+      });
+    });
+  });
   box.innerHTML=h||'<div style="color:var(--text3)">Нет площадок</div>';
 }
 
@@ -1681,37 +1726,37 @@ function openVenueSettings(venueId){
 </div>
 <div class="vs-sec vs-sec-ad">
   <div class="vs-sec-title">🖨 Операторы печати / 👔 Менеджеры</div>
-  <div class="vs-grid3">
+  <div class="vs-ad-grid">
     ${['weekday','weekend','holiday'].map((kind)=>{
       const slot=venueSettingsShiftState[vsKindKey(kind)];
       const a=slot.print_operator[0]||{start:'09:30',end:'22:00',required_count:1};
       const m=slot.manager[0]||{start:'09:30',end:'22:00',required_count:1};
       const lab=kind==='weekday'?'Будни':kind==='weekend'?'Выходные':'Праздники';
       return`<div><div class="vs-sub">${lab}</div>
-        <div class="vs-ph-row"><span class="vs-lbl">Опер</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','print_operator',0,'required_count',this.value)"></div>
-        <div class="vs-ph-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
+        <div class="vs-ad-opmen-row"><span class="vs-lbl">Опер</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','print_operator',0,'required_count',this.value)"></div>
+        <div class="vs-ad-opmen-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
       </div>`;
     }).join('')}
   </div>
 </div>
 <div class="vs-sec vs-sec-pr">
   <div class="vs-sec-title">⚙️ Параметры</div>
-  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+  <div class="vs-pr-flex">
     <span class="vs-lbl">Приоритет:</span>
-    <select class="fselect" id="vs-priority" style="font-size:12px">
+    <select class="fselect" id="vs-priority">
       <option value="1" ${pr===1?'selected':''}>1 · высокий</option>
       <option value="2" ${pr===2?'selected':''}>2 · стандартный</option>
       <option value="3" ${pr===3?'selected':''}>3 · низкий</option>
     </select>
     <span class="vs-lbl">Тяжёлость:</span>
-    <select class="fselect" id="vs-difficulty" style="font-size:12px">
+    <select class="fselect" id="vs-difficulty">
       <option value="easy" ${diff==='easy'?'selected':''}>Лёгкая</option>
       <option value="normal" ${diff==='normal'?'selected':''}>Обычная</option>
       <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
     </select>
-    <span class="vs-lbl">Сокращение:</span><input class="fin" id="vs-short-name" style="width:80px;font-size:12px" value="${esc(v.short_name||'')}" placeholder="VCH" />
-    <span class="vs-lbl">Город:</span><input class="fin" id="vs-city" style="width:120px;font-size:12px" value="${esc(v.city||'')}" />
-    <span class="vs-lbl">Категория:</span><input class="fin" id="vs-category" style="width:140px;font-size:12px" value="${esc(v.category||'')}" />
+    <span class="vs-lbl">Сокращение:</span><input class="fin" id="vs-short-name" value="${esc(v.short_name||'')}" placeholder="VCH" />
+    <span class="vs-lbl">Город:</span><input class="fin" id="vs-city" value="${esc(v.city||'')}" />
+    <span class="vs-lbl">Категория:</span><input class="fin" id="vs-category" value="${esc(v.category||'')}" />
   </div>
 </div>
 <div class="vs-sec">
