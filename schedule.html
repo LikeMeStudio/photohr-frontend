@@ -1630,19 +1630,38 @@ function findFirstShiftForPoolDropOnMatrix(dateStr){
   }
   return null;
 }
+function venueIdMatch(a,b){
+  const sa=String(a??'').trim(), sb=String(b??'').trim();
+  if(sa===sb) return true;
+  if(sa.toLowerCase()===sb.toLowerCase()) return true;
+  return sa.replace(/-/g,'').toLowerCase()===sb.replace(/-/g,'').toLowerCase();
+}
 function findShiftForVenueDateRole(venueId,dateStr,role){
-  const ds=String(dateStr).slice(0,10);
-  const vid=String(venueId);
+  const ds=String(dateStr??'').trim().slice(0,10);
+  const vid=String(venueId??'').trim();
   let list=tetrisEventsByKey[`${vid}|${ds}`]||[];
   if(!list.length){
     const matchKey=Object.keys(tetrisEventsByKey).find(k=>{
       if(!k.endsWith('|'+ds)) return false;
       const kVid=k.slice(0,-(ds.length+1));
-      return String(kVid)===vid||String(kVid).toLowerCase()===vid.toLowerCase();
+      return venueIdMatch(kVid,vid);
     });
     if(matchKey) list=tetrisEventsByKey[matchKey]||[];
   }
+  if(!list.length){
+    const seen=new Set();
+    list=Object.values(tetrisEventsByKey).flat().filter(e=>{
+      const ed=String(e.event_date??'').slice(0,10);
+      if(ed!==ds) return false;
+      if(!venueIdMatch(e.venue_id,vid)) return false;
+      const id=String(e.id??'');
+      if(seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
   const r=role||poolRole||'photographer';
+  const keyFor=(ev)=>`${String(ev.venue_id)}|${String(ev.event_date).slice(0,10)}`;
   for(const ev of list){
     const sum=ev.shifts_summary||[];
     const sh=sum.find(s=>{
@@ -1650,7 +1669,7 @@ function findShiftForVenueDateRole(venueId,dateStr,role){
       const sr=s.role||s.target_role||'photographer';
       return sr===r&&Number(s.required||0)>Number(s.assigned||0);
     });
-    if(sh) return {shift:sh,key,ev};
+    if(sh) return {shift:sh,key:keyFor(ev),ev};
   }
   return null;
 }
@@ -1808,10 +1827,18 @@ async function dropStaffMatrixCell(ev,el){
     return;
   }
   if(data&&data.type==='venue'){
-    const date=String(dateStr).slice(0,10);
+    const date=String(dateStr).trim().slice(0,10);
     const vid=String(data.venueId||'');
     const found=findShiftForVenueDateRole(vid,dateStr,poolRole);
-    if(!found){ showToast('Нет смены для этой площадки на эту дату',true); return; }
+    if(!found){
+      const matching=Object.values(tetrisEventsByKey).flat().filter(e=>venueIdMatch(e.venue_id,vid)&&String(e.event_date??'').slice(0,10)===date);
+      console.log('[venue drop] no shift', {venueId:vid,date,directKey:`${vid}|${date}`,eventsFound:matching.length,poolRole});
+      const msg=matching.length
+        ? 'На эту дату нет свободной смены для выбранной роли (все места заняты или роль не совпадает)'
+        : 'Нет мероприятия для этой площадки на эту дату';
+      showToast(msg,true);
+      return;
+    }
     await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
     return;
