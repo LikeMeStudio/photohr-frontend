@@ -1654,7 +1654,13 @@ function findShiftForVenueDateRole(venueId,dateStr,role){
   }
   return null;
 }
+function parseDragJson(raw){
+  const s=String(raw||'').trim();
+  if(!s) return null;
+  try{ return JSON.parse(s); }catch(e){ console.error('[JSON.parse error]', e.message, 'raw:', JSON.stringify(raw)); return null; }
+}
 function startVenueChipDrag(ev){
+  console.log('[startVenueChipDrag] called');
   const el=ev.currentTarget;
   const venueId=el.getAttribute('data-venue-id');
   if(!venueId)return;
@@ -1706,11 +1712,12 @@ function startMatrixCellDrag(ev){
   const enc=el.getAttribute('data-matrix-drag');
   if(!enc) return;
   try{
-    const p=JSON.parse(decodeURIComponent(enc));
+    const p=parseDragJson(decodeURIComponent(enc));
+    if(!p) return;
     p.type='matrix-assign';
     ev.dataTransfer.setData('text/plain',JSON.stringify(p));
     ev.dataTransfer.effectAllowed='move';
-  }catch(_){}
+  }catch(e){ console.error('[startMatrixCellDrag]', e.message); }
 }
 async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const fromPid=payload.fromPid,targetDateNorm=String(targetDate).slice(0,10);
@@ -1772,40 +1779,30 @@ function startTetrisPillDrag(ev){
   ev.dataTransfer.setData('text/plain',payload);
   ev.dataTransfer.effectAllowed='copy';
 }
-function dragOverStaffMatrix(ev){ ev.preventDefault(); try{ ev.dataTransfer.dropEffect='copy'; }catch(_){} ev.currentTarget.classList.add('drop-over'); }
+function dragOverStaffMatrix(ev){
+  ev.preventDefault();
+  try{ ev.dataTransfer.dropEffect='copy'; }catch(_){}
+  ev.currentTarget.classList.add('drop-over');
+}
 function dragLeaveStaffMatrix(ev){ ev.currentTarget.classList.remove('drop-over'); }
 async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
-  console.log('=== MATRIX DROP START ===');
-  console.log('dataTransfer text/plain:', ev.dataTransfer.getData('text/plain'));
-  console.log('dataTransfer application/json:', ev.dataTransfer.getData('application/json'));
   ev.preventDefault(); ev.stopPropagation();
   ev.currentTarget.classList.remove('drop-over');
   let raw=String(ev.dataTransfer.getData('text/plain')||'');
-  if(!raw){
+  if(!raw.trim()){
     try{ raw=String(ev.dataTransfer.getData('application/json')||''); }catch(_){}
   }
   const pid=String(photographerId||'');
   const name=pname||'';
-  let data=null;
-  try{ data=JSON.parse(raw); }catch(_){ data=null; }
-  console.log('parsed data:', data);
-  console.log('data.type:', data && data.type);
+  const data=parseDragJson(raw);
   if(data&&data.type==='matrix-assign'){
     await handleMatrixAssignDrop(data,pid,dateStr,name);
     return;
   }
   if(data&&data.type==='venue'){
     const date=String(dateStr).slice(0,10);
-    console.log('venueId:', data.venueId);
-    console.log('photographerId from cell:', photographerId);
-    console.log('date from cell:', date);
-    console.log('tetrisEventsByKey keys sample:', Object.keys(tetrisEventsByKey).slice(0, 10));
-    console.log('looking for key:', data.venueId + '|' + date);
-    console.log('events found:', tetrisEventsByKey[data.venueId + '|' + date]);
     const vid=String(data.venueId||'');
     const found=findShiftForVenueDateRole(vid,dateStr,poolRole);
-    console.log('poolRole:', poolRole);
-    console.log('shift found:', found);
     if(!found){ showToast('Нет смены для этой площадки на эту дату',true); return; }
     await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
@@ -2119,7 +2116,7 @@ async function dropPoolOnCell(ev,key){
   ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
   const dataKey=key||ev.currentTarget?.dataset?.key||'';
   const data=String(ev.dataTransfer.getData('text/plain')||'');
-  let jp=null; try{ jp=JSON.parse(data); }catch(_){}
+  const jp=parseDragJson(data);
   if(jp&&jp.type==='venue') return;
   const pid=draggingPoolPhotographerId||String(data.split('|')[0]||'');
   const pname=draggingPoolPhotographerName||String(data.split('|')[1]||'');
