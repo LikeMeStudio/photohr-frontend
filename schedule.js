@@ -1,0 +1,2066 @@
+const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
+let accCtx=null,__submCtx=null;
+let refreshLock=null,schMonth=new Date().getMonth(),schYear=new Date().getFullYear(),venuesList=[],calDataCache=null,dragVenueId=null;
+let bulkState={venueId:null,selectedDates:new Set(),existingDates:new Set(),existingMap:{},pendingDeleteDates:new Set()};
+let singleCreateState={venueId:null,date:''};
+let singleShiftsConfig={};
+let bulkShiftCfg={weekday:[],weekend:[]};
+let ghostEl=null;
+let venueSettingsId=null;
+let venueSettingsShiftState=null;
+let scheduleViewStatus='draft';
+let showArchivedPeriods=false;
+let currentSubmissions=[];
+let currentPeriodMeta=null;
+let lastSubmissionEventsCache=[];
+let subCalMenuEl=null;
+let tetrisEventsByKey={};
+const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
+let poolRole='photographer';
+let tetrisFilter='all';
+const ROLE_SHORT={photographer:'фото',print_operator:'опер.печ.',manager:'менеджер',mentor:'наставник',helper:'помощник'};
+let draggingPoolPhotographerId=null;
+let draggingPoolPhotographerName='';
+let draggingPoolPhotographerCity='';
+let tetrisPeriods=[];
+let forceAssignResolver=null;
+let cityPoolRoles={};
+let scmState=null;
+const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
+const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
+const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
+const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);
+if(r.status===401&&refreshToken){try{if(!refreshLock){refreshLock=(async()=>{const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});if(!rr.ok)throw new Error('x');const d=await rr.json();accessToken=d.accessToken;refreshToken=d.refreshToken;localStorage.setItem('fhr_refresh',refreshToken);localStorage.setItem('fhr_access',accessToken);})();}await refreshLock;o.headers['Authorization']=`Bearer ${accessToken}`;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}
+if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));const err=new Error(e.error||'Ошибка');err.status=r.status;err.body=e;throw err;}return r.json();}
+function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
+function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function parseDateLocal(v){const s=String(v||'').slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0);}
+function fmtDate(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
+function fmtDateShort(v){const d=parseDateLocal(v);if(!d)return'—';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).replace('.','');}
+function fmtTime(v){const s=String(v||'');if(!s)return'—';return s.length>=5?s.slice(0,5):s;}
+function periodStatusLabel(s){if(s==='open')return'открыт';if(s==='locked')return'закрыт';if(s==='paused')return'пауза';return s||'';}
+
+function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
+
+function setupNav(activeKey){
+  const navBtns=[];
+  const ns='text-decoration:none;padding:5px 12px;font-size:12px';
+  const a=(key,href,label)=>{
+    const cls=activeKey===key?'f-btn active':'f-btn';
+    return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
+  };
+  navBtns.push(a('index','index.html','Фотографы'));
+  if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user') navBtns.push(a('team','team.html','Команда'));
+  if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));
+  if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Площадка'));
+  if(hasAnyRole(['tech_director','hr_director','exec_director','admin'])) navBtns.push(a('stock','stock.html','Склад'));
+  if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user'])) navBtns.push(a('calendar','calendar.html','Календарь'));
+  if(hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('schedule','schedule.html','Расписание'));
+  if(currentUser.role==='photographer_user'&&currentUser.photographer_id) navBtns.push(a('checkin','checkin.html','📍 Чекин'));
+  if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){
+    navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');
+    navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));
+  }
+  if(currentUser.role==='photographer_user'&&currentUser.photographer_id) navBtns.push(a('my','my.html','📷 Мой профиль'));
+  document.getElementById('nav-links').innerHTML=navBtns.join('');
+}
+
+async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool(poolRole);}}
+function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
+function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
+function setScheduleStatus(v){
+  scheduleViewStatus=v;
+  document.getElementById('status-draft-btn').className='btn '+(v==='draft'?'btn-primary':'btn-ghost');
+  document.getElementById('status-confirmed-btn').className='btn '+(v==='confirmed'?'btn-primary':'btn-ghost');
+  document.getElementById('confirm-schedule-btn').style.display=v==='draft'?'':'none';
+  loadTab0();
+}
+
+async function loadTab0(){
+  document.getElementById('sch-month-lbl').textContent=`${MONTHS[schMonth]} ${schYear}`;
+  const city=document.getElementById('sch-city').value;
+  const month=schMonth+1;
+  try{
+    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+    const data=await api('GET',`/events/calendar-data?month=${month}&year=${schYear}${cityParam}&schedule_status=${encodeURIComponent(scheduleViewStatus)}`);
+    calDataCache=data;
+    renderCalGrid(data);
+    if(!venuesList.length){venuesList=await api('GET','/venues');filterVenueList();}
+    else filterVenueList();
+  }catch(e){showToast(e.message,true);}
+}
+
+function renderCalGrid(data){
+  const evByDate={};
+  (data.events||[]).forEach(e=>{const d=(e.event_date||'').toString().slice(0,10);if(!evByDate[d])evByDate[d]=[];evByDate[d].push(e);});
+  const ov=new Set((data.overrides||[]).map(o=>(o.override_date||'').toString().slice(0,10)));
+  const first=new Date(schYear,schMonth,1);
+  const startPad=(first.getDay()+6)%7;
+  const daysIn=new Date(schYear,schMonth+1,0).getDate();
+  let html='',head='';
+  for(let i=0;i<7;i++)head+=`<div class="cal-h">${DAYS[i]}</div>`;
+  document.getElementById('sch-cal-head').innerHTML=head;
+  let cells='';let d=1;
+  for(let i=0;i<startPad;i++)cells+=`<div class="cal-cell" style="opacity:.3"></div>`;
+  while(d<=daysIn){
+    const ds=`${schYear}-${String(schMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hol=ov.has(ds)?'<span class="holiday-badge">🎄</span>':'';
+    const list=(evByDate[ds]||[]).slice(0,4).map(e=>{
+      const cat=(e.venue_category||'').slice(0,1)||'a';
+      const sum=e.shifts_summary||[];
+      const pReq=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.required||0),0);
+      const pAsg=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const aReq=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.required||0),0);
+      const aAsg=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const mReq=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.required||0),0);
+      const mAsg=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
+      const onlyPh=aReq+mReq===0;
+      const statLine=onlyPh?`📸${pAsg}/${pReq}`:`📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}`;
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}" onclick="event.stopPropagation()"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
+    }).join('');
+    cells+=`<div class="cal-cell" data-date="${ds}" onclick="dayCalCellClick(event,'${ds}')" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
+    d++;
+  }
+  document.getElementById('sch-cal-grid').innerHTML=cells;
+}
+
+let dayDetailDateStr=null;
+function timeInputVal(v){if(v==null||v==='')return'';const s=String(v).trim();return s.length>=5?s.slice(0,5):s;}
+const DD_MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DD_WD=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+function fmtDayDetailTitle(ds){const d=parseDateLocal(ds);if(!d)return ds;return`${d.getDate()} ${DD_MONTHS[d.getMonth()]} (${DD_WD[d.getDay()]})`;}
+function dayCalCellClick(ev,ds){if(ev.target.closest('.ev-pill'))return;openDayDetail(ds);}
+function ddSid(id){return String(id).replace(/-/g,'_');}
+function buildDdVenueSelectHtml(){const city=document.getElementById('sch-city').value;let venues=(venuesList||[]).filter(v=>!city||(v.city||'')===city);venues.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ru'));return'<option value="">Выберите площадку</option>'+venues.map(v=>`<option value="${esc(v.id)}">${esc(v.name)}${v.city?` (${esc(v.city)})`:''}</option>`).join('');}
+function openDayDetail(dateStr){
+  dayDetailDateStr=dateStr;
+  document.getElementById('dd-title').textContent=fmtDayDetailTitle(dateStr);
+  const list=(calDataCache?.events||[]).filter(e=>String(e.event_date).slice(0,10)===dateStr);
+  list.sort((a,b)=>{const ta=(a.event_start||'').toString();const tb=(b.event_start||'').toString();if(ta!==tb)return ta.localeCompare(tb);return(a.venue_name||'').localeCompare(b.venue_name||'','ru');});
+  let cards='';
+  for(const e of list){
+    const sid=ddSid(e.id);
+    const vn=esc(e.venue_name||'—');
+    const sa=timeInputVal(e.staff_arrival),es=timeInputVal(e.event_start),ee=timeInputVal(e.event_end),aa=timeInputVal(e.admin_arrival),ma=timeInputVal(e.manager_arrival);
+    const ph=Number(e.required_photographers??e.need_photo??0)||0;
+    const op=Number(e.required_operators??e.need_ops??0)||0;
+    const adm=Number(e.required_admins??e.need_admin??0)||0;
+    const st=(e.schedule_status==='confirmed')?'confirmed':'draft';
+    const stLabel=st==='confirmed'?'✅ утверждено':'📝 черновик';
+    const idJs=JSON.stringify(String(e.id));
+    cards+=`<div class="dd-event-card" data-dd-ev="${esc(e.id)}">
+      <div class="dd-event-head">
+        <div class="dd-event-title">${vn}</div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:14px" onclick="ddToggleEdit(${idJs})" title="Редактирование">⚙️</button>
+          <button type="button" class="btn btn-ghost" style="padding:2px 8px;color:var(--rank3)" onclick="deleteDayEvent(${idJs})" title="Удалить">✕</button>
+        </div>
+      </div>
+      <div class="dd-summary" id="dd-sum-${sid}">
+        Сбор: <b>${sa||'—'}</b> · Начало: <b>${es||'—'}</b> · Окончание: <b>${ee||'—'}</b><br>
+        Фото: <b>${ph}</b> · Опер: <b>${op}</b> · Менеджер: <b>${adm}</b><br>
+        Статус: ${stLabel}
+      </div>
+      <div class="dd-edit" id="dd-edit-${sid}" style="display:none">
+        <div class="dd-fields">
+          <div class="dd-field"><label>Сбор</label><input type="time" class="fin" id="dd_${sid}_sa" value="${esc(sa)}"/></div>
+          <div class="dd-field"><label>Начало</label><input type="time" class="fin" id="dd_${sid}_es" value="${esc(es)}"/></div>
+          <div class="dd-field"><label>Окончание</label><input type="time" class="fin" id="dd_${sid}_ee" value="${esc(ee)}"/></div>
+          <div class="dd-field"><label>Админ</label><input type="time" class="fin" id="dd_${sid}_aa" value="${esc(aa)}"/></div>
+          <div class="dd-field"><label>Менеджер</label><input type="time" class="fin" id="dd_${sid}_ma" value="${esc(ma)}"/></div>
+          <div class="dd-field"><label>Фото</label><input type="number" min="0" class="fin" id="dd_${sid}_ph" value="${ph}"/></div>
+          <div class="dd-field"><label>Опер</label><input type="number" min="0" class="fin" id="dd_${sid}_op" value="${op}"/></div>
+          <div class="dd-field"><label>Менеджер (шт.)</label><input type="number" min="0" class="fin" id="dd_${sid}_ad" value="${adm}"/></div>
+          <div class="dd-field"><label>Статус</label>
+            <select class="fselect" id="dd_${sid}_st">
+              <option value="draft" ${st==='draft'?'selected':''}>черновик</option>
+              <option value="confirmed" ${st==='confirmed'?'selected':''}>утверждено</option>
+            </select>
+          </div>
+        </div>
+        <div class="dd-actions">
+          <button type="button" class="btn btn-primary" onclick="saveDayEvent(${idJs})">Сохранить</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const emptyMsg=list.length?'':'<div style="color:var(--text3);margin-bottom:10px">Нет мероприятий</div>';
+  const addLabel=list.length?'+ Добавить мероприятие на эту дату':'+ Создать';
+  const footer=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+    <div class="section-title" style="font-size:12px;margin-bottom:6px">${list.length?'Новое мероприятие':'Создать'}</div>
+    <select id="dd-add-venue" class="fselect" style="width:100%;margin-bottom:8px">${buildDdVenueSelectHtml()}</select>
+    <button type="button" class="btn btn-primary" onclick="ddAddEventOnDate()">${esc(addLabel)}</button>
+  </div>`;
+  document.getElementById('dd-body').innerHTML=emptyMsg+cards+footer;
+  document.getElementById('day-detail-modal').classList.add('open');
+}
+function ddToggleEdit(rawId){const sid=ddSid(rawId);const ed=document.getElementById('dd-edit-'+sid);if(!ed)return;ed.style.display=ed.style.display==='none'?'block':'none';}
+async function saveDayEvent(rawId){
+  const sid=ddSid(rawId);
+  const g=id=>{const el=document.getElementById(id);return el?(el.value||'').trim():'';};
+  const body={
+    staff_arrival:g(`dd_${sid}_sa`)||null,
+    event_start:g(`dd_${sid}_es`)||null,
+    event_end:g(`dd_${sid}_ee`)||null,
+    admin_arrival:g(`dd_${sid}_aa`)||null,
+    manager_arrival:g(`dd_${sid}_ma`)||null,
+    required_photographers:parseInt(document.getElementById(`dd_${sid}_ph`).value,10)||0,
+    required_operators:parseInt(document.getElementById(`dd_${sid}_op`).value,10)||0,
+    required_admins:parseInt(document.getElementById(`dd_${sid}_ad`).value,10)||0,
+    schedule_status:(document.getElementById(`dd_${sid}_st`)?.value)||'draft'
+  };
+  try{
+    await api('PATCH',`/events/${rawId}`,body);
+    showToast('Сохранено');
+    await loadTab0();
+    openDayDetail(dayDetailDateStr);
+  }catch(e){showToast(e.message,true);}
+}
+async function deleteDayEvent(rawId){
+  if(!confirm('Удалить это мероприятие?'))return;
+  try{
+    await api('DELETE',`/events/${rawId}`);
+    showToast('Удалено');
+    await loadTab0();
+    openDayDetail(dayDetailDateStr);
+  }catch(e){showToast(e.message,true);}
+}
+function ddAddEventOnDate(){
+  const sel=document.getElementById('dd-add-venue');
+  if(!sel){showToast('Форма не готова',true);return;}
+  const vid=sel.value;
+  if(!vid){showToast('Выберите площадку',true);return;}
+  document.getElementById('day-detail-modal').classList.remove('open');
+  openSingleCreate(vid,dayDetailDateStr);
+}
+
+function venueSidebarBg(category){
+  const c=String(category||'').toLowerCase();
+  if(c.includes('концерт')) return 'rgba(124,108,255,.1)';
+  if(c.includes('океанариум')) return 'rgba(106,166,232,.1)';
+  if(c.includes('парк')) return 'rgba(62,207,142,.1)';
+  return '';
+}
+function filterVenueList(){
+  const q=(document.getElementById('venue-search').value||'').toLowerCase();
+  const cityFilter=document.getElementById('sch-city').value;
+  const box=document.getElementById('venue-list');
+  const venues=venuesList.filter(v=>!cityFilter||(v.city||'')===cityFilter)
+    .filter(v=>!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q));
+  const byCity={};
+  venues.forEach(v=>{
+    const cty=(v.city||'').trim()||'Без города';
+    if(!byCity[cty]) byCity[cty]=[];
+    byCity[cty].push(v);
+  });
+  const cityOrder=Object.keys(byCity).sort((a,b)=>a.localeCompare(b,'ru'));
+  let h='';
+  cityOrder.forEach(cty=>{
+    h+=`<div class="venue-city-heading">${esc(cty)}</div>`;
+    const grp={};
+    byCity[cty].forEach(v=>{const cat=v.category||'—';if(!grp[cat]) grp[cat]=[];grp[cat].push(v);});
+    Object.keys(grp).sort((a,b)=>a.localeCompare(b,'ru')).forEach(cat=>{
+      h+=`<div class="venue-cat-sub">${esc(cat)}</div>`;
+      grp[cat].forEach(v=>{
+        const cfg=normalizeCfg(v.default_shifts)||{};
+        const pc=(cfg.photographer||[]).length||1;
+        const ac=(cfg.print_operator||cfg.admin||[]).length;
+        const mc=(cfg.manager||[]).length;
+        const bg=venueSidebarBg(cat);
+        const bgStyle=bg?`background:${bg};`:'';
+        h+=`<div class="venue-drag" draggable="true" style="${bgStyle}" data-vid="${v.id}" ondragstart="startVenueDrag(event,'${v.id}','${esc(v.name)}')" ondragend="endVenueDrag()" onclick="openBulkForVenue('${v.id}')"><div class="venue-drag-top"><span class="venue-drag-name">${esc(v.name)}</span><span class="venue-gear" draggable="false" onmousedown="event.preventDefault();event.stopPropagation();" onclick="event.preventDefault();event.stopPropagation();openVenueSettings('${v.id}')">⚙️</span></div><div class="venue-meta"><span class="vm-ico">📸</span> ${pc} · <span class="vm-ico">🖨</span> ${ac} · <span class="vm-ico">👔</span> ${mc}</div></div>`;
+      });
+    });
+  });
+  box.innerHTML=h||'<div style="color:var(--text3)">Нет площадок</div>';
+}
+
+function startVenueDrag(ev,id,name){
+  dragVenueId=id;
+  if(ghostEl) ghostEl.remove();
+  ghostEl=document.createElement('div');
+  ghostEl.className='drag-ghost';
+  ghostEl.textContent=name;
+  document.body.appendChild(ghostEl);
+  document.addEventListener('dragover',moveGhost);
+}
+function moveGhost(e){ if(ghostEl){ ghostEl.style.left=(e.clientX+10)+'px'; ghostEl.style.top=(e.clientY+10)+'px'; } }
+function endVenueDrag(){ dragVenueId=null; document.removeEventListener('dragover',moveGhost); if(ghostEl){ghostEl.remove();ghostEl=null;} }
+
+function initScheduleCityFilter(){
+  const sel=document.getElementById('sch-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=cities.includes(current)?current:'';
+}
+
+function initTetrisCityFilter(){
+  const sel=document.getElementById('tet-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=(current&&cities.includes(current))?current:'';
+}
+function initPeriodCityFilter(){
+  const sel=document.getElementById('np-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все сотрудники</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=(current&&cities.includes(current))?current:'';
+}
+
+function resolveDayType(dateStr){
+  const hit=(calDataCache?.overrides||[]).find(o=>String(o.override_date||'').slice(0,10)===dateStr);
+  if(hit) return hit.day_type||'holiday';
+  const d=new Date(dateStr+'T12:00:00');
+  const w=d.getDay();
+  return (w===0||w===6)?'weekend':'weekday';
+}
+
+function getVenueById(id){return venuesList.find(v=>String(v.id)===String(id));}
+
+function getVenueDefaults(venue, dayType){
+  const t=venue?.[`times_${dayType}`]||venue?.times_weekday||{};
+  const s=venue?.[`staffing_${dayType}`]||venue?.staffing_weekday||{};
+  return {
+    staff_arrival:t.staff_arrival||venue?.default_staff_arrival||'10:00',
+    event_start:t.event_start||venue?.default_event_start||'11:00',
+    guest_start:t.guest_start||venue?.default_guest_start||'10:30',
+    admin_arrival:t.admin_arrival||venue?.default_admin_arrival||'09:30',
+    event_end:t.event_end||venue?.default_event_end||'20:00',
+    manager_arrival:t.manager_arrival||venue?.default_manager_arrival||venue?.default_admin_arrival||'09:30',
+    required_photographers:Number(s.photographers ?? venue?.required_photographers ?? 1),
+    required_operators:Number(s.operators ?? venue?.required_operators ?? 1),
+    required_admins:Number(s.managers ?? venue?.required_admins ?? 1),
+  };
+}
+
+function normalizeCfg(cfg){
+  if(typeof cfg==='string'){ try{ cfg=JSON.parse(cfg); }catch{ cfg=null; } }
+  return (cfg&&typeof cfg==='object')?cfg:null;
+}
+
+function renderSingleShiftSections(){
+  const mk=(role,idx,s)=>`<div class="shift-row">
+    <input class="fin" value="${esc(s.name||'Смена')}" onchange="singleShiftsConfig['${role}'][${idx}].name=this.value">
+    <input class="fin" type="time" value="${s.start||''}" onchange="singleShiftsConfig['${role}'][${idx}].start=this.value">
+    <input class="fin" type="time" value="${s.end||''}" onchange="singleShiftsConfig['${role}'][${idx}].end=this.value">
+    <input class="fin" type="number" min="0" value="${s.required_count ?? s.required ?? 1}" onchange="singleShiftsConfig['${role}'][${idx}].required_count=Number(this.value||0)">
+    <button class="btn btn-ghost" style="padding:2px 4px;font-size:11px" onclick="removeSingleShift('${role}',${idx})">✕</button>
+  </div>`;
+  document.getElementById('single-shifts-photo').innerHTML=(singleShiftsConfig.photographer||[]).map((s,i)=>mk('photographer',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
+  document.getElementById('single-shifts-admin').innerHTML=(singleShiftsConfig.print_operator||[]).map((s,i)=>mk('print_operator',i,s)).join('')+(singleShiftsConfig.manager||[]).map((s,i)=>mk('manager',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет смен</div>';
+  document.getElementById('single-shifts-extra').innerHTML=(singleShiftsConfig.mentor||[]).map((s,i)=>mk('mentor',i,s)).join('')+(singleShiftsConfig.helper||[]).map((s,i)=>mk('helper',i,s)).join('')||'<div style="font-size:11px;color:var(--text3)">Нет доп. ролей</div>';
+}
+function addSingleShift(role){ if(!singleShiftsConfig[role]) singleShiftsConfig[role]=[]; singleShiftsConfig[role].push({name:`Смена ${singleShiftsConfig[role].length+1}`,start:'10:00',end:'20:00',required_count:1}); renderSingleShiftSections(); }
+function addSingleRole(role){ if(singleShiftsConfig[role]?.length) return; addSingleShift(role); }
+function removeSingleShift(role,idx){ if(!singleShiftsConfig[role]) return; singleShiftsConfig[role].splice(idx,1); if(!singleShiftsConfig[role].length) delete singleShiftsConfig[role]; renderSingleShiftSections(); }
+
+function openSingleCreate(venueId,dateStr){
+  const venue=getVenueById(venueId); if(!venue){showToast('Площадка не найдена',true);return;}
+  singleCreateState={venueId,date:dateStr};
+  const dt=resolveDayType(dateStr);
+  const def=getVenueDefaults(venue,dt);
+  let cfg=normalizeCfg((dt==='holiday'?venue.default_shifts_holiday:dt==='weekend'?venue.default_shifts_weekend:venue.default_shifts_weekday)||venue.default_shifts)||{
+    photographer:[{name:'Смена 1',start:def.staff_arrival,end:def.event_end,required_count:def.required_photographers}],
+    print_operator:[{name:'Оператор печати',start:def.admin_arrival,end:def.event_end,required_count:1}],
+    manager:[{name:'Менеджер',start:def.manager_arrival,end:def.event_end,required_count:1}],
+    mentor:[],
+    helper:[]
+  };
+  if(cfg&&cfg.admin&&!cfg.print_operator){cfg.print_operator=cfg.admin;delete cfg.admin;}
+  singleShiftsConfig=JSON.parse(JSON.stringify(cfg));
+  const ruDate=new Date(dateStr+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',weekday:'long'});
+  document.getElementById('create-venue').textContent=`Площадка: ${venue.name}`;
+  document.getElementById('create-daytype').textContent=`Дата: ${ruDate} · Тип дня: ${dt==='holiday'?'праздник':dt==='weekend'?'выходной':'будни'}`;
+  document.getElementById('c-event').value=def.event_start;
+  document.getElementById('c-guest').value=def.guest_start;
+  document.getElementById('c-end').value=def.event_end;
+  document.getElementById('c-name').value='';
+  renderSingleShiftSections();
+  document.getElementById('create-modal').classList.add('open');
+}
+
+function dropVenueOnDate(ev,ds){
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('drop-over');
+  const vid=dragVenueId; if(!vid)return;
+  dragVenueId=null;
+  endVenueDrag();
+  openSingleCreate(vid,ds);
+}
+
+async function createSingleEvent(){
+  const {venueId,date}=singleCreateState;
+  const venue=getVenueById(venueId);
+  if(!venueId||!date||!venue){showToast('Не выбрана площадка или дата',true);return;}
+  const payload={
+    venue_id:venueId,
+    dates:[date],
+    event_name:(document.getElementById('c-name').value||'').trim()||null,
+    schedule_status:scheduleViewStatus,
+    shifts_config:singleShiftsConfig,
+    preview:false
+  };
+  try{
+    const r=await api('POST','/events/bulk-create',payload);
+    if(!r?.events?.length){showToast('На эту дату уже есть мероприятие',true);return;}
+    const e=r.events[0];
+    await api('PATCH',`/events/${e.id}`,{
+      event_start:document.getElementById('c-event').value||null,
+      guest_start:document.getElementById('c-guest').value||null,
+      event_end:document.getElementById('c-end').value||null,
+      shifts_config:singleShiftsConfig,
+    });
+    document.getElementById('create-modal').classList.remove('open');
+    showToast(`Создано: ${venue.name} → ${new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}`);
+    await loadTab0();
+  }catch(e){showToast(e.message,true);}
+}
+
+function monthDates(){
+  const days=new Date(schYear,schMonth+1,0).getDate();
+  const arr=[];
+  for(let d=1;d<=days;d++) arr.push(`${schYear}-${String(schMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  return arr;
+}
+
+function openBulkForVenue(venueId){
+  const venue=getVenueById(venueId); if(!venue)return;
+  bulkState.venueId=venueId;
+  bulkState.selectedDates=new Set();
+  bulkState.pendingDeleteDates=new Set();
+  const ex=new Set();
+  const exMap={};
+  (calDataCache?.events||[]).forEach(e=>{if(String(e.venue_id)===String(venueId)){const ds=String(e.event_date).slice(0,10); ex.add(ds); exMap[ds]=e.id;}});
+  bulkState.existingDates=ex;
+  bulkState.existingMap=exMap;
+  document.getElementById('bulk-title').textContent=`Массовое создание: ${venue.name}`;
+  document.getElementById('bulk-name').value='';
+  document.getElementById('bulk-preview-box').textContent='';
+  const wd=getVenueDefaults(venue,'weekday');
+  const we=getVenueDefaults(venue,'weekend');
+  setBulkTimes('bw', wd);
+  setBulkTimes('be', we);
+  const wdcfg=(normalizeCfg(venue.default_shifts_weekday)||normalizeCfg(venue.default_shifts)||{}).photographer||[];
+  const wecfg=(normalizeCfg(venue.default_shifts_weekend)||normalizeCfg(venue.default_shifts)||{}).photographer||[];
+  const ws1=wdcfg[0]||{start:wd.staff_arrival,end:wd.event_end,required_count:wd.required_photographers};
+  const ws2=wdcfg[1]||{start:'',end:'',required_count:0};
+  const es1=wecfg[0]||{start:we.staff_arrival,end:we.event_end,required_count:we.required_photographers};
+  const es2=wecfg[1]||{start:'',end:'',required_count:0};
+  document.getElementById('bws1-start').value=ws1.start||'';document.getElementById('bws1-end').value=ws1.end||'';document.getElementById('bws1-req').value=ws1.required_count||1;
+  document.getElementById('bws2-start').value=ws2.start||'';document.getElementById('bws2-end').value=ws2.end||'';document.getElementById('bws2-req').value=ws2.required_count||0;
+  document.getElementById('bes1-start').value=es1.start||'';document.getElementById('bes1-end').value=es1.end||'';document.getElementById('bes1-req').value=es1.required_count||1;
+  document.getElementById('bes2-start').value=es2.start||'';document.getElementById('bes2-end').value=es2.end||'';document.getElementById('bes2-req').value=es2.required_count||0;
+  renderBulkMini();
+  document.getElementById('bulk-modal').classList.add('open');
+}
+
+function renderBulkMini(){
+  document.getElementById('bulk-month-label').textContent=`${MONTHS[schMonth]} ${schYear}`;
+  const first=new Date(schYear,schMonth,1);
+  const startPad=(first.getDay()+6)%7;
+  const daysIn=new Date(schYear,schMonth+1,0).getDate();
+  let h='<div class="mini-cal">'+DAYS.map(d=>`<div class="mini-day-h">${d}</div>`).join('');
+  for(let i=0;i<startPad;i++) h+='<div></div>';
+  for(let d=1;d<=daysIn;d++){
+    const ds=`${schYear}-${String(schMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const ex=bulkState.existingDates.has(ds);
+    const sel=bulkState.selectedDates.has(ds);
+    const pend=bulkState.pendingDeleteDates.has(ds);
+    let cls='mini-day';
+    if(ex&&pend) cls+=' ex ex-pending-del';
+    else if(ex) cls+=' ex';
+    else if(sel) cls+=' sel';
+    h+=`<div class="${cls}" onclick="toggleBulkDate('${ds}')">${d}</div>`;
+  }
+  h+='</div>';
+  document.getElementById('bulk-mini').innerHTML=h;
+  document.getElementById('bulk-count').textContent=String(bulkState.selectedDates.size);
+  document.getElementById('bulk-create-btn').textContent=`Создать ${bulkState.selectedDates.size} мероприятий`;
+  const m=bulkState.pendingDeleteDates.size;
+  const b=document.getElementById('bulk-delete-btn');
+  if(b){
+    b.style.display=m?'inline-block':'none';
+    b.textContent=`🗑 Отменить ${m} мероприятий`;
+  }
+}
+
+async function toggleBulkDate(ds){
+  if(bulkState.existingDates.has(ds)) {
+    if(bulkState.pendingDeleteDates.has(ds)) bulkState.pendingDeleteDates.delete(ds);
+    else bulkState.pendingDeleteDates.add(ds);
+    renderBulkMini();
+    return;
+  }
+  if(bulkState.selectedDates.has(ds)) bulkState.selectedDates.delete(ds); else bulkState.selectedDates.add(ds);
+  renderBulkMini();
+}
+async function bulkDeleteMarked(){
+  const ids=[...bulkState.pendingDeleteDates].map(ds=>bulkState.existingMap[ds]).filter(Boolean);
+  if(!ids.length) return;
+  if(scheduleViewStatus==='confirmed'){
+    if(!confirm('Удалить выбранные мероприятия из утверждённого расписания?')) return;
+  }
+  try{
+    await api('DELETE','/events/bulk-delete',{event_ids:ids});
+    showToast(`Удалено: ${ids.length}`);
+    bulkState.pendingDeleteDates.clear();
+    await loadTab0();
+    openBulkForVenue(bulkState.venueId);
+  }catch(e){showToast(e.message,true);}
+}
+
+function setBulkTimes(prefix, src){
+  document.getElementById(`${prefix}-staff`).value=src.staff_arrival||'';
+  document.getElementById(`${prefix}-guest`).value=src.guest_start||'';
+  document.getElementById(`${prefix}-event`).value=src.event_start||'';
+  document.getElementById(`${prefix}-end`).value=src.event_end||'';
+  document.getElementById(`${prefix}-admin`).value=src.admin_arrival||'';
+  document.getElementById(`${prefix}-manager`).value=src.manager_arrival||'';
+}
+
+function getBulkTimes(prefix){
+  return {
+    staff_arrival:document.getElementById(`${prefix}-staff`).value||null,
+    guest_start:document.getElementById(`${prefix}-guest`).value||null,
+    event_start:document.getElementById(`${prefix}-event`).value||null,
+    event_end:document.getElementById(`${prefix}-end`).value||null,
+    admin_arrival:document.getElementById(`${prefix}-admin`).value||null,
+    manager_arrival:document.getElementById(`${prefix}-manager`).value||null,
+  };
+}
+
+function toggleQuick(mode){
+  const all=monthDates().filter(ds=>!bulkState.existingDates.has(ds));
+  const setByMode={
+    all: all,
+    h1: all.filter(ds=>Number(ds.slice(-2))<=15),
+    h2: all.filter(ds=>Number(ds.slice(-2))>=16),
+    wd: all.filter(ds=>{const w=new Date(ds+'T12:00:00').getDay(); return w!==0&&w!==6;}),
+    we: all.filter(ds=>{const w=new Date(ds+'T12:00:00').getDay(); return w===0||w===6;}),
+  };
+  const list=setByMode[mode]||[];
+  const allSelected=list.every(ds=>bulkState.selectedDates.has(ds));
+  list.forEach(ds=>{ if(allSelected) bulkState.selectedDates.delete(ds); else bulkState.selectedDates.add(ds); });
+  renderBulkMini();
+}
+
+function openBulkFromButton(){
+  const city=document.getElementById('sch-city').value;
+  const q=(document.getElementById('venue-search').value||'').toLowerCase();
+  const first=(venuesList||[]).find(v=>(!city||(v.city||'')===city)&&(!q||((v.name||'')+' '+(v.category||'')).toLowerCase().includes(q)));
+  if(!first){showToast('Нет площадок для выбора',true);return;}
+  openBulkForVenue(first.id);
+}
+
+async function doBulkCreateAction(preview){
+  const dates=[...bulkState.selectedDates].sort();
+  if(!bulkState.venueId){showToast('Не выбрана площадка',true);return;}
+  if(!dates.length){showToast('Выберите хотя бы одну дату',true);return;}
+  try{
+    const weekdayShifts=[{name:'Смена 1',start:document.getElementById('bws1-start').value||null,end:document.getElementById('bws1-end').value||null,required_count:Number(document.getElementById('bws1-req').value||0)}];
+    const wd2={name:'Смена 2',start:document.getElementById('bws2-start').value||null,end:document.getElementById('bws2-end').value||null,required_count:Number(document.getElementById('bws2-req').value||0)};
+    if(wd2.start||wd2.end||wd2.required_count>0) weekdayShifts.push(wd2);
+    const weekendShifts=[{name:'Смена 1',start:document.getElementById('bes1-start').value||null,end:document.getElementById('bes1-end').value||null,required_count:Number(document.getElementById('bes1-req').value||0)}];
+    const we2={name:'Смена 2',start:document.getElementById('bes2-start').value||null,end:document.getElementById('bes2-end').value||null,required_count:Number(document.getElementById('bes2-req').value||0)};
+    if(we2.start||we2.end||we2.required_count>0) weekendShifts.push(we2);
+    const r=await api('POST','/events/bulk-create',{
+      venue_id:bulkState.venueId,
+      dates,
+      event_name:(document.getElementById('bulk-name').value||'').trim()||null,
+      weekday_times:getBulkTimes('bw'),
+      weekend_times:getBulkTimes('be'),
+      holiday_times:getBulkTimes('be'),
+      weekday_shifts_config:{photographer:weekdayShifts},
+      weekend_shifts_config:{photographer:weekendShifts},
+      schedule_status:scheduleViewStatus,
+      preview
+    });
+    if(preview){
+      const items=r.items||[];
+      const exists=items.filter(i=>i.already_exists).length;
+      const create=items.length-exists;
+      document.getElementById('bulk-preview-box').textContent=`Предпросмотр: будет создано ${create}, уже существует ${exists}.`;
+      return;
+    }
+    document.getElementById('bulk-modal').classList.remove('open');
+    const created=Number(r.created||0);
+    showToast(created===1?'Создано 1 мероприятие':`Создано ${created} мероприятий`);
+    await loadTab0();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function confirmSchedulePeriod(){
+  const city=document.getElementById('sch-city').value || null;
+  const from=`${schYear}-${String(schMonth+1).padStart(2,'0')}-01`;
+  const to=new Date(schYear,schMonth+1,0).toISOString().split('T')[0];
+  const draftCount=(calDataCache?.events||[]).length;
+  if(!draftCount){showToast('Нет черновых мероприятий за выбранный период',true);return;}
+  if(!confirm(`Будет утверждено ${draftCount} мероприятий за период ${from} — ${to}. Продолжить?`)) return;
+  try{
+    const r=await api('POST','/events/confirm-schedule',{date_from:from,date_to:to,city});
+    showToast(`Утверждено: ${r.confirmed||0}`);
+    await loadTab0();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function loadPeriodsSubs(){
+  try{
+    const periods=await api('GET','/availability/periods');
+    const statusLabel=(s)=>s==='open'?'открыт':s==='locked'?'закрыт':s==='paused'?'пауза':s==='archived'?'архив':(s||'');
+    const cityLabel=(c)=>c||'Все сотрудники';
+    const visible=(periods||[]).filter(p=>showArchivedPeriods||p.status!=='archived');
+    const sel=document.getElementById('sub-period');
+    sel.innerHTML=visible.map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(statusLabel(p.status))})</option>`).join('');
+    document.getElementById('periods-list').innerHTML=visible.map(p=>`
+      <div class="period-row">
+        <div>${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))} · ${esc(cityLabel(p.city))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>
+        <div class="period-actions">
+          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','locked')">🔒 Закрыть</button>
+          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','paused')">⏸ Приостановить</button>
+          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','archived')">📦 Архив</button>
+          <button class="btn btn-ghost" onclick="deletePeriod('${p.id}')">🗑 Удалить</button>
+        </div>
+      </div>
+    `).join('')||'—';
+    if(visible.length) loadSubmissions(); else{document.getElementById('submissions-wrap').innerHTML='<div class="loading">Нет периодов</div>';currentSubmissions=[];lastSubmissionEventsCache=[];const hs=document.getElementById('hstats');if(hs) hs.innerHTML='';}
+  }catch(e){document.getElementById('periods-list').innerHTML=esc(e.message);}
+}
+
+function toggleArchivedPeriods(){
+  showArchivedPeriods=!showArchivedPeriods;
+  const b=document.getElementById('arch-toggle-btn');
+  if(b) b.textContent=showArchivedPeriods?'Скрыть архив':'Показать архив';
+  loadPeriodsSubs();
+}
+
+async function setPeriodStatus(id,status){
+  try{
+    await api('PATCH',`/availability/periods/${id}`,{status});
+    showToast('Статус обновлён');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function deletePeriod(id){
+  try{
+    const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(id));
+    const hasSubmitted=(data?.submissions||[]).some(s=>s.submitted_at);
+    if(hasSubmitted){
+      if(!confirm('В периоде есть поданные заявки. Архивировать вместо удаления?')) return;
+      await setPeriodStatus(id,'archived');
+      return;
+    }
+    if(!confirm('Удалить период безвозвратно?')) return;
+    await api('DELETE',`/availability/periods/${id}`);
+    showToast('Период удалён');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
+}
+
+function enumeratePeriodDates(from,to){
+  const out=[];const s=parseDateLocal(from),e=parseDateLocal(to);
+  if(!s||!e)return out;
+  for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)) out.push(new Date(d).toISOString().slice(0,10));
+  return out;
+}
+function subMiniCalCell(status,submitted){
+  if(!submitted)return'<span class="sub-cal-cell" style="background:rgba(144,144,168,.15)" title="Заявка не подана"></span>';
+  const map={
+    available_full:['rgba(62,207,142,.3)','✓','Весь день'],
+    unavailable:['rgba(242,85,85,.2)','✕','Недоступен'],
+    day_off:['rgba(245,166,35,.2)','?','Под вопросом'],
+    available_morning:['rgba(106,166,232,.25)','У','Утро'],
+    available_evening:['rgba(155,141,255,.25)','В','Вечер'],
+  };
+  const x=map[status];
+  if(!x)return'<span class="sub-cal-cell" style="background:rgba(144,144,168,.12)" title="Нет отметки"></span>';
+  return`<span class="sub-cal-cell" style="background:${x[0]}" title="${esc(x[2])}">${esc(x[1])}</span>`;
+}
+function subCalCellInteractive(phId,pname,ds,status,submitted){
+  const idJs=JSON.stringify(String(phId));
+  const dsJs=JSON.stringify(String(ds).slice(0,10));
+  const nmJs=JSON.stringify(pname||'');
+  if(!submitted)return`<td class="sub-cal-td" onclick="event.stopPropagation()"><span class="sub-cal-cell" style="background:rgba(144,144,168,.15)" title="Заявка не подана"></span></td>`;
+  const map={
+    available_full:['rgba(62,207,142,.3)','✓','Весь день'],
+    unavailable:['rgba(242,85,85,.2)','✕','Недоступен'],
+    day_off:['rgba(245,166,35,.2)','?','Под вопросом'],
+    available_morning:['rgba(106,166,232,.25)','У','Утро'],
+    available_evening:['rgba(155,141,255,.25)','В','Вечер'],
+  };
+  const x=map[status];
+  const inner=!x?`<span class="sub-cal-cell" style="background:rgba(144,144,168,.12);cursor:pointer" title="Нет отметки" onclick='subCalOpenStatusMenu(event,${idJs},${dsJs},${nmJs})' oncontextmenu='event.preventDefault();subCalOpenAssignMenu(event,${idJs},${dsJs},${nmJs})'> </span>`
+    :`<span class="sub-cal-cell" style="background:${x[0]};cursor:pointer" title="${esc(x[2])}" onclick='subCalOpenStatusMenu(event,${idJs},${dsJs},${nmJs})' oncontextmenu='event.preventDefault();subCalOpenAssignMenu(event,${idJs},${dsJs},${nmJs})'>${esc(x[1])}</span>`;
+  return`<td class="sub-cal-td" onclick="event.stopPropagation()">${inner}</td>`;
+}
+function closeSubCalMenu(){if(subCalMenuEl){subCalMenuEl.remove();subCalMenuEl=null;}document.removeEventListener('click',closeSubCalMenuDoc,true);}
+function closeSubCalMenuDoc(ev){if(subCalMenuEl&&!subCalMenuEl.contains(ev.target)) closeSubCalMenu();}
+function availStatusRu(s){
+  if(s==null||s==='')return'—';
+  const m={available_full:'Свободен весь день',unavailable:'Занят',day_off:'Под вопросом',available_morning:'Свободен утром',available_evening:'Свободен вечером'};
+  return m[s]||String(s);
+}
+function closeAvailChangeConfirm(){document.getElementById('avail-change-confirm-modal')?.classList.remove('open');accCtx=null;}
+async function accPropose(){
+  if(!accCtx)return;
+  const {phId,ds,newStatus}=accCtx;
+  try{
+    await api('POST','/availability/propose-change',{photographer_id:phId,date:String(ds).slice(0,10),new_status:newStatus});
+    showToast('Предложение отправлено сотруднику');
+    closeAvailChangeConfirm();
+    await loadSubmissions();
+  }catch(e){showToast(e.message,true);}
+}
+async function accForce(){
+  if(!accCtx)return;
+  const {phId,ds,newStatus}=accCtx;
+  try{
+    await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}],force:true});
+    showToast('Изменено принудительно');
+    closeAvailChangeConfirm();
+    await loadSubmissions();
+  }catch(e){showToast(e.message,true);}
+}
+function formatAvailHistoryLine(h){
+  const when=h.changed_at?new Date(h.changed_at).toLocaleString('ru-RU'):'';
+  const d=h.avail_date?fmtDate(String(h.avail_date).slice(0,10)):'';
+  const who=esc(h.changed_by_name||'');
+  const os=availStatusRu(h.old_status);
+  const ns=availStatusRu(h.new_status);
+  const act=h.action||'';
+  if(act==='initial_submit') return `${esc(when)} — ${who||'Сотрудник'}: первая подача заявки`;
+  if(act==='self_edit') return `${esc(when)} — Фотограф изменил ${esc(d)}: ${esc(os)} → ${esc(ns)}`;
+  if(act==='hr_forced_change') return `${esc(when)} — HR изменил ${esc(d)}: ${esc(os)} → ${esc(ns)} (принудительно)`;
+  if(act==='hr_proposed_change') return `${esc(when)} — HR предложил изменить ${esc(d)}: ${esc(os)} → ${esc(ns)}`;
+  if(act==='photographer_accepted_change') return `${esc(when)} — Фотограф подтвердил предложение HR: ${esc(d)} — ${esc(os)} → ${esc(ns)}`;
+  if(act==='photographer_rejected_change') return `${esc(when)} — Фотограф отклонил предложение HR (${esc(d)}: остаётся ${esc(os)})`;
+  if(act==='proposal_accepted') return `${esc(when)} — Фотограф подтвердил предложение HR (${esc(d)})`;
+  if(act==='proposal_rejected') return `${esc(when)} — Фотограф отклонил предложение HR (${esc(d)}: возврат к ${esc(ns)})`;
+  return `${esc(when)} — ${esc(d)}: ${esc(os)} → ${esc(ns)}${act?` · ${esc(act)}`:''}`;
+}
+function switchSubmTab(ix){
+  document.querySelectorAll('.subm-tab-btn').forEach((b,i)=>b.classList.toggle('active',i===ix));
+  ['subm-tab-app','subm-tab-hist','subm-tab-comm'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=i===ix?'block':'none';
+  });
+  if(ix===2) loadSubmCommentsTab();
+}
+async function loadSubmCommentsTab(){
+  const c=__submCtx;if(!c)return;
+  const list=document.getElementById('subm-comm-list');
+  if(!list)return;
+  list.innerHTML='Загрузка…';
+  try{
+    const rows=await api('GET',`/photographers/${encodeURIComponent(c.phId)}/comments`);
+    list.innerHTML=(rows||[]).length?(rows||[]).map(cm=>`<div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg3)"><div style="font-size:10px;color:var(--text3)">${esc(cm.author_name||'')} · ${cm.created_at?new Date(cm.created_at).toLocaleString('ru-RU'):''}</div><div style="margin-top:4px">${esc(cm.body||'')}</div></div>`).join(''):'<div style="color:var(--text3)">Пока нет комментариев</div>';
+  }catch(e){list.innerHTML='<span style="color:var(--rank3)">'+esc(e.message)+'</span>';}
+}
+function subCalOpenStatusMenu(ev,phId,ds,pname){
+  ev.stopPropagation();closeSubCalMenu();
+  const m=document.createElement('div');m.id='sub-cal-menu';
+  const opts=[
+    ['available_full','🟢 Свободен весь день'],
+    ['unavailable','🔴 Занят'],
+    ['day_off','🟡 Под вопросом'],
+    ['available_morning','🔵 Свободен утром'],
+    ['available_evening','🟣 Свободен вечером'],
+  ];
+  m.innerHTML=opts.map(([st,lb])=>`<button type="button" class="opt" onclick='subCalApplyStatus(${JSON.stringify(phId)},${JSON.stringify(ds)},${JSON.stringify(st)})'>${esc(lb)}</button>`).join('')+
+    `<div class="opt-sm">Назначение смены: правый клик по ячейке</div>`;
+  document.body.appendChild(m);subCalMenuEl=m;
+  const r=m.getBoundingClientRect();let x=ev.clientX,y=ev.clientY;if(x+r.width>innerWidth-8)x=innerWidth-8-r.width;if(y+r.height>innerHeight-8)y=innerHeight-8-r.height;
+  m.style.left=x+'px';m.style.top=y+'px';
+  setTimeout(()=>document.addEventListener('click',closeSubCalMenuDoc,true),0);
+}
+async function subCalApplyStatus(phId,ds,newStatus){
+  closeSubCalMenu();
+  const person=currentSubmissions.find(s=>String(s.id)===String(phId));
+  const byD={};(person?.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
+  const oldSt=byD[String(ds).slice(0,10)]??null;
+  if(String(oldSt||'')===String(newStatus)){showToast('Уже выбрано');return;}
+  const isOwn=currentUser?.photographer_id&&String(currentUser.photographer_id)===String(phId);
+  const isHr=['hr_manager','hr_director','exec_director','admin'].includes(currentUser?.role||'');
+  if(isOwn){
+    try{
+      await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}]});
+      showToast('Сохранено');
+      await loadSubmissions();
+    }catch(e){showToast(e.message,true);}
+    return;
+  }
+  if(!isHr){showToast('Недостаточно прав',true);return;}
+  accCtx={phId,ds,newStatus,oldSt,pname:person?.name||'—'};
+  const t=document.getElementById('acc-title'),tr=document.getElementById('acc-transition'),ov=document.getElementById('avail-change-confirm-modal');
+  if(t) t.textContent=`Изменить статус для ${accCtx.pname} на ${fmtDate(ds)}?`;
+  if(tr) tr.textContent=`${availStatusRu(oldSt)} → ${availStatusRu(newStatus)}`;
+  if(ov) ov.classList.add('open');
+}
+function subCalOpenAssignMenu(ev,phId,ds,pname){
+  ev.stopPropagation();closeSubCalMenu();
+  const m=document.createElement('div');m.id='sub-cal-menu';
+  const shifts=[];
+  (lastSubmissionEventsCache||[]).forEach(evItem=>{
+    if(String(evItem.event_date||'').slice(0,10)!==String(ds).slice(0,10)) return;
+    (evItem.shifts_summary||[]).forEach(sh=>{
+      if(!sh.id) return;
+      const gap=Number(sh.required||0)-Number(sh.assigned||0);
+      if(gap<=0) return;
+      shifts.push({shiftId:sh.id,venue:evItem.venue_name||'',shiftName:sh.shift_name||'Смена',role:sh.role||'photographer'});
+    });
+  });
+  if(!shifts.length){
+    m.innerHTML=`<div class="opt-sm">Нет свободных смен на эту дату</div><button type="button" class="opt" onclick='closeSubCalMenu()'>Закрыть</button>`;
+  }else{
+    const rj=r=>JSON.stringify(r||'photographer');
+    m.innerHTML=`<div class="opt-sm">Площадка · смена</div>`+shifts.map(s=>`<button type="button" class="opt" onclick='subCalAssignShift(${JSON.stringify(s.shiftId)},${JSON.stringify(phId)},${JSON.stringify(pname)},${JSON.stringify('pending_confirmation')},${rj(s.role)})'>Предложить: ${esc(s.venue)} — ${esc(s.shiftName)}</button>`).join('')+
+      shifts.map(s=>`<button type="button" class="opt" onclick='subCalAssignShift(${JSON.stringify(s.shiftId)},${JSON.stringify(phId)},${JSON.stringify(pname)},${JSON.stringify('confirmed')},${rj(s.role)})'>Принудительно: ${esc(s.venue)} — ${esc(s.shiftName)}</button>`).join('');
+  }
+  document.body.appendChild(m);subCalMenuEl=m;
+  const r=m.getBoundingClientRect();let x=ev.clientX,y=ev.clientY;if(x+r.width>innerWidth-8)x=innerWidth-8-r.width;if(y+r.height>innerHeight-8)y=innerHeight-8-r.height;
+  m.style.left=x+'px';m.style.top=y+'px';
+  setTimeout(()=>document.addEventListener('click',closeSubCalMenuDoc,true),0);
+}
+async function subCalAssignShift(shiftId,phId,pname,forceStatus,roleInShift){
+  closeSubCalMenu();
+  try{
+    await api('POST',`/shifts/${shiftId}/assignments`,{photographer_id:phId,role_in_shift:roleInShift||'photographer',force:true,force_status:forceStatus});
+    showToast(forceStatus==='confirmed'?'Назначено':'Предложение отправлено');
+    updateSubmissionHeaderStats();
+  }catch(e){showToast(e.message,true);}
+}
+function submissionCheckCellHtml(s){
+  if(!s.submitted_at)return`<td class="sub-check-col" style="background:rgba(242,85,85,.15);color:var(--rank3);font-weight:600">—</td>`;
+  const ok=s.on_time===true||s.on_time==='t';
+  const col=ok?'var(--rank1)':'var(--rank2)';
+  return`<td class="sub-check-col" style="color:${col};font-weight:700">✓</td>`;
+}
+function updateSubmissionHeaderStats(){
+  const el=document.getElementById('hstats');if(!el)return;
+  const subs=currentSubmissions||[];
+  const total=subs.length;
+  const subm=subs.filter(s=>s.submitted_at).length;
+  const evs=lastSubmissionEventsCache||[];
+  const evCount=evs.length;
+  let req=0,asg=0,gap=0;
+  evs.forEach(e=>{(e.shifts_summary||[]).forEach(sh=>{const r=Number(sh.required||0),a=Number(sh.assigned||0);req+=r;asg+=a;const g=r-a;if(g>0)gap+=g;});});
+  const pct=req>0?Math.round(100*asg/req):0;
+  el.innerHTML=`<div class="stat"><div class="stat-num">${esc(String(subm))}/${esc(String(total))}</div><div class="stat-lbl">Подали заявки</div></div>
+    <div class="stat"><div class="stat-num">${esc(String(evCount))}</div><div class="stat-lbl">Мероприятий</div></div>
+    <div class="stat"><div class="stat-num">${esc(String(pct))}%</div><div class="stat-lbl">Заполнено</div></div>
+    <div class="stat"><div class="stat-num">${esc(String(gap))}</div><div class="stat-lbl">Нехватка смен</div></div>`;
+}
+async function loadSubmissions(){
+  const pid=document.getElementById('sub-period').value;if(!pid)return;
+  try{
+    const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(pid));
+    currentSubmissions=data.submissions||[];
+    currentPeriodMeta=data.period||null;
+    const from=String(currentPeriodMeta?.period_start||'').slice(0,10);
+    const to=String(currentPeriodMeta?.period_end||'').slice(0,10);
+    const city=currentPeriodMeta?.city||'';
+    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+    const cal=await api('GET',`/events/calendar-data?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&schedule_status=confirmed${cityParam}`).catch(()=>({events:[]}));
+    lastSubmissionEventsCache=cal.events||[];
+    const periodDates=enumeratePeriodDates(from,to);
+    const dayHeader=periodDates.map(ds=>{
+      const dn=parseInt(String(ds).slice(8,10),10)||'';
+      return`<th class="sub-cal-day" title="${esc(ds)}">${dn}</th>`;
+    }).join('');
+    const rows=currentSubmissions.map(s=>{
+      const cls=s.on_time?'row-ok':(s.submitted_at?'row-late':'row-none');
+      const byD={};(s.dates||[]).forEach(x=>{byD[String(x.date).slice(0,10)]=x.status;});
+      const cells=periodDates.map(ds=>subCalCellInteractive(s.id,s.name,ds,byD[ds],!!s.submitted_at)).join('');
+      const td=submissionCheckCellHtml(s);
+      const free=Number(s.free_days!=null?s.free_days:0);
+      const tdDn=`<td class="sub-stat-col">${free}</td>`;
+      const tdSv=`<td class="sub-stat-col">${s.full_days!=null?Number(s.full_days):0}</td>`;
+      const tdU=`<td class="sub-stat-col">${s.morning_days!=null?Number(s.morning_days):0}</td>`;
+      const tdV=`<td class="sub-stat-col">${s.evening_days!=null?Number(s.evening_days):0}</td>`;
+      const tdZn=`<td class="sub-stat-col">${s.busy_days!=null?Number(s.busy_days):0}</td>`;
+      return`<tr class="${cls}"><td class="sub-name-cell" data-phid="${esc(String(s.id))}" role="button" tabindex="0">${esc(s.name)}</td>${td}${tdDn}${tdSv}${tdU}${tdV}${tdZn}${cells}</tr>`;
+    }).join('');
+    document.getElementById('submissions-wrap').innerHTML=`<div class="submissions-scroll"><table class="tbl tbl-sub-cal" id="submissions-cal-table"><thead><tr><th>Фотограф</th><th>✓</th><th title="Свободных слотов (весь день + утро + вечер)">Дн</th><th title="Свободен весь день">Св</th><th title="Утро">У</th><th title="Вечер">В</th><th title="Занято / под вопросом">Зн</th>${dayHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    document.getElementById('submissions-cal-table')?.querySelectorAll('.sub-name-cell').forEach((cell)=>{
+      const open=(ev)=>{ev.stopPropagation();const id=cell.getAttribute('data-phid');if(id) openSubmissionDetail(id);};
+      cell.addEventListener('click',open);
+      cell.addEventListener('keydown',(ev)=>{if(ev.key==='Enter'||ev.key===' ') { ev.preventDefault(); open(ev); }});
+    });
+    updateSubmissionHeaderStats();
+  }catch(e){document.getElementById('submissions-wrap').innerHTML=esc(e.message);}
+}
+
+async function openSubmissionDetail(phId){
+  try{
+    if(!currentPeriodMeta) return;
+    const from=String(currentPeriodMeta.period_start||'').slice(0,10);
+    const to=String(currentPeriodMeta.period_end||'').slice(0,10);
+    const person=currentSubmissions.find(s=>String(s.id)===String(phId));
+    const [rows,assigns,hist]=await Promise.all([
+      api('GET',`/availability?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+      api('GET',`/schedule/photographer-assignments?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]),
+      api('GET',`/availability/history?photographer_id=${encodeURIComponent(phId)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).catch(()=>[]),
+    ]);
+    __submCtx={phId:String(phId),from,to,person,hist:hist||[]};
+    const byDate={}; (rows||[]).forEach(r=>{byDate[String(r.avail_date).slice(0,10)]=r;});
+    const days=[]; const s=parseDateLocal(from),e=parseDateLocal(to);
+    for(let d=new Date(s); d<=e; d.setDate(d.getDate()+1)){ days.push(new Date(d).toISOString().slice(0,10)); }
+    const cells=days.map(ds=>{const r=byDate[ds]; const lbl=r?(r.status==='available_full'?'🟢 Весь день':r.status==='available_morning'?'🔵 Утро':r.status==='available_evening'?'🟣 Вечер':r.status==='day_off'?'🟡 Под вопросом':'🔴 Занят'):'—'; const tm=(r&&r.available_from&&r.available_to)?`<div style="font-size:10px;color:var(--text3)">${esc(r.available_from)}-${esc(r.available_to)}</div>`:''; const pend=r&&r.changed_by_hr===true&&r.hr_confirmed===false?`<div style="font-size:10px;color:var(--rank2);margin-top:4px">⏳ Ждёт подтверждения сотрудника</div>`:''; return `<div class="tetris-cell"><b>${esc(fmtDate(ds))}</b><div>${lbl}</div>${tm}${pend}</div>`;}).join('');
+    const dayNotes=[...new Set((rows||[]).map(r=>(r.notes||'').trim()).filter(Boolean))];
+    const dayNotesHtml=dayNotes.length?dayNotes.map(c=>`<div style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-top:4px;background:var(--bg3)">${esc(c)}</div>`).join(''):'<div style="color:var(--text3)">—</div>';
+    const histHtml=(hist||[]).length?(hist||[]).map(h=>`<div class="subm-hist-row">${formatAvailHistoryLine(h)}</div>`).join(''):'<div style="color:var(--text3)">Нет записей</div>';
+    const declinedList=(assigns||[]).filter(a=>a.status==='declined');
+    const declinedBlock=declinedList.length?`<div style="padding:10px;border-radius:10px;background:rgba(242,85,85,.1);border:1px solid rgba(242,85,85,.45);margin-bottom:12px"><div class="section-title" style="margin-bottom:8px">❌ Отклонённые смены</div>${declinedList.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><div>${esc(fmtDate(a.event_date))}, ${esc(a.venue_name||'')} — ${esc(a.decline_reason||'—')}</div>${a.decline_comment?`<div style="color:var(--text2);margin-top:4px">Комментарий: «${esc(a.decline_comment)}»</div>`:''}</div>`).join('')}</div>`:'';
+    const assignHtml=(assigns||[]).filter(a=>a.status!=='declined').map(a=>{
+      const st=a.status==='confirmed'?'✅ ПОДТВЕРЖДЕНО':a.status==='pending_confirmation'?'⏳ ОЖИДАЕТ ПОДТВЕРЖДЕНИЯ':`• ${a.status||'—'}`;
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(fmtDate(a.event_date))}, ${esc(a.venue_name||'')} — ${st}</div>`;
+    }).join('')||'<div style="color:var(--text3)">Нет назначений за период</div>';
+    const pidJs=JSON.stringify(String(phId));
+    const pnameJs=JSON.stringify(person?.name||'');
+    const quickBtns=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn btn-ghost" style="font-size:11px" onclick='submissionOpenAssignPicker(${pidJs},${pnameJs},"pending_confirmation")'>Предложить смену</button><button type="button" class="btn btn-ghost" style="font-size:11px" onclick='submissionOpenAssignPicker(${pidJs},${pnameJs},"confirmed")'>Назначить принудительно</button></div>`;
+    const tabAppHtml=`<div style="margin-bottom:8px">Период: ${esc(fmtDate(from))} → ${esc(fmtDate(to))}</div><div style="margin-bottom:10px;color:var(--text2)">Подана: ${person?.submitted_at?esc(new Date(person.submitted_at).toLocaleString('ru-RU')):'—'} · Версия: ${Number(person?.max_version||1)}</div>
+      <div class="section-title" style="margin-top:12px">Быстрые действия</div>${quickBtns}
+      <div id="subm-assign-picker" style="margin-top:8px"></div>
+      ${declinedBlock}<div class="section-title" style="margin-top:12px">Примечания к дням</div>${dayNotesHtml}
+      <div class="section-title" style="margin-top:10px">Доступность по дням</div><div class="tetris-inner" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${cells}</div>
+      <div class="section-title" style="margin-top:10px">Назначения за период</div>${assignHtml}
+      <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-ghost" onclick="document.getElementById('submission-modal').classList.remove('open')">Закрыть</button></div>`;
+    const tabCommHtml=`<div id="subm-comm-list" style="min-height:40px;color:var(--text3)">Откройте вкладку — список загрузится автоматически</div>
+      <textarea id="subm-comm-body" class="fin" style="width:100%;min-height:72px;font-size:12px;margin-top:10px" placeholder="Комментарий к сотруднику"></textarea>
+      <div style="margin-top:8px"><button type="button" class="btn btn-primary" style="font-size:12px" onclick='submissionSendComment(${pidJs})'>Отправить</button></div>`;
+    document.getElementById('subm-title').textContent=`Заявка: ${person?.name||'—'}`;
+    document.getElementById('subm-body').innerHTML=`<div class="subm-tabs">
+      <button type="button" class="subm-tab-btn active" onclick="switchSubmTab(0)">📋 Заявка</button>
+      <button type="button" class="subm-tab-btn" onclick="switchSubmTab(1)">📜 История</button>
+      <button type="button" class="subm-tab-btn" onclick="switchSubmTab(2)">💬 Комментарии</button>
+    </div>
+    <div id="subm-tab-app">${tabAppHtml}</div>
+    <div id="subm-tab-hist" style="display:none;max-height:52vh;overflow:auto">${histHtml}</div>
+    <div id="subm-tab-comm" style="display:none">${tabCommHtml}</div>`;
+    switchSubmTab(0);
+    document.getElementById('submission-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
+}
+async function submissionSendComment(phId){
+  const el=document.getElementById('subm-comm-body');
+  const body=(el?.value||'').trim();
+  if(!body){showToast('Введите текст',true);return;}
+  try{
+    await api('POST',`/photographers/${encodeURIComponent(phId)}/comments`,{body,comment_type:'general',visibility:'managers'});
+    showToast('Комментарий отправлен');
+    if(el) el.value='';
+    await loadSubmCommentsTab();
+  }catch(e){showToast(e.message,true);}
+}
+function submissionOpenAssignPicker(phId,pname,forceStatus){
+  const box=document.getElementById('subm-assign-picker');
+  if(!box||!currentPeriodMeta)return;
+  const days=enumeratePeriodDates(currentPeriodMeta.period_start,currentPeriodMeta.period_end);
+  const opts=days.map(ds=>`<option value="${esc(ds)}">${esc(fmtDate(ds))}</option>`).join('');
+  box.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Дата и площадка</div><select id="subm-pick-date" class="fselect" style="width:100%;margin-bottom:6px">${opts}</select><div id="subm-pick-shifts"></div><button type="button" class="btn btn-primary" style="font-size:11px;margin-top:8px" onclick='submissionRunPickedAssign(${JSON.stringify(phId)},${JSON.stringify(pname)},${JSON.stringify(forceStatus)})'>Назначить</button>`;
+  const upd=()=>{
+    const ds=document.getElementById('subm-pick-date')?.value;
+    const sh=document.getElementById('subm-pick-shifts');
+    if(!ds||!sh)return;
+    const shifts=[];
+    (lastSubmissionEventsCache||[]).forEach(evItem=>{
+      if(String(evItem.event_date||'').slice(0,10)!==String(ds).slice(0,10)) return;
+      (evItem.shifts_summary||[]).forEach(s=>{
+        if(!s.id) return;
+        const gap=Number(s.required||0)-Number(s.assigned||0);
+        if(gap<=0) return;
+        shifts.push({id:s.id,label:`${evItem.venue_name||''} — ${s.shift_name||'Смена'}`,role:s.role||'photographer'});
+      });
+    });
+    sh.innerHTML=shifts.length?`<select id="subm-pick-shift" class="fselect" style="width:100%">${shifts.map(x=>`<option value="${esc(x.id)}" data-role="${esc(x.role||'photographer')}">${esc(x.label)}</option>`).join('')}`:'<span style="color:var(--rank3);font-size:11px">Нет свободных смен</span>';
+  };
+  document.getElementById('subm-pick-date')?.addEventListener('change',upd);
+  upd();
+}
+async function submissionRunPickedAssign(phId,pname,forceStatus){
+  const sid=document.getElementById('subm-pick-shift')?.value;
+  if(!sid){showToast('Выберите смену',true);return;}
+  try{
+    const role=document.getElementById('subm-pick-shift')?.selectedOptions?.[0]?.dataset?.role||'photographer';
+    await api('POST',`/shifts/${sid}/assignments`,{photographer_id:phId,role_in_shift:role,force:true,force_status:forceStatus});
+    showToast(forceStatus==='confirmed'?'Назначено':'Предложение отправлено');
+    updateSubmissionHeaderStats();
+  }catch(e){showToast(e.message,true);}
+}
+
+function openPeriodModal(){initPeriodCityFilter();document.getElementById('period-modal').classList.add('open');}
+function npMonthYear(offset){
+  const d=new Date();
+  let y=d.getFullYear(),m=d.getMonth()+offset;
+  while(m>11){m-=12;y++;}
+  while(m<0){m+=12;y--;}
+  return{y,m};
+}
+function npQuickPeriod(which){
+  const cur=npMonthYear(0);
+  const nxt=npMonthYear(1);
+  const pick=(which==='c1'||which==='c2')?cur:nxt;
+  const y=pick.y,m=pick.m;
+  const p=n=>String(n).padStart(2,'0');
+  const ym=`${y}-${p(m+1)}`;
+  if(which==='c1'||which==='n1'){
+    document.getElementById('np-start').value=`${ym}-01`;
+    document.getElementById('np-end').value=`${ym}-15`;
+  }else{
+    const last=new Date(y,m+1,0).getDate();
+    document.getElementById('np-start').value=`${ym}-16`;
+    document.getElementById('np-end').value=`${ym}-${p(last)}`;
+  }
+}
+async function createPeriod(){
+  const period_start=document.getElementById('np-start').value;
+  const period_end=document.getElementById('np-end').value;
+  const submit_deadline=document.getElementById('np-dead').value;
+  const city=document.getElementById('np-city').value||null;
+  try{await api('POST','/availability/periods',{period_start,period_end,submit_deadline,city});showToast('Период создан');document.getElementById('period-modal').classList.remove('open');loadPeriodsSubs();}catch(e){showToast(e.message,true);}
+}
+
+async function loadTetrisPeriods(){
+  const sel=document.getElementById('tet-period'); if(!sel) return;
+  try{
+    const periods=await api('GET','/availability/periods');
+    tetrisPeriods=(periods||[]).filter(p=>p.status==='open'||p.status==='locked');
+    sel.innerHTML=tetrisPeriods.map(p=>{
+      const dl=p.submit_deadline?` · дедлайн ${esc(fmtDate(String(p.submit_deadline).slice(0,10)))}`:'';
+      return`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))}${dl} (${esc(periodStatusLabel(p.status))})</option>`;
+    }).join('')||'<option value="">Нет периодов</option>';
+  }catch{
+    tetrisPeriods=[];
+    sel.innerHTML='<option value="">Ошибка загрузки периодов</option>';
+  }
+}
+function getSelectedTetrisPeriod(){
+  const id=document.getElementById('tet-period')?.value;
+  return tetrisPeriods.find(p=>String(p.id)===String(id))||null;
+}
+
+function hexToRgba(hex,a){
+  const v=String(hex||'').replace('#','');
+  if(v.length!==6) return `rgba(144,144,168,${a})`;
+  const r=parseInt(v.slice(0,2),16),g=parseInt(v.slice(2,4),16),b=parseInt(v.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function venuePaletteStyle(venueId){
+  const v=getVenueById(venueId);
+  const custom=(v&&v.display_color)?String(v.display_color).trim():'';
+  if(custom&&/^#[0-9a-fA-F]{6}$/.test(custom)) return {hex:custom,bg:hexToRgba(custom,0.25)};
+  const s=String(venueId||'0');
+  let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  const hex=VENUE_COLORS[h%VENUE_COLORS.length];
+  return {hex,bg:hexToRgba(hex,0.25)};
+}
+function parseAvailabilityArr(av){
+  if(!av) return [];
+  if(Array.isArray(av)) return av;
+  try{ return JSON.parse(av)||[]; }catch{ return []; }
+}
+function availabilityStatusForDay(avRows,ds){
+  const rows=parseAvailabilityArr(avRows);
+  const row=rows.find(x=>String(x.date).slice(0,10)===ds);
+  return row?row.status:null;
+}
+function baseAvailBg(status){
+  if(status==='available_full') return 'rgba(62,207,142,.15)';
+  if(status==='unavailable') return 'rgba(242,85,85,.1)';
+  if(status==='day_off') return 'rgba(245,166,35,.1)';
+  if(status==='available_morning') return 'rgba(106,166,232,.15)';
+  if(status==='available_evening') return 'rgba(155,141,255,.15)';
+  return 'rgba(144,144,168,.12)';
+}
+function shortVenueLabel(a){
+  const t=(a.venue_short_name||a.venue_name||'?').trim();
+  return t.length>6?t.slice(0,5)+'…':t;
+}
+function findFirstShiftForPoolDropOnMatrix(dateStr){
+  const city=document.getElementById('tet-city')?.value||'';
+  const keys=Object.keys(tetrisEventsByKey).filter(k=>k.endsWith('|'+dateStr));
+  for(const key of keys.sort()){
+    const list=tetrisEventsByKey[key]||[];
+    for(const ev of list){
+      if(city && ev.venue_city && String(ev.venue_city)!==String(city)) continue;
+      const shift=(ev.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+      if(shift) return {key,shift,ev};
+    }
+  }
+  return null;
+}
+function findShiftForVenueDateRole(venueId,dateStr,role){
+  const ds=String(dateStr).slice(0,10);
+  const vid=String(venueId);
+  let list=tetrisEventsByKey[`${vid}|${ds}`]||[];
+  if(!list.length){
+    const matchKey=Object.keys(tetrisEventsByKey).find(k=>{
+      if(!k.endsWith('|'+ds)) return false;
+      const kVid=k.slice(0,-(ds.length+1));
+      return String(kVid)===vid||String(kVid).toLowerCase()===vid.toLowerCase();
+    });
+    if(matchKey) list=tetrisEventsByKey[matchKey]||[];
+  }
+  const r=role||poolRole||'photographer';
+  for(const ev of list){
+    const sum=ev.shifts_summary||[];
+    const sh=sum.find(s=>{
+      if(!s.id) return false;
+      const sr=s.role||s.target_role||'photographer';
+      return sr===r&&Number(s.required||0)>Number(s.assigned||0);
+    });
+    if(sh) return {shift:sh,key,ev};
+  }
+  return null;
+}
+function startVenueChipDrag(ev){
+  const el=ev.currentTarget;
+  const venueId=el.getAttribute('data-venue-id');
+  if(!venueId)return;
+  const v=getVenueById(venueId);
+  const venueShort=(v&&String(v.short_name||'').trim())||(el.textContent||'').trim()||'?';
+  const payload=JSON.stringify({type:'venue',venueId:String(venueId),venueShort});
+  ev.dataTransfer.setData('text/plain',payload);
+  try{ ev.dataTransfer.setData('application/json',payload); }catch(_){}
+  ev.dataTransfer.effectAllowed='copy';
+}
+function renderVenueChips(){
+  const container=document.getElementById('venue-chips-for-matrix');
+  if(!container) return;
+  const venueMap={};
+  Object.values(tetrisEventsByKey).flat().forEach(ev=>{
+    const id=ev.venue_id;if(!id||venueMap[id]) return;
+    venueMap[id]={id,name:ev.venue_name||'',short:(ev.venue_short_name||ev.venue_name||'').trim()||'?'};
+  });
+  const venues=Object.values(venueMap);
+  container.innerHTML=venues.length?venues.map(v=>{
+    const pal=venuePaletteStyle(v.id);
+    const hex=pal.hex;
+    const sid=esc(String(v.id));
+    return`<div class="venue-chip-drag" draggable="true" data-venue-id="${sid}" ondragstart="startVenueChipDrag(event)" style="background:${hex}22;border:2px solid ${hex};color:${hex};padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:grab;user-select:none">${esc(v.short)}</div>`;
+  }).join(''):'<span style="color:var(--text3);font-size:12px">Нет площадок</span>';
+}
+function matrixEventTimesForCell(venueId,dateStr){
+  const list=tetrisEventsByKey[`${venueId}|${String(dateStr).slice(0,10)}`]||[];
+  const ev=list[0];
+  if(!ev) return'';
+  const t0=fmtTime(ev.staff_arrival||ev.event_start||'');
+  const t1=fmtTime(ev.event_end||'');
+  if(t1&&t1!=='—') return`${t0} → ${t1}`;
+  return t0||'';
+}
+function venuesOnMatrixDate(ds){
+  const out=[];
+  const suf='|'+String(ds).slice(0,10);
+  Object.keys(tetrisEventsByKey).filter(k=>k.endsWith(suf)).forEach(k=>{
+    const vid=k.split('|')[0];
+    const ev=(tetrisEventsByKey[k]||[])[0];
+    if(ev) out.push({id:vid,name:ev.venue_name||'',short:ev.venue_short_name||ev.venue_name||''});
+  });
+  const seen=new Set();
+  return out.filter(v=>{if(seen.has(v.id))return false;seen.add(v.id);return true;});
+}
+function startMatrixCellDrag(ev){
+  const el=ev.currentTarget;
+  const enc=el.getAttribute('data-matrix-drag');
+  if(!enc) return;
+  try{
+    const p=JSON.parse(decodeURIComponent(enc));
+    p.type='matrix-assign';
+    ev.dataTransfer.setData('text/plain',JSON.stringify(p));
+    ev.dataTransfer.effectAllowed='move';
+  }catch(_){}
+}
+async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
+  const fromPid=payload.fromPid,targetDateNorm=String(targetDate).slice(0,10);
+  if(String(fromPid)===String(targetPid)&&String(payload.fromDate).slice(0,10)===targetDateNorm) return;
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city')?.value||'';
+  const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
+  let assigns;
+  try{ assigns=await api('GET',`/staffing/assignments-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityQ}`); }catch(e){ showToast(e.message,true); return; }
+  const aid=String(payload.assignmentId||'');
+  const sourceAsg=(assigns||[]).find(a=>String(a.assignment_id||a.id)===aid);
+  if(!sourceAsg){ showToast('Назначение не найдено',true); return; }
+  const srcDate=String(sourceAsg.event_date).slice(0,10);
+  const targetList=(assigns||[]).filter(a=>String(a.photographer_id)===String(targetPid)&&String(a.event_date).slice(0,10)===targetDateNorm);
+  const roleSrc=sourceAsg.role_in_shift||poolRole;
+  const opts={skipOpenTetris:true,skipLoadPoolTetris:true};
+  if(!targetList.length){
+    try{
+      await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
+      if(srcDate===targetDateNorm){
+        const key=`${sourceAsg.venue_id}|${srcDate}`;
+        await assignToShift(sourceAsg.shift_id,targetPid,roleSrc,key,targetPname||'',opts);
+      }else{
+        const found=findShiftForVenueDateRole(sourceAsg.venue_id,targetDateNorm,roleSrc);
+        if(!found){ showToast('На эту дату нет свободной смены на площадке',true); await renderTetris(); return; }
+        await assignToShift(found.shift.id,targetPid,roleSrc,found.key,targetPname||'',opts);
+      }
+      showToast('Перемещено');
+    }catch(e){ showToast(e.message,true); return; }
+    await renderTetris();
+    return;
+  }
+  const targetAsg=targetList[0];
+  const nameA=String(payload.fromPname||'Сотрудник 1');
+  const nameB=String(targetPname||'Сотрудник 2');
+  const shortA=shortVenueLabel({venue_short_name:sourceAsg.venue_short_name,venue_name:sourceAsg.venue_name});
+  const shortB=shortVenueLabel({venue_short_name:targetAsg.venue_short_name,venue_name:targetAsg.venue_name});
+  if(!confirm(`Поменять местами?\n${nameA}: ${shortA} ↔ ${nameB}: ${shortB}`)) return;
+  const roleA=sourceAsg.role_in_shift||poolRole;
+  const roleB=targetAsg.role_in_shift||poolRole;
+  const keyA=`${sourceAsg.venue_id}|${srcDate}`;
+  const keyB=`${targetAsg.venue_id}|${String(targetAsg.event_date).slice(0,10)}`;
+  try{
+    await api('DELETE',`/shift-assignments/${sourceAsg.assignment_id||sourceAsg.id}`);
+    await api('DELETE',`/shift-assignments/${targetAsg.assignment_id||targetAsg.id}`);
+    await assignToShift(sourceAsg.shift_id,targetPid,roleA,keyA,targetPname||'',opts);
+    await assignToShift(targetAsg.shift_id,fromPid,roleB,keyB,payload.fromPname||'',opts);
+    showToast('Поменяно местами');
+  }catch(e){ showToast(e.message,true); return; }
+  await renderTetris();
+}
+function startTetrisPillDrag(ev){
+  const el=ev.currentTarget;
+  const payload=JSON.stringify({
+    kind:'tetris-pill',key:el.dataset.tk||'',shiftId:el.dataset.shiftId||'',eventId:el.dataset.eventId||'',vid:el.dataset.vid||'',ds:el.dataset.ds||'',
+  });
+  ev.dataTransfer.setData('text/plain',payload);
+  ev.dataTransfer.effectAllowed='copy';
+}
+function dragOverStaffMatrix(ev){ ev.preventDefault(); try{ ev.dataTransfer.dropEffect='copy'; }catch(_){} ev.currentTarget.classList.add('drop-over'); }
+function dragLeaveStaffMatrix(ev){ ev.currentTarget.classList.remove('drop-over'); }
+async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
+  console.log('=== MATRIX DROP START ===');
+  console.log('dataTransfer text/plain:', ev.dataTransfer.getData('text/plain'));
+  console.log('dataTransfer application/json:', ev.dataTransfer.getData('application/json'));
+  ev.preventDefault(); ev.stopPropagation();
+  ev.currentTarget.classList.remove('drop-over');
+  let raw=String(ev.dataTransfer.getData('text/plain')||'');
+  if(!raw){
+    try{ raw=String(ev.dataTransfer.getData('application/json')||''); }catch(_){}
+  }
+  const pid=String(photographerId||'');
+  const name=pname||'';
+  let data=null;
+  try{ data=JSON.parse(raw); }catch(_){ data=null; }
+  console.log('parsed data:', data);
+  console.log('data.type:', data && data.type);
+  if(data&&data.type==='matrix-assign'){
+    await handleMatrixAssignDrop(data,pid,dateStr,name);
+    return;
+  }
+  if(data&&data.type==='venue'){
+    const date=String(dateStr).slice(0,10);
+    console.log('venueId:', data.venueId);
+    console.log('photographerId from cell:', photographerId);
+    console.log('date from cell:', date);
+    console.log('tetrisEventsByKey keys sample:', Object.keys(tetrisEventsByKey).slice(0, 10));
+    console.log('looking for key:', data.venueId + '|' + date);
+    console.log('events found:', tetrisEventsByKey[data.venueId + '|' + date]);
+    const vid=String(data.venueId||'');
+    const found=findShiftForVenueDateRole(vid,dateStr,poolRole);
+    console.log('poolRole:', poolRole);
+    console.log('shift found:', found);
+    if(!found){ showToast('Нет смены для этой площадки на эту дату',true); return; }
+    await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+    await renderTetris();
+    return;
+  }
+  if(data&&data.kind==='tetris-pill'){
+    const shiftId=data.shiftId||'';
+    const key=data.key||'';
+    const list=tetrisEventsByKey[key]||[];
+    const evItem=list.find(x=>String(x.id)===String(data.eventId))||list[0];
+    if(!evItem||!shiftId){ showToast('Не найдена смена для этой площадки',true); return; }
+    await assignToShift(shiftId,pid,poolRole,key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+    await renderTetris();
+    return;
+  }
+  const poolId=draggingPoolPhotographerId||String(raw.split('|')[0]||'');
+  const poolName=draggingPoolPhotographerName||String(raw.split('|')[1]||'');
+  if(!poolId){ showToast('Перетащите чип площадки, плашку из тетриса или сотрудника из пула',true); return; }
+  const found=findFirstShiftForPoolDropOnMatrix(dateStr);
+  if(!found){ showToast('Нет свободной смены на эту дату (выберите площадку в тетрисе и перетащите её ячейку)',true); return; }
+  await assignToShift(found.shift.id,poolId,poolRole,found.key,poolName||name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+  await renderTetris();
+}
+async function removeAssignmentFromMatrix(aid,rk){
+  await removeAssignment(aid,rk,{skipOpenTetris:true,skipLoadPoolTetris:true});
+  document.getElementById('staff-cell-modal')?.classList.remove('open');
+}
+async function scmApplyReassign(){
+  if(!scmState)return;
+  const sel=document.getElementById('scm-reassign-venue');
+  const vid=sel?.value||'';
+  if(!vid){showToast('Выберите площадку',true);return;}
+  const ass=scmState.items[0];
+  if(!ass)return;
+  const ds=String(scmState.ds).slice(0,10);
+  const rk=`${ass.venue_id}|${ds}`;
+  const aid=String(ass.assignment_id||ass.id||'');
+  const role=ass.role_in_shift||poolRole;
+  try{
+    await api('DELETE',`/shift-assignments/${aid}`);
+    const found=findShiftForVenueDateRole(vid,ds,role);
+    if(!found){showToast('Нет свободной смены на выбранной площадке',true); await renderTetris(); document.getElementById('staff-cell-modal')?.classList.remove('open'); return;}
+    await assignToShift(found.shift.id,scmState.pid,role,found.key,scmState.pname||'',{skipOpenTetris:true,skipLoadPoolTetris:true});
+    document.getElementById('staff-cell-modal')?.classList.remove('open');
+    await renderTetris();
+    showToast('Переназначено');
+  }catch(e){showToast(e.message,true);}
+}
+function openStaffMatrixCell(photographerId,photographerName,dateStr,items){
+  scmState={pid:String(photographerId),pname:photographerName||'',ds:String(dateStr).slice(0,10),items:(items||[]).slice()};
+  const ds=fmtDate(dateStr);
+  document.getElementById('scm-title').textContent=`${esc(photographerName||'—')} · ${ds}`;
+  const vopts=venuesOnMatrixDate(dateStr).filter(v=>String(v.id)!==String((items||[])[0]?.venue_id||''));
+  const reassignBlock=vopts.length?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+    <div class="section-title" style="font-size:12px;margin-bottom:6px">Переназначить на другую площадку</div>
+    <select id="scm-reassign-venue" class="fselect" style="width:100%;margin-bottom:8px">${vopts.map(v=>`<option value="${esc(v.id)}">${esc(v.short||v.name)}</option>`).join('')}</select>
+    <button type="button" class="btn btn-primary" style="font-size:11px" onclick="scmApplyReassign()">Переназначить</button>
+  </div>`:'';
+  const body=(items||[]).map(a=>{
+    const rk=`${a.venue_id}|${String(a.event_date).slice(0,10)}`;
+    const aid=String(a.assignment_id||a.id||'');
+    const forced=!!a.forced;
+    const tm=matrixEventTimesForCell(a.venue_id,dateStr);
+    return`<div style="padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;background:var(--bg3)">
+      <div style="font-weight:600;margin-bottom:4px">${esc(a.venue_name||'—')}</div>
+      <div style="color:var(--text2);font-size:11px;margin-bottom:4px">${esc(fmtDate(String(a.event_date).slice(0,10)))}${tm?` · ${esc(tm)}`:''}</div>
+      <div style="color:var(--text3);font-size:11px;margin-bottom:8px">${esc(ROLE_SHORT[a.role_in_shift]||a.role_in_shift||'—')}${forced?' · <span style="color:var(--rank2)">без заявки</span>':''}</div>
+      <button type="button" class="btn btn-ghost" style="font-size:11px" onclick="removeAssignmentFromMatrix(${JSON.stringify(aid)},${JSON.stringify(rk)})">Снять назначение</button>
+    </div>`;
+  }).join('')||'<div style="color:var(--text3)">Нет данных</div>';
+  document.getElementById('scm-body').innerHTML=body+reassignBlock;
+  document.getElementById('staff-cell-modal').classList.add('open');
+}
+
+async function renderStaffMatrix(){
+  const ph=document.getElementById('staff-matrix-placeholder');
+  if(!ph) return;
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city')?.value||'';
+  if(!date_from||!date_to){ ph.innerHTML='<div style="font-size:12px;color:var(--text3)">Выберите период</div>'; return; }
+  const from=parseDateLocal(date_from), to=parseDateLocal(date_to);
+  if(!from||!to||from>to){ ph.innerHTML='<div style="font-size:12px;color:var(--text3)">Некорректный период</div>'; return; }
+  ph.innerHTML='<div class="loading" style="padding:20px">Загрузка матрицы...</div>';
+  try{
+    const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
+    const [avail,assigns]=await Promise.all([
+      api('GET',`/staffing/availability-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}&role=all`),
+      api('GET',`/staffing/assignments-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityQ}`),
+    ]);
+    const days=[]; for(let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) days.push(new Date(d).toISOString().slice(0,10));
+    const avFiltered=(avail||[]).filter(p=>!city||String(p.city||'')===city);
+    const byPh=new Map();
+    avFiltered.forEach(p=>{ byPh.set(String(p.id),{...p,id:p.id,name:p.name,availability:p.availability,city:p.city}); });
+    (assigns||[]).forEach(a=>{
+      const id=String(a.photographer_id);
+      if(!byPh.has(id)) byPh.set(id,{id,name:a.photographer_name||'—',availability:[],city:''});
+    });
+    const photographers=[...byPh.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru'));
+    const assignMap=new Map();
+    (assigns||[]).forEach(a=>{
+      const ds=String(a.event_date).slice(0,10);
+      const k=`${a.photographer_id}|${ds}`;
+      if(!assignMap.has(k)) assignMap.set(k,[]);
+      assignMap.get(k).push(a);
+    });
+    let head='<tr><th class="sm-name">Сотрудник</th>'+days.map(ds=>`<th>${esc(fmtDateShort(ds))}</th>`).join('')+'</tr>';
+    let body=    photographers.map(p=>{
+      const pid=String(p.id);
+      const rawName=p.name||'—';
+      const pname=esc(rawName);
+      let row=`<tr><td class="sm-name" title="${pname}">${pname}</td>`;
+      days.forEach(ds=>{
+        const list=assignMap.get(`${pid}|${ds}`)||[];
+        const st=availabilityStatusForDay(p.availability,ds);
+        let bg=baseAvailBg(st);
+        let txt='';
+        let forceCls='';
+        if(list.length){
+          const primary=list[0];
+          const pal=venuePaletteStyle(primary.venue_id);
+          bg=pal.bg;
+          txt=list.map(shortVenueLabel).join('·');
+          const noSub=!st;
+          const badSub=st==='unavailable'||st==='day_off';
+          if(noSub||badSub||primary.forced) forceCls=' sm-cell--force';
+        }
+        const hasAsg=list.length>0;
+        const primary=list[0];
+        const cellInner=hasAsg?`<span style="color:${venuePaletteStyle(primary.venue_id).hex}">${esc(txt)}</span>`:'';
+        const clickAttr=hasAsg?`onclick="smCellClick(event,'${pid}','${ds}',${JSON.stringify(rawName)})"`:''; 
+        let dragAttr='';
+        if(hasAsg){
+          const dragPayload={assignmentId:String(primary.assignment_id||primary.id),shiftId:String(primary.shift_id),roleInShift:primary.role_in_shift||'photographer',fromPid:pid,fromDate:ds,fromPname:rawName,venueId:String(primary.venue_id),venueShort:shortVenueLabel(primary)};
+          dragAttr=` draggable="true" data-matrix-drag="${encodeURIComponent(JSON.stringify(dragPayload))}" ondragstart="startMatrixCellDrag(event)"`;
+        }
+        row+=`<td><div class="sm-cell${forceCls}" style="background:${bg}" title="${esc(st||'нет заявки')}"
+          data-pid="${esc(pid)}" data-ds="${esc(ds)}" data-pname="${pname}"
+          ${dragAttr}
+          ${clickAttr}
+          ondragover="dragOverStaffMatrix(event)" ondragleave="dragLeaveStaffMatrix(event)"
+          ondrop="dropStaffMatrixCell(event,'${pid}','${ds}',${JSON.stringify(rawName)})">${cellInner}</div></td>`;
+      });
+      return row+'</tr>';
+    }).join('');
+    ph.innerHTML=photographers.length?`<div class="sm-wrap"><table class="sm-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`
+      :'<div style="font-size:12px;color:var(--text3)">Нет сотрудников для выбранного города</div>';
+    renderVenueChips();
+  }catch(e){ ph.innerHTML=`<div style="color:var(--rank3);font-size:12px">${esc(e.message)}</div>`; }
+}
+function smCellClick(ev,pid,ds,pname){
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city')?.value||'';
+  api('GET',`/staffing/assignments-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${city?`&city=${encodeURIComponent(city)}`:''}`).then(assigns=>{
+    const items=(assigns||[]).filter(a=>String(a.photographer_id)===String(pid)&&String(a.event_date).slice(0,10)===ds);
+    if(!items.length) return;
+    openStaffMatrixCell(pid,pname||'',ds,items);
+  }).catch(()=>{});
+}
+
+async function renderTetris(){
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city').value;
+  if(!date_from||!date_to){ await renderStaffMatrix(); return; }
+  try{
+    const from=parseDateLocal(date_from), to=parseDateLocal(date_to);
+    if(!from||!to||from>to){ document.getElementById('tetris-placeholder').innerHTML='<div class="loading">Некорректный период</div>'; await renderStaffMatrix(); return; }
+    const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+    const data=await api('GET',`/events/calendar-data?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityParam}`);
+    const events=(data.events||[]).filter(e=>{
+      const ds=String(e.event_date||'').slice(0,10);
+      const st=e.schedule_status||'draft';
+      if(!['draft','confirmed'].includes(st)) return false;
+      return ds>=date_from&&ds<=date_to;
+    });
+    tetrisEventsByKey={};
+    const venueMap={};events.forEach(e=>{if(!venueMap[e.venue_id]) venueMap[e.venue_id]={id:e.venue_id,name:e.venue_name||'Площадка',short:e.venue_short_name||e.venue_name||'Площадка'};});
+    const venues=Object.values(venueMap);
+    const days=[]; for(let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) days.push(new Date(d).toISOString().slice(0,10));
+    events.forEach(ev=>{ const key=`${ev.venue_id}|${String(ev.event_date).slice(0,10)}`; if(!tetrisEventsByKey[key]) tetrisEventsByKey[key]=[]; tetrisEventsByKey[key].push(ev); });
+    if(!events.length){ document.getElementById('tetris-placeholder').innerHTML='<div style="font-size:12px;color:var(--text3)">Нет утверждённых мероприятий для выбранного периода/города</div>'; await renderStaffMatrix(); return; }
+    let head='<tr><th class="tt-venue">Площадка</th>'+days.map(ds=>`<th class="tt-h-day">${esc(fmtDateShort(ds))}</th>`).join('')+'</tr>';
+    let body='';
+    venues.forEach(v=>{
+      let row=`<tr><td class="tt-venue" title="${esc(v.name)}">${esc(v.name)}</td>`;
+      days.forEach(ds=>{
+        const key=`${v.id}|${ds}`;
+        const list=tetrisEventsByKey[key]||[];
+        if(!list.length){
+          row+=`<td><div class="tt-drop tt-drop-empty" data-key="${esc(key)}" data-event-id="" data-shift-id="" ondragover="event.preventDefault();try{event.dataTransfer.dropEffect='copy';}catch(_){}this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event)"><div class="tt-empty">—</div></div></td>`;
+          return;
+        }
+        const cells=list.map(ev=>{
+          const sum=ev.shifts_summary||[];
+          const allRoles=[['photographer','ф'],['print_operator','о'],['manager','м'],['mentor','н'],['helper','п']];
+          const roleStats=allRoles.filter(([role])=>tetrisFilter==='all'||role===tetrisFilter).map(([role,label])=>{
+            const req=sum.filter(x=>(x.role||x.target_role||'photographer')===role).reduce((s,x)=>s+Number(x.required||0),0);
+            const asg=sum.filter(x=>(x.role||x.target_role||'photographer')===role).reduce((s,x)=>s+Number(x.assigned||0),0);
+            return {role,label,req,asg};
+          });
+          const roleLines=tetrisFilter==='all'?roleStats.filter(r=>r.req>0||r.asg>0):roleStats;
+          const totalReq=roleStats.reduce((s,r)=>s+r.req,0);
+          const totalAsg=roleStats.reduce((s,r)=>s+r.asg,0);
+          const totalDeclined=sum.reduce((s,x)=>s+Number(x.declined_count ?? x.declined ?? 0),0);
+          let pillClass='tt-pill';
+          if(totalDeclined>0) pillClass+=' tt-pill--declined';
+          else if(totalAsg===0&&totalReq===0) pillClass+=' tt-pill--empty';
+          const firstShift=(sum||[]).find(x=>(x.role||x.target_role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0))
+            || (sum||[]).find(x=>x.id);
+          const abbr=esc(ev.venue_short_name||ev.venue_name||'');
+          const lines=roleLines.map(r=>{
+            const gap=r.req-r.asg;
+            const bg=gap<=0?(r.asg>r.req?'rgba(106,166,232,.2)':'rgba(62,207,142,.2)'):gap<=2?'rgba(245,166,35,.2)':'rgba(242,85,85,.2)';
+            const color=gap<=0?(r.asg>r.req?'var(--staff-over)':'var(--rank1)'):gap<=2?'var(--rank2)':'var(--rank3)';
+            return `<div style="background:${bg};color:${color};border-radius:3px;padding:1px 3px;margin-top:1px;font-size:8px">${r.label} ${r.asg}/${r.req}</div>`;
+          }).join('');
+          return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" data-vid="${esc(ev.venue_id||'')}" data-ds="${esc(ds)}" data-tk="${esc(key)}" draggable="true" ondragstart="startTetrisPillDrag(event)" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')" style="cursor:pointer"><div class="tt-vn">${abbr}</div>${lines}${totalDeclined>0?` <span class="tt-decline-mark">❌${totalDeclined}</span>`:''}</div>`;
+        }).join('');
+        const firstEvent=list[0]||{};
+        const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===poolRole) || {}).id || '';
+        row+=`<td><div class="tt-drop" data-key="${key}" data-event-id="${esc(firstEvent.id||'')}" data-shift-id="${esc(firstShift)}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event,'${key}')" onclick="openTetrisCell(this.dataset.key,this.dataset.eventId)">${cells}</div></td>`;
+      });
+      body+=row+'</tr>';
+    });
+    document.getElementById('tetris-placeholder').innerHTML=`<div class="tt-wrap"><table class="tt-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    await renderStaffMatrix();
+  }catch(e){document.getElementById('tetris-placeholder').innerHTML=esc(e.message); try{ await renderStaffMatrix(); }catch(_){}}
+}
+
+function switchTetrisFilter(filter){
+  tetrisFilter=filter||'all';
+  ['all','photographer','print_operator','manager','mentor','helper'].forEach(r=>{
+    const btn=document.getElementById('tr-'+r);
+    if(btn) btn.className='btn '+(r===tetrisFilter?'btn-primary':'btn-ghost');
+  });
+  renderTetris();
+}
+function setCityPoolRole(cityKey, role){
+  if(role==='admin') role='print_operator';
+  poolRole=role;
+  cityPoolRoles[cityKey]=role;
+  loadPool(poolRole);
+}
+function roleBtn(cityKey, role, label){
+  const active=(cityPoolRoles[cityKey]||poolRole||'photographer')===role;
+  const citySafe=String(cityKey||'').replace(/'/g,"\\'");
+  return `<button class="quick-btn" style="${active?'border-color:var(--accent);color:var(--text)':''}" onclick="setCityPoolRole('${citySafe}','${esc(role)}')">${label}</button>`;
+}
+function tierFromSales(score){
+  const n=Number(score);
+  if(!Number.isFinite(n)) return '🥉C';
+  if(n>=75) return '🥇A';
+  if(n>=40) return '🥈B';
+  return '🥉C';
+}
+async function loadPool(role){
+  poolRole=role||poolRole||'photographer';
+  const period=getSelectedTetrisPeriod();
+  const date=String(period?.period_start||'').slice(0,10);
+  if(!date){ document.getElementById('ph-pool').innerHTML='—'; return; }
+  try{
+    const selectedCity=document.getElementById('tet-city')?.value||'';
+    const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=all${selectedCity?`&city=${encodeURIComponent(selectedCity)}`:''}`);
+    const groups={};
+    (rows||[]).forEach(p=>{
+      const c=(p.city||'Без города').trim()||'Без города';
+      if(!groups[c]) groups[c]=[];
+      groups[c].push(p);
+    });
+    const visibleCities=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ru'));
+    document.getElementById('ph-pool').innerHTML=visibleCities.map(city=>{
+      const key=`${city}`;
+      if(!cityPoolRoles[key]) cityPoolRoles[key]=poolRole||'photographer';
+      const roleNow=cityPoolRoles[key];
+      const people=groups[city].filter(p=>{
+        const roles=[p.employee_role||''].concat(Array.isArray(p.employee_roles)?p.employee_roles:[]);
+        if(roles.includes(roleNow)) return true;
+        if(roleNow==='print_operator' && p.can_be_admin) return true;
+        if(roleNow==='manager' && p.can_be_manager) return true;
+        if(roleNow==='mentor' && p.can_be_mentor) return true;
+        return false;
+      });
+      return `<div class="pool-city">
+        <div class="pool-city-title">Пул ${esc(city)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          ${roleBtn(key,'photographer','📸 Фотографы')}
+          ${roleBtn(key,'print_operator','🖨 Опер.печати')}
+          ${roleBtn(key,'manager','👔 Менеджеры')}
+          ${roleBtn(key,'mentor','🎓 Наставники')}
+          ${roleBtn(key,'helper','🤝 Помощники')}
+        </div>
+        <div class="pool-city-list">${people.map(p=>{
+          const tier=tierFromSales(p.sales_score);
+          const nm=String(p.name||'');
+          const short=nm.length>24?nm.slice(0,22)+'…':nm;
+          return`<div class="pool-ph avail pool-chip" draggable="true" title="${esc(nm+' · '+tier)}" ondragstart="startPoolDrag(event,'${p.id}','${esc(p.name)}','${esc(city)}')"><span class="pool-chip-name">${esc(short)}</span><span class="pool-tier">${tier}</span></div>`;
+        }).join('')||'<span style="font-size:11px;color:var(--text3)">Нет сотрудников</span>'}</div>
+      </div>`;
+    }).join('')||'—';
+    await renderTetris();
+  }catch(e){document.getElementById('ph-pool').innerHTML=esc(e.message);}
+}
+
+function startPoolDrag(ev,id,name,city){ draggingPoolPhotographerId=id; draggingPoolPhotographerName=name||''; draggingPoolPhotographerCity=city||''; ev.dataTransfer.setData('text/plain',`${id}|${name||''}|${city||''}`); }
+async function dropPoolOnCell(ev,key){
+  ev.preventDefault(); ev.currentTarget.classList.remove('drop-over');
+  const dataKey=key||ev.currentTarget?.dataset?.key||'';
+  const data=String(ev.dataTransfer.getData('text/plain')||'');
+  let jp=null; try{ jp=JSON.parse(data); }catch(_){}
+  if(jp&&jp.type==='venue') return;
+  const pid=draggingPoolPhotographerId||String(data.split('|')[0]||'');
+  const pname=draggingPoolPhotographerName||String(data.split('|')[1]||'');
+  const pcity=draggingPoolPhotographerCity||String(data.split('|')[2]||'');
+  if(!pid) return;
+  const list=tetrisEventsByKey[dataKey]||[];
+  if(!list.length){
+    const parts=String(dataKey).split('|');
+    const vid=parts[0], ds=parts.slice(1).join('|')||'';
+    const v=getVenueById(vid);
+    const vname=v?.name||'площадку';
+    if(!confirm(`На ${fmtDate(ds)} нет мероприятия для «${vname}». Создать?`)) return;
+    try{
+      const created=await api('POST','/events',{venue_id:vid,event_date:ds,schedule_status:'draft'});
+      showToast('Мероприятие создано');
+      await loadTab0();
+      await loadPool(poolRole);
+      await renderTetris();
+      const found=findShiftForVenueDateRole(vid,ds,poolRole);
+      if(!found){
+        const shifts=created.shifts||[];
+        const sh=shifts.find(s=>(s.target_role||s.role)===poolRole)||shifts[0];
+        if(sh) await assignToShift(sh.id,pid,poolRole,`${vid}|${ds}`,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
+        else showToast('Смена не создана — назначьте вручную',true);
+      }else{
+        await assignToShift(found.shift.id,pid,poolRole,found.key,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
+      }
+    }catch(e){ showToast(e.message,true); }
+    return;
+  }
+  const evItem=list[0];
+  if(pcity && evItem?.venue_city && String(pcity)!==String(evItem.venue_city)){
+    if(!confirm(`Сотрудник из ${pcity}, площадка в ${evItem.venue_city}. Продолжить?`)) return;
+  }
+  const dsShift=String(ev.currentTarget?.dataset?.shiftId||'');
+  const shift=(evItem.shifts_summary||[]).find(s=>String(s.id||'')===dsShift)
+    || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+  if(!shift){ showToast('Нет свободной позиции для выбранной роли', true); return; }
+  await assignToShift(shift.id,pid,poolRole,dataKey,pname);
+}
+function closeForceAssignModal(choice){
+  document.getElementById('force-assign-modal')?.classList.remove('open');
+  if(forceAssignResolver){ const r=forceAssignResolver; forceAssignResolver=null; r(choice||'cancel'); }
+}
+(function setupForceAssignModal(){
+  const el=document.getElementById('force-assign-modal');
+  if(!el) return;
+  el.addEventListener('click', function(ev){
+    if(ev.target===el){ closeForceAssignModal('cancel'); return; }
+    const btn=ev.target.closest('[data-force-choice]');
+    if(btn){ ev.preventDefault(); closeForceAssignModal(btn.getAttribute('data-force-choice')||'cancel'); }
+  });
+})();
+function chooseForceAssignOption(ctx){
+  const body=document.getElementById('force-assign-body');
+  if(body){
+    body.innerHTML=`<div><b>${esc(ctx.name||'Сотрудник')}</b> не подал заявку на ${esc(fmtDate(ctx.date||''))}.</div>
+    <div style="margin-top:10px">Выберите тип назначения:</div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text3)">Предложить: сотрудник получит уведомление и сможет подтвердить или отклонить.</div>
+    <div style="margin-top:4px;font-size:12px;color:var(--text3)">Обязательно: сотрудник получит уведомление об обязательной смене без возможности отказа.</div>`;
+  }
+  document.getElementById('force-assign-modal')?.classList.add('open');
+  return new Promise(resolve=>{ forceAssignResolver=resolve; });
+}
+function needsForceAssignmentError(e){
+  if(e&&e.body&&e.body.requires_force===true) return true;
+  const msg=String(e&&e.message||'');
+  return msg.includes('requires_force')||msg.includes('принудительное');
+}
+async function assignToShift(shiftId,photographerId,role,key,photographerName,opts){
+  const sid=shiftId!=null&&shiftId!==''?String(shiftId):'';
+  const pid=photographerId!=null&&photographerId!==''?String(photographerId):'';
+  if(!sid||!pid){ showToast('Не удалось определить смену или сотрудника (shift_id / photographer_id). Повторите перетаскивание.',true); return; }
+  const roleInShift=role||'photographer';
+  try{
+    await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift});
+    showToast('Назначено');
+  }catch(e){
+    if(needsForceAssignmentError(e)){
+      const forceStatus=await chooseForceAssignOption({name:photographerName||'Сотрудник',date:(key||'').split('|')[1]||''});
+      if(forceStatus==='cancel') return;
+      console.log('force assign:',{shiftId:sid,photographerId:pid,forceStatus,role:roleInShift});
+      try{
+        await api('POST',`/shifts/${sid}/assignments`,{photographer_id:pid,role_in_shift:roleInShift,force:true,force_status:forceStatus});
+        showToast(forceStatus==='confirmed'?'Назначено обязательно':'Предложение отправлено');
+      }catch(e2){ showToast(e2.message||'Ошибка назначения',true); return; }
+    }else{ showToast(e.message,true); return; }
+  }
+  if(!opts?.skipLoadPoolTetris){
+    await loadPool(poolRole);
+    await renderTetris();
+  }
+  if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
+}
+async function removeAssignment(assignmentId,key,opts){
+  try{
+    await api('DELETE',`/shift-assignments/${assignmentId}`);
+    showToast('Назначение снято');
+    if(!opts?.skipLoadPoolTetris) await loadPool(poolRole);
+    await renderTetris();
+    if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
+  }catch(e){showToast(e.message,true);}
+}
+async function openTetrisCell(key,eventId){
+  try{
+    const fullList=tetrisEventsByKey[key]||[];
+    const list=eventId ? fullList.filter(x=>String(x.id||'')===String(eventId)) : fullList;
+    if(!list.length) return;
+    const d=key.split('|')[1];
+    const details=[];
+    for(const evItem of list){
+      const shifts=(evItem.shifts_summary||[]).filter(s=>s.id);
+      for(const sh of shifts){
+        const asg=await api('GET',`/shifts/${sh.id}/assignments`);
+        const active=(asg||[]).filter(a=>a.status!=='declined');
+        const decl=(asg||[]).filter(a=>a.status==='declined');
+        details.push({event:evItem,shift:sh,assignments:active,declined:decl});
+      }
+    }
+    document.getElementById('tc-title').textContent=`${fmtDate(d)} · ${list[0].venue_name||'Площадка'}`;
+    document.getElementById('tc-body').innerHTML=details.map(x=>{
+      const dec=(x.declined||[]).map(a=>`<div style="padding:8px;border-radius:8px;background:rgba(242,85,85,.1);border:1px solid var(--rank3);margin-bottom:8px;font-size:12px"><div style="color:var(--rank3);font-weight:600">❌ ${esc(a.photographer_name||a.photographer_id)} — отклонил</div>${a.decline_reason?`<div style="color:var(--text2);margin-top:4px">Причина: ${esc(a.decline_reason)}</div>`:''}${a.decline_comment?`<div style="color:var(--text2);margin-top:4px">«${esc(a.decline_comment)}»</div>`:''}</div>`).join('');
+      const act=(x.assignments||[]).map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${esc(a.photographer_name||a.photographer_id)} <span style="color:var(--text3);font-size:10px">(${esc(ROLE_SHORT[a.role_in_shift]||a.role_in_shift||'')})</span>${a.forced?' <span style="color:var(--rank2)">(forced)</span>':''}</span><button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick='removeAssignment(${JSON.stringify(String(a.id||''))},${JSON.stringify(key)})'>Снять</button></div>`).join('');
+      const body=dec+(act||'<span style="color:var(--text3)">Нет активных назначений</span>');
+      return`<div class="section" style="padding:10px;margin-bottom:8px">
+        <div><b>${esc(x.shift.shift_name||'Смена')}</b> (${esc(ROLE_SHORT[x.shift.role||x.shift.target_role]||x.shift.role||x.shift.target_role||'')}) · ${Number(x.shift.assigned||0)}/${Number(x.shift.required||0)}</div>
+        <div style="margin-top:6px">${body}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('tetris-cell-modal').classList.add('open');
+  }catch(e){showToast(e.message,true);}
+}
+
+let lastAuto=null;
+async function runAutoAssign(dry){
+  const period=getSelectedTetrisPeriod();
+  const date_from=String(period?.period_start||'').slice(0,10);
+  const date_to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city').value;
+  const include_without_availability=!!document.getElementById('auto-include-without')?.checked;
+  if(!date_from||!date_to){ showToast('Выберите период', true); return; }
+  try{
+    const r=await api('POST','/staffing/auto-assign',{date_from,date_to,city,dry_run:dry,include_without_availability});
+    lastAuto=r;
+    const el=document.getElementById('auto-body');
+    const assigned=dry?(r.assignments?.length||0):(r.applied||0);
+    const warn=r.warnings?.length||0;
+    const miss=r.unresolved?.length||0;
+    const assignments=(r.assignments||[]).map((a,i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">${i+1}. ${esc(fmtDate(a.date))} · ${esc(a.venue_name||'')} · ${esc(a.shift_name||'Смена')}<br><span style="color:${a.forced?'var(--rank2)':'var(--text2)'}">${a.forced?'⚠️📸':'📸'} ${esc(a.photographer_name||'')} (${esc(a.tier||'')})${a.forced?' (без заявки)':''}</span></div>`).join('')||'<div style="color:var(--text3)">Нет назначений</div>';
+    const warnings=(r.warnings||[]).map(w=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">⚠️ ${esc(w.text||'')}</div>`).join('')||'<div style="color:var(--text3)">Нет предупреждений</div>';
+    const unresolved=(r.unresolved||[]).map(u=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">❌ ${esc(fmtDate(u.date))} · ${esc(u.venue_name||'')} · нужно ${Number(u.missing||0)}</div>`).join('')||'<div style="color:var(--text3)">Нет незаполненных</div>';
+    const zeroHint=(dry&&assigned===0)?'<div style="padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);margin-bottom:8px">Нет подходящих сотрудников. Проверьте что заявки поданы и период совпадает.</div>':'';
+    el.innerHTML=`${zeroHint}
+      <div class="auto-stats">
+        <div class="auto-card">✅ Назначено: <b>${assigned}</b></div>
+        <div class="auto-card">⚠️ Предупреждения: <b>${warn}</b></div>
+        <div class="auto-card">❌ Не заполнено: <b>${miss}</b></div>
+      </div>
+      <div class="section-title">Назначения</div>${assignments}
+      <div class="section-title" style="margin-top:10px">Предупреждения</div>${warnings}
+      <div class="section-title" style="margin-top:10px">Не заполнено</div>${unresolved}`;
+    document.getElementById('auto-modal').classList.add('open');
+    if(!dry)showToast('Применено');
+    await renderTetris();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function saveSnapshot(){
+  const period=getSelectedTetrisPeriod();
+  const period_start=String(period?.period_start||'').slice(0,10);
+  const period_end=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city').value;
+  if(!period_start||!period_end){ showToast('Выберите период', true); return; }
+  try{await api('POST','/schedule/snapshots',{period_start,period_end,city,action_description:'Ручной снимок'});showToast('Снимок сохранён');}catch(e){showToast(e.message,true);}
+}
+async function publishSchedule(){
+  const period=getSelectedTetrisPeriod();
+  const period_start=String(period?.period_start||'').slice(0,10);
+  const period_end=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('tet-city').value;
+  if(!period_start||!period_end){ showToast('Выберите период', true); return; }
+  try{await api('POST','/schedule/publish',{period_start,period_end,city});showToast('Опубликовано');}catch(e){showToast(e.message,true);}
+}
+
+function initOvCityFilter(){
+  const sel=document.getElementById('ov-city');
+  if(!sel)return;
+  const current=sel.value||'';
+  const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value=(current&&cities.includes(current))?current:'';
+}
+function getSelectedOvPeriod(){
+  const id=document.getElementById('ov-period')?.value;
+  return tetrisPeriods.find(p=>String(p.id)===String(id))||tetrisPeriods[0]||null;
+}
+function ovBarColor(pct){if(pct<50)return'var(--rank3)';if(pct<=90)return'var(--rank2)';return'var(--rank1)';}
+async function loadScheduleOverview(){
+  const body=document.getElementById('ov-body');
+  if(!body)return;
+  if(!tetrisPeriods.length) await loadTetrisPeriods();
+  const ovPeriod=document.getElementById('ov-period');
+  if(ovPeriod&&!ovPeriod.dataset.filled){
+    ovPeriod.innerHTML=tetrisPeriods.map(p=>{
+      const dl=p.submit_deadline?` · дедлайн ${esc(fmtDate(String(p.submit_deadline).slice(0,10)))}`:'';
+      return`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))}${dl} (${esc(periodStatusLabel(p.status))})</option>`;
+    }).join('')||'<option value="">Нет периодов</option>';
+    ovPeriod.dataset.filled='1';
+  }
+  initOvCityFilter();
+  const period=getSelectedOvPeriod();
+  const from=String(period?.period_start||'').slice(0,10);
+  const to=String(period?.period_end||'').slice(0,10);
+  const city=document.getElementById('ov-city')?.value||'';
+  if(!from||!to){
+    body.innerHTML='<div style="color:var(--text3);font-size:13px">Нет периода для аналитики</div>';
+    return;
+  }
+  body.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    const [ov, snaps]=await Promise.all([
+      api('GET',`/schedule/overview?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${city?`&city=${encodeURIComponent(city)}`:''}`),
+      api('GET',`/schedule/snapshots${city?`?city=${encodeURIComponent(city)}`:''}`).catch(()=>[]),
+    ]);
+    const s=ov.summary||{};
+    const fill=Number(s.fill_rate||0);
+    const summaryHtml=`<div class="section-title" style="margin-top:0">Сводка</div>
+      <div class="ov-summary">
+        <div class="ov-card"><div class="ov-num">${esc(String(s.events??0))}</div><div class="ov-muted">мероприятий</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(s.venues??0))}</div><div class="ov-muted">площадок</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(fill))}%</div><div class="ov-muted">заполненность</div></div>
+      </div>`;
+    const venues=(ov.venue_stats||[]).map(v=>{
+      const req=parseInt(v.required||0,10)||0;
+      const asg=parseInt(v.assigned||0,10)||0;
+      const pct=req>0?Math.min(100,Math.round(asg/Math.max(1,req)*100)):0;
+      const col=ovBarColor(pct);
+      return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;gap:8px"><span>${esc(v.name||'')}</span><span style="color:var(--text3);white-space:nowrap">${pct}% (${asg}/${req>0?req:'0'} смен)</span></div><div class="ov-bar-track"><div class="ov-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>`;
+    }).join('')||'<div style="color:var(--text3);font-size:12px">Нет данных по площадкам</div>';
+    const phRows=(ov.photographer_stats||[]).map(p=>{
+      const sub=p.submitted_at?'✓':'—';
+      return`<tr><td>${esc(p.name||'')}</td><td style="text-align:center">${esc(String(p.assigned_shifts??0))}</td><td style="text-align:center">${sub}</td></tr>`;
+    }).join('');
+    const phHtml=`<div class="section-title" style="margin-top:14px">Загрузка фотографов</div>
+      <table class="ov-tbl"><thead><tr><th>Фотограф</th><th>Смен</th><th>Подана</th></tr></thead><tbody>${phRows||'<tr><td colspan="3" style="color:var(--text3)">Нет данных</td></tr>'}</tbody></table>`;
+    const probHtml=(ov.problems||[]).map(pr=>{
+      if(pr.type==='understaffed') return`<div class="ov-prob">🔴 ${esc(String(pr.count))} площадки с недобором фотографов</div>`;
+      if(pr.type==='forced') return`<div class="ov-prob">⚠️ ${esc(String(pr.count))} принудительных назначений (без заявки)</div>`;
+      if(pr.type==='declined') return`<div class="ov-prob">❌ ${esc(String(pr.count))} отклонённых смен</div>`;
+      return'';
+    }).join('');
+    const snapRows=(snaps||[]).map(s=>{
+      const dt=s.created_at?new Date(s.created_at).toLocaleString('ru-RU'):'—';
+      const who=esc(s.created_by_name||s.action_description||'');
+      return`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">${esc(fmtDate(s.period_start))} — ${esc(fmtDate(s.period_end))} · ${dt}${who?` · ${who}`:''}</div>`;
+    }).join('')||'<div style="color:var(--text3);font-size:12px">Нет снимков</div>';
+    body.innerHTML=summaryHtml+`<div class="section-title" style="margin-top:14px">Загрузка площадок</div>`+venues
+      +phHtml+`<div class="section-title" style="margin-top:14px">Проблемы</div>`+(probHtml||'<div style="color:var(--text3);font-size:12px">Проблем не найдено</div>')
+      +`<div class="section-title" style="margin-top:14px">История снимков</div>`+snapRows;
+  }catch(e){ body.innerHTML=`<div style="color:var(--rank3);font-size:13px">${esc(e.message)}</div>`; }
+}
+
+function vsClone(o){return JSON.parse(JSON.stringify(o));}
+function vsKindKey(kind){return kind==='holiday'?'holiday':kind==='weekend'?'weekend':'weekday';}
+function vsDayTypeForKind(kind){return kind==='holiday'?'holiday':kind==='weekend'?'weekend':'weekday';}
+function vsInitSlotFromCfg(cfg,def){
+  const ph=(cfg.photographer&&cfg.photographer.length)?vsClone(cfg.photographer):[{name:'Смена 1',start:def.staff_arrival||'09:30',end:def.event_end||'20:00',required_count:def.required_photographers||1}];
+  const opArr=(cfg.print_operator&&cfg.print_operator.length)?cfg.print_operator:(cfg.admin&&cfg.admin.length)?cfg.admin:null;
+  const ad=opArr?vsClone(opArr):[{name:'Оператор печати',start:def.admin_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
+  const mg=(cfg.manager&&cfg.manager.length)?vsClone(cfg.manager):[{name:'Менеджер',start:def.manager_arrival||'09:30',end:def.event_end||'22:00',required_count:1}];
+  return{photographer:ph,print_operator:ad,manager:mg,mentor:[...(cfg.mentor||[])],helper:[...(cfg.helper||[])]};
+}
+function vsBuildDefaultShiftsPayload(slot){
+  return{photographer:(slot.photographer||[]).map((r,i)=>({name:r.name||`Смена ${i+1}`,start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    print_operator:(slot.print_operator||[]).map((r,i)=>({name:r.name||'Оператор печати',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    manager:(slot.manager||[]).map((r,i)=>({name:r.name||'Менеджер',start:r.start||null,end:r.end||null,required_count:parseInt(r.required_count,10)||1})),
+    mentor:slot.mentor||[],helper:slot.helper||[]};
+}
+function vsCfgEqual(a,b){return JSON.stringify(vsBuildDefaultShiftsPayload(a))===JSON.stringify(vsBuildDefaultShiftsPayload(b));}
+function vsRenderPhSections(){
+  if(!venueSettingsShiftState)return;
+  ['weekday','weekend','holiday'].forEach((kind)=>{
+    const el=document.getElementById('vs-ph-'+kind+'-body'); if(!el)return;
+    const slot=venueSettingsShiftState[vsKindKey(kind)];
+    const rows=slot.photographer;
+    el.innerHTML=rows.map((r,i)=>`<div class="vs-ph-row"><span class="vs-lbl">Смена ${i+1}:</span><span class="vs-inline"><span class="vs-lbl">с</span><input class="fin vs-time" type="time" value="${esc(r.start||'')}" onchange="vsSetPhField('${kind}',${i},'start',this.value)"></span><span class="vs-inline">—<input class="fin vs-time" type="time" value="${esc(r.end||'')}" onchange="vsSetPhField('${kind}',${i},'end',this.value)"></span><span class="vs-inline"><span class="vs-lbl">Нужно:</span><input class="fin vs-num" type="number" min="1" value="${Number(r.required_count)||1}" onchange="vsSetPhField('${kind}',${i},'required_count',this.value)"></span><button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:11px" onclick="vsRemovePhShift('${kind}',${i})">✕</button></div>`).join('');
+  });
+}
+function vsSetPhField(kind,idx,field,val){
+  const k=vsKindKey(kind);
+  const row=venueSettingsShiftState[k].photographer[idx];
+  if(!row)return;
+  if(field==='required_count') row.required_count=parseInt(val,10)||1;
+  else row[field]=val;
+}
+function vsAddPhShift(kind){
+  const k=vsKindKey(kind);
+  const v=getVenueById(venueSettingsId);
+  const def=v?getVenueDefaults(v,vsDayTypeForKind(kind)):{staff_arrival:'09:30',event_end:'20:00'};
+  const n=venueSettingsShiftState[k].photographer.length+1;
+  venueSettingsShiftState[k].photographer.push({name:`Смена ${n}`,start:def.staff_arrival||'09:30',end:def.event_end||'20:00',required_count:1});
+  vsRenderPhSections();
+}
+function vsRemovePhShift(kind,idx){
+  const k=vsKindKey(kind);
+  const rows=venueSettingsShiftState[k].photographer;
+  if(rows.length<=1)return;
+  rows.splice(idx,1);
+  vsRenderPhSections();
+}
+function vsSetAdField(kind,role,idx,field,val){
+  const k=vsKindKey(kind);
+  const arr=venueSettingsShiftState[k][role];
+  if(!arr||!arr[idx])return;
+  if(field==='required_count') arr[idx].required_count=parseInt(val,10)||1;
+  else arr[idx][field]=val;
+}
+
+function openVenueSettings(venueId){
+  const v=getVenueById(venueId); if(!v) return;
+  venueSettingsId=venueId;
+  const base=normalizeCfg(v.default_shifts)||{};
+  const wdCfg=normalizeCfg(v.default_shifts_weekday)||base;
+  const weCfg=normalizeCfg(v.default_shifts_weekend)||base;
+  const holCfg=normalizeCfg(v.default_shifts_holiday)||base;
+  const defWd=getVenueDefaults(v,'weekday');
+  const defWe=getVenueDefaults(v,'weekend');
+  const defHol=getVenueDefaults(v,'holiday');
+  venueSettingsShiftState={
+    weekday:vsInitSlotFromCfg(wdCfg,defWd),
+    weekend:vsInitSlotFromCfg(weCfg,defWe),
+    holiday:vsInitSlotFromCfg(holCfg,defHol),
+  };
+  const tw=normalizeCfg(v.times_weekday)||{};
+  const tww=normalizeCfg(v.times_weekend)||{};
+  const th=normalizeCfg(v.times_holiday)||{};
+  const smin=normalizeCfg(v.staffing_min)||{};
+  const smax=normalizeCfg(v.staffing_max)||{};
+  const swd=normalizeCfg(v.staffing_weekday)||{};
+  const pr=Number(v.priority_level??2);
+  const diff=String(v.difficulty||'normal');
+  document.getElementById('vs-title').textContent=`Настройки: ${v.name}`;
+  const dcRaw=(v.display_color&&/^#[0-9a-fA-F]{6}$/.test(String(v.display_color).trim()))?String(v.display_color).trim():venuePaletteStyle(v.id).hex;
+  const vsUnifiedCols=['weekday','weekend','holiday'].map((kind)=>{
+    const slot=venueSettingsShiftState[vsKindKey(kind)];
+    const a=slot.print_operator[0]||{start:'09:30',end:'22:00',required_count:1};
+    const m=slot.manager[0]||{start:'09:30',end:'22:00',required_count:1};
+    const lab=kind==='weekday'?'Будни':kind==='weekend'?'Выходные':'Праздники';
+    const twX=kind==='weekday'?tw:kind==='weekend'?tww:th;
+    const defX=kind==='weekday'?defWd:kind==='weekend'?defWe:defHol;
+    const ig=kind==='weekday'?'wd':kind==='weekend'?'we':'h';
+    return`<div class="vs-ucol">
+    <div class="vs-uch">${lab}</div>
+    <div class="vs-ugrid">
+      <span class="vs-lbl">Гости</span><input class="fin vs-time" id="vs-ev-${ig}-g" type="time" value="${esc(twX.guest_start||defX.guest_start||'')}" />
+      <span class="vs-lbl">Начало</span><input class="fin vs-time" id="vs-ev-${ig}-ev" type="time" value="${esc(twX.event_start||defX.event_start||'')}" />
+      <span class="vs-lbl">Конец</span><input class="fin vs-time" id="vs-ev-${ig}-en" type="time" value="${esc(twX.event_end||defX.event_end||'')}" />
+    </div>
+    <div id="vs-ph-${kind}-body"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:10px;margin:4px 0 6px;padding:4px 8px" onclick="vsAddPhShift('${kind}')">+ смена фото</button>
+    <div class="vs-hr"></div>
+    <div class="vs-ad-opmen-row"><span class="vs-lbl">Опер</span><input class="fin vs-time" type="time" value="${esc(a.start||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(a.end||'')}" onchange="vsSetAdField('${kind}','print_operator',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(a.required_count)||1}" onchange="vsSetAdField('${kind}','print_operator',0,'required_count',this.value)"></div>
+    <div class="vs-ad-opmen-row"><span class="vs-lbl">Мен</span><input class="fin vs-time" type="time" value="${esc(m.start||'')}" onchange="vsSetAdField('${kind}','manager',0,'start',this.value)"><span>—</span><input class="fin vs-time" type="time" value="${esc(m.end||'')}" onchange="vsSetAdField('${kind}','manager',0,'end',this.value)"><span class="vs-lbl">×</span><input class="fin vs-num" type="number" min="1" value="${Number(m.required_count)||1}" onchange="vsSetAdField('${kind}','manager',0,'required_count',this.value)"></div>
+  </div>`;
+  }).join('');
+  document.getElementById('vs-body').innerHTML=`<div class="vs-wrap">
+<div class="vs-unified-grid">${vsUnifiedCols}</div>
+<div class="vs-sec vs-sec-pr" style="margin-top:8px;padding:8px">
+  <div class="vs-pr-flex" style="align-items:center">
+    <span class="vs-lbl" style="font-size:10px">Приоритет:</span>
+    <select class="fselect" id="vs-priority">
+      <option value="1" ${pr===1?'selected':''}>1 · высокий</option>
+      <option value="2" ${pr===2?'selected':''}>2 · стандартный</option>
+      <option value="3" ${pr===3?'selected':''}>3 · низкий</option>
+    </select>
+    <span class="vs-lbl" style="font-size:10px">Тяжёлость:</span>
+    <select class="fselect" id="vs-difficulty">
+      <option value="easy" ${diff==='easy'?'selected':''}>Лёгкая</option>
+      <option value="normal" ${diff==='normal'?'selected':''}>Обычная</option>
+      <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
+    </select>
+    <span class="vs-lbl" style="font-size:10px">Цвет:</span><input type="color" id="vs-display-color" value="${esc(dcRaw)}" title="Цвет в матрице" />
+    <span class="vs-lbl" style="font-size:10px">Палитра:</span><span style="display:inline-flex;gap:3px;flex-wrap:wrap">${VENUE_COLORS.map(c=>`<button type="button" class="btn btn-ghost" style="padding:2px 4px;min-width:22px;font-size:9px" onclick="document.getElementById('vs-display-color').value='${c}'" title="${c}">■</button>`).join('')}</span>
+    <span class="vs-lbl" style="font-size:10px">VCH:</span><input class="fin" id="vs-short-name" value="${esc(v.short_name!=null&&v.short_name!==undefined?v.short_name:'')}" placeholder="?" />
+    <span class="vs-lbl" style="font-size:10px">Город:</span><input class="fin" id="vs-city" value="${esc(v.city||'')}" />
+    <span class="vs-lbl" style="font-size:10px">Категория:</span><input class="fin" id="vs-category" value="${esc(v.category||'')}" />
+  </div>
+</div>
+<div class="vs-sec">
+  <div class="vs-sec-title">📊 Штатное min / plan / max</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12px">
+    <div>Фотографы: min <input class="fin vs-num" id="vs-st-ph-min" type="number" min="0" value="${Number(smin.photographers??1)}"> plan <input class="fin vs-num" id="vs-st-ph-plan" type="number" min="0" value="${Number(swd.photographers??3)}"> max <input class="fin vs-num" id="vs-st-ph-max" type="number" min="0" value="${Number(smax.photographers??5)}"></div>
+    <div>Операторы: min <input class="fin vs-num" id="vs-st-op-min" type="number" min="0" value="${Number(smin.operators??1)}"> plan <input class="fin vs-num" id="vs-st-op-plan" type="number" min="0" value="${Number(swd.operators??1)}"> max <input class="fin vs-num" id="vs-st-op-max" type="number" min="0" value="${Number(smax.operators??2)}"></div>
+  </div>
+</div>
+</div>`;
+  vsRenderPhSections();
+  document.getElementById('venue-settings-modal').classList.add('open');
+}
+
+async function saveVenueSettings(){
+  if(!venueSettingsId||!venueSettingsShiftState) return;
+  try{
+    const v=getVenueById(venueSettingsId)||{};
+    const g=id=>document.getElementById(id)?.value||null;
+    const tw={...(normalizeCfg(v.times_weekday)||{}),guest_start:g('vs-ev-wd-g')||null,event_start:g('vs-ev-wd-ev')||null,event_end:g('vs-ev-wd-en')||null,
+      admin_arrival:(venueSettingsShiftState.weekday.print_operator[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekday.manager[0]||{}).start||null};
+    const tww={...(normalizeCfg(v.times_weekend)||{}),guest_start:g('vs-ev-we-g')||null,event_start:g('vs-ev-we-ev')||null,event_end:g('vs-ev-we-en')||null,
+      admin_arrival:(venueSettingsShiftState.weekend.print_operator[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.weekend.manager[0]||{}).start||null};
+    const th={...(normalizeCfg(v.times_holiday)||{}),guest_start:g('vs-ev-h-g')||null,event_start:g('vs-ev-h-ev')||null,event_end:g('vs-ev-h-en')||null,
+      admin_arrival:(venueSettingsShiftState.holiday.print_operator[0]||{}).start||null,manager_arrival:(venueSettingsShiftState.holiday.manager[0]||{}).start||null};
+    const wd=vsBuildDefaultShiftsPayload(venueSettingsShiftState.weekday);
+    const we=vsBuildDefaultShiftsPayload(venueSettingsShiftState.weekend);
+    const hol=vsBuildDefaultShiftsPayload(venueSettingsShiftState.holiday);
+    const weekendOut=vsCfgEqual(venueSettingsShiftState.weekday,venueSettingsShiftState.weekend)?null:we;
+    const holidayOut=vsCfgEqual(venueSettingsShiftState.weekend,venueSettingsShiftState.holiday)?null:hol;
+    const sminRaw=normalizeCfg(v.staffing_min)||{};
+    const smaxRaw=normalizeCfg(v.staffing_max)||{};
+    const staffing_min={
+      photographers:parseInt(document.getElementById('vs-st-ph-min')?.value||'1',10)||0,
+      operators:parseInt(document.getElementById('vs-st-op-min')?.value||'1',10)||0,
+      managers:Number(sminRaw.managers??1),mentors:Number(sminRaw.mentors??0),
+    };
+    const staffing_max={
+      photographers:parseInt(document.getElementById('vs-st-ph-max')?.value||'5',10)||0,
+      operators:parseInt(document.getElementById('vs-st-op-max')?.value||'2',10)||0,
+      managers:Number(smaxRaw.managers??2),mentors:Number(smaxRaw.mentors??1),
+    };
+    const staffing_weekday={
+      photographers:parseInt(document.getElementById('vs-st-ph-plan')?.value||'3',10)||0,
+      operators:parseInt(document.getElementById('vs-st-op-plan')?.value||'1',10)||0,
+      managers:Number((normalizeCfg(v.staffing_weekday)||{}).managers??1),
+      mentors:Number((normalizeCfg(v.staffing_weekday)||{}).mentors??0),
+    };
+    const payload={
+      default_shifts:wd,
+      default_shifts_weekday:wd,
+      default_shifts_weekend:weekendOut,
+      default_shifts_holiday:holidayOut,
+      times_weekday:tw,times_weekend:tww,times_holiday:th,
+      staffing_min,staffing_max,staffing_weekday,
+      short_name:(document.getElementById('vs-short-name')?.value??'').trim()||null,
+      display_color:(document.getElementById('vs-display-color')?.value||'').trim()||null,
+      priority_level:parseInt(document.getElementById('vs-priority')?.value||'2',10)||2,
+      difficulty:document.getElementById('vs-difficulty')?.value||'normal',
+      city:(document.getElementById('vs-city')?.value||'').trim(),
+      category:(document.getElementById('vs-category')?.value||'').trim(),
+    };
+    await api('PATCH',`/venues/${venueSettingsId}`,payload);
+    showToast('Настройки площадки сохранены');
+    document.getElementById('venue-settings-modal').classList.remove('open');
+    venueSettingsShiftState=null;
+    venuesList=await api('GET','/venues');
+    initPeriodCityFilter();
+    filterVenueList();
+  }catch(e){showToast(e.message,true);}
+}
+
+(async function init(){
+  if(!accessToken&&!refreshToken){location.href='index.html';return;}
+  try{
+    currentUser=await api('GET','/auth/me');
+    if(!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])){showToast('Нет доступа к разделу',true);setTimeout(()=>location.href='index.html',1200);return;}
+    setupUserPill();setupNav('schedule');
+    venuesList=await api('GET','/venues');
+    initScheduleCityFilter();
+    initTetrisCityFilter();
+    initPeriodCityFilter();
+    setScheduleStatus('draft');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
+})();
