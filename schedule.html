@@ -446,14 +446,14 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
-<div class="overlay" id="period-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="overlay" id="period-modal" onclick="if(event.target===this)closePeriodModal()">
 <div class="modal">
-  <div class="modal-title"><span>Новый период</span><button class="dr-close" onclick="document.getElementById('period-modal').classList.remove('open')">×</button></div>
-  <div class="section-title">Город</div>
+  <div class="modal-title"><span id="period-modal-title">Новый период</span><button class="dr-close" onclick="closePeriodModal()">×</button></div>
+  <div class="section-title">Город/категория</div>
   <select class="fselect" id="np-city">
     <option value="">Все сотрудники</option>
   </select>
-  <div style="display:flex;flex-direction:column;gap:6px;margin:10px 0 4px">
+  <div id="np-quick-wrap" style="display:flex;flex-direction:column;gap:6px;margin:10px 0 4px">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod('c1')">1–15 этого мес.</button>
       <button type="button" class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="npQuickPeriod('c2')">16–конец этого мес.</button>
@@ -466,7 +466,7 @@ a{color:inherit;text-decoration:none}
   <div class="section-title">Начало</div><input class="fin" type="date" id="np-start"/>
   <div class="section-title">Конец</div><input class="fin" type="date" id="np-end"/>
   <div class="section-title">Дедлайн подачи</div><input class="fin" type="date" id="np-dead"/>
-  <div style="margin-top:12px"><button class="btn btn-primary" onclick="createPeriod()">Создать</button></div>
+  <div style="margin-top:12px"><button class="btn btn-primary" id="period-modal-submit" onclick="savePeriod()">Создать</button></div>
 </div>
 </div>
 
@@ -541,6 +541,7 @@ let venueSettingsId=null;
 let venueSettingsShiftState=null;
 let scheduleViewStatus='draft';
 let showArchivedPeriods=false;
+let editingPeriodId=null;
 let currentSubmissions=[];
 let currentPeriodMeta=null;
 let lastSubmissionEventsCache=[];
@@ -1158,17 +1159,26 @@ async function loadPeriodsSubs(){
     const visible=(periods||[]).filter(p=>showArchivedPeriods||p.status!=='archived');
     const sel=document.getElementById('sub-period');
     sel.innerHTML=visible.map(p=>`<option value="${p.id}">${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} (${esc(statusLabel(p.status))})</option>`).join('');
-    document.getElementById('periods-list').innerHTML=visible.map(p=>`
-      <div class="period-row">
+    document.getElementById('periods-list').innerHTML=visible.map(p=>{
+      const id=String(p.id);
+      const main=`<div class="period-row">
         <div>${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))} · ${esc(cityLabel(p.city))}${p.submit_deadline?` · дедлайн ${esc(fmtDate(p.submit_deadline))}`:''}</span></div>
         <div class="period-actions">
-          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','locked')">🔒 Закрыть</button>
-          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','paused')">⏸ Приостановить</button>
-          <button class="btn btn-ghost" onclick="setPeriodStatus('${p.id}','archived')">📦 Архив</button>
-          <button class="btn btn-ghost" onclick="deletePeriod('${p.id}')">🗑 Удалить</button>
+          <button type="button" class="btn btn-ghost" title="Редактировать" onclick="openEditPeriodModal('${id}')">✏️</button>
+          <button type="button" class="btn btn-ghost" onclick="setPeriodStatus('${id}','locked')">🔒 Закрыть</button>
+          <button type="button" class="btn btn-ghost" onclick="setPeriodStatus('${id}','paused')">⏸ Приостановить</button>
+          <button type="button" class="btn btn-ghost" onclick="confirmArchivePeriod('${id}')">📦 Архив</button>
         </div>
-      </div>
-    `).join('')||'—';
+      </div>`;
+      const archived=`<div class="period-row">
+        <div>${esc(fmtDate(p.period_start))} → ${esc(fmtDate(p.period_end))} <span style="color:var(--text3)">${esc(statusLabel(p.status))}</span></div>
+        <div class="period-actions">
+          <button type="button" class="btn btn-ghost" onclick="restorePeriod('${id}')">📤 Восстановить</button>
+          <button type="button" class="btn btn-ghost" style="color:var(--rank3)" onclick="confirmDeletePeriodForever('${id}')">🗑 Удалить навсегда</button>
+        </div>
+      </div>`;
+      return p.status==='archived'?archived:main;
+    }).join('')||'—';
     if(visible.length) loadSubmissions(); else{document.getElementById('submissions-wrap').innerHTML='<div class="loading">Нет периодов</div>';currentSubmissions=[];lastSubmissionEventsCache=[];const hs=document.getElementById('hstats');if(hs) hs.innerHTML='';}
   }catch(e){document.getElementById('periods-list').innerHTML=esc(e.message);}
 }
@@ -1188,16 +1198,26 @@ async function setPeriodStatus(id,status){
   }catch(e){showToast(e.message,true);}
 }
 
-async function deletePeriod(id){
+async function confirmArchivePeriod(id){
+  if(!confirm('Перенести период в архив?')) return;
   try{
-    const data=await api('GET','/availability/submissions?period_id='+encodeURIComponent(id));
-    const hasSubmitted=(data?.submissions||[]).some(s=>s.submitted_at);
-    if(hasSubmitted){
-      if(!confirm('В периоде есть поданные заявки. Архивировать вместо удаления?')) return;
-      await setPeriodStatus(id,'archived');
-      return;
-    }
-    if(!confirm('Удалить период безвозвратно?')) return;
+    await api('PATCH',`/availability/periods/${id}`,{status:'archived'});
+    showToast('Период в архиве');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function restorePeriod(id){
+  try{
+    await api('PATCH',`/availability/periods/${id}`,{status:'open'});
+    showToast('Период восстановлен');
+    await loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function confirmDeletePeriodForever(id){
+  if(!confirm('Удалить период и все связанные заявки безвозвратно?')) return;
+  try{
     await api('DELETE',`/availability/periods/${id}`);
     showToast('Период удалён');
     await loadPeriodsSubs();
@@ -1535,7 +1555,61 @@ async function submissionRunPickedAssign(phId,pname,forceStatus){
   }catch(e){showToast(e.message,true);}
 }
 
-function openPeriodModal(){initPeriodCityFilter();document.getElementById('period-modal').classList.add('open');}
+function closePeriodModal(){
+  editingPeriodId=null;
+  document.getElementById('period-modal').classList.remove('open');
+  const tw=document.getElementById('np-quick-wrap');
+  if(tw) tw.style.display='';
+  document.getElementById('period-modal-title').textContent='Новый период';
+  const sb=document.getElementById('period-modal-submit');
+  if(sb) sb.textContent='Создать';
+}
+function openPeriodModal(){
+  editingPeriodId=null;
+  document.getElementById('period-modal-title').textContent='Новый период';
+  const sb=document.getElementById('period-modal-submit');
+  if(sb) sb.textContent='Создать';
+  const tw=document.getElementById('np-quick-wrap');
+  if(tw) tw.style.display='';
+  document.getElementById('np-start').value='';
+  document.getElementById('np-end').value='';
+  document.getElementById('np-dead').value='';
+  document.getElementById('np-city').value='';
+  initPeriodCityFilter();
+  document.getElementById('period-modal').classList.add('open');
+}
+async function openEditPeriodModal(id){
+  let p=null;
+  try{
+    const periods=await api('GET','/availability/periods');
+    p=(periods||[]).find(x=>String(x.id)===String(id));
+  }catch(e){showToast(e.message,true);return;}
+  if(!p){showToast('Период не найден',true);return;}
+  editingPeriodId=id;
+  document.getElementById('period-modal-title').textContent='Редактировать период';
+  const sb=document.getElementById('period-modal-submit');
+  if(sb) sb.textContent='Сохранить';
+  const tw=document.getElementById('np-quick-wrap');
+  if(tw) tw.style.display='none';
+  document.getElementById('np-start').value=String(p.period_start||'').slice(0,10);
+  document.getElementById('np-end').value=String(p.period_end||'').slice(0,10);
+  document.getElementById('np-dead').value=String(p.submit_deadline||'').slice(0,10);
+  document.getElementById('np-city').value=p.city||'';
+  initPeriodCityFilter();
+  const nps=document.getElementById('np-city');
+  const pc=(p.city||'').trim();
+  if(pc&&nps){
+    const exists=[...nps.options].some(o=>o.value===pc);
+    if(!exists){
+      const opt=document.createElement('option');
+      opt.value=pc;
+      opt.textContent=pc;
+      nps.appendChild(opt);
+    }
+    nps.value=pc;
+  }
+  document.getElementById('period-modal').classList.add('open');
+}
 function npMonthYear(offset){
   const d=new Date();
   let y=d.getFullYear(),m=d.getMonth()+offset;
@@ -1559,12 +1633,23 @@ function npQuickPeriod(which){
     document.getElementById('np-end').value=`${ym}-${p(last)}`;
   }
 }
-async function createPeriod(){
+async function savePeriod(){
   const period_start=document.getElementById('np-start').value;
   const period_end=document.getElementById('np-end').value;
   const submit_deadline=document.getElementById('np-dead').value;
   const city=document.getElementById('np-city').value||null;
-  try{await api('POST','/availability/periods',{period_start,period_end,submit_deadline,city});showToast('Период создан');document.getElementById('period-modal').classList.remove('open');loadPeriodsSubs();}catch(e){showToast(e.message,true);}
+  if(!period_start||!period_end||!submit_deadline){showToast('Укажите начало, конец и дедлайн',true);return;}
+  try{
+    if(editingPeriodId){
+      await api('PATCH',`/availability/periods/${editingPeriodId}`,{period_start,period_end,submit_deadline,city});
+      showToast('Период сохранён');
+    }else{
+      await api('POST','/availability/periods',{period_start,period_end,submit_deadline,city});
+      showToast('Период создан');
+    }
+    closePeriodModal();
+    loadPeriodsSubs();
+  }catch(e){showToast(e.message,true);}
 }
 
 async function loadTetrisPeriods(){
