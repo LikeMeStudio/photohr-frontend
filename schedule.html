@@ -1755,6 +1755,9 @@ function startTetrisPillDrag(ev){
 function dragOverStaffMatrix(ev){ ev.preventDefault(); try{ ev.dataTransfer.dropEffect='copy'; }catch(_){} ev.currentTarget.classList.add('drop-over'); }
 function dragLeaveStaffMatrix(ev){ ev.currentTarget.classList.remove('drop-over'); }
 async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
+  console.log('=== MATRIX DROP START ===');
+  console.log('dataTransfer text/plain:', ev.dataTransfer.getData('text/plain'));
+  console.log('dataTransfer application/json:', ev.dataTransfer.getData('application/json'));
   ev.preventDefault(); ev.stopPropagation();
   ev.currentTarget.classList.remove('drop-over');
   let raw=String(ev.dataTransfer.getData('text/plain')||'');
@@ -1763,25 +1766,36 @@ async function dropStaffMatrixCell(ev,photographerId,dateStr,pname){
   }
   const pid=String(photographerId||'');
   const name=pname||'';
-  let tetrisPayload=null;
-  try{ tetrisPayload=JSON.parse(raw); }catch(_){ tetrisPayload=null; }
-  if(tetrisPayload&&tetrisPayload.type==='matrix-assign'){
-    await handleMatrixAssignDrop(tetrisPayload,pid,dateStr,name);
+  let data=null;
+  try{ data=JSON.parse(raw); }catch(_){ data=null; }
+  console.log('parsed data:', data);
+  console.log('data.type:', data?.type);
+  if(data&&data.type==='matrix-assign'){
+    await handleMatrixAssignDrop(data,pid,dateStr,name);
     return;
   }
-  if(tetrisPayload&&tetrisPayload.type==='venue'){
-    const vid=String(tetrisPayload.venueId||'');
+  if(data&&data.type==='venue'){
+    const date=String(dateStr).slice(0,10);
+    console.log('venueId:', data.venueId);
+    console.log('photographerId from cell:', photographerId);
+    console.log('date from cell:', date);
+    console.log('tetrisEventsByKey keys sample:', Object.keys(tetrisEventsByKey).slice(0, 10));
+    console.log('looking for key:', data.venueId + '|' + date);
+    console.log('events found:', tetrisEventsByKey[data.venueId + '|' + date]);
+    const vid=String(data.venueId||'');
     const found=findShiftForVenueDateRole(vid,dateStr,poolRole);
+    console.log('poolRole:', poolRole);
+    console.log('shift found:', found);
     if(!found){ showToast('Нет смены для этой площадки на эту дату',true); return; }
     await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
     return;
   }
-  if(tetrisPayload&&tetrisPayload.kind==='tetris-pill'){
-    const shiftId=tetrisPayload.shiftId||'';
-    const key=tetrisPayload.key||'';
+  if(data&&data.kind==='tetris-pill'){
+    const shiftId=data.shiftId||'';
+    const key=data.key||'';
     const list=tetrisEventsByKey[key]||[];
-    const evItem=list.find(x=>String(x.id)===String(tetrisPayload.eventId))||list[0];
+    const evItem=list.find(x=>String(x.id)===String(data.eventId))||list[0];
     if(!evItem||!shiftId){ showToast('Не найдена смена для этой площадки',true); return; }
     await assignToShift(shiftId,pid,poolRole,key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
