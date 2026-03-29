@@ -134,6 +134,9 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 #archived-user-modal .ev-json-ta{width:100%;min-height:52px;font-family:ui-monospace,monospace;font-size:10px;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);resize:vertical}
 #archived-user-modal .ev-ds-pre{font-size:9px;max-height:100px;overflow:auto;padding:6px;background:var(--bg2);border-radius:6px;border:1px solid var(--border);white-space:pre-wrap;word-break:break-all;color:var(--text3)}
 #ph-bs-modal .modal{max-width:min(900px,96vw);max-height:90vh;overflow-y:auto}
+#ph-bs-modal table:has(tbody#bs-products){table-layout:fixed;width:100%;font-size:12px}
+#ph-bs-modal #bs-products .fin,#ph-bs-modal #bs-products .fselect{font-size:12px}
+#ph-bs-modal .bs-th-row{display:flex;flex-wrap:nowrap;gap:4px;margin-bottom:4px;align-items:center}
 
 .approve-row{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
 .badge{font-size:10px;padding:2px 6px;border-radius:4px;display:inline-block}
@@ -158,7 +161,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <div id="admin-root" style="display:flex;flex-direction:column;min-height:100vh">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg)">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <a href="index.html" class="logo" style="text-decoration:none;color:var(--text)">Photo<span>HR</span></a>
+      <a href="index.html" class="logo" style="text-decoration:none;color:inherit">Photo<span>HR</span></a>
       <span style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600">⚙ Управление</span>
     </div>
     <button type="button" class="btn btn-ghost" onclick="closeThisAdmin()" style="font-size:14px">✕ Закрыть</button>
@@ -1593,15 +1596,30 @@ const bc=document.getElementById('bs-content');
 bc.innerHTML='<div class="loading">Загрузка...</div>';
 try{
 if(!hasAnyRole(['hr_director','exec_director','admin'])){bc.innerHTML='<div style="color:var(--text3);font-size:12px">Нет доступа к справочнику схем</div>';return;}
-const schemes=await api('GET','/bonus-schemes');
+const schemes=await api('GET','/bonus-schemes?include_archived=true');
 const isAdmin=hasAnyRole(['admin']);
+const active=schemes.filter(s=>s.is_active!==false);
+const archived=schemes.filter(s=>s.is_active===false);
 let h=`<div style="margin-bottom:12px;display:flex;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:8px">${isAdmin?'<button type="button" class="btn btn-primary" style="font-size:11px" onclick="openBsEdit(null)">+ Новая схема</button><button type="button" class="btn btn-ghost" onclick="openProductsManager()" style="font-size:12px">📦 Справочник товаров</button>':''}</div>`;
-h+=schemes.map(s=>`<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px">
+if(active.length){
+h+=active.map(s=>`<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px">
 <div style="font-weight:600">${esc(s.name)} <span style="font-size:10px;color:var(--text3)">${parseInt(s.scheme_version,10)===2?'v2':'v1'} · ${esc(s.scheme_type)} · ${esc(s.calc_mode)}</span></div>
 <div style="font-size:10px;color:var(--text3);margin-top:4px">${esc(bsSummarizeRules(s))}</div>
-${isAdmin?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBsEdit('${s.id}')">Изменить</button><button type="button" class="btn btn-ghost" style="font-size:10px;color:var(--rank3)" onclick="deleteBsScheme('${s.id}')">Удалить</button></div>`:''}
+${isAdmin?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="openBsEdit('${s.id}')">Изменить</button><button type="button" class="btn btn-ghost" style="font-size:10px;color:var(--rank2)" onclick="archiveBsScheme('${s.id}')">📦 В архив</button></div>`:''}
 </div>`).join('');
-bc.innerHTML=h||'<div style="color:var(--text3)">Нет схем</div>';
+}else if(!archived.length){
+h+='<div style="color:var(--text3);font-size:12px">Нет активных схем</div>';
+}
+if(archived.length){
+h+=`<div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--border)">
+<div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">📦 Архив (${archived.length})</div>`;
+h+=archived.map(s=>`<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px;opacity:.7">
+<div style="font-weight:600">${esc(s.name)} <span style="font-size:10px;color:var(--text3)">${parseInt(s.scheme_version,10)===2?'v2':'v1'} · архив</span></div>
+${isAdmin?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost" style="font-size:10px;color:var(--rank1)" onclick="restoreBsScheme('${s.id}')">♻️ Восстановить</button><button type="button" class="btn btn-ghost" style="font-size:10px;color:var(--rank3)" onclick="permanentDeleteBsScheme('${s.id}')">🗑 Удалить навсегда</button></div>`:''}
+</div>`).join('');
+h+='</div>';
+}
+bc.innerHTML=h;
 }catch(e){bc.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
 }
 
@@ -1806,7 +1824,7 @@ showToast('Товар создан и добавлен');
 }
 
 function bsRenderThRows(arr){
-return(arr||[]).map(t=>`<div class="bs-th-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center"><span style="font-size:10px;color:var(--text3)">от</span><input type="number" class="fin bs-th-from" value="${t.from||0}" style="width:80px"/><span style="font-size:10px;color:var(--text3)">→</span><input type="number" class="fin bs-th-bonus" value="${t.bonus||0}" style="width:72px"/><span style="font-size:10px;color:var(--text3)">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+return(arr||[]).map(t=>`<div class="bs-th-row"><span style="font-size:10px;color:var(--text3);flex-shrink:0">от</span><input type="number" class="fin bs-th-from" value="${t.from||0}" style="width:80px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">→</span><input type="number" class="fin bs-th-bonus" value="${t.bonus||0}" style="width:72px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3);flex-shrink:0" onclick="this.parentElement.remove()">✕</button></div>`).join('');
 }
 
 function bsRenderPrRows(arr){
@@ -1816,8 +1834,7 @@ return(arr||[]).map(p=>`<div class="bs-pr-row" style="display:flex;gap:4px;margi
 function bsAddThV2(scope){
 const d=document.createElement('div');
 d.className='bs-th-row';
-d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center';
-d.innerHTML='<span style="font-size:10px;color:var(--text3)">от</span><input type="number" class="fin bs-th-from" value="0" style="width:80px"/><span style="font-size:10px;color:var(--text3)">→</span><input type="number" class="fin bs-th-bonus" value="0" style="width:72px"/><span style="font-size:10px;color:var(--text3)">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
+d.innerHTML='<span style="font-size:10px;color:var(--text3);flex-shrink:0">от</span><input type="number" class="fin bs-th-from" value="0" style="width:80px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">→</span><input type="number" class="fin bs-th-bonus" value="0" style="width:72px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3);flex-shrink:0" onclick="this.parentElement.remove()">✕</button>';
 document.getElementById('bs-'+scope+'-th').appendChild(d);
 }
 
@@ -1903,7 +1920,7 @@ return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghos
 <div style="font-size:13px;font-weight:600">📸 Товары и ЗП</div>
 <div style="font-size:10px;color:var(--text3);margin:-6px 0 0">Цены и ставки задаются в схеме; в отчёте используются эти данные.</div>
 <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
-<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px">Цена</th><th style="padding:6px">ЗП/шт</th><th style="padding:6px">Принтер</th><th></th></tr></thead>
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px;width:72px">Цена</th><th style="padding:6px;width:72px">ЗП/шт</th><th style="padding:6px;width:80px">Принтер</th><th style="width:40px"></th></tr></thead>
 <tbody id="bs-products">${prodRowsHtml||'<tr><td colspan="5" style="padding:8px;color:var(--text3)">Добавьте товары из справочника или создайте новый</td></tr>'}</tbody></table></div>
 <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
 <select id="bs-add-product" class="fselect" style="flex:1;min-width:140px;font-size:11px">${addOptions}</select>
@@ -2079,11 +2096,32 @@ openBonusSchemesModal();
 }catch(e){showToast(e.message, true);}
 }
 
-async function deleteBsScheme(id){
-if(!confirm('Деактивировать схему?'))return;
+async function archiveBsScheme(id){
+if(!confirm('Отправить схему в архив? Она станет недоступна для привязки к площадкам.'))return;
 try{
 await api('DELETE',`/bonus-schemes/${id}`);
-showToast('Схема отключена');
+showToast('Схема отправлена в архив');
+const vid=window.__editingVenueId;
+if(document.getElementById('archived-user-modal').classList.contains('open')&&vid)await refreshBonusSelects(vid);
+openBonusSchemesModal();
+}catch(e){showToast(e.message, true);}
+}
+
+async function restoreBsScheme(id){
+if(!confirm('Восстановить схему из архива?'))return;
+try{
+await api('PATCH',`/bonus-schemes/${id}/restore`);
+showToast('Схема восстановлена');
+openBonusSchemesModal();
+}catch(e){showToast(e.message, true);}
+}
+
+async function permanentDeleteBsScheme(id){
+if(!confirm('УДАЛИТЬ СХЕМУ НАВСЕГДА?\n\nЭто действие необратимо. Все привязки к площадкам будут удалены.'))return;
+if(!confirm('Вы уверены? Подтвердите полное удаление.'))return;
+try{
+await api('DELETE',`/bonus-schemes/${id}/permanent`);
+showToast('Схема удалена навсегда');
 const vid=window.__editingVenueId;
 if(document.getElementById('archived-user-modal').classList.contains('open')&&vid)await refreshBonusSelects(vid);
 openBonusSchemesModal();
