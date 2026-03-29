@@ -622,8 +622,8 @@ function setupTeamNav() {
   const nav = document.getElementById('nav-links');
   const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
   const navBtns = [];
-  navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + '">Команда</a>');
+  navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:#4e8fff;border-color:#4e8fff;color:#fff">📷 Мой профиль</a>');
+  navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + ';background:#4e8fff;border-color:#4e8fff;color:#fff">Команда</a>');
   if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
   }
