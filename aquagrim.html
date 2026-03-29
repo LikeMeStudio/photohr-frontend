@@ -49,6 +49,19 @@ a{color:inherit;text-decoration:none}
 .toolbar-unified .btn.btn-ghost{padding:6px 14px;border-radius:20px;font-size:12px}
 .spacer{flex:1}
 
+/* sub-nav */
+.sub-nav-tab:hover:not(.active){color:var(--text);border-color:var(--border2)}
+/* toolbar filter row — active states (ранг/продажи) */
+#fb-r1.active{background:#3d2000;color:#e8a060;border-radius:10px}
+#fb-r2.active{background:#1a2030;color:#b8cce0;border-radius:10px}
+#fb-r3.active{background:#2a2000;color:#d4b840;border-radius:10px}
+#fb-zero.active{background:#3a3a4a;border-radius:10px;color:var(--text);border:1px solid #5a5a72}
+#fb-weak.active{background:rgba(242,85,85,.8);border-radius:10px;color:#fff}
+#fb-mid.active{background:rgba(62,207,142,.8);border-radius:10px;color:#0a2e1e}
+#fb-top.active{background:linear-gradient(135deg,#f5a623,#e8830a);border-radius:10px;color:#1a0a00}
+#fb-male.active{color:#6ab0e8!important}
+#fb-female.active{color:#e88ab0!important}
+
 .main{max-width:1400px;margin:0 auto;padding:20px 24px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .empty{text-align:center;padding:60px;color:var(--text3);grid-column:1/-1}
@@ -218,32 +231,59 @@ a{color:inherit;text-decoration:none}
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
+    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
 </div>
 
-<div class="toolbar">
-  <input class="search-in" id="search" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;min-width:220px;max-width:360px"/>
-  <button class="f-btn active" id="fb-all" onclick="resetFilters()">Все</button>
-  <button class="f-btn" id="fb-r1" onclick="setFilter('rank',1)">1★</button>
-  <button class="f-btn" id="fb-r2" onclick="setFilter('rank',2)">2★★</button>
-  <button class="f-btn" id="fb-r3" onclick="setFilter('rank',3)">3★★★</button>
-  <button class="f-btn" id="fb-zero" onclick="setFilter('sales','zero')">Стажёры(0)</button>
-  <button class="f-btn" id="fb-weak" onclick="setFilter('sales','weak')">Новички(1–4)</button>
-  <button class="f-btn" id="fb-mid" onclick="setFilter('sales','mid')">Молодцы(5–7)</button>
-  <button class="f-btn" id="fb-top" onclick="setFilter('sales','top')">Топ(8–10)</button>
-  <button class="f-btn" id="fb-male" onclick="setFilter('gender','male')">♂</button>
-  <button class="f-btn" id="fb-female" onclick="setFilter('gender','female')">♀</button>
-  <select class="fselect" id="f-venue" onchange="setFilter('venue', this.value)" style="min-width:180px">
-    <option value="">Площадка</option>
-  </select>
-  <span class="spacer"></span>
-  <div id="toolbar-actions" style="display:flex;gap:8px"></div>
-  <div class="toolbar-unified" style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
-    <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
-    <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+<!-- ── SUB-NAV ── -->
+<div class="sub-nav" style="border-bottom:2px solid #2ecba7;padding:6px 28px;display:flex;gap:6px;align-items:center;background:var(--bg)">
+  <a href="index.html" class="sub-nav-tab" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border);transition:all .15s">📷 Фотографы</a>
+  <a href="team.html" class="sub-nav-tab" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border);transition:all .15s">👔 Управленцы</a>
+  <a href="aquagrim.html" class="sub-nav-tab active" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;background:#2ecba7;color:#fff;border:1px solid #2ecba7;transition:all .15s">🎨 Аквагрим</a>
+</div>
+
+<!-- ── TOOLBAR ── -->
+<div style="border-bottom:1px solid var(--border);background:var(--bg)">
+  <!-- Строка 1: поиск + действия -->
+  <div style="padding:10px 28px;display:flex;align-items:center;gap:8px">
+    <input class="search-in" id="search" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;max-width:320px"/>
+    <button class="f-btn active" id="fb-all" onclick="resetFilters()" style="white-space:nowrap">Все</button>
+    <div style="flex:1"></div>
+    <div id="toolbar-actions" style="display:flex;gap:8px"></div>
+  </div>
+  <!-- Строка 2: фильтры (как index.html по стилю) -->
+  <div style="padding:0 28px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+      <span style="font-size:10px;color:var(--text3);margin-right:3px">РАНГ</span>
+      <button id="fb-r1" onclick="setFilter('rank',1)" style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s">
+        <span style="color:#e8a060;font-weight:600">1</span><span style="color:var(--border2)"> ★</span>
+      </button>
+      <button id="fb-r2" onclick="setFilter('rank',2)" style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s">
+        <span style="color:#b8cce0;font-weight:600">2</span><span style="color:var(--border2)"> ★★</span>
+      </button>
+      <button id="fb-r3" onclick="setFilter('rank',3)" style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px;cursor:pointer;transition:all .15s">
+        <span style="color:#d4b840;font-weight:600">3</span><span style="color:var(--border2)"> ★★★</span>
+      </button>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+      <span style="font-size:10px;color:var(--text3);margin-right:3px">ПРОДАЖИ</span>
+      <button class="f-btn" id="fb-zero" onclick="setFilter('sales','zero')" style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px">Стажёры <span style="opacity:.6;font-size:10px">(0)</span></button>
+      <button class="f-btn" id="fb-weak" onclick="setFilter('sales','weak')" style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px">Новички <span style="opacity:.6;font-size:10px">(1–4)</span></button>
+      <button class="f-btn" id="fb-mid"  onclick="setFilter('sales','mid')"  style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px">Молодцы <span style="opacity:.6;font-size:10px">(5–7)</span></button>
+      <button class="f-btn" id="fb-top"  onclick="setFilter('sales','top')"  style="border:none;background:none;padding:3px 9px;font-size:12px;border-radius:10px">Топ <span style="opacity:.6;font-size:10px">(8–10)</span></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
+      <span style="font-size:10px;color:var(--text3);margin-right:3px">ПОЛ</span>
+      <button id="fb-male" onclick="setFilter('gender','male')" style="border:none;background:none;padding:3px 9px;font-size:15px;border-radius:10px;cursor:pointer;color:var(--text2);transition:all .15s">♂</button>
+      <button id="fb-female" onclick="setFilter('gender','female')" style="border:none;background:none;padding:3px 9px;font-size:15px;border-radius:10px;cursor:pointer;color:var(--text2);transition:all .15s">♀</button>
+    </div>
+    <div style="position:relative">
+      <select class="fselect" id="f-venue" onchange="setFilter('venue', this.value)" style="min-width:180px">
+        <option value="">📍 Площадка</option>
+      </select>
+    </div>
   </div>
 </div>
 
@@ -514,7 +554,7 @@ async function loadVenues(){
   venues = await api('GET','/venues');
   const sel = document.getElementById('f-venue');
   if(sel){
-    const opts = ['<option value="">Площадка</option>']
+    const opts = ['<option value="">📍 Площадка</option>']
       .concat(
         venues
           .filter(v=>v.is_active)
@@ -1242,13 +1282,27 @@ async function reloadAll(){
   render();
 }
 
+function openAdmin(){ window.location.href='index.html'; }
+
 function setupToolbarActions(){
   const el = document.getElementById('toolbar-actions');
   if(!el) return;
   const btns = [];
-  if(canEdit()) btns.push(`<button class="btn btn-primary" onclick="openNewAq()">+ Аквагример</button>`);
-  btns.push(`<button class="btn btn-ghost" onclick="exportAquagrimers()">↓ Экспорт</button>`);
+  if(canEdit()) btns.push(`<button class="btn btn-primary" style="background:#2ecba7;border-color:#2ecba7" onclick="openNewAq()">+ Аквагримёр</button>`);
+  if(hasAnyRoleNav(['hr_director','exec_director','admin'])) {
+    btns.push(`<button class="btn btn-ghost" onclick="openAchievementsPanel()" title="Достижения">🏆 Достижения</button>`);
+  }
+  if(navRoleNow()!=='photographer_user'&&navRoleNow()!=='aq_user') {
+    btns.push(`<button class="btn btn-ghost" onclick="openBirthdaysPanel()" title="Дни рождения">🎂 Дни рождения</button>`);
+  }
+  if(navRoleNow()!=='archived') {
+    btns.push(`<button class="btn btn-ghost" onclick="openLikesPanel()" title="Лайки">❤️ Лайки</button>`);
+  }
+  btns.push(`<button class="btn btn-ghost" onclick="exportAquagrimers()" title="Экспорт">↓ Экспорт</button>`);
   el.innerHTML = btns.join('');
+
+  const mgmtBtn = document.getElementById('btn-management');
+  if(mgmtBtn) mgmtBtn.style.display = (navRoleNow()==='admin') ? '' : 'none';
 }
 
 function exportAquagrimers(){
