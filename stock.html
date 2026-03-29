@@ -1242,44 +1242,66 @@ function applyForecastFilters() {
 }
 
 async function openPoFromForecast() {
+  let rows = [];
   try {
     const fcData = await api('GET', '/stock/forecast?days=' + encodeURIComponent(forecastDays) + (forecastCityFilter ? '&city=' + encodeURIComponent(forecastCityFilter) : ''));
-    const rows = fcData.forecast || [];
-    const needRaw = rows.filter(r => r.status !== 'ok' && r.need_to_order > 0);
-    if (!needRaw.length) { showToast('Нет позиций в дефиците по прогнозу', true); return; }
-    const whId = needRaw[0].warehouse_id;
-    const need = needRaw.filter(r => r.warehouse_id === whId);
-    if (needRaw.length > need.length) {
-      showToast('В заявку включены позиции одного склада: ' + (need[0].warehouse_name || whId).toString().slice(0, 40), false);
+    rows = fcData.forecast || [];
+    lastForecastRows = rows;
+  } catch (e) {
+    showToast(e.message, true);
+    openPoModal();
+    return;
+  }
+
+  const needRaw = rows.filter(r => {
+    const s = forecastRowUiStatus(r);
+    return s === 'critical' || s === 'warning';
+  });
+
+  if (!needRaw.length) {
+    openPoModal();
+    return;
+  }
+
+  const whId = needRaw[0].warehouse_id;
+  const need = needRaw.filter(r => r.warehouse_id === whId);
+  if (needRaw.length > need.length) {
+    showToast('В заявку включены позиции одного склада: ' + (need[0].warehouse_name || whId).toString().slice(0, 40), false);
+  }
+
+  poLineCount = 0;
+  document.getElementById('po-lines').innerHTML = '';
+  document.getElementById('po-supplier').value = '';
+  document.getElementById('po-notes').value = 'Из прогноза дефицита';
+  document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('po-delivery').value = '';
+  document.getElementById('po-total').textContent = '0 ₽';
+  const whSel = document.getElementById('po-warehouse');
+  whSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  if (whId) whSel.value = whId;
+
+  need.forEach(row => {
+    addPoLine();
+    const nodes = document.querySelectorAll('#po-lines [id^="po-line-"]');
+    const lastRow = nodes[nodes.length - 1];
+    if (!lastRow) return;
+    const n = lastRow.id.split('-')[2];
+    const sel = document.getElementById('po-item-' + n);
+    if (sel) sel.value = row.item_id;
+    let qty = parseFloat(row.need_to_order);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      const rem = parseFloat(row.remaining_after);
+      qty = rem < 0 ? Math.ceil(Math.abs(rem)) : 1;
     }
-    poLineCount = 0;
-    document.getElementById('po-lines').innerHTML = '';
-    document.getElementById('po-supplier').value = '';
-    document.getElementById('po-notes').value = 'Из прогноза дефицита';
-    document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('po-delivery').value = '';
-    document.getElementById('po-total').textContent = '0 ₽';
-    const whSel = document.getElementById('po-warehouse');
-    whSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
-    if (whId) whSel.value = whId;
-    need.forEach(row => {
-      addPoLine();
-      const nodes = document.querySelectorAll('#po-lines [id^="po-line-"]');
-      const lastRow = nodes[nodes.length - 1];
-      if (!lastRow) return;
-      const n = lastRow.id.split('-')[2];
-      const sel = document.getElementById('po-item-' + n);
-      if (sel) sel.value = row.item_id;
-      const q = document.getElementById('po-qty-' + n);
-      if (q) q.value = row.need_to_order;
-      const priceInp = document.getElementById('po-price-' + n);
-      const it = items.find(i => i.id === row.item_id);
-      const p = parseFloat(it?.last_purchase_price);
-      if (priceInp) priceInp.value = Number.isFinite(p) && p > 0 ? p : 1;
-    });
-    updatePoTotal();
-    document.getElementById('po-modal').classList.add('open');
-  } catch (e) { showToast(e.message, true); }
+    const qEl = document.getElementById('po-qty-' + n);
+    if (qEl) qEl.value = qty;
+    const priceInp = document.getElementById('po-price-' + n);
+    const it = items.find(i => i.id === row.item_id);
+    const p = parseFloat(it?.last_purchase_price);
+    if (priceInp) priceInp.value = Number.isFinite(p) && p > 0 ? p : 1;
+  });
+  updatePoTotal();
+  document.getElementById('po-modal').classList.add('open');
 }
 
 async function loadEquipment() {
