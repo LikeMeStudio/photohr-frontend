@@ -85,6 +85,13 @@ a{color:inherit;text-decoration:none}
 .stat-box-num{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600}
 .stat-box-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
 .summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px}
+.venue-city-heading{font-size:11px;font-weight:600;color:var(--text2);margin:10px 0 6px;padding:0 2px}
+.venue-city-heading:first-child{margin-top:0}
+.venue-cat-sub{font-size:10px;color:var(--text3);margin:4px 0 2px;padding:0 2px}
+.venue-sq{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:14px;border-radius:3px;font-size:7px;font-weight:700;color:#fff;flex-shrink:0;padding:0 3px;margin-right:6px;vertical-align:middle}
+.venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.3}
+.wh-venue-sum{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px}
+.wh-venue-sum .vsum-item{display:flex;align-items:center;gap:4px;min-width:0}
 @media(max-width:768px){.drawer{width:100%;max-width:100%}.card-grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -155,7 +162,8 @@ a{color:inherit;text-decoration:none}
     </select>
   </div>
   <div class="field"><div class="fl">Город</div><input class="fin" id="wh-city" placeholder="Москва"/></div>
-  <div class="field"><div class="fl">Площадка</div><select class="fselect" id="wh-venue"><option value="">— не привязан —</option></select></div>
+  <div class="field"><div class="fl">Площадка</div><select class="fselect" id="wh-venue" onchange="updateWhVenuePreview()"><option value="">— не привязан —</option></select>
+    <div id="wh-venue-preview" style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;min-height:22px"></div></div>
   <div class="field"><div class="fl">Адрес</div><input class="fin" id="wh-address" placeholder="ул. Пушкина, 1"/></div>
   <div class="field"><div class="fl">Ответственный</div><select class="fselect" id="wh-responsible"><option value="">— не назначен —</option></select></div>
   <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="wh-notes" rows="2" placeholder="Произвольные заметки..."></textarea></div>
@@ -317,6 +325,32 @@ const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_directo
 const roleNow=()=>currentUser?.role||'photographer_user';
 const hasAnyRole=(roles)=>roles.includes(roleNow());
 function can(role){return roleNow()===role;}
+const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
+function normalizeVenueDisplayColor(c){
+  const s=String(c==null?'':c).trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  if(/^#[0-9a-fA-F]{3}$/.test(s)) return '#'+s.slice(1).split('').map(ch=>ch+ch).join('').toLowerCase();
+  return '';
+}
+function venueHashHue(id){let hi=0;const sid=String(id||'0');for(let i=0;i<sid.length;i++)hi=(hi*31+sid.charCodeAt(i))>>>0;return hi;}
+function venuePickColor(v){return normalizeVenueDisplayColor(v?.display_color)||VENUE_COLORS[venueHashHue(v?.id)%VENUE_COLORS.length];}
+function venueShortLabel(v){return (v?.short_name!=null&&String(v.short_name).trim()!=='')?String(v.short_name).trim():String(v?.name||'').slice(0,3)||'?';}
+function whVenueById(vid){if(vid==null||vid==='')return null;return venues.find(v=>String(v.id)===String(vid));}
+function whVenueBadgeHtml(vn,opts){
+  if(!vn)return '';
+  const w=opts&&opts.w?opts.w:16,h=opts&&opts.h?opts.h:12,fs=opts&&opts.fs?opts.fs:7;
+  const c=venuePickColor(vn);
+  return `<span class="venue-sq" style="background:${c};width:${w}px;height:${h}px;font-size:${fs}px">${esc(venueShortLabel(vn))}</span>`;
+}
+function updateWhVenuePreview(){
+  const sel=document.getElementById('wh-venue');
+  const box=document.getElementById('wh-venue-preview');
+  if(!sel||!box)return;
+  const id=sel.value;
+  const vn=whVenueById(id);
+  if(!vn){box.innerHTML='<span style="color:var(--text3)">Без привязки к площадке</span>';return;}
+  box.innerHTML=whVenueBadgeHtml(vn,{w:18,h:14,fs:8})+`<span style="color:var(--text2)">${esc(vn.name)}</span>`;
+}
 function openProfile(){window.location.href='index.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
@@ -459,24 +493,54 @@ async function loadWarehouses() {
     ]);
     venues = vens; users = usrs;
     const c = document.getElementById('content');
-    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canEdit = hasAnyRole(['tech_director','exec_director','admin']);
     const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
     const TYPE_CLS = { central: 'wh-type-central', venue: 'wh-type-venue', mobile: 'wh-type-mobile' };
+    const activeWh = whs.filter(w => w.is_active);
+    const byVenue = {};
+    activeWh.filter(w => w.venue_id).forEach(w => {
+      const k = String(w.venue_id);
+      if (!byVenue[k]) byVenue[k] = [];
+      byVenue[k].push(w);
+    });
+    const activeVenues = venues.filter(v => v.is_active !== false).slice().sort((a, b) => {
+      const ca = (a.city || '').localeCompare(b.city || '', 'ru');
+      if (ca !== 0) return ca;
+      return (a.name || '').localeCompare(b.name || '', 'ru');
+    });
+    const venueSumHtml = activeVenues.length ? `
+      <div class="wh-venue-sum">
+        <div style="width:100%;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">По площадкам</div>
+        ${activeVenues.map(v => {
+          const list = byVenue[String(v.id)] || [];
+          const ok = list.length > 0;
+          return `<div class="vsum-item" title="${esc(v.name)}">
+            ${whVenueBadgeHtml(v, { w: 16, h: 12, fs: 7 })}
+            <span style="color:${ok ? 'var(--text2)' : 'var(--rank3)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${esc(v.name)}</span>
+            <span style="color:var(--text3)">${ok ? `· ${list.length} скл.` : '· нет'}</span>
+          </div>`;
+        }).join('')}
+      </div>` : '';
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🏢 Склады
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
-        ${whs.length ? `<div class="card-grid">
-          ${whs.filter(w => w.is_active).map(w => `
+        ${activeWh.length ? `<div class="card-grid">
+          ${activeWh.map(w => {
+            const vn = whVenueById(w.venue_id);
+            const locLine = (w.city ? esc(w.city) + ' · ' : '') +
+              (vn ? `${whVenueBadgeHtml(vn, { w: 16, h: 12, fs: 7 })}${esc(w.venue_name || vn.name)}` : esc(w.venue_name || '—'));
+            return `
             <div class="wh-card" onclick="openWhDrawer('${w.id}')">
               <div><span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span></div>
               <div style="font-weight:600;margin-bottom:4px">${esc(w.name)}</div>
-              <div style="font-size:11px;color:var(--text3)">${w.city ? esc(w.city) + ' · ' : ''}${esc(w.venue_name || '—')}</div>
+              <div style="font-size:11px;color:var(--text3);display:flex;align-items:center;flex-wrap:wrap;gap:2px 0">${locLine}</div>
               <div style="font-size:11px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || 'Не назначен')}</div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>` : '<div style="color:var(--text3)">Нет складов. Создайте первый.</div>'}
+        ${venueSumHtml}
       </div>`;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
@@ -493,7 +557,8 @@ function openWhModal(wh) {
   // Заполнить площадки
   const vSel = document.getElementById('wh-venue');
   vSel.innerHTML = '<option value="">— не привязан —</option>' +
-    venues.map(v => `<option value="${v.id}" ${wh?.venue_id === v.id ? 'selected' : ''}>${esc(v.name)}</option>`).join('');
+    venues.map(v => `<option value="${v.id}" ${String(wh?.venue_id) === String(v.id) ? 'selected' : ''}>■ ${esc(v.name)}</option>`).join('');
+  updateWhVenuePreview();
 
   // Заполнить ответственных
   const uSel = document.getElementById('wh-responsible');
@@ -537,7 +602,7 @@ async function openWhDrawer(id) {
     const wh = whs.find(w => w.id === id);
     if (!wh) return;
     document.getElementById('wh-drawer-name').textContent = wh.name;
-    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canEdit = hasAnyRole(['tech_director','exec_director','admin']);
     const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
     const stockRows = stock.length ? stock.map(s => `
       <tr>
@@ -546,8 +611,13 @@ async function openWhDrawer(id) {
         <td style="color:var(--text3)">${s.min_quantity || '—'}</td>
         <td><span style="color:${s.is_low ? 'var(--rank3)' : 'var(--rank1)'}">${s.is_low ? '⚠️' : '✅'}</span></td>
       </tr>`).join('') : '<tr><td colspan="4" style="color:var(--text3);padding:8px">Нет остатков</td></tr>';
+    const vnDraw = whVenueById(wh.venue_id);
+    const venueBlock = vnDraw
+      ? `<div class="info-row" style="align-items:flex-start"><span class="info-label">Площадка</span><span style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">${whVenueBadgeHtml(vnDraw,{w:20,h:15,fs:8})}<span>${esc(wh.venue_name || vnDraw.name)}</span></span></div>`
+      : (wh.venue_name ? `<div class="info-row"><span class="info-label">Площадка</span><span>${esc(wh.venue_name)}</span></div>` : '');
     document.getElementById('wh-drawer-body').innerHTML = `
       <div class="info-row"><span class="info-label">Тип</span><span>${TYPE_LABELS[wh.warehouse_type] || wh.warehouse_type}</span></div>
+      ${venueBlock}
       ${wh.city ? `<div class="info-row"><span class="info-label">Город</span><span>${esc(wh.city)}</span></div>` : ''}
       ${wh.address ? `<div class="info-row"><span class="info-label">Адрес</span><span>${esc(wh.address)}</span></div>` : ''}
       <div class="info-row"><span class="info-label">Ответственный</span><span>${esc(wh.responsible_name || 'Не назначен')}</span></div>
@@ -582,7 +652,7 @@ async function loadItems() {
   try {
     const items_all = await api('GET', '/inventory-items');
     const c = document.getElementById('content');
-    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canEdit = hasAnyRole(['tech_director','exec_director','admin']);
     const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование' };
     c.innerHTML = `
       <div class="section">
@@ -809,7 +879,7 @@ async function loadMovements() {
   try {
     const c = document.getElementById('content');
     c.innerHTML = `<div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>`;
-    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const canManage = hasAnyRole(['tech_director','exec_director','admin']);
     const [moves, purchases, transfers] = await Promise.all([
       api('GET', '/stock-movements?limit=50'),
       api('GET', '/purchase-orders?limit=20').catch(() => []),
@@ -902,7 +972,7 @@ async function loadEquipment() {
     const equip = await api('GET', '/equipment');
     equipmentListCache = equip;
     const c = document.getElementById('content');
-    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canEdit = hasAnyRole(['tech_director','exec_director','admin']);
     const STATUS = { active: { label: '🟢 Активно', color: 'var(--rank1)' }, repair: { label: '🟡 Ремонт', color: 'var(--rank2)' }, written_off: { label: '⚫ Списано', color: 'var(--text3)' }, lost: { label: '🔴 Утеряно', color: 'var(--rank3)' } };
     c.innerHTML = `
       <div class="section">
@@ -1009,7 +1079,7 @@ async function openEqDrawer(id) {
     const eq = equip_list.find(e => e.id === id);
     if (!eq) return;
     document.getElementById('eq-drawer-name').textContent = eq.item_name;
-    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canEdit = hasAnyRole(['tech_director','exec_director','admin']);
     const STATUS = { active: '🟢 Активно', repair: '🟡 В ремонте', written_off: '⚫ Списано', lost: '🔴 Утеряно' };
     const totalP = history.total_printed != null ? parseFloat(history.total_printed) : 0;
     const resourcePct = eq.resource_limit && totalP >= 0 ? Math.min(100, Math.round(totalP / parseFloat(eq.resource_limit) * 100)) : null;
@@ -1064,7 +1134,7 @@ async function loadInventory() {
     const [sessions] = await Promise.all([
       api('GET', '/inventory-sessions'),
     ]);
-    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const canManage = hasAnyRole(['tech_director','exec_director','admin']);
     const STATUS_LABELS = { open: '🟡 Открыта', completed: '✅ Завершена', cancelled: '⚫ Отменена' };
     c.innerHTML = `
       <div class="section">
