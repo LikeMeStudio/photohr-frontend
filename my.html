@@ -701,11 +701,14 @@ async function loadSchedulePanel(phId){
     setupNav('my');
     setupMgmtButton();
     fillPlaceholderStats();
-    if(!currentUser.photographer_id){
+    if (currentUser.photographer_id) {
+      await loadProfile();
+    } else if (currentUser.team_member_id) {
+      await loadTeamProfile();
+    } else {
       document.getElementById('main').innerHTML='<div class="loading">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div>';
       return;
     }
-    await loadProfile();
   }catch(e){document.getElementById('main').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
 
@@ -786,8 +789,8 @@ async function loadProfile(){
     const roleChar=ROLE_ABBR[s.role_in_shift]||s.role_in_shift;
     const statusColor=s.status==='confirmed'?'var(--rank1)':s.status==='pending_confirmation'?'var(--rank2)':'var(--text3)';
     const venueColor=s.display_color||'var(--accent)';
-    const t0=s.shift_start?s.shift_start.toString().slice(0,5):'';
-    const t1=s.shift_end?s.shift_end.toString().slice(0,5):'';
+    const t0=s.start_time?s.start_time.toString().slice(0,5):'';
+    const t1=s.end_time?s.end_time.toString().slice(0,5):'';
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:4px;border-left:3px solid ${venueColor}">
       <div style="font-size:12px;font-weight:600;min-width:70px">${esc(dayStr)}</div>
       <div style="flex:1;font-size:12px">${esc(s.venue_short||s.venue_name)} · <span style="color:var(--accent2)">${esc(roleChar)}</span> ${esc(t0)}${t1?`-${esc(t1)}`:''}</div>
@@ -894,6 +897,101 @@ async function loadProfile(){
   `;
   if(myTab===1) loadSchedulePanel(phId);
   if(myTab===2) loadFinancePanel(phId);
+}
+
+async function loadTeamProfile() {
+  const tmId = currentUser.team_member_id;
+  const [tm, teamStats, upcomingShifts] = await Promise.all([
+    api('GET', `/team/${tmId}`),
+    api('GET', '/my/team-stats').catch(() => ({ shifts: {}, comments_written: 0, reports_approved: 0, revenue_approved: 0, comments_written_recent: [] })),
+    api('GET', '/my/upcoming-shifts').catch(() => []),
+  ]);
+
+  const baseUrl = API.replace('/api','');
+  const avatarHtml = tm.photo_url
+    ? `<img src="${baseUrl}${tm.photo_url}"/>`
+    : `<div style="background:var(--accent);color:#fff;width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px">${esc((tm.name||'?')[0])}</div>`;
+
+  const ROLE_LABELS_MY = {
+    admin:'Администратор', exec_director:'Исполнительный директор', hr_director:'HR-директор',
+    hr_manager:'HR-менеджер', recruiter:'Рекрутер', tech_director:'Тех-директор',
+    site_specialist:'Специалист по сайту', cashier:'Инкассация',
+  };
+
+  const ROLE_ABBR = { photographer:'ф', print_operator:'о', manager:'м', helper:'п', night:'н' };
+  const upcomingHtml = (upcomingShifts||[]).length ? (upcomingShifts||[]).map(s => {
+    const d = new Date(s.event_date);
+    const dayStr = d.toLocaleDateString('ru-RU', { day:'numeric', month:'short', weekday:'short' });
+    const roleChar = ROLE_ABBR[s.role_in_shift] || s.role_in_shift || '';
+    const venueColor = s.display_color || 'var(--accent)';
+    const statusColor = s.status === 'confirmed' ? 'var(--rank1)' : 'var(--rank2)';
+    const t0 = s.start_time ? String(s.start_time).slice(0,5) : '';
+    const t1 = s.end_time ? String(s.end_time).slice(0,5) : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:4px;border-left:3px solid ${venueColor}">
+      <div style="font-size:12px;font-weight:600;min-width:70px">${esc(dayStr)}</div>
+      <div style="flex:1;font-size:12px">${esc(s.venue_short||s.venue_name)} · <span style="color:var(--accent2)">${esc(String(roleChar))}</span> ${esc(t0)}${t1 ? '-'+esc(t1) : ''}</div>
+      <div style="font-size:10px;color:${statusColor}">${s.status==='confirmed'?'✓':'⏳'}</div>
+    </div>`;
+  }).join('') : '<div style="color:var(--text3);font-size:12px">Нет предстоящих смен</div>';
+
+  const recentComments = teamStats.comments_written_recent || [];
+  const TYPE_ICONS_C = { strength:'✅', weakness:'⚠️', behavior:'👁', recommendation:'💡', warning:'🚨', shift_note:'📝', general:'💬' };
+  const commentsHtml = recentComments.length ? recentComments.map(c => {
+    const icon = TYPE_ICONS_C[c.comment_type] || '💬';
+    const d = new Date(c.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'short' });
+    const body = (c.body||'').slice(0,120);
+    return `<div style="padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:4px;font-size:12px;border-left:2px solid var(--border)">
+      <span>${icon}</span> ${esc(body)}${(c.body||'').length>120?'...':''}
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${d}</div>
+    </div>`;
+  }).join('') : '';
+
+  const achievements = tm.achievements || [];
+  const achHtml = achievements.length
+    ? `<div class="badge-row">${achievements.slice(0,10).map(a=>`<div class="ach-badge"><span class="icon">${esc(a.icon||'⭐')}</span>${esc(a.name)}</div>`).join('')}</div>`
+    : '<div style="color:var(--text3);font-size:13px">Пока нет достижений</div>';
+
+  document.getElementById('main').innerHTML = `
+    <div id="my-tab0">
+      <div class="section">
+        <div class="profile-hero">
+          <div class="profile-avatar">${avatarHtml}</div>
+          <div class="profile-info">
+            <div class="profile-name">${esc(tm.name)}</div>
+            <div class="profile-meta">
+              <span style="background:rgba(78,143,255,.15);padding:2px 8px;border-radius:6px;color:#4e8fff;font-weight:600">👔 ${esc(ROLE_LABELS_MY[currentUser.role]||currentUser.role)}</span>
+              ${tm.position_title ? `<span>${esc(tm.position_title)}</span>` : ''}
+              ${tm.department ? `<span>· ${esc(tm.department)}</span>` : ''}
+              <span>📅 ${tm.start_date ? 'с '+new Date(tm.start_date).toLocaleDateString('ru-RU') : '—'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="stats-grid" style="margin-top:14px">
+          <div class="stat-card"><div class="stat-value" style="color:var(--accent2)">${teamStats.shifts?.total||0}</div><div class="stat-label">Смен (мес)</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--rank1)">${teamStats.reports_approved||0}</div><div class="stat-label">Отчётов проведено</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--rank2)">${Number(teamStats.revenue_approved||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Выручка (проведённые)</div></div>
+          <div class="stat-card"><div class="stat-value">${teamStats.comments_written||0}</div><div class="stat-label">Комментариев</div></div>
+        </div>
+      </div>
+
+      <div class="section" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <a href="venue.html" style="display:inline-flex;align-items:center;gap:6px;padding:12px 24px;border-radius:10px;background:var(--accent);color:#fff;font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;text-decoration:none">📋 Отчёты</a>
+        <a href="schedule.html" style="display:inline-flex;align-items:center;gap:6px;padding:12px 24px;border-radius:10px;background:rgba(78,143,255,.15);border:1px solid rgba(78,143,255,.3);color:#4e8fff;font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;text-decoration:none">📅 Расписание</a>
+        <a href="photographers.html" style="display:inline-flex;align-items:center;gap:6px;padding:12px 24px;border-radius:10px;background:rgba(124,108,255,.15);border:1px solid rgba(124,108,255,.3);color:var(--accent2);font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;text-decoration:none">👥 Команда</a>
+      </div>
+
+      ${(upcomingShifts||[]).length ? `<div class="section"><div class="section-title">📅 Ближайшие смены</div>${upcomingHtml}</div>` : ''}
+
+      <div class="section">
+        <div class="section-title">🏆 Достижения (${achievements.length})</div>
+        ${achHtml}
+      </div>
+
+      ${commentsHtml ? `<div class="section"><div class="section-title">💬 Мои последние комментарии</div>${commentsHtml}</div>` : ''}
+
+      ${tm.summary ? `<div class="section"><div class="section-title">📝 О себе</div><div style="font-size:13px;color:var(--text2);line-height:1.6">${esc(tm.summary)}</div></div>` : ''}
+    </div>
+  `;
 }
 </script>
 <div id="admin-overlay" onclick="if(event.target===this)closeAdmin()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
