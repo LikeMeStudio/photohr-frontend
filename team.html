@@ -1509,7 +1509,7 @@ function openAdmin() {
   const ov = document.getElementById('admin-overlay');
   const fr = document.getElementById('admin-iframe');
   if (!ov || !fr) return;
-  fr.src = 'admin.html';
+  fr.src = 'admin.html?v=' + Date.now();
   ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
