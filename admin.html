@@ -1271,17 +1271,22 @@ async function openEditVenue(vid){
                 <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
               </select>
             </div>
-            <div style="margin-top:12px;font-size:11px;font-weight:600">Снимок default_shifts (только просмотр)</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
-              <div><div class="fl">Будни</div><pre class="ev-ds-pre" id="ev-ds-ro-wd"></pre></div>
-              <div><div class="fl">Выходные</div><pre class="ev-ds-pre" id="ev-ds-ro-we"></pre></div>
-              <div><div class="fl">Праздники</div><pre class="ev-ds-pre" id="ev-ds-ro-h"></pre></div>
-            </div>
-            <div style="margin-top:10px;font-size:10px;color:var(--text3)">Необязательно: JSON переопределяет сетку смен для сохранения (оставьте пустым — берётся сетка выше).</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
-              <textarea class="ev-json-ta" id="ev-json-wd" placeholder="default_shifts_weekday JSON"></textarea>
-              <textarea class="ev-json-ta" id="ev-json-we" placeholder="default_shifts_weekend JSON"></textarea>
-              <textarea class="ev-json-ta" id="ev-json-h" placeholder="default_shifts_holiday JSON"></textarea>
+            <div style="margin-top:12px">
+              <button type="button" class="btn btn-ghost" style="font-size:11px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?'Показать JSON смен ▼':'Скрыть JSON смен ▲'">Показать JSON смен ▼</button>
+              <div style="display:none">
+                <div style="margin-top:10px;font-size:11px;font-weight:600">Снимок default_shifts (только просмотр)</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
+                  <div><div class="fl">Будни</div><pre class="ev-ds-pre" id="ev-ds-ro-wd"></pre></div>
+                  <div><div class="fl">Выходные</div><pre class="ev-ds-pre" id="ev-ds-ro-we"></pre></div>
+                  <div><div class="fl">Праздники</div><pre class="ev-ds-pre" id="ev-ds-ro-h"></pre></div>
+                </div>
+                <div style="margin-top:10px;font-size:10px;color:var(--text3)">Необязательно: JSON переопределяет сетку смен для сохранения (оставьте пустым — берётся сетка выше).</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
+                  <textarea class="ev-json-ta" id="ev-json-wd" placeholder="default_shifts_weekday JSON"></textarea>
+                  <textarea class="ev-json-ta" id="ev-json-we" placeholder="default_shifts_weekend JSON"></textarea>
+                  <textarea class="ev-json-ta" id="ev-json-h" placeholder="default_shifts_holiday JSON"></textarea>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1545,7 +1550,7 @@ const dayTypes=['weekday','weekend','holiday'];
 const dayLabels=['Будни','Выходные','Праздники'];
 const pick=dt=>cfg.find(c=>c.day_type===dt);
 const v2=schemes.filter(s=>Number(s.scheme_version)===2);
-let html='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">💰 Бонусная схема</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+let html='<div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
 dayTypes.forEach((dt,idx)=>{
 const cur=pick(dt);
 const options=['<option value="">Не выбрана</option>'].concat(v2.map(s=>`<option value="${s.id}" ${cur?.scheme_id===s.id?'selected':''}>${esc(s.name)}</option>`)).join('');
