@@ -61,6 +61,7 @@ a{color:inherit;text-decoration:none}
 .pay-row:last-child{border-bottom:none}
 .pay-amount{font-weight:600}
 .pay-positive{color:var(--rank1)}.pay-negative{color:var(--rank3)}
+.supp-type{padding:2px 6px;border-radius:4px;font-size:10px;background:rgba(144,144,168,.1);color:var(--text2)}
 
 /* Peer review */
 .review-item{padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px}
@@ -256,13 +257,89 @@ function openAchievementsPanel(){window.location.href='photographers.html#achiev
 function openBirthdaysPanel(){window.location.href='photographers.html#birthdays';}
 function openLikesPanel(){window.location.href='photographers.html#likes';}
 
+let financeMonth = new Date().toISOString().slice(0,7);
+
 function switchMyTab(i){
   myTab=i;
-  const t0=document.getElementById('my-tab0'),t1=document.getElementById('my-tab1');
+  const t0=document.getElementById('my-tab0'),t1=document.getElementById('my-tab1'),t2=document.getElementById('my-tab2');
   if(t0)t0.style.display=i===0?'block':'none';
   if(t1)t1.style.display=i===1?'block':'none';
+  if(t2)t2.style.display=i===2?'block':'none';
   document.querySelectorAll('[data-my-tab]').forEach((b)=>{b.className='btn '+(parseInt(b.dataset.myTab,10)===i?'btn-primary':'btn-ghost');});
-  if(i===1&&currentUser.photographer_id)loadSchedulePanel(currentUser.photographer_id);
+  if(i===1&&currentUser?.photographer_id)loadSchedulePanel(currentUser.photographer_id);
+  if(i===2&&currentUser?.photographer_id)loadFinancePanel(currentUser.photographer_id);
+}
+
+async function loadFinancePanel(phId) {
+  const el = document.getElementById('finance-body');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  try {
+    const monthStart = financeMonth + '-01';
+    const [y, m] = financeMonth.split('-').map(Number);
+    const last = new Date(y, m, 0);
+    const monthEnd = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+    const monthLabel = new Date(monthStart).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+
+    const [balance, entries, payouts, phCard] = await Promise.all([
+      api('GET', `/payroll/${phId}/balance?month=${financeMonth}`),
+      api('GET', `/payroll/${phId}?from=${monthStart}&to=${monthEnd}`).catch(()=>[]),
+      api('GET', `/payouts?photographer_id=${encodeURIComponent(phId)}&from=${monthStart}&to=${monthEnd}`).catch(()=>[]),
+      api('GET', `/photographers/${phId}`).catch(()=>({})),
+    ]);
+
+    const scheme = phCard.pay_scheme || 'standard';
+    const earnedMonth = typeof balance.earned === 'object' && balance.earned != null
+      ? (balance.grand_total != null ? balance.grand_total : (balance.earned.total ?? 0))
+      : Number(balance.earned || 0);
+    const paidMonth = Number(balance.paid || 0);
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="section-title" style="margin-bottom:0">💰 Финансы</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="btn btn-ghost" style="padding:4px 8px;font-size:12px" onclick="changeFinMonth(-1)">◀</button>
+          <span style="font-size:13px;font-weight:600;min-width:120px;text-align:center">${esc(monthLabel)}</span>
+          <button type="button" class="btn btn-ghost" style="padding:4px 8px;font-size:12px" onclick="changeFinMonth(1)">▶</button>
+        </div>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:16px">
+        <div class="stat-card"><div class="stat-value pay-positive" style="font-size:16px">${Number(earnedMonth).toLocaleString('ru-RU')}₽</div><div class="stat-label">Заработано</div></div>
+        <div class="stat-card"><div class="stat-value pay-negative" style="font-size:16px">${paidMonth.toLocaleString('ru-RU')}₽</div><div class="stat-label">Выплачено</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:16px;color:${(balance.total_balance||0)>=0?'var(--rank1)':'var(--rank3)'}">${Number(balance.total_balance||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Баланс</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:14px;color:var(--accent2)">${scheme==='premium'?'Премиум':'Стандарт'}</div><div class="stat-label">Схема</div></div>
+      </div>
+
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 Начисления</div>
+      ${(entries||[]).length ? (entries||[]).map(e => {
+        const d = e.entry_date ? new Date(e.entry_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '—';
+        const typeLabels = { sale:'Продажи', bonus:'Бонус', penalty:'Штраф', adjustment:'Корректировка', premium:'Премия', mentor_bonus:'Наставничество', shift_pay:'Смена', daily_bonus:'Дневной бонус', monthly_premium:'Мес. премия' };
+        const isNeg = e.entry_type === 'penalty';
+        return `<div class="pay-row">
+          <span>${d} · ${esc(e.venue_name||'—')} · <span class="supp-type">${esc(typeLabels[e.entry_type]||e.entry_type)}</span></span>
+          <span class="pay-amount ${isNeg?'pay-negative':'pay-positive'}">${isNeg?'−':'+'}${Math.abs(Number(e.amount||0)).toLocaleString('ru-RU')}₽</span>
+        </div>`;
+      }).join('') : '<div style="color:var(--text3);font-size:12px;padding:8px">Нет начислений за этот месяц</div>'}
+
+      ${(payouts||[]).length ? `
+        <div style="font-size:13px;font-weight:600;margin:16px 0 8px">💳 Выплаты</div>
+        ${(payouts||[]).map(p => {
+          const d = p.payout_date ? new Date(p.payout_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '—';
+          const note = (p.notes || p.description || '').trim();
+          return `<div class="pay-row"><span>${d} · ${esc(note || 'Выплата')}</span><span class="pay-amount pay-negative">${Number(p.amount||0).toLocaleString('ru-RU')}₽</span></div>`;
+        }).join('')}
+      ` : ''}
+    `;
+  } catch(e) { el.innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function changeFinMonth(delta) {
+  const [y, m] = financeMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  financeMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  if (currentUser?.photographer_id) loadFinancePanel(currentUser.photographer_id);
 }
 
 const AV_LABELS={available_full:'Свободен весь день',unavailable:'Занят',day_off:'Под вопросом',available_morning:'Свободен утром',available_evening:'Свободен вечером'};
@@ -657,12 +734,16 @@ function setupMgmtButton() {
 
 async function loadProfile(){
   const phId=currentUser.photographer_id;
-  const [ph, achSummary, peerSummary, leaderboard, balance]=await Promise.all([
+  const [ph, achSummary, peerSummary, leaderboard, balance, myStats, upcomingShifts, recentComments, currentGrade]=await Promise.all([
     api('GET',`/photographers/${phId}`),
     api('GET',`/photographers/${phId}/achievements-summary`).catch(()=>({total:0,recent:[],by_category:{},leaderboard_position:0})),
     api('GET',`/photographers/${phId}/peer-summary`).catch(()=>({total_reviews:0,avg_stars:0,recent_public:[]})),
     api('GET','/leaderboard?period=month&metric=revenue&limit=10').catch(()=>({leaders:[]})),
-    api('GET',`/payroll/${phId}/balance`).catch(()=>({earned:0,paid:0,month_balance:0,total_balance:0})),
+    api('GET',`/payroll/${phId}/balance`).catch(()=>({earned:{total:0},paid:0,month_balance:0,total_balance:0,grand_total:0})),
+    api('GET','/my/stats').catch(()=>({shifts:{},sales:{},daily_sales:[],punctuality:{}})),
+    api('GET','/my/upcoming-shifts').catch(()=>[]),
+    api('GET','/my/recent-comments').catch(()=>[]),
+    api('GET',`/photographers/${phId}/grade`).catch(()=>null),
   ]);
 
   const baseUrl=API.replace('/api','');
@@ -671,59 +752,119 @@ async function loadProfile(){
     :`<div style="background:var(--accent);color:#fff;width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px">${esc((ph.name||'?')[0])}</div>`;
 
   const myPos=achSummary.leaderboard_position||'—';
-  const stars='★'.repeat(Math.round(peerSummary.avg_stars||0))+'☆'.repeat(5-Math.round(peerSummary.avg_stars||0));
+  const punct=myStats.punctuality?.percentage ?? 100;
+
+  const salesData=myStats.daily_sales||[];
+  let sparkSvg='';
+  if(salesData.length>1){
+    const maxRev=Math.max(...salesData.map(d=>parseFloat(d.revenue)||0),1);
+    const w=300,h=60;
+    const step=w/(salesData.length-1);
+    const points=salesData.map((d,i)=>{
+      const val=parseFloat(d.revenue)||0;
+      return `${i*step},${h-(val/maxRev)*h}`;
+    }).join(' ');
+    const fillPoints=`0,${h} ${points} ${(salesData.length-1)*step},${h}`;
+    sparkSvg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:60px;display:block;margin:8px 0" aria-hidden="true">
+      <polygon points="${fillPoints}" fill="rgba(124,108,255,.15)" />
+      <polyline points="${points}" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-linejoin="round" />
+    </svg>`;
+  }
+
+  let gradeHtml='';
+  if(currentGrade){
+    gradeHtml=`<div class="section">
+      <div class="section-title">📊 Мой грейд — ${esc(currentGrade.grade_code)} «${esc(currentGrade.grade_name)}» (+${currentGrade.pay_bonus_pct||0}%)</div>
+      <div style="font-size:12px;color:var(--text2)">С ${new Date(currentGrade.effective_from).toLocaleDateString('ru-RU')}</div>
+    </div>`;
+  }
+
+  const ROLE_ABBR={photographer:'ф',print_operator:'о',manager:'м',helper:'п',night:'н'};
+  const upcomingHtml=(upcomingShifts||[]).length?(upcomingShifts||[]).map(s=>{
+    const d=new Date(s.event_date);
+    const dayStr=d.toLocaleDateString('ru-RU',{day:'numeric',month:'short',weekday:'short'});
+    const roleChar=ROLE_ABBR[s.role_in_shift]||s.role_in_shift;
+    const statusColor=s.status==='confirmed'?'var(--rank1)':s.status==='pending_confirmation'?'var(--rank2)':'var(--text3)';
+    const venueColor=s.display_color||'var(--accent)';
+    const t0=s.shift_start?s.shift_start.toString().slice(0,5):'';
+    const t1=s.shift_end?s.shift_end.toString().slice(0,5):'';
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:4px;border-left:3px solid ${venueColor}">
+      <div style="font-size:12px;font-weight:600;min-width:70px">${esc(dayStr)}</div>
+      <div style="flex:1;font-size:12px">${esc(s.venue_short||s.venue_name)} · <span style="color:var(--accent2)">${esc(roleChar)}</span> ${esc(t0)}${t1?`-${esc(t1)}`:''}</div>
+      <div style="font-size:10px;color:${statusColor}">${s.status==='confirmed'?'✓':'⏳'}</div>
+    </div>`;
+  }).join(''):'<div style="color:var(--text3);font-size:12px">Нет предстоящих смен</div>';
+
+  const TYPE_ICONS_C={strength:'✅',weakness:'⚠️',behavior:'👁',recommendation:'💡',warning:'🚨',shift_note:'📝',general:'💬'};
+  const commentsHtml=(recentComments||[]).length?(recentComments||[]).slice(0,5).map(c=>{
+    const icon=TYPE_ICONS_C[c.comment_type]||'💬';
+    const d=new Date(c.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    const body=(c.body||'').slice(0,120);
+    return`<div style="padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:4px;font-size:12px;border-left:2px solid ${c.is_important?'var(--rank2)':'var(--border)'}">
+      <span>${icon}</span> ${esc(body)}${(c.body||'').length>120?'...':''}
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${esc(c.author_name)} · ${esc(c.venue_name||'')} · ${d}</div>
+    </div>`;
+  }).join(''):'<div style="color:var(--text3);font-size:12px">Нет комментариев</div>';
+
+  const salesMonthTitle=new Date().toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
 
   document.getElementById('main').innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button type="button" class="btn ${myTab===0?'btn-primary':'btn-ghost'}" data-my-tab="0" onclick="switchMyTab(0)">Профиль</button>
+      <button type="button" class="btn ${myTab===0?'btn-primary':'btn-ghost'}" data-my-tab="0" onclick="switchMyTab(0)">📊 Профиль</button>
       <button type="button" class="btn ${myTab===1?'btn-primary':'btn-ghost'}" data-my-tab="1" onclick="switchMyTab(1)">📅 Расписание</button>
+      <button type="button" class="btn ${myTab===2?'btn-primary':'btn-ghost'}" data-my-tab="2" onclick="switchMyTab(2)">💰 Финансы</button>
     </div>
+
     <div id="my-tab0" style="display:${myTab===0?'block':'none'}">
-    <!-- Profile -->
     <div class="section">
       <div class="profile-hero">
         <div class="profile-avatar">${avatarHtml}</div>
         <div class="profile-info">
           <div class="profile-name">${esc(ph.name)}</div>
           <div class="profile-meta">
-            ${ph.grade?`<span>📊 ${ph.grade}</span>`:''}
+            ${currentGrade?`<span style="background:rgba(124,108,255,.15);padding:2px 8px;border-radius:6px;color:var(--accent2);font-weight:600">📊 ${esc(currentGrade.grade_code)} ${esc(currentGrade.grade_name)} (+${currentGrade.pay_bonus_pct||0}%)</span>`:''}
             ${ph.rank?`<span>${'★'.repeat(ph.rank)} ранг</span>`:''}
-            <span>📅 ${ph.start_date?'с '+new Date(ph.start_date).toLocaleDateString('ru-RU'):'дата не указана'}</span>
-          </div>
-          <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value" style="color:var(--accent2)">${Math.round(ph.rating_overall||0)}</div><div class="stat-label">Рейтинг</div></div>
-            <div class="stat-card"><div class="stat-value" style="color:var(--rank1)">#${myPos}</div><div class="stat-label">В лидерборде</div></div>
-            <div class="stat-card"><div class="stat-value" style="color:var(--rank2)">${achSummary.total}</div><div class="stat-label">Достижений</div></div>
-            <div class="stat-card"><div class="stat-value">${stars.slice(0,5)}</div><div class="stat-label">${peerSummary.total_reviews} отзывов</div></div>
+            <span>📅 ${ph.start_date?'с '+new Date(ph.start_date).toLocaleDateString('ru-RU'):'—'}</span>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Quick Checkin -->
-    <div class="section" style="text-align:center">
-      <a href="checkin.html" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;background:var(--accent);color:#fff;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;text-decoration:none;transition:all .15s">
-        📷 Чекин на площадке
-      </a>
-    </div>
-
-    <!-- Payroll Balance -->
-    <div class="section">
-      <div class="section-title">💰 Баланс зарплаты</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
-        <div class="stat-card"><div class="stat-value pay-positive">${Number(balance.earned||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Заработано (месяц)</div></div>
-        <div class="stat-card"><div class="stat-value pay-negative">${Number(balance.paid||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Выплачено</div></div>
-        <div class="stat-card"><div class="stat-value" style="color:${(balance.total_balance||0)>=0?'var(--rank1)':'var(--rank3)'}">${Number(balance.total_balance||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Общий баланс</div></div>
+      <div class="stats-grid" style="margin-top:14px">
+        <div class="stat-card"><div class="stat-value" style="color:var(--accent2)">${Math.round(ph.rating_overall||0)}</div><div class="stat-label">Рейтинг</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--rank1)">#${myPos}</div><div class="stat-label">В лидерборде</div></div>
+        <div class="stat-card"><div class="stat-value">${myStats.shifts?.total||0}</div><div class="stat-label">Смен (мес)</div></div>
+        <div class="stat-card"><div class="stat-value">${myStats.shifts?.photo_shifts ?? myStats.shifts?.big ?? 0}</div><div class="stat-label">Фотосмен</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:${punct>=90?'var(--rank1)':punct>=75?'var(--rank2)':'var(--rank3)'}">${punct}%</div><div class="stat-label">Пунктуальность</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--rank2)">${achSummary.total}</div><div class="stat-label">Достижений</div></div>
       </div>
     </div>
 
-    <!-- Achievements -->
     <div class="section">
-      <div class="section-title">🏆 Достижения (${achSummary.total})</div>
-      ${achSummary.recent?.length?`<div class="badge-row">${achSummary.recent.map(a=>`<div class="ach-badge"><span class="icon">${a.icon||'⭐'}</span>${esc(a.name)}</div>`).join('')}</div>`:'<div style="color:var(--text3);font-size:13px">Пока нет достижений. Продолжай работать!</div>'}
+      <div class="section-title">📈 Продажи за ${esc(salesMonthTitle)}</div>
+      ${sparkSvg||'<div style="color:var(--text3);font-size:12px;padding:8px 0">Мало данных для графика</div>'}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:8px">
+        <div class="stat-card"><div class="stat-value" style="font-size:16px;color:var(--accent2)">${Number(myStats.sales?.month_revenue||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Выручка</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:16px">${Number(myStats.sales?.avg_daily_revenue||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">Ср. дневная</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:16px">${myStats.sales?.month_items||0}</div><div class="stat-label">Продано шт.</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:14px;color:var(--text2)">${Number(myStats.sales?.total_revenue_all_time||0).toLocaleString('ru-RU')}₽</div><div class="stat-label">За всё время</div></div>
+      </div>
     </div>
 
-    <!-- Leaderboard -->
+    ${gradeHtml}
+
+    <div class="section" style="text-align:center">
+      <a href="checkin.html" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:12px;background:var(--accent);color:#fff;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;text-decoration:none;transition:all .15s">📷 Чекин на площадке</a>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📅 Ближайшие смены</div>
+      ${upcomingHtml}
+    </div>
+
+    <div class="section">
+      <div class="section-title">🏆 Достижения (${achSummary.total})</div>
+      ${achSummary.recent?.length?`<div class="badge-row">${achSummary.recent.map(a=>`<div class="ach-badge"><span class="icon">${a.icon||'⭐'}</span>${esc(a.name)}</div>`).join('')}</div>`:'<div style="color:var(--text3);font-size:13px">Пока нет достижений</div>'}
+    </div>
+
     <div class="section">
       <div class="section-title">📈 Лидерборд (месяц)</div>
       ${(leaderboard.leaders||[]).slice(0,10).map((l,i)=>{
@@ -736,20 +877,23 @@ async function loadProfile(){
       }).join('')}
     </div>
 
-    <!-- Peer Reviews -->
     <div class="section">
       <div class="section-title">⭐ Отзывы коллег (${peerSummary.total_reviews||0})</div>
-      ${peerSummary.avg_stars?`<div style="font-size:14px;margin-bottom:8px">Средняя оценка: <span style="color:#f5a623;font-size:18px">${'★'.repeat(Math.round(peerSummary.avg_stars))}</span> ${peerSummary.avg_stars}/5</div>`:''}
-      ${(peerSummary.recent_public||[]).slice(0,5).map(r=>`<div class="review-item">
-        <div class="review-stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-        ${r.comment?`<div class="review-text">${esc(r.comment)}</div>`:''}
-        <div class="review-from">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div>
-      </div>`).join('')||'<div style="color:var(--text3);font-size:13px">Пока нет отзывов</div>'}
+      ${peerSummary.avg_stars?`<div style="font-size:14px;margin-bottom:8px">Средняя: <span style="color:#f5a623;font-size:18px">${'★'.repeat(Math.round(peerSummary.avg_stars))}</span> ${peerSummary.avg_stars}/5</div>`:''}
+      ${(peerSummary.recent_public||[]).slice(0,5).map(r=>`<div class="review-item"><div class="review-stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>${r.comment?`<div class="review-text">${esc(r.comment)}</div>`:''}<div class="review-from">${esc(r.reviewer_name||'Аноним')} · ${esc(r.venue_name||'')} · ${new Date(r.created_at).toLocaleDateString('ru-RU')}</div></div>`).join('')||'<div style="color:var(--text3);font-size:13px">Пока нет отзывов</div>'}
+    </div>
+
+    <div class="section">
+      <div class="section-title">💬 Комментарии менеджеров</div>
+      ${commentsHtml}
     </div>
     </div>
+
     <div id="my-tab1" style="display:${myTab===1?'block':'none'}"><div id="sched-body" class="section"><div class="loading">Загрузка...</div></div></div>
+    <div id="my-tab2" style="display:${myTab===2?'block':'none'}"><div id="finance-body" class="section"><div class="loading">Загрузка...</div></div></div>
   `;
   if(myTab===1) loadSchedulePanel(phId);
+  if(myTab===2) loadFinancePanel(phId);
 }
 </script>
 <div id="admin-overlay" onclick="if(event.target===this)closeAdmin()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">

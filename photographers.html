@@ -132,6 +132,26 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .no-comment{font-size:11px;color:var(--text3);margin-top:8px;font-style:italic}
 .comment-count{font-size:11px;color:var(--text3);margin-top:4px}
 
+/* Grade panel */
+.grade-section{padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:14px}
+.grade-current{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.grade-badge{padding:4px 12px;border-radius:8px;font-size:13px;font-weight:600;background:rgba(124,108,255,.15);color:var(--accent2);border:1px solid rgba(124,108,255,.3)}
+.grade-bonus{font-size:12px;color:var(--rank1);font-weight:600}
+.grade-history-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.grade-history-item:last-child{border-bottom:none}
+.grade-action{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.grade-action.promoted{background:rgba(62,207,142,.15);color:var(--rank1)}
+.grade-action.demoted{background:rgba(242,85,85,.15);color:var(--rank3)}
+.grade-action.assigned{background:rgba(124,108,255,.15);color:var(--accent2)}
+.check-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;margin-bottom:4px}
+.check-item.passed{background:rgba(62,207,142,.1);color:var(--rank1)}
+.check-item.failed{background:rgba(242,85,85,.08);color:var(--rank3)}
+.supp-table{width:100%;border-collapse:collapse;font-size:12px}
+.supp-table th{text-align:left;padding:6px 8px;color:var(--text3);border-bottom:1px solid var(--border);font-weight:500}
+.supp-table td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.supp-type{padding:2px 6px;border-radius:4px;font-size:10px;background:rgba(144,144,168,.1);color:var(--text2)}
+.supp-applies{font-size:10px;color:var(--text3)}
+
 /* ── DRAWER (карточка фотографа) ── */
 .drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;backdrop-filter:blur(3px)}
 .drawer-bg.open{display:block}
@@ -740,6 +760,7 @@ function setupToolbarActions() {
   if (canMentorshipHR()) btns.push(`<button class="btn btn-ghost" onclick="openMentorshipMgmt()" title="Кураторство и бонусы">👥 Кураторство</button>`);
   if (hasAnyRole(['hr_director','exec_director','admin'])) {
     btns.push(`<button class="btn btn-ghost" onclick="openAchievementsPanel()" title="Панель достижений и стажа">🏆 Достижения</button>`);
+    btns.push(`<button class="btn btn-ghost" onclick="openGradesPanel()" title="Грейды и система мотивации">📊 Грейды</button>`);
   }
   if (currentUser.role !== 'photographer_user' && currentUser.role !== 'aq_user') {
     btns.push(`<button class="btn btn-ghost" onclick="openBirthdaysPanel()" title="Дни рождения сотрудников">🎂 Дни рождения</button>`);
@@ -1989,6 +2010,13 @@ function renderTab(ph){
   else if(currentTab===T.achievements) { renderAchievementsTab(ph, content); return; }
   if(currentTab===T.info && canEditCard()) setupInfoEvents();
   if(currentTab===T.comments) setupCommentEvents(ph.id);
+  if (currentTab === T.info) {
+    const gh = document.getElementById('dr-grade-section-host');
+    if (gh) {
+      gh.innerHTML = '';
+      renderGradeSection(ph.id, gh);
+    }
+  }
 }
 
 async function renderShiftsTab(ph, content) {
@@ -2165,6 +2193,7 @@ function renderInfoTab(ph){
       <div class="fl" style="margin-bottom:6px">Сводное описание</div>
       <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.6;border-left:2px solid var(--rank2)">${escHtml(ph.summary)}</div>
     </div>` : ''}
+    <div id="dr-grade-section-host"></div>
     <div class="fl" style="margin-top:4px;margin-bottom:6px">Площадки</div>
     <div class="vps">
       ${(ph.venues||[]).filter(v=>v.attitude==='loves').map(v=>`<span class="vp vp-love">♥ ${esc(v.venue_name)}</span>`).join('')}
@@ -2374,6 +2403,7 @@ function renderInfoTab(ph){
           </div>`).join('')}
       </div>
     </div>
+    <div id="dr-grade-section-host"></div>
     <div style="margin-bottom:16px">
       <div class="fl" style="margin-bottom:6px">Сводное описание <span style="color:var(--text3);font-weight:400;text-transform:none">(не уходит в ленту)</span></div>
       <textarea class="comment-ta" id="edit-ph-summary" style="min-height:90px;width:100%;display:block" placeholder="Краткая характеристика сотрудника, особенности работы, рекомендации...">${escHtml(editState.summary||'')}</textarea>
@@ -3301,6 +3331,517 @@ function closeAdmin() {
   if (typeof loadVenues === "function") loadVenues().catch(() => {});
   if (typeof venuesList !== "undefined" && typeof api === "function")
     api("GET", "/venues").then(v => { venuesList = v; }).catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════
+// GRADES & MOTIVATION PANEL
+// ═══════════════════════════════════════════════════
+
+let _gradesTab = 0;
+let _gradeDefs = [];
+let _supplements = [];
+let _monthlyBonusRules = [];
+
+async function openGradesPanel() {
+  if (!hasAnyRole(['hr_director','exec_director','admin'])) { showToast('Недостаточно прав', true); return; }
+
+  let ov = document.getElementById('grades-panel-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'grades-panel-overlay';
+    ov.className = 'overlay';
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  ov.innerHTML = '<div class="modal" style="max-width:800px;width:96vw;max-height:88vh;overflow-y:auto;padding:0" onclick="event.stopPropagation()"><div style="padding:24px;text-align:center;color:var(--text3)">Загрузка...</div></div>';
+
+  try {
+    [_gradeDefs, _supplements, _monthlyBonusRules] = await Promise.all([
+      api('GET', '/grade-definitions?all=1'),
+      api('GET', '/pay-supplements'),
+      api('GET', '/monthly-bonus-rules'),
+    ]);
+    renderGradesPanel();
+  } catch(e) { showToast(e.message, true); }
+}
+
+function renderGradesPanel() {
+  const ov = document.getElementById('grades-panel-overlay');
+  if (!ov) return;
+  const tabs = [
+    { label: '📊 Справочник грейдов', key: 0 },
+    { label: '💰 Надбавки', key: 1 },
+    { label: '🎯 Месячные премии', key: 2 },
+  ];
+  const modal = ov.querySelector('.modal');
+  if (!modal) return;
+  modal.innerHTML = `
+    <div style="padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600">📊 Грейды и мотивация</div>
+      <button class="dr-close" onclick="document.getElementById('grades-panel-overlay').classList.remove('open')">×</button>
+    </div>
+    <div style="padding:8px 24px 0;display:flex;gap:4px;flex-wrap:wrap">
+      ${tabs.map(t => `<button class="f-btn ${_gradesTab===t.key?'active':''}" onclick="_gradesTab=${t.key};renderGradesPanel()">${t.label}</button>`).join('')}
+    </div>
+    <div style="padding:16px 24px 24px" id="grades-tab-content"></div>
+  `;
+  const content = document.getElementById('grades-tab-content');
+  if (_gradesTab === 0) renderGradeDefsTab(content);
+  else if (_gradesTab === 1) renderSupplementsTab(content);
+  else renderMonthlyBonusTab(content);
+}
+
+function renderGradeDefsTab(el) {
+  const ROLE_LABELS_G = { photographer: '📷 Фотографы', print_operator: '🖨 Операторы печати', manager: '👔 Менеджеры' };
+  const groups = {};
+  (_gradeDefs || []).forEach(g => {
+    if (!groups[g.role_type]) groups[g.role_type] = [];
+    groups[g.role_type].push(g);
+  });
+  Object.values(groups).forEach(arr => arr.sort((a,b) => (a.sort_order||0) - (b.sort_order||0)));
+
+  let html = '';
+  for (const [rt, label] of Object.entries(ROLE_LABELS_G)) {
+    const items = groups[rt] || [];
+    html += `
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:14px;font-weight:600">${label}</div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openGradeDefForm('${rt}')">+ Грейд</button>
+        </div>
+        ${items.length ? `<table class="supp-table">
+          <tr><th>Код</th><th>Название</th><th>Надбавка</th><th>Мин. больших</th><th>Мин. всего</th><th>Пунктуальность</th><th>План продаж</th><th></th></tr>
+          ${items.map(g => `<tr${g.is_active===false?' style="opacity:.4"':''}>
+            <td><code>${esc(g.grade_code)}</code></td>
+            <td>${esc(g.grade_name)}</td>
+            <td style="color:var(--rank1);font-weight:600">${g.pay_bonus_pct||0}%</td>
+            <td>${g.min_big_shifts!=null?g.min_big_shifts:'—'}</td>
+            <td>${g.min_total_shifts!=null?g.min_total_shifts:'—'}</td>
+            <td>${g.min_punctuality_pct!=null?g.min_punctuality_pct+'%':'—'}</td>
+            <td>${g.min_sales_plan_pct!=null?g.min_sales_plan_pct+'%':'—'}</td>
+            <td>
+              <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGradeDefForm('${rt}','${g.id}')">✏️</button>
+            </td>
+          </tr>`).join('')}
+        </table>` : '<div style="color:var(--text3);font-size:12px;padding:8px">Нет грейдов для этой роли</div>'}
+      </div>
+    `;
+  }
+  el.innerHTML = html;
+}
+
+function openGradeDefForm(roleType, editId) {
+  const existing = editId ? _gradeDefs.find(g => g.id === editId) : null;
+  let checkItems = [];
+  if (existing && existing.check_items) {
+    try {
+      checkItems = typeof existing.check_items === 'string' ? JSON.parse(existing.check_items) : (existing.check_items || []);
+    } catch { checkItems = []; }
+  }
+
+  const formHtml = `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px" id="gd-form-wrap">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${editId ? 'Редактировать' : 'Новый'} грейд (${roleType})</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div class="fl">Код</div><input class="fin" id="gd-code" value="${esc(existing?.grade_code||'')}" ${editId?'disabled':''}/></div>
+        <div><div class="fl">Название</div><input class="fin" id="gd-name" value="${esc(existing?.grade_name||'')}"/></div>
+        <div><div class="fl">Порядок</div><input class="fin" type="number" id="gd-sort" value="${existing?.sort_order||0}"/></div>
+        <div><div class="fl">Надбавка %</div><input class="fin" type="number" id="gd-bonus" value="${existing?.pay_bonus_pct||0}" step="0.01"/></div>
+        <div><div class="fl">Мин. больших смен</div><input class="fin" type="number" id="gd-big" value="${existing?.min_big_shifts??''}"/></div>
+        <div><div class="fl">Мин. всего смен</div><input class="fin" type="number" id="gd-total" value="${existing?.min_total_shifts??''}"/></div>
+        <div><div class="fl">Пунктуальность %</div><input class="fin" type="number" id="gd-punct" value="${existing?.min_punctuality_pct??''}" step="0.01"/></div>
+        <div><div class="fl">План продаж %</div><input class="fin" type="number" id="gd-plan" value="${existing?.min_sales_plan_pct??''}" step="0.01"/></div>
+        <div><div class="fl">Макс. брак %</div><input class="fin" type="number" id="gd-waste" value="${existing?.max_waste_pct??''}" step="0.01"/></div>
+      </div>
+      <div style="margin-top:10px"><div class="fl">Пункты чеклиста (по одному на строку)</div>
+        <textarea class="fin" id="gd-checks" rows="4" style="width:100%;resize:vertical">${checkItems.map(c=>typeof c==='string'?c:(c.label||'')).join('\n')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="document.getElementById('gd-form-wrap').remove()">Отмена</button>
+        <button class="btn btn-primary" onclick="saveGradeDef('${roleType}','${editId||''}')">Сохранить</button>
+      </div>
+    </div>
+  `;
+
+  const content = document.getElementById('grades-tab-content');
+  const old = document.getElementById('gd-form-wrap');
+  if (old) old.remove();
+  content.insertAdjacentHTML('beforeend', formHtml);
+}
+
+async function saveGradeDef(roleType, editId) {
+  const body = {
+    role_type: roleType,
+    grade_code: document.getElementById('gd-code').value.trim(),
+    grade_name: document.getElementById('gd-name').value.trim(),
+    sort_order: parseInt(document.getElementById('gd-sort').value, 10) || 0,
+    pay_bonus_pct: parseFloat(document.getElementById('gd-bonus').value) || 0,
+    min_big_shifts: document.getElementById('gd-big').value ? parseInt(document.getElementById('gd-big').value, 10) : null,
+    min_total_shifts: document.getElementById('gd-total').value ? parseInt(document.getElementById('gd-total').value, 10) : null,
+    min_punctuality_pct: document.getElementById('gd-punct').value ? parseFloat(document.getElementById('gd-punct').value) : null,
+    min_sales_plan_pct: document.getElementById('gd-plan').value ? parseFloat(document.getElementById('gd-plan').value) : null,
+    max_waste_pct: document.getElementById('gd-waste').value ? parseFloat(document.getElementById('gd-waste').value) : null,
+    check_items: document.getElementById('gd-checks').value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>({label:s})),
+  };
+  if (!body.grade_code || !body.grade_name) { showToast('Код и название обязательны', true); return; }
+  try {
+    if (editId) {
+      await api('PATCH', `/grade-definitions/${editId}`, body);
+    } else {
+      await api('POST', '/grade-definitions', body);
+    }
+    _gradeDefs = await api('GET', '/grade-definitions?all=1');
+    renderGradesPanel();
+    showToast('Грейд сохранён');
+  } catch(e) { showToast(e.message, true); }
+}
+
+function renderSupplementsTab(el) {
+  const TYPE_LABELS_S = {
+    mentor_bonus:'Наставник', trainer_bonus:'Тренер', holiday_bonus:'Госпраздник',
+    cancel_compensation:'Компенсация', sanitary_day:'Санит. день', monthly_shifts:'Смены/мес',
+    annual_shifts:'Дни/год', experience_444:'Опыт 444+'
+  };
+  const APPLIES_LABELS = { photographer:'📷', print_operator:'🖨', manager:'👔', all:'👥 Все' };
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openSupplementForm()">+ Надбавка</button>
+    </div>
+    <table class="supp-table">
+      <tr><th>Название</th><th>Тип</th><th>Сумма</th><th>Для</th><th>Условия</th><th>Статус</th><th></th></tr>
+      ${(_supplements||[]).map(s => {
+        const applies = typeof s.applies_to === 'string' ? JSON.parse(s.applies_to) : s.applies_to || ['all'];
+        const conds = typeof s.conditions === 'string' ? JSON.parse(s.conditions) : s.conditions || {};
+        const condsStr = Object.entries(conds).map(([k,v])=>`${k}:${v}`).join(', ');
+        return `<tr${!s.is_active?' style="opacity:.4"':''}>
+          <td>${esc(s.name)}</td>
+          <td><span class="supp-type">${esc(TYPE_LABELS_S[s.supplement_type]||s.supplement_type)}</span></td>
+          <td style="font-weight:600">${s.amount!=null?s.amount+'₽':''}${s.percentage!=null?s.percentage+'%':''}</td>
+          <td class="supp-applies">${applies.map(a=>APPLIES_LABELS[a]||a).join(' ')}</td>
+          <td style="font-size:10px;color:var(--text3)">${condsStr||'—'}</td>
+          <td>${s.is_active?'<span style="color:var(--rank1)">●</span>':'<span style="color:var(--text3)">○</span>'}</td>
+          <td>
+            <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openSupplementForm('${s.id}')">✏️</button>
+            <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="toggleSupplementActive('${s.id}',${s.is_active===false})" title="Вкл/выкл">⏸</button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </table>
+    <div id="supp-form-area"></div>
+  `;
+}
+
+async function toggleSupplementActive(id, makeActive) {
+  try {
+    await api('PATCH', `/pay-supplements/${id}`, { is_active: !!makeActive });
+    _supplements = await api('GET', '/pay-supplements');
+    renderGradesPanel();
+  } catch (e) { showToast(e.message, true); }
+}
+
+function openSupplementForm(editId) {
+  const s = editId ? _supplements.find(x=>x.id===editId) : null;
+  let conds = {};
+  let applies = ['all'];
+  if (s) {
+    try { conds = typeof s.conditions==='string'?JSON.parse(s.conditions):s.conditions||{}; } catch { conds = {}; }
+    try { applies = typeof s.applies_to==='string'?JSON.parse(s.applies_to):s.applies_to||['all']; } catch { applies = ['all']; }
+  }
+  const isAmt = !s || s.amount != null;
+
+  const area = document.getElementById('supp-form-area');
+  area.innerHTML = `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${editId?'Редактировать':'Новая'} надбавка</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div class="fl">Название</div><input class="fin" id="sp-name" value="${esc(s?.name||'')}"/></div>
+        <div><div class="fl">Тип</div><select class="fin" id="sp-type">
+          ${['mentor_bonus','trainer_bonus','holiday_bonus','cancel_compensation','sanitary_day','monthly_shifts','annual_shifts','experience_444'].map(t=>
+            `<option value="${t}" ${(s?.supplement_type||'')=== t?'selected':''}>${t}</option>`
+          ).join('')}
+        </select></div>
+        <div><div class="fl">Режим</div><select class="fin" id="sp-mode" onchange="document.getElementById('sp-pct-wrap').style.display=this.value==='pct'?'block':'none';document.getElementById('sp-amt-wrap').style.display=this.value==='amt'?'block':'none'">
+          <option value="amt" ${isAmt?'selected':''}>Фиксированная сумма</option>
+          <option value="pct" ${!isAmt?'selected':''}>Процент</option>
+        </select></div>
+        <div id="sp-amt-wrap" style="display:${isAmt?'block':'none'}"><div class="fl">Сумма ₽</div><input class="fin" type="number" id="sp-amount" value="${s?.amount!=null?s.amount:''}"/></div>
+        <div id="sp-pct-wrap" style="display:${!isAmt?'block':'none'}"><div class="fl">Процент %</div><input class="fin" type="number" id="sp-pct" value="${s?.percentage!=null?s.percentage:''}" step="0.01"/></div>
+        <div><div class="fl">Мин. смен</div><input class="fin" type="number" id="sp-min-shifts" value="${conds.min_shifts??''}"/></div>
+        <div><div class="fl">Макс. смен</div><input class="fin" type="number" id="sp-max-shifts" value="${conds.max_shifts??''}"/></div>
+        <div><div class="fl">Мин. дней/год</div><input class="fin" type="number" id="sp-min-days" value="${conds.min_days??''}"/></div>
+        <div><div class="fl">Порог смен (опыт)</div><input class="fin" type="number" id="sp-threshold" value="${conds.threshold_shifts??''}"/></div>
+      </div>
+      <div style="margin-top:8px"><div class="fl">Применяется к</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${['photographer','print_operator','manager','all'].map(r=>
+            `<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" class="sp-applies" value="${r}" ${applies.includes(r)?'checked':''}/> ${r==='all'?'Все':r}
+            </label>`
+          ).join('')}
+        </div>
+      </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="sp-active" ${s?.is_active!==false?'checked':''}/> Активна
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="document.getElementById('supp-form-area').innerHTML=''">Отмена</button>
+        <button class="btn btn-primary" onclick="saveSupplement('${editId||''}')">Сохранить</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveSupplement(editId) {
+  const mode = document.getElementById('sp-mode').value;
+  const conditions = {};
+  const v = id => document.getElementById(id)?.value;
+  if (v('sp-min-shifts')) conditions.min_shifts = parseInt(v('sp-min-shifts'), 10);
+  if (v('sp-max-shifts')) conditions.max_shifts = parseInt(v('sp-max-shifts'), 10);
+  if (v('sp-min-days')) conditions.min_days = parseInt(v('sp-min-days'), 10);
+  if (v('sp-threshold')) conditions.threshold_shifts = parseInt(v('sp-threshold'), 10);
+  const applies = [...document.querySelectorAll('.sp-applies:checked')].map(c=>c.value);
+
+  const body = {
+    name: v('sp-name'),
+    supplement_type: v('sp-type'),
+    amount: mode === 'amt' ? parseFloat(v('sp-amount')) || 0 : null,
+    percentage: mode === 'pct' ? parseFloat(v('sp-pct')) || 0 : null,
+    conditions,
+    applies_to: applies.length ? applies : ['all'],
+    is_active: document.getElementById('sp-active').checked,
+  };
+  try {
+    if (editId) await api('PATCH', `/pay-supplements/${editId}`, body);
+    else await api('POST', '/pay-supplements', body);
+    _supplements = await api('GET', '/pay-supplements');
+    renderGradesPanel();
+    showToast('Надбавка сохранена');
+  } catch(e) { showToast(e.message, true); }
+}
+
+function renderMonthlyBonusTab(el) {
+  el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openMonthlyBonusForm()">+ Правило</button>
+    </div>
+    <table class="supp-table">
+      <tr><th>Название</th><th>Мин. смен</th><th>Порог выручки</th><th>Премия</th><th>Кумулятивная</th><th>Шаг/бонус</th><th></th></tr>
+      ${(_monthlyBonusRules||[]).map(r => `<tr${r.is_active===false?' style="opacity:.4"':''}>
+        <td>${esc(r.name)}</td>
+        <td>${r.min_shifts||'—'}</td>
+        <td>${r.revenue_threshold?Number(r.revenue_threshold).toLocaleString('ru-RU')+'₽':'—'}</td>
+        <td style="font-weight:600;color:var(--rank1)">${r.bonus_amount?Number(r.bonus_amount).toLocaleString('ru-RU')+'₽':'—'}</td>
+        <td>${r.is_cumulative?'✅':'—'}</td>
+        <td>${r.is_cumulative&&r.revenue_step?'+'+Number(r.revenue_step).toLocaleString('ru-RU')+'₽ → +'+Number(r.step_bonus).toLocaleString('ru-RU')+'₽':'—'}</td>
+        <td>
+          <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openMonthlyBonusForm('${r.id}')">✏️</button>
+          <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="toggleMonthlyBonusActive('${r.id}',${r.is_active===false})" title="Вкл/выкл">⏸</button>
+        </td>
+      </tr>`).join('')}
+    </table>
+    <div id="mb-form-area"></div>
+  `;
+}
+
+async function toggleMonthlyBonusActive(id, makeActive) {
+  try {
+    await api('PATCH', `/monthly-bonus-rules/${id}`, { is_active: !!makeActive });
+    _monthlyBonusRules = await api('GET', '/monthly-bonus-rules');
+    renderGradesPanel();
+  } catch (e) { showToast(e.message, true); }
+}
+
+function openMonthlyBonusForm(editId) {
+  const r = editId ? _monthlyBonusRules.find(x=>x.id===editId) : null;
+  const area = document.getElementById('mb-form-area');
+  area.innerHTML = `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${editId?'Редактировать':'Новое'} правило</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div class="fl">Название</div><input class="fin" id="mb-name" value="${esc(r?.name||'')}"/></div>
+        <div><div class="fl">Мин. смен</div><input class="fin" type="number" id="mb-shifts" value="${r?.min_shifts??''}"/></div>
+        <div><div class="fl">Порог выручки ₽</div><input class="fin" type="number" id="mb-threshold" value="${r?.revenue_threshold??''}"/></div>
+        <div><div class="fl">Премия ₽</div><input class="fin" type="number" id="mb-bonus" value="${r?.bonus_amount??''}"/></div>
+      </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:12px">
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="mb-cumul" ${r?.is_cumulative?'checked':''} onchange="document.getElementById('mb-step-wrap').style.display=this.checked?'grid':'none'"/> Кумулятивная
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="mb-active" ${r?.is_active!==false?'checked':''}/> Активно
+        </label>
+      </div>
+      <div id="mb-step-wrap" style="display:${r?.is_cumulative?'grid':'none'};grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+        <div><div class="fl">Шаг выручки ₽</div><input class="fin" type="number" id="mb-step" value="${r?.revenue_step??''}"/></div>
+        <div><div class="fl">Бонус за шаг ₽</div><input class="fin" type="number" id="mb-step-bonus" value="${r?.step_bonus??''}"/></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="document.getElementById('mb-form-area').innerHTML=''">Отмена</button>
+        <button class="btn btn-primary" onclick="saveMonthlyBonus('${editId||''}')">Сохранить</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveMonthlyBonus(editId) {
+  const v = id => document.getElementById(id)?.value;
+  const body = {
+    name: v('mb-name'),
+    min_shifts: v('mb-shifts') ? parseInt(v('mb-shifts'), 10) : null,
+    revenue_threshold: v('mb-threshold') ? parseFloat(v('mb-threshold')) : null,
+    bonus_amount: v('mb-bonus') ? parseFloat(v('mb-bonus')) : null,
+    is_cumulative: document.getElementById('mb-cumul').checked,
+    revenue_step: v('mb-step') ? parseFloat(v('mb-step')) : null,
+    step_bonus: v('mb-step-bonus') ? parseFloat(v('mb-step-bonus')) : null,
+    is_active: document.getElementById('mb-active').checked,
+  };
+  if (!body.name || body.revenue_threshold == null || body.bonus_amount == null) {
+    showToast('Название, порог и премия обязательны', true);
+    return;
+  }
+  try {
+    if (editId) await api('PATCH', `/monthly-bonus-rules/${editId}`, body);
+    else await api('POST', '/monthly-bonus-rules', body);
+    _monthlyBonusRules = await api('GET', '/monthly-bonus-rules');
+    renderGradesPanel();
+    showToast('Правило сохранено');
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function renderGradeSection(phId, container) {
+  try {
+    const [currentGrade, gradeHistory] = await Promise.all([
+      api('GET', `/photographers/${phId}/grade`).catch(()=>null),
+      api('GET', `/photographers/${phId}/grade-history`).catch(()=>[]),
+    ]);
+
+    const ACTION_ICONS = { promoted:'↑', demoted:'↓', assigned:'●', forced_confirm:'⚡' };
+    const ACTION_COLORS = { promoted:'var(--rank1)', demoted:'var(--rank3)', assigned:'var(--accent2)' };
+
+    let html = '<div class="grade-section"><div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 Грейд (мотивация)</div>';
+
+    if (currentGrade) {
+      const who = currentGrade.approved_by_name ? ` · присвоил: ${esc(currentGrade.approved_by_name)}` : '';
+      html += `<div class="grade-current">
+        <span class="grade-badge">${esc(currentGrade.grade_code)} ${esc(currentGrade.grade_name)}</span>
+        <span class="grade-bonus">+${currentGrade.pay_bonus_pct||0}%</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        С ${new Date(currentGrade.effective_from).toLocaleDateString('ru-RU')}${who}
+      </div>`;
+    } else {
+      html += '<div style="color:var(--text3);font-size:12px;margin-bottom:8px">Грейд из справочника не назначен</div>';
+    }
+
+    if (hasAnyRole(['hr_director','exec_director','admin'])) {
+      html += `<div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px" onclick="openAssignGradeModal('${phId}')">📈 ${currentGrade?'Изменить':'Назначить'}</button>
+      </div>`;
+    }
+
+    if (gradeHistory.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px">История</div>';
+      gradeHistory.slice(0, 5).forEach(h => {
+        const icon = ACTION_ICONS[h.action] || '●';
+        const color = ACTION_COLORS[h.action] || 'var(--text3)';
+        html += `<div class="grade-history-item">
+          <span style="color:${color};font-weight:600;width:16px;text-align:center">${icon}</span>
+          <span class="grade-action ${h.action}">${esc(h.action)}</span>
+          <span>${esc(h.grade_name||h.grade_code)}</span>
+          <span style="color:var(--text3);margin-left:auto">${new Date(h.effective_from).toLocaleDateString('ru-RU')}</span>
+        </div>`;
+      });
+    }
+
+    html += '</div>';
+    container.insertAdjacentHTML('beforeend', html);
+  } catch(e) { console.error('renderGradeSection', e); }
+}
+
+async function openAssignGradeModal(phId) {
+  const ph = photographers.find(p => String(p.id) === String(phId)) || editState?._ph;
+  const roleType = (ph?.employee_role === 'print_operator') ? 'print_operator' : (ph?.employee_role === 'manager') ? 'manager' : 'photographer';
+  const gradeDefs = (await api('GET', '/grade-definitions?all=1')).filter(g => g.role_type === roleType && g.is_active !== false);
+  gradeDefs.sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+
+  let ov = document.getElementById('assign-grade-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'assign-grade-overlay';
+    ov.className = 'overlay';
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  ov.innerHTML = `
+    <div class="modal" style="max-width:460px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Присвоить грейд — ${esc(ph?.name||'')}</span><button class="dr-close" onclick="document.getElementById('assign-grade-overlay').classList.remove('open')">×</button></div>
+      <div style="margin-bottom:12px"><div class="fl">Грейд</div>
+        <select class="fin" id="ag-grade" onchange="loadGradeChecklist('${phId}',this.value)" style="width:100%">
+          <option value="">Выберите грейд...</option>
+          ${gradeDefs.map(g=>`<option value="${g.id}">${esc(g.grade_code)} — ${esc(g.grade_name)} (+${g.pay_bonus_pct||0}%)</option>`).join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:12px"><div class="fl">Дата вступления</div>
+        <input class="fin" type="date" id="ag-date" value="${new Date().toISOString().split('T')[0]}" style="width:100%"/>
+      </div>
+      <div style="margin-bottom:12px"><div class="fl">Причина</div>
+        <input class="fin" id="ag-reason" placeholder="Опционально" style="width:100%"/>
+      </div>
+      <div id="ag-checklist" style="margin-bottom:12px"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="document.getElementById('assign-grade-overlay').classList.remove('open')">Отмена</button>
+        <button class="btn btn-primary" onclick="submitAssignGrade('${phId}')">Присвоить</button>
+      </div>
+    </div>
+  `;
+}
+
+async function loadGradeChecklist(phId, gdId) {
+  const el = document.getElementById('ag-checklist');
+  if (!gdId) { el.innerHTML = ''; return; }
+  try {
+    const data = await api('GET', `/photographers/${phId}/grade/checklist?grade_definition_id=${gdId}`);
+    const items = data.check_items || [];
+    const results = data.results || [];
+    if (!items.length) { el.innerHTML = '<div style="color:var(--text3);font-size:11px">Нет пунктов чеклиста</div>'; return; }
+    let passed = 0;
+    el.innerHTML = '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Чеклист</div>' +
+      items.map((item, i) => {
+        const r = results.find(x => x.check_item_index === i);
+        const ok = r?.passed === true;
+        if (ok) passed++;
+        const label = typeof item === 'string' ? item : item.label || '';
+        return `<div class="check-item ${ok?'passed':'failed'}"><span>${ok?'☑':'☐'}</span> ${esc(label)}</div>`;
+      }).join('') +
+      `<div style="font-size:11px;margin-top:6px;color:${passed===items.length?'var(--rank1)':'var(--rank2)'}">${passed}/${items.length} выполнено</div>`;
+  } catch(e) { el.innerHTML = '<span style="color:var(--rank3);font-size:11px">'+esc(e.message)+'</span>'; }
+}
+
+async function submitAssignGrade(phId) {
+  const gdId = document.getElementById('ag-grade').value;
+  const date = document.getElementById('ag-date').value;
+  const reason = document.getElementById('ag-reason').value.trim();
+  if (!gdId) { showToast('Выберите грейд', true); return; }
+  if (!date) { showToast('Укажите дату', true); return; }
+  try {
+    await api('POST', `/photographers/${phId}/grade/assign`, {
+      grade_definition_id: gdId,
+      effective_from: date,
+      reason: reason || null,
+    });
+    document.getElementById('assign-grade-overlay').classList.remove('open');
+    showToast('Грейд присвоен');
+    if (typeof openDrawer === 'function' && String(currentDrawerId) === String(phId)) {
+      openDrawer(phId);
+    }
+    await loadPhotographers();
+    render();
+  } catch(e) { showToast(e.message, true); }
 }
 
 // ── BOOT ──
