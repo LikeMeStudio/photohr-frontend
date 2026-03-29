@@ -113,16 +113,15 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab(0)">📦 Остатки</button>
+    <button class="tab active" onclick="switchTab(0)">📦 Остатки и прогноз</button>
     <button class="tab" onclick="switchTab(1)">📍 Площадки</button>
     <button class="tab" onclick="switchTab(2)">🏢 Склады</button>
     <button class="tab" onclick="switchTab(3)">📋 Справочник</button>
     <button class="tab" onclick="switchTab(4)">🛒 Закупки</button>
     <button class="tab" onclick="switchTab(5)">🔄 Перемещения</button>
     <button class="tab" onclick="switchTab(6)">📊 Движения</button>
-    <button class="tab" onclick="switchTab(7)">⚠ Дефицит и прогноз</button>
-    <button class="tab" onclick="switchTab(8)">🖨 Оборудование</button>
-    <button class="tab" onclick="switchTab(9)" id="tab-alerts">📈 Аналитика</button>
+    <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
+    <button class="tab" onclick="switchTab(8)" id="tab-alerts">📈 Аналитика</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -484,7 +483,7 @@ function setupMgmtButton() {
 function switchTab(idx){
   currentTabIdx=idx;
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  const fns=[loadStock,loadVenueMap,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadDeficit,loadEquipment,loadAnalytics];
+  const fns=[loadStockForecast,loadVenueMap,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadEquipment,loadAnalytics];
   if(fns[idx]) fns[idx]();
 }
 
@@ -674,6 +673,7 @@ async function submitPoDeliver() {
     safeCloseModal('po-view-modal');
     showToast('Поставка принята');
     loadSummary();
+    if (currentTabIdx === 0) loadStockForecast();
     if (currentTabIdx === 4) loadPurchaseOrders();
     if (currentTabIdx === 6) loadMovements();
   } catch (e) { showToast(e.message, true); }
@@ -953,26 +953,6 @@ async function saveItem() {
   } catch(e) { showToast(e.message, true); }
 }
 
-async function loadStock(){
-  try{
-    const stock=await api('GET','/stock');
-    const c=document.getElementById('content');
-    if(!stock.length){c.innerHTML='<div class="section"><div class="section-title">📦 Остатки</div><div style="color:var(--text3)">Нет данных. Добавьте склады и товары.</div></div>';return;}
-    c.innerHTML=`<div class="section">
-      <div class="section-title">📦 Остатки <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button></div>
-      <div class="table-wrap"><table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Мин.</th><th>Статус</th></tr></thead><tbody>
-      ${stock.map(s=>`<tr>
-        <td>${esc(s.item_name)} <span style="color:var(--text3);font-size:10px">${esc(s.unit||'шт')}</span></td>
-        <td>${esc(s.warehouse_name)}</td>
-        <td style="font-weight:600">${s.quantity}</td>
-        <td>${s.min_quantity||'—'}</td>
-        <td><span class="${s.is_low?'status-crit':'status-ok'}">${s.is_low?'⚠️ Мало':'✅ Норма'}</span></td>
-      </tr>`).join('')}
-      </tbody></table></div>
-    </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
-}
-
 // ── БЛОК 2: Закупки и перемещения ──
 let poLineCount = 0, trLineCount = 0;
 
@@ -1041,6 +1021,7 @@ async function savePurchaseOrder() {
     });
     document.getElementById('po-modal').classList.remove('open');
     showToast('Закупка создана');
+    if (currentTabIdx === 0) loadStockForecast();
     if (currentTabIdx === 4) loadPurchaseOrders();
     if (currentTabIdx === 6) loadMovements();
     loadSummary();
@@ -1094,6 +1075,7 @@ async function saveTransfer() {
     });
     document.getElementById('tr-modal').classList.remove('open');
     showToast('Перемещение создано');
+    if (currentTabIdx === 0) loadStockForecast();
     if (currentTabIdx === 5) loadStockTransfers();
     if (currentTabIdx === 6) loadMovements();
     loadSummary();
@@ -1105,6 +1087,7 @@ async function confirmTransfer(id) {
   try {
     await api('POST', `/stock-transfers/${id}/confirm`);
     showToast('Перемещение подтверждено');
+    if (currentTabIdx === 0) loadStockForecast();
     if (currentTabIdx === 5) loadStockTransfers();
     if (currentTabIdx === 6) loadMovements();
     loadSummary();
@@ -1149,74 +1132,98 @@ async function loadMovements() {
 let forecastCityFilter = '';
 let forecastDays = 7;
 
-async function loadDeficit(){
-  try{
-    const c=document.getElementById('content');
-    c.innerHTML='<div class="loading">Загрузка...</div>';
-    const [data, fcData, vens] = await Promise.all([
-      api('GET','/stock/deficit'),
-      api('GET', '/stock/forecast?days=' + encodeURIComponent(forecastDays) + (forecastCityFilter ? '&city=' + encodeURIComponent(forecastCityFilter) : '')).catch(() => ({ days: forecastDays, forecast: [] })),
+const _fcStatusRank = { critical: 0, warning: 1, ok: 2 };
+
+function forecastRowUiStatus(r) {
+  const qty = parseFloat(r.current_qty) || 0;
+  const rem = parseFloat(r.remaining_after);
+  const minQ = parseFloat(r.min_quantity ?? 0);
+  if (rem <= 0 || (minQ > 0 && qty <= minQ)) return 'critical';
+  if (minQ > 0 && rem <= minQ) return 'warning';
+  return 'ok';
+}
+
+function forecastRowDaysLeft(r) {
+  const avg = parseFloat(r.avg_daily) || 0;
+  const qty = parseFloat(r.current_qty) || 0;
+  if (avg > 0) return Math.floor(qty / avg);
+  return null;
+}
+
+async function loadStockForecast() {
+  try {
+    const c = document.getElementById('content');
+    c.innerHTML = '<div class="loading">Загрузка...</div>';
+    const [fcData, vens] = await Promise.all([
+      api('GET', '/stock/forecast?days=' + encodeURIComponent(forecastDays) + (forecastCityFilter ? '&city=' + encodeURIComponent(forecastCityFilter) : '')),
       api('GET', '/venues').catch(() => []),
     ]);
     const cities = [...new Set((vens || []).map(v => v.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-    const fcRows = fcData.forecast || [];
+    let fcRows = [...(fcData.forecast || [])];
     lastForecastRows = fcRows;
-    const fcTable = fcRows.length ? `<div class="table-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Меропр.</th><th>Прогноз</th><th>Останется</th><th>Статус</th></tr></thead><tbody>
+    fcRows.sort((a, b) => {
+      const sa = forecastRowUiStatus(a);
+      const sb = forecastRowUiStatus(b);
+      if (_fcStatusRank[sa] !== _fcStatusRank[sb]) return _fcStatusRank[sa] - _fcStatusRank[sb];
+      return (parseFloat(a.current_qty) || 0) - (parseFloat(b.current_qty) || 0);
+    });
+    const canPo = can('tech_director') || can('exec_director') || can('admin');
+    const periodDays = fcData.days || forecastDays;
+    const fcTable = fcRows.length
+      ? `<div class="table-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Остаток</th><th>Мин.</th><th>Расход/день</th><th>Мероприятий</th><th>Прогноз расхода</th><th>Останется</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
       ${fcRows.map(r => {
-        const st = r.status === 'critical' ? '🔴' : r.status === 'warning' ? '⚠' : '✅';
+        const st = forecastRowUiStatus(r);
+        const badge = st === 'critical' ? '<span class="status-crit">🔴 Критично</span>' : st === 'warning' ? '<span class="status-warn">⚠ Внимание</span>' : '<span class="status-ok">✅ Норма</span>';
+        const minV = r.min_quantity != null && parseFloat(r.min_quantity) > 0 ? r.min_quantity : '—';
+        const daysL = forecastRowDaysLeft(r);
+        const daysCell = daysL !== null ? `${daysL} д` : '∞';
         return `<tr>
-          <td>${esc(r.item_name)}</td>
+          <td>${esc(r.item_name)} <span style="color:var(--text3);font-size:10px">${esc(r.unit || 'шт')}</span></td>
           <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name)}</td>
-          <td>${r.current_qty}</td>
+          <td style="font-weight:600">${r.current_qty}</td>
+          <td style="color:var(--text3)">${minV}</td>
           <td>${r.avg_daily}</td>
           <td style="color:var(--text3)">${r.upcoming_events}</td>
           <td>${r.projected_consumption}</td>
-          <td style="font-weight:600;color:${r.remaining_after <= 0 ? 'var(--rank3)' : r.status === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${r.remaining_after}</td>
-          <td>${st}</td>
+          <td style="font-weight:600;color:${parseFloat(r.remaining_after) <= 0 ? 'var(--rank3)' : st === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${r.remaining_after}</td>
+          <td style="font-weight:600;color:${daysL !== null && daysL <= 3 ? 'var(--rank3)' : daysL !== null && daysL <= 7 ? 'var(--rank2)' : 'var(--text)'}">${daysCell}</td>
+          <td>${badge}</td>
         </tr>`;
       }).join('')}
-    </tbody></table></div>` : '<div style="color:var(--text3);margin-top:8px">Нет данных для прогноза</div>';
-    const canPo = can('tech_director') || can('exec_director') || can('admin');
-    c.innerHTML=`<div class="section">
-      <div class="section-title">⚠ Дефицит и прогноз</div>
-      <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Прогноз на период</div>
+    </tbody></table></div>`
+      : '<div style="color:var(--text3);margin-top:12px">Нет данных по расходникам. Добавьте склады и остатки.</div>';
+    c.innerHTML = `<div class="section">
+      <div class="section-title" style="align-items:center;flex-wrap:wrap;gap:8px">📦 Остатки и прогноз
+        <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button>
+      </div>
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Фильтры периода</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
         <div class="field" style="margin:0;min-width:140px"><div class="fl">Период</div>
           <select class="fselect" id="fc-days-preset" onchange="onForecastPresetChange()">
-            <option value="7" ${forecastDays===7?'selected':''}>7 дней</option>
-            <option value="14" ${forecastDays===14?'selected':''}>14 дней</option>
-            <option value="30" ${forecastDays===30?'selected':''}>30 дней</option>
-            <option value="custom" ${![7,14,30].includes(forecastDays)?'selected':''}>Свой</option>
+            <option value="7" ${forecastDays === 7 ? 'selected' : ''}>7 дней</option>
+            <option value="14" ${forecastDays === 14 ? 'selected' : ''}>14 дней</option>
+            <option value="30" ${forecastDays === 30 ? 'selected' : ''}>30 дней</option>
+            <option value="custom" ${![7, 14, 30].includes(forecastDays) ? 'selected' : ''}>Свой</option>
           </select>
         </div>
-        <div class="field" style="margin:0;min-width:72px;display:${![7,14,30].includes(forecastDays)?'block':'none'}" id="fc-days-custom-wrap"><div class="fl">Дней</div>
+        <div class="field" style="margin:0;min-width:72px;display:${![7, 14, 30].includes(forecastDays) ? 'block' : 'none'}" id="fc-days-custom-wrap"><div class="fl">Дней</div>
           <input class="fin" type="number" id="fc-days-input" min="1" max="365" value="${forecastDays}" style="width:72px"/>
         </div>
         <div class="field" style="margin:0;min-width:160px"><div class="fl">Город</div>
           <select class="fselect" id="fc-city">
             <option value="">Все</option>
-            ${cities.map(ct => `<option value="${esc(ct)}" ${forecastCityFilter===ct?'selected':''}>${esc(ct)}</option>`).join('')}
+            ${cities.map(ct => `<option value="${esc(ct)}" ${forecastCityFilter === ct ? 'selected' : ''}>${esc(ct)}</option>`).join('')}
           </select>
         </div>
         <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="applyForecastFilters()">Обновить</button>
         ${canPo ? `<button type="button" class="btn btn-ghost" style="font-size:12px" onclick="openPoFromForecast()">Создать заявку на закупку</button>` : ''}
       </div>
-      <div style="font-size:11px;color:var(--text3)">Период: <b>${fcData.days || forecastDays}</b> дн. Прогноз расхода = средний расход/день (30 дн.) × дни.</div>
+      <div style="font-size:11px;color:var(--text3)">Период прогноза: <b>${periodDays}</b> дн. Прогноз расхода = средний расход/день (30 дн.) × дни.</div>
       ${fcTable}
-      <div style="margin-top:20px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Текущий дефицит и запас по дням</div>
-      ${data.length?`<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Меропр. 7д</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
-      ${data.map(d=>`<tr>
-        <td>${esc(d.item_name)}</td>
-        <td>${esc(d.warehouse_name)}</td>
-        <td>${d.quantity}</td>
-        <td>${d.avg_daily_consumption||'0'}</td>
-        <td style="color:var(--text3)">${d.upcoming_events_7d ?? '—'}</td>
-        <td style="font-weight:600;color:${d.status==='critical'?'var(--rank3)':d.status==='warning'?'var(--rank2)':'var(--text)'}">${d.days_remaining!==null?d.days_remaining+'д':'∞'}</td>
-        <td><span class="status-${d.status==='critical'?'crit':d.status==='warning'?'warn':'ok'}">${d.status==='critical'?'🔴 Критично':d.status==='warning'?'🟡 Скоро':'🟢 Норма'}</span></td>
-      </tr>`).join('')}
-      </tbody></table></div>`:'<div style="color:var(--text3);margin-top:8px">Нет данных о расходниках</div>'}
     </div>`;
-  }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
 }
 
 function onForecastPresetChange() {
@@ -1231,7 +1238,7 @@ function applyForecastFilters() {
     ? Math.min(365, Math.max(1, parseInt(document.getElementById('fc-days-input')?.value, 10) || 7))
     : parseInt(pr, 10) || 7;
   forecastCityFilter = document.getElementById('fc-city')?.value || '';
-  loadDeficit();
+  loadStockForecast();
 }
 
 async function openPoFromForecast() {
@@ -1616,6 +1623,7 @@ async function completeInvSession() {
     const result = await api('POST', `/inventory-sessions/${id}/complete`);
     document.getElementById('inv-modal').classList.remove('open');
     showToast(`Инвентаризация завершена. Корректировок: ${result.adjustments}`);
+    if (currentTabIdx === 0) loadStockForecast();
     loadInventory(); loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
