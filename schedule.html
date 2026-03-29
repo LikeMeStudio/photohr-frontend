@@ -231,6 +231,7 @@ a{color:inherit;text-decoration:none}
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
+    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="location.href='photographers.html?profile=1'" style="cursor:pointer"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
@@ -2807,7 +2808,7 @@ async function saveVenueSettings(){
   try{
     currentUser=await api('GET','/auth/me');
     if(!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])){showToast('Нет доступа к разделу',true);setTimeout(()=>location.href='photographers.html',1200);return;}
-    setupUserPill();setupNav('schedule');
+    setupUserPill();setupNav('schedule');setupMgmtButton();
     venuesList=await api('GET','/venues');
     initScheduleCityFilter();
     initTetrisCityFilter();
@@ -2816,7 +2817,32 @@ async function saveVenueSettings(){
     await loadPeriodsSubs();
   }catch(e){showToast(e.message,true);}
 })();
+function openAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (!ov || !fr) return;
+  fr.src = 'admin.html';
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (ov) ov.style.display = 'none';
+  if (fr) fr.src = '';
+  document.body.style.overflow = '';
+  if (typeof loadVenues === 'function') loadVenues().catch(() => {});
+  if (typeof venuesList !== 'undefined' && typeof api === 'function')
+    api('GET', '/venues').then(v => { venuesList = v; }).catch(() => {});
+}
+function setupMgmtButton() {
+  const b = document.getElementById('btn-management');
+  if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
+}
 </script>
+<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:stretch;justify-content:stretch;flex-direction:row">
+  <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none;flex:1"></iframe>
+</div>
 </body>
 <!-- cache-bust: 2026-03-28-0210 -->
 </html>
