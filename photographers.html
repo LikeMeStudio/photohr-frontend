@@ -626,6 +626,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     <div class="fl">Новый пароль <span style="color:var(--text3);font-weight:400">(оставьте пустым чтобы не менять)</span></div>
     <input class="fin" type="password" id="eu-pass" placeholder="Минимум 8 символов"/>
   </div>
+  <div id="eu-profile-block" style="margin-bottom:14px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px"></div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
     <input type="checkbox" id="eu-active" style="cursor:pointer"/>
     <label for="eu-active" style="font-size:14px;cursor:pointer">Активен</label>
@@ -3670,7 +3671,54 @@ function openEditUser(uid){
   document.getElementById('eu-active').checked = u.is_active;
   document.getElementById('eu-pass').value = '';
   document.getElementById('eu-delete-btn').style.display = u.id === currentUser.id ? 'none' : 'block';
+  renderEditUserProfile(u);
   document.getElementById('edit-user-modal').classList.add('open');
+}
+
+function renderEditUserProfile(u) {
+  const block = document.getElementById('eu-profile-block');
+  if (!block) return;
+  const hasPhId = !!u.photographer_id;
+  const hasTmId = !!u.team_member_id;
+  const hasAny = hasPhId || hasTmId;
+
+  if (!hasAny) {
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-size:12px;color:var(--rank3);font-weight:600">⚠ Профиль не привязан</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Аккаунт не связан ни с одной карточкой сотрудника</div>
+        </div>
+        <button type="button" class="btn btn-ghost" style="font-size:11px;padding:4px 12px;white-space:nowrap" onclick="document.getElementById('edit-user-modal').classList.remove('open');openLinkProfile('${u.id}')">🔗 Привязать</button>
+      </div>`;
+    return;
+  }
+
+  const lines = [];
+  if (hasPhId) {
+    const ph = photographers.find(p => p.id === u.photographer_id);
+    const label = ph ? esc(ph.name) : '📷 ID: ' + u.photographer_id.slice(0, 8) + '…';
+    const goBtn = ph
+      ? `<button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="document.getElementById('edit-user-modal').classList.remove('open');openDrawer('${u.photographer_id}')" title="Открыть карточку">Открыть →</button>`
+      : '';
+    lines.push(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px">📷 <span style="color:var(--rank1)">Фотограф/Аквагрим:</span> <b>${label}</b></span>
+      ${goBtn}
+    </div>`);
+  }
+  if (hasTmId) {
+    lines.push(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px">👔 <span style="color:var(--rank1)">Управленец:</span> <b>ID: ${u.team_member_id.slice(0, 8)}…</b></span>
+      <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="window.open('team.html','_blank')" title="Открыть команду">Открыть →</button>
+    </div>`);
+  }
+
+  block.innerHTML = `
+    <div style="margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="font-size:12px;color:var(--rank1);font-weight:600">🔗 Привязанные профили</div>
+      <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:var(--rank2);white-space:nowrap" onclick="document.getElementById('edit-user-modal').classList.remove('open');openLinkProfile('${u.id}')">Перепривязать</button>
+    </div>
+    ${lines.join('')}`;
 }
 
 async function saveEditUser(){
