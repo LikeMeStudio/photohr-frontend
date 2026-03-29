@@ -90,6 +90,8 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}
+.logo span{color:var(--accent2)}
 
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px}
@@ -155,7 +157,10 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <body>
 <div id="admin-root" style="display:flex;flex-direction:column;min-height:100vh">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg)">
-    <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600">⚙ Управление</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <a href="index.html" class="logo" style="text-decoration:none;color:var(--text)">Photo<span>HR</span></a>
+      <span style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600">⚙ Управление</span>
+    </div>
     <button type="button" class="btn btn-ghost" onclick="closeThisAdmin()" style="font-size:14px">✕ Закрыть</button>
   </div>
   <div id="admin-main" style="padding:12px 20px">
