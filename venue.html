@@ -123,6 +123,7 @@
 <button class="btn btn-ghost" id="btn-back" onclick="backToDashboard()" style="display:none">← К площадкам</button>
 <select class="fselect" id="vs" style="display:none" onchange="load()"><option value="">Площадка...</option></select>
 <div id="rs"></div><div style="flex:1"></div><div id="rstat"></div>
+<button class="btn btn-ghost" id="btn-review" onclick="toggleReviewMode()" style="display:none">📋 На проверке</button>
 </div>
 <div id="C"><div class="loading">Выберите площадку и дату</div></div>
 </div>
@@ -251,6 +252,10 @@ else loadDashboard();
 
 let rcMonth=null;
 let rcData=[];
+let reviewMode=false;
+function canApproveReports(){
+return currentUser&&['cashier','exec_director','admin'].includes(currentUser.role);
+}
 
 function getRcMonth(){
 if(rcMonth)return rcMonth;
@@ -339,18 +344,113 @@ renderReportCalendar();
 onDateChange();
 }
 
+async function loadPendingCount(){
+try{
+const pending=await api('GET','/daily-reports?status=submitted');
+const btn=document.getElementById('btn-review');
+if(btn){
+btn.style.display='';
+const n=Array.isArray(pending)?pending.length:0;
+btn.innerHTML=`📋 На проверке${n>0?` <span style="background:var(--rank3);color:#fff;padding:1px 6px;border-radius:10px;font-size:10px;margin-left:4px">${n}</span>`:''}`;
+btn.style.borderColor=n>0?'var(--rank2)':'';
+}
+}catch(e){console.warn('pending count:',e.message);}
+}
+
+async function toggleReviewMode(){
+if(reviewMode){
+reviewMode=false;
+loadDashboard();
+return;
+}
+reviewMode=true;
+viewMode='dashboard';
+document.getElementById('btn-settings').style.display='none';
+document.getElementById('btn-back').style.display='none';
+document.getElementById('rstat').innerHTML='';
+document.getElementById('C').innerHTML='<div class="loading">Загрузка отчётов на проверке...</div>';
+try{
+const reports=await api('GET','/daily-reports?status=submitted');
+renderReviewList(reports);
+}catch(e){
+document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+}
+}
+
+function renderReviewList(reports){
+if(!reports||!reports.length){
+document.getElementById('C').innerHTML=`
+<div style="text-align:center;padding:40px;color:var(--text3)">
+<div style="font-size:32px;margin-bottom:8px">✅</div>
+<div style="font-size:14px">Нет отчётов на проверке</div>
+</div>`;
+return;
+}
+const byDate={};
+for(const r of reports){
+const d=r.report_date?.split('T')[0]||r.report_date;
+if(!byDate[d])byDate[d]=[];
+byDate[d].push(r);
+}
+const sortedDates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">📋 Отчёты на проверке (${reports.length})</span>
+<button class="btn btn-ghost" onclick="toggleReviewMode()">← Назад к дашборду</button>
+</div>`;
+for(const date of sortedDates){
+const items=byDate[date];
+const d=new Date(date+'T12:00:00');
+const dateLabel=d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric',weekday:'short'});
+html+=`<div style="font-size:12px;font-weight:600;color:var(--text3);margin:12px 0 6px;text-transform:uppercase">${dateLabel}</div>`;
+html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-bottom:8px">';
+for(const r of items){
+const rev=parseFloat(r.total_revenue)||0;
+const submittedBy=r.submitted_by_name||'—';
+const submittedAt=r.submitted_at?new Date(r.submitted_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
+const rDate=(r.report_date&&String(r.report_date).split('T')[0])||r.report_date;
+html+=`<div class="card venue-card" onclick="openReviewReport('${r.venue_id}','${rDate}')" style="cursor:pointer;padding:14px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--rank2)">
+<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
+<div style="font-weight:600;font-size:14px">${esc(r.venue_name)}</div>
+<span class="sb sb-s">📤 Отправлен</span>
+</div>
+<div style="font-size:11px;color:var(--text3);margin-bottom:4px">${esc(r.venue_city||'')}</div>
+<div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap">
+${rev>0?`<span style="color:var(--rank1);font-weight:600">${rev.toLocaleString('ru-RU')}₽</span>`:''}
+<span style="color:var(--text3)">Отправил: ${esc(submittedBy)} ${submittedAt}</span>
+</div>
+</div>`;
+}
+html+='</div>';
+}
+document.getElementById('C').innerHTML=html;
+}
+
+function openReviewReport(venueId,dateStr){
+reviewMode=false;
+document.getElementById('sd').value=dateStr;
+document.getElementById('vs').value=venueId;
+viewMode='report';
+document.getElementById('btn-settings').style.display='';
+document.getElementById('btn-back').style.display='';
+load();
+}
+
 let _prevVid='',_prevSd='';
 async function loadDashboard(){
 viewMode='dashboard';
+reviewMode=false;
 const dt=document.getElementById('sd').value;
 if(!dt)return;
 document.getElementById('btn-settings').style.display='none';
 document.getElementById('btn-back').style.display='none';
+const btnReview=document.getElementById('btn-review');
+if(btnReview)btnReview.style.display=canApproveReports()?'':'none';
 document.getElementById('rstat').innerHTML='';
 document.getElementById('C').innerHTML='<div class="loading">Загрузка площадок...</div>';
 try{
 dashboardData=await api('GET',`/venues/dashboard?date=${dt}`);
 renderDashboard();
+if(canApproveReports())loadPendingCount();
 }catch(e){
 document.getElementById('C').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
 }
@@ -423,6 +523,7 @@ await load();
 }
 
 function backToDashboard(){
+reviewMode=false;
 if(isDirty){
 if(!confirm('Есть несохранённые данные. Вернуться к списку?'))return;
 }
@@ -1963,7 +2064,7 @@ toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');await 
 }catch(e){toast(e.message,1);}}
 
 function canApproveReport(){
-return currentUser&&['cashier','exec_director','admin'].includes(currentUser.role);
+return canApproveReports();
 }
 
 async function approveReport(){
@@ -2401,7 +2502,7 @@ function openAdmin() {
   const fr = document.getElementById('admin-iframe');
   if (!ov || !fr) return;
   fr.src = 'admin.html';
-  ov.style.display = 'flex';
+  ov.style.display = 'block';
   document.body.style.overflow = 'hidden';
 }
 function closeAdmin() {
@@ -2419,8 +2520,10 @@ function setupMgmtButton() {
   if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
 }
 </script>
-<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:stretch;justify-content:stretch;flex-direction:row">
-  <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none;flex:1"></iframe>
+<div id="admin-overlay" onclick="if(event.target===this)closeAdmin()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)">
+  <div style="position:absolute;top:0;right:0;bottom:0;width:min(520px,90vw);background:var(--bg);border-left:1px solid var(--border);overflow:hidden">
+    <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none"></iframe>
+  </div>
 </div>
 </body>
 </html>
