@@ -336,7 +336,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </div>
 <!-- ── SUB-NAV ── -->
 <div class="sub-nav" style="border-bottom:2px solid #4e8fff;padding:6px 28px;display:flex;gap:6px;align-items:center;background:var(--bg)">
-  <a href="index.html" class="sub-nav-tab" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border);transition:all .15s">📷 Фотографы</a>
+  <a href="photographers.html" class="sub-nav-tab" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border);transition:all .15s">📷 Фотографы</a>
   <a href="team.html" class="sub-nav-tab active" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;background:#4e8fff;color:#fff;border:1px solid #4e8fff;transition:all .15s">👔 Управленцы</a>
   <a href="aquagrim.html" class="sub-nav-tab" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border);transition:all .15s">🎨 Аквагрим</a>
 </div>
@@ -608,7 +608,7 @@ const ROLE_COLORS = {
   archived: '#5a5a72',
 };
 
-function openProfile() { window.location.href = 'index.html?profile=1'; }
+function openProfile() { window.location.href = 'photographers.html?profile=1'; }
 
 function setupUserPill() {
   const color = ROLE_COLORS[currentUser.role] || '#9090a8';
@@ -623,7 +623,7 @@ function setupTeamNav() {
   const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
   const navBtns = [];
   navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push('<a class="f-btn active" href="index.html" style="' + ns + '">Команда</a>');
+  navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + '">Команда</a>');
   if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
   }

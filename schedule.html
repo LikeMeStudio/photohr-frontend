@@ -39,10 +39,9 @@ a{color:inherit;text-decoration:none}
 .cal-cell{background:var(--bg3);border:1px solid var(--border);border-radius:8px;min-height:88px;padding:6px;font-size:11px}
 .cal-cell.drop-over{border-color:var(--accent);background:var(--card-h)}
 .cal-num{font-weight:600;margin-bottom:4px}.holiday-badge{font-size:9px}
-.ev-pill{display:flex;align-items:center;gap:3px;padding:1px 3px;border-radius:4px;margin-bottom:2px;cursor:pointer;font-size:9px;line-height:1.2;background:var(--bg2);border:1px solid var(--border);overflow:hidden}
-.ev-pill.ev-pill-more{justify-content:center;border:none;background:transparent}
-.ev-abbr{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:15px;border-radius:3px;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;padding:0 2px}
-.ev-staff{font-size:8px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-pill{font-size:9px;padding:2px 4px;border-radius:4px;margin-bottom:2px;cursor:pointer}
+.ev-pill .ev-pill-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-a{background:rgba(124,108,255,.2)}.cat-b{background:rgba(62,207,142,.15)}.cat-c{background:rgba(245,166,35,.12)}
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th,.tbl td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
 .tbl th{color:var(--text3);font-size:11px}
@@ -232,15 +231,15 @@ a{color:inherit;text-decoration:none}
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
-    <div class="user-pill" id="user-pill" onclick="location.href='index.html?profile=1'" style="cursor:pointer"></div>
+    <div class="user-pill" id="user-pill" onclick="location.href='photographers.html?profile=1'" style="cursor:pointer"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
 </div>
 <div class="main">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;justify-content:flex-end">
-    <button class="btn btn-ghost" onclick="location.href='index.html#achievements'">🏆 Достижения</button>
-    <button class="btn btn-ghost" onclick="location.href='index.html#birthdays'">🎂 Дни рождения</button>
-    <button class="btn btn-ghost" onclick="location.href='index.html#likes'">❤️ Лайки</button>
+    <button class="btn btn-ghost" onclick="location.href='photographers.html#achievements'">🏆 Достижения</button>
+    <button class="btn btn-ghost" onclick="location.href='photographers.html#birthdays'">🎂 Дни рождения</button>
+    <button class="btn btn-ghost" onclick="location.href='photographers.html#likes'">❤️ Лайки</button>
   </div>
   <div class="tabs-main" id="tabs-main">
     <button class="tab-main active" data-i="0" onclick="switchMainTab(0)">📅 Площадки</button>
@@ -588,7 +587,7 @@ function setupNav(activeKey){
     return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
   };
   navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push(a('index','index.html','Команда'));
+  navBtns.push(a('index','photographers.html','Команда'));
   if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));
   if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Отчёты'));
   if(hasAnyRole(['tech_director','hr_director','exec_director','admin'])) navBtns.push(a('stock','stock.html','Склад'));
@@ -614,10 +613,10 @@ async function loadTab0(){
   try{
     const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
     const data=await api('GET',`/events/calendar-data?month=${month}&year=${schYear}${cityParam}&schedule_status=${encodeURIComponent(scheduleViewStatus)}`);
-    if(!venuesList.length) venuesList=await api('GET','/venues');
     calDataCache=data;
     renderCalGrid(data);
-    filterVenueList();
+    if(!venuesList.length){venuesList=await api('GET','/venues');filterVenueList();}
+    else filterVenueList();
   }catch(e){showToast(e.message,true);}
 }
 
@@ -636,35 +635,20 @@ function renderCalGrid(data){
   while(d<=daysIn){
     const ds=`${schYear}-${String(schMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const hol=ov.has(ds)?'<span class="holiday-badge">🎄</span>':'';
-    const evs=evByDate[ds]||[];
-    const useOverflow=evs.length>6;
-    const toRender=useOverflow?evs.slice(0,5):evs.slice(0,6);
-    const list=toRender.map(e=>{
-      const vn=venuesList.find(v=>String(v.id)===String(e.venue_id));
-      let hi=0; const sid=String(e.venue_id||'0'); for(let i=0;i<sid.length;i++) hi=(hi*31+sid.charCodeAt(i))>>>0;
-      const color=normalizeVenueDisplayColor(vn?.display_color)||VENUE_COLORS[hi%VENUE_COLORS.length];
-      const shortLbl=(vn?.short_name!=null&&String(vn.short_name).trim()!=='')?String(vn.short_name).trim():String(e.venue_name||'').slice(0,3)||'?';
+    const list=(evByDate[ds]||[]).slice(0,4).map(e=>{
+      const cat=(e.venue_category||'').slice(0,1)||'a';
       const sum=e.shifts_summary||[];
-      const pR=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.required||0),0);
-      const pA=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.assigned||0),0);
-      const oR=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.required||0),0);
-      const oA=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.assigned||0),0);
-      const mR=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.required||0),0);
-      const mA=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.assigned||0),0);
-      const mentReq=sum.filter(x=>x.role==='mentor').reduce((s,x)=>s+Number(x.required||0),0);
-      const mentAsg=sum.filter(x=>x.role==='mentor').reduce((s,x)=>s+Number(x.assigned||0),0);
-      const ok=(pA+oA+mA+mentAsg)>=(pR+oR+mR+mentReq);
-      const parts=[];
-      if(pR>0) parts.push(`ф${pA}/${pR}`);
-      if(oR>0) parts.push(`о${oA}/${oR}`);
-      if(mR>0) parts.push(`м${mA}/${mR}`);
-      if(mentReq>0) parts.push(`н${mentAsg}/${mentReq}`);
-      const staffStr=parts.join(' ')||`ф${pA}/${pR}`;
-      return`<div class="ev-pill" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}" onclick="event.stopPropagation()">`+
-        `<span class="ev-abbr" style="background:${color}">${esc(shortLbl)}</span>`+
-        `<span class="ev-staff" style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(staffStr)}</span>`+
-        `</div>`;
-    }).join('')+(useOverflow?`<div class="ev-pill ev-pill-more" onclick="event.stopPropagation()">+${evs.length-5}</div>`:'');
+      const pReq=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.required||0),0);
+      const pAsg=sum.filter(x=>x.role==='photographer').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const aReq=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.required||0),0);
+      const aAsg=sum.filter(x=>x.role==='print_operator').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const mReq=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.required||0),0);
+      const mAsg=sum.filter(x=>x.role==='manager').reduce((s,x)=>s+Number(x.assigned||0),0);
+      const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
+      const onlyPh=aReq+mReq===0;
+      const statLine=onlyPh?`📸${pAsg}/${pReq}`:`📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}`;
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}" onclick="event.stopPropagation()"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
+    }).join('');
     cells+=`<div class="cal-cell" data-date="${ds}" onclick="dayCalCellClick(event,'${ds}')" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
     d++;
   }
@@ -2753,8 +2737,6 @@ function openVenueSettings(venueId){
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12px">
     <div>Фотографы: min <input class="fin vs-num" id="vs-st-ph-min" type="number" min="0" value="${Number(smin.photographers??1)}"> plan <input class="fin vs-num" id="vs-st-ph-plan" type="number" min="0" value="${Number(swd.photographers??3)}"> max <input class="fin vs-num" id="vs-st-ph-max" type="number" min="0" value="${Number(smax.photographers??5)}"></div>
     <div>Операторы: min <input class="fin vs-num" id="vs-st-op-min" type="number" min="0" value="${Number(smin.operators??1)}"> plan <input class="fin vs-num" id="vs-st-op-plan" type="number" min="0" value="${Number(swd.operators??1)}"> max <input class="fin vs-num" id="vs-st-op-max" type="number" min="0" value="${Number(smax.operators??2)}"></div>
-    <div>Менеджеры: min <input class="fin vs-num" id="vs-st-mg-min" type="number" min="0" value="${Number(smin.managers??0)}"> plan <input class="fin vs-num" id="vs-st-mg-plan" type="number" min="0" value="${Number(swd.managers??1)}"> max <input class="fin vs-num" id="vs-st-mg-max" type="number" min="0" value="${Number(smax.managers??2)}"></div>
-    <div>Наставники: min <input class="fin vs-num" id="vs-st-mt-min" type="number" min="0" value="${Number(smin.mentors??0)}"> plan <input class="fin vs-num" id="vs-st-mt-plan" type="number" min="0" value="${Number(swd.mentors??0)}"> max <input class="fin vs-num" id="vs-st-mt-max" type="number" min="0" value="${Number(smax.mentors??1)}"></div>
   </div>
 </div>
 </div>`;
@@ -2778,23 +2760,23 @@ async function saveVenueSettings(){
     const hol=vsBuildDefaultShiftsPayload(venueSettingsShiftState.holiday);
     const weekendOut=vsCfgEqual(venueSettingsShiftState.weekday,venueSettingsShiftState.weekend)?null:we;
     const holidayOut=vsCfgEqual(venueSettingsShiftState.weekend,venueSettingsShiftState.holiday)?null:hol;
+    const sminRaw=normalizeCfg(v.staffing_min)||{};
+    const smaxRaw=normalizeCfg(v.staffing_max)||{};
     const staffing_min={
       photographers:parseInt(document.getElementById('vs-st-ph-min')?.value||'1',10)||0,
       operators:parseInt(document.getElementById('vs-st-op-min')?.value||'1',10)||0,
-      managers:parseInt(document.getElementById('vs-st-mg-min')?.value||'0',10)||0,
-      mentors:parseInt(document.getElementById('vs-st-mt-min')?.value||'0',10)||0,
+      managers:Number(sminRaw.managers??1),mentors:Number(sminRaw.mentors??0),
     };
     const staffing_max={
       photographers:parseInt(document.getElementById('vs-st-ph-max')?.value||'5',10)||0,
       operators:parseInt(document.getElementById('vs-st-op-max')?.value||'2',10)||0,
-      managers:parseInt(document.getElementById('vs-st-mg-max')?.value||'0',10)||0,
-      mentors:parseInt(document.getElementById('vs-st-mt-max')?.value||'0',10)||0,
+      managers:Number(smaxRaw.managers??2),mentors:Number(smaxRaw.mentors??1),
     };
     const staffing_weekday={
       photographers:parseInt(document.getElementById('vs-st-ph-plan')?.value||'3',10)||0,
       operators:parseInt(document.getElementById('vs-st-op-plan')?.value||'1',10)||0,
-      managers:parseInt(document.getElementById('vs-st-mg-plan')?.value||'0',10)||0,
-      mentors:parseInt(document.getElementById('vs-st-mt-plan')?.value||'0',10)||0,
+      managers:Number((normalizeCfg(v.staffing_weekday)||{}).managers??1),
+      mentors:Number((normalizeCfg(v.staffing_weekday)||{}).mentors??0),
     };
     const payload={
       default_shifts:wd,
@@ -2824,7 +2806,7 @@ async function saveVenueSettings(){
   if(!accessToken&&!refreshToken){location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
-    if(!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])){showToast('Нет доступа к разделу',true);setTimeout(()=>location.href='index.html',1200);return;}
+    if(!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])){showToast('Нет доступа к разделу',true);setTimeout(()=>location.href='photographers.html',1200);return;}
     setupUserPill();setupNav('schedule');
     venuesList=await api('GET','/venues');
     initScheduleCityFilter();
@@ -2836,5 +2818,5 @@ async function saveVenueSettings(){
 })();
 </script>
 </body>
-<!-- cache-bust: 2026-03-29-venues-grid -->
+<!-- cache-bust: 2026-03-28-0210 -->
 </html>

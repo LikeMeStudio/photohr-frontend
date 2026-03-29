@@ -386,11 +386,11 @@ const ROLES = {
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (roles) => roles.includes(roleNow());
 
-function openProfile() { window.location.href = 'index.html?profile=1'; }
+function openProfile() { window.location.href = 'photographers.html?profile=1'; }
 
-function openAchievementsPanel() { window.location.href = 'index.html#achievements'; }
-function openBirthdaysPanel() { window.location.href = 'index.html#birthdays'; }
-function openLikesPanel() { window.location.href = 'index.html#likes'; }
+function openAchievementsPanel() { window.location.href = 'photographers.html#achievements'; }
+function openBirthdaysPanel() { window.location.href = 'photographers.html#birthdays'; }
+function openLikesPanel() { window.location.href = 'photographers.html#likes'; }
 
 function fillPlaceholderStats() {
   const hs = document.getElementById('hstats');
@@ -418,7 +418,7 @@ function setupNav(activeKey) {
     return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
   };
   navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push(a('index', 'index.html', 'Команда'));
+  navBtns.push(a('index', 'photographers.html', 'Команда'));
   if (hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin'])) {
     navBtns.push(a('recruiting', 'recruiting.html', 'Рекрутинг'));
   }
@@ -751,7 +751,7 @@ function renderDrawer(c) {
         <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">↩ Вернуть</button>
       </div>`}
 
-      ${c.photographer_id ? `<div style="padding:8px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--rank1)">✅ Принят → <a href="index.html" style="color:var(--rank1);text-decoration:underline">Карточка сотрудника</a></div>` : ''}
+      ${c.photographer_id ? `<div style="padding:8px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--rank1)">✅ Принят → <a href="photographers.html" style="color:var(--rank1);text-decoration:underline">Карточка сотрудника</a></div>` : ''}
 
       <div class="dr-section">
         <div class="dr-label">Контакты</div>
