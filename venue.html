@@ -90,9 +90,10 @@
 .rc-day{border:1px solid var(--border);border-radius:6px;padding:3px 4px;min-height:52px;font-size:10px;cursor:pointer;transition:border-color .15s}
 .rc-day:hover{border-color:var(--accent)}
 .rc-day .rc-num{font-family:'Unbounded',sans-serif;font-size:11px;margin-bottom:2px}
-.rc-day.rc-today{box-shadow:inset 0 0 0 2px var(--rank1)}
-.rc-day.rc-today .rc-num{color:var(--rank1)}
-.rc-day.rc-selected{border-color:var(--accent);background:rgba(124,108,255,.08)}
+.rc-day.rc-today{border-color:var(--rank1);border-width:2px}
+.rc-day.rc-today .rc-num{color:var(--rank1);font-weight:700}
+.rc-day.rc-selected{border-color:var(--accent);background:rgba(124,108,255,.1);border-width:2px}
+.rc-day.rc-today.rc-selected{border-color:var(--rank1);background:rgba(62,207,142,.08)}
 .rc-day.rc-empty{border-color:transparent;cursor:default;min-height:0}
 .rc-day.rc-empty:hover{border-color:transparent}
 .rc-badges{display:flex;flex-wrap:wrap;gap:2px}
@@ -110,6 +111,7 @@
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
+    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
@@ -240,7 +242,7 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;setupUserPill();setupNav('venue');fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');loadDashboard();}catch{doLogout();}})();
+(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;setupUserPill();setupNav('venue');setupMgmtButton();fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');loadDashboard();}catch{doLogout();}})();
 
 function onDateChange(){
 if(viewMode==='report')load();
@@ -2393,6 +2395,32 @@ async function saveAq(st){
     load();
   }catch(e){toast(e.message,1);}
 }
+
+function openAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (!ov || !fr) return;
+  fr.src = 'admin.html';
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (ov) ov.style.display = 'none';
+  if (fr) fr.src = '';
+  document.body.style.overflow = '';
+  if (typeof loadVenues === 'function') loadVenues().catch(() => {});
+  if (typeof venues !== 'undefined' && typeof api === 'function')
+    api('GET', '/venues').then(v => { venues = v; }).catch(() => {});
+}
+function setupMgmtButton() {
+  const b = document.getElementById('btn-management');
+  if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
+}
 </script>
+<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:stretch;justify-content:stretch;flex-direction:row">
+  <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none;flex:1"></iframe>
+</div>
 </body>
 </html>
