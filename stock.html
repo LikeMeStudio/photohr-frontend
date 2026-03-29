@@ -86,6 +86,13 @@ a{color:inherit;text-decoration:none}
 .stat-box-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
 .summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px}
 @media(max-width:768px){.drawer{width:100%;max-width:100%}.card-grid{grid-template-columns:1fr}}
+.venue-map-card summary::-webkit-details-marker{display:none}
+.po-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.po-badge-draft{background:#3a3a4f;color:var(--text2)}
+.po-badge-ordered{background:#5c4a1a;color:#f5d76e}
+.po-badge-delivered{background:#1a3d2a;color:#3ecf8e}
+.po-badge-partial{background:#4a3510;color:#f5a623}
+.po-badge-cancelled{background:#4a1a1a;color:#f25555}
 </style>
 </head>
 <body>
@@ -107,13 +114,15 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab(0)">📦 Остатки</button>
-    <button class="tab" onclick="switchTab(1)">🏢 Склады</button>
-    <button class="tab" onclick="switchTab(2)">📋 Справочник</button>
-    <button class="tab" onclick="switchTab(3)">🔄 Движения</button>
-    <button class="tab" onclick="switchTab(4)">⚠️ Дефицит</button>
-    <button class="tab" onclick="switchTab(5)">🖨 Оборудование</button>
-    <button class="tab" onclick="switchTab(6)">📊 Инвентаризация</button>
-    <button class="tab" onclick="switchTab(7)" id="tab-alerts">📈 Аналитика</button>
+    <button class="tab" onclick="switchTab(1)">📍 Площадки</button>
+    <button class="tab" onclick="switchTab(2)">🏢 Склады</button>
+    <button class="tab" onclick="switchTab(3)">📋 Справочник</button>
+    <button class="tab" onclick="switchTab(4)">🛒 Закупки</button>
+    <button class="tab" onclick="switchTab(5)">🔄 Перемещения</button>
+    <button class="tab" onclick="switchTab(6)">📊 Движения</button>
+    <button class="tab" onclick="switchTab(7)">⚠ Дефицит и прогноз</button>
+    <button class="tab" onclick="switchTab(8)">🖨 Оборудование</button>
+    <button class="tab" onclick="switchTab(9)" id="tab-alerts">📈 Аналитика</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -308,6 +317,30 @@ a{color:inherit;text-decoration:none}
   <div id="eq-drawer-body">Загрузка...</div>
 </div>
 
+<!-- Purchase order detail + приёмка -->
+<div class="overlay" id="po-view-modal" onclick="if(event.target===this)safeCloseModal('po-view-modal')">
+<div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto">
+  <div class="modal-title"><span id="po-view-title">Заказ</span><button class="dr-close" onclick="safeCloseModal('po-view-modal')">×</button></div>
+  <input type="hidden" id="po-view-id"/>
+  <div id="po-view-meta" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+  <div class="table-wrap"><table class="tbl"><thead><tr id="po-view-thead"></tr></thead><tbody id="po-view-lines"></tbody></table></div>
+  <div class="modal-footer" id="po-view-footer" style="display:none">
+    <button class="btn btn-ghost" onclick="safeCloseModal('po-view-modal')">Закрыть</button>
+    <button class="btn btn-primary" onclick="submitPoDeliver()">Провести приёмку</button>
+  </div>
+</div>
+</div>
+
+<!-- Equipment counter history (modal) -->
+<div class="overlay" id="eq-history-modal" onclick="if(event.target===this)safeCloseModal('eq-history-modal')">
+<div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto">
+  <div class="modal-title"><span id="eq-history-title">История счётчиков</span><button class="dr-close" onclick="safeCloseModal('eq-history-modal')">×</button></div>
+  <div id="eq-history-forecast" style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:10px;background:var(--bg3);border-radius:8px"></div>
+  <div id="eq-history-chart" style="margin-bottom:12px"></div>
+  <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Отчёт</th><th>Формат</th><th>Счётчики</th><th>Напеч.</th></tr></thead><tbody id="eq-history-body"></tbody></table></div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -329,6 +362,7 @@ let warehouses=[],items=[],currentTabIdx=0;
 let venues=[],users=[],currentWhId=null;
 let equipmentListCache=[];
 let refreshLock=null;
+let lastForecastRows=[];
 
 async function api(m,p,b){
   const o={method:m,headers:{'Content-Type':'application/json'}};
@@ -363,6 +397,18 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
+function normalizeVenueDisplayColor(c){
+  if(!c) return null;
+  const s=String(c).trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+  if(/^#[0-9a-fA-F]{3}$/.test(s)) return s;
+  return null;
+}
+function venueHashHue(id){let h=0;const s=String(id||'0');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+function venuePickColor(v){return normalizeVenueDisplayColor(v?.display_color)||VENUE_COLORS[venueHashHue(v?.id)%VENUE_COLORS.length];}
+function venueShortLabel(v){return(v?.short_name!=null&&String(v.short_name).trim()!=='')?String(v.short_name).trim():String(v?.name||'').slice(0,3)||'?';}
 
 function isDirtyForm(modalId) {
   const modal = document.getElementById(modalId);
@@ -438,11 +484,242 @@ function setupMgmtButton() {
 function switchTab(idx){
   currentTabIdx=idx;
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  const fns=[loadStock,loadWarehouses,loadItems,loadMovements,loadDeficit,loadEquipment,loadInventory,loadAnalytics];
+  const fns=[loadStock,loadVenueMap,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadDeficit,loadEquipment,loadAnalytics];
   if(fns[idx]) fns[idx]();
 }
 
 // ── БЛОК 1: Склады и Справочник ──
+
+const WH_TYPE_LABELS_MAP = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
+
+async function loadVenueMap() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="loading">Загрузка карты площадок...</div>';
+  try {
+    const data = await api('GET', '/stock/venue-map');
+    const critByWh = {};
+    for (const row of data.critStock || []) {
+      if (!critByWh[row.warehouse_id]) critByWh[row.warehouse_id] = [];
+      critByWh[row.warehouse_id].push(row);
+    }
+    const eqByWh = {};
+    for (const eq of data.equipment || []) {
+      if (!eq.warehouse_id) continue;
+      if (!eqByWh[eq.warehouse_id]) eqByWh[eq.warehouse_id] = [];
+      eqByWh[eq.warehouse_id].push(eq);
+    }
+    const venueMap = new Map();
+    for (const r of data.venues || []) {
+      if (!venueMap.has(r.id)) {
+        venueMap.set(r.id, {
+          id: r.id, name: r.name, short_name: r.short_name, display_color: r.display_color,
+          city: r.city, category: r.category,
+          upcoming_events_7d: r.upcoming_events_7d || 0,
+          warehouses: [],
+        });
+      }
+      const v = venueMap.get(r.id);
+      if (r.warehouse_id) {
+        v.warehouses.push({
+          warehouse_id: r.warehouse_id,
+          warehouse_name: r.warehouse_name,
+          warehouse_type: r.warehouse_type,
+          stock_items_count: parseInt(r.stock_items_count, 10) || 0,
+          deficit_count: parseInt(r.deficit_count, 10) || 0,
+          equipment_count: parseInt(r.equipment_count, 10) || 0,
+        });
+      }
+    }
+    const withWh = []; const withoutWh = [];
+    for (const v of venueMap.values()) {
+      if (v.warehouses.length) withWh.push(v);
+      else withoutWh.push(v);
+    }
+    function groupByCity(list) {
+      const m = {};
+      for (const v of list) {
+        const ct = v.city || 'Без города';
+        if (!m[ct]) m[ct] = [];
+        m[ct].push(v);
+      }
+      return Object.keys(m).sort((a, b) => a.localeCompare(b, 'ru')).map(ct => ({ city: ct, venues: m[ct] }));
+    }
+    function renderVenueCard(v) {
+      const color = venuePickColor(v);
+      const abbr = esc(venueShortLabel(v));
+      const whBlocks = v.warehouses.map(w => {
+        const crit = (critByWh[w.warehouse_id] || []).slice(0, 6);
+        const eqs = (eqByWh[w.warehouse_id] || []).slice(0, 10);
+        const critHtml = crit.map(x => {
+          const low = parseFloat(x.quantity) <= parseFloat(x.min_quantity || 0);
+          return `<div style="font-size:11px;color:var(--text2)">📊 ${esc(x.item_name)}: ${x.quantity} ${esc(x.unit || '')} (мин: ${x.min_quantity}) ${low ? '⚠' : '✅'}</div>`;
+        }).join('');
+        const eqHtml = eqs.map(e => {
+          const lim = parseFloat(e.resource_limit) || 0;
+          const tot = parseFloat(e.total_printed) || 0;
+          const pct = e.resource_pct != null ? e.resource_pct : (lim > 0 ? Math.round(tot / lim * 100) : null);
+          const bar = pct != null ? `<div style="height:3px;background:var(--border);border-radius:2px;margin-top:2px"><div style="width:${Math.min(100, pct)}%;height:100%;background:${pct > 95 ? 'var(--rank3)' : pct > 80 ? 'var(--rank2)' : 'var(--rank1)'};border-radius:2px"></div></div>` : '';
+          return `<div style="font-size:11px;margin-bottom:6px">🖨 ${esc(e.item_name)}${e.serial_number ? ' #' + esc(e.serial_number) : ''} — ${tot.toLocaleString('ru-RU')}${lim ? '/' + lim.toLocaleString('ru-RU') + ' (' + pct + '%)' : ''}${bar}</div>`;
+        }).join('');
+        const paperEst = (v.upcoming_events_7d || 0) * 25;
+        return `<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
+          <div style="font-weight:600">📦 Склад: ${esc(w.warehouse_name)} <span style="font-size:10px;color:var(--text3)">(${esc(WH_TYPE_LABELS_MAP[w.warehouse_type] || w.warehouse_type || '—')})</span></div>
+          <div style="font-size:11px;color:var(--text3);margin:4px 0">Остатки: ${w.stock_items_count} поз. ${w.deficit_count > 0 ? `(⚠ ${w.deficit_count} дефицит)` : '✅'}</div>
+          ${eqHtml ? `<div style="font-size:10px;color:var(--text3);margin-top:6px">Принтеры:</div>${eqHtml}` : '<div style="font-size:11px;color:var(--text3)">Нет активного оборудования на складе</div>'}
+          ${critHtml ? `<div style="margin-top:8px;font-size:10px;color:var(--text3)">Ниже минимума:</div>${critHtml}` : ''}
+        </div>`;
+      }).join('');
+      return `<details class="venue-map-card" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">
+        <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;font-size:11px;font-weight:700;color:#fff;background:${color}">${abbr}</span>
+          <div><div style="font-weight:600">${esc(v.name)}</div><div style="font-size:11px;color:var(--text3)">${esc(v.city || '—')}${v.category ? ' · ' + esc(v.category) : ''}</div></div>
+        </summary>
+        <div style="margin-top:12px;padding-left:4px">
+          ${whBlocks || '<div style="color:var(--rank3)">⚠ Нет привязанного склада</div>'}
+          <div style="margin-top:10px;font-size:11px;color:var(--text3)">📅 Мероприятий на неделе: ${v.upcoming_events_7d || 0}</div>
+          <div style="font-size:11px;color:var(--text3)">📈 Ориентир расхода бумаги: ~${(v.upcoming_events_7d || 0) * 25} шт <span style="opacity:.7">(оценка)</span></div>
+        </div>
+      </details>`;
+    }
+    let html = '<div class="section"><div class="section-title">📍 Площадки → склады → оборудование → остатки</div>';
+    for (const grp of groupByCity(withWh)) {
+      html += `<div style="font-size:11px;font-weight:600;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.4px">${esc(grp.city)}</div>`;
+      html += grp.venues.map(renderVenueCard).join('');
+    }
+    if (withoutWh.length) {
+      html += `<div style="font-size:11px;font-weight:600;color:var(--rank3);margin:18px 0 8px">⚠ Без склада — привяжите склад к площадке во вкладке «Склады»</div>`;
+      html += withoutWh.map(renderVenueCard).join('');
+    }
+    html += '</div>';
+    c.innerHTML = html;
+  } catch (e) {
+    c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+}
+
+function poStatusBadge(st) {
+  const cls = { draft: 'po-badge-draft', ordered: 'po-badge-ordered', delivered: 'po-badge-delivered', partial: 'po-badge-partial', cancelled: 'po-badge-cancelled' };
+  const lbl = { draft: 'Черновик', ordered: 'Заказано', delivered: 'Получено', partial: 'Частично', cancelled: 'Отмена' };
+  return `<span class="po-badge ${cls[st] || 'po-badge-draft'}">${lbl[st] || esc(st)}</span>`;
+}
+
+async function loadPurchaseOrders() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="loading">Загрузка закупок...</div>';
+  try {
+    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const list = await api('GET', '/purchase-orders?limit=100');
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title">🛒 Закупки
+          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openPoModal()">+ Новый заказ</button>` : ''}
+        </div>
+        ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Поставщик</th><th>Склад</th><th>Сумма</th><th>Поз.</th><th>Статус</th></tr></thead><tbody>
+        ${list.map(po => `<tr style="cursor:pointer" onclick="openPoDetail('${po.id}')">
+          <td style="font-size:11px">${po.order_date ? new Date(po.order_date).toLocaleDateString('ru-RU') : '—'}</td>
+          <td>${esc(po.supplier || '—')}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(po.warehouse_name || '')}</td>
+          <td style="font-weight:600">${(parseFloat(po.total_amount) || 0).toLocaleString('ru-RU')} ₽</td>
+          <td style="color:var(--text3)">${po.lines_count ?? '—'}</td>
+          <td>${poStatusBadge(po.status)}</td>
+        </tr>`).join('')}
+        </tbody></table></div>` : '<div style="color:var(--text3)">Нет заказов на закупку</div>'}
+      </div>`;
+  } catch (e) {
+    c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function openPoDetail(id) {
+  try {
+    const po = await api('GET', `/purchase-orders/${id}`);
+    document.getElementById('po-view-id').value = id;
+    document.getElementById('po-view-title').textContent = 'Заказ от ' + (po.order_date ? new Date(po.order_date).toLocaleDateString('ru-RU') : '');
+    document.getElementById('po-view-meta').innerHTML = `${poStatusBadge(po.status)} · ${esc(po.warehouse_name || '')} · ${esc(po.supplier || '—')}`;
+    const canDeliver = (can('tech_director') || can('exec_director') || can('admin')) && po.status !== 'delivered' && po.status !== 'cancelled';
+    document.getElementById('po-view-thead').innerHTML = canDeliver
+      ? '<th>Позиция</th><th>Заказ</th><th>Цена</th><th>Принять</th>'
+      : '<th>Позиция</th><th>Заказ</th><th>Цена</th>';
+    document.getElementById('po-view-footer').style.display = canDeliver ? 'flex' : 'none';
+    const lines = po.lines || [];
+    document.getElementById('po-view-lines').innerHTML = lines.map(l => {
+      const recvCell = canDeliver
+        ? `<td><input class="fin" type="number" min="0" step="0.01" id="po-recv-${l.id}" value="${l.quantity}" style="width:72px;font-size:11px"/></td>`
+        : '';
+      return `<tr>
+        <td>${esc(l.item_name)}</td>
+        <td>${l.quantity} ${esc(l.unit || '')}</td>
+        <td style="color:var(--text3)">${(parseFloat(l.unit_price) || 0).toLocaleString('ru-RU')} ₽</td>
+        ${recvCell}
+      </tr>`;
+    }).join('');
+    document.getElementById('po-view-modal').classList.add('open');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function submitPoDeliver() {
+  const id = document.getElementById('po-view-id').value;
+  if (!id) return;
+  try {
+    const po = await api('GET', `/purchase-orders/${id}`);
+    const received_lines = (po.lines || []).map(l => {
+      const el = document.getElementById('po-recv-' + l.id);
+      const q = el ? parseFloat(el.value) : NaN;
+      const received_qty = Number.isFinite(q) ? q : parseFloat(l.quantity);
+      return { line_id: l.id, received_qty };
+    }).filter(r => r.received_qty > 0);
+    if (!received_lines.length) { showToast('Укажите принятые количества', true); return; }
+    if (!confirm('Провести приёмку? Остатки на складе обновятся.')) return;
+    await api('POST', `/purchase-orders/${id}/deliver`, { received_lines });
+    safeCloseModal('po-view-modal');
+    showToast('Поставка принята');
+    loadSummary();
+    if (currentTabIdx === 4) loadPurchaseOrders();
+    if (currentTabIdx === 6) loadMovements();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function loadStockTransfers() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="loading">Загрузка перемещений...</div>';
+  try {
+    const canManage = can('tech_director') || can('hr_manager') || can('exec_director') || can('admin');
+    const canCancel = can('tech_director') || can('exec_director') || can('admin');
+    const list = await api('GET', '/stock-transfers?limit=100');
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title">🔄 Перемещения между складами
+          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openTrModal()">+ Новое</button>` : ''}
+        </div>
+        ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th><th></th></tr></thead><tbody>
+        ${list.map(tr => `<tr>
+          <td style="font-size:11px">${tr.created_at ? new Date(tr.created_at).toLocaleDateString('ru-RU') : '—'}</td>
+          <td>${esc(tr.from_warehouse_name)}</td>
+          <td>${esc(tr.to_warehouse_name)}</td>
+          <td style="color:var(--text3)">${tr.lines_count ?? '—'}</td>
+          <td>${esc(tr.status)}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(tr.requested_by_name || '—')}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(tr.confirmed_by_name || '—')}</td>
+          <td style="white-space:nowrap">
+            ${canManage && tr.status === 'pending' ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank1)" onclick="event.stopPropagation();confirmTransfer('${tr.id}')">Подтвердить</button>` : ''}
+            ${canCancel && tr.status === 'pending' ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="event.stopPropagation();cancelTransfer('${tr.id}')">Отменить</button>` : ''}
+          </td>
+        </tr>`).join('')}
+        </tbody></table></div>` : '<div style="color:var(--text3)">Нет заявок на перемещение</div>'}
+      </div>`;
+  } catch (e) {
+    c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function cancelTransfer(id) {
+  if (!confirm('Отменить перемещение?')) return;
+  try {
+    await api('POST', `/stock-transfers/${id}/cancel`);
+    showToast('Перемещение отменено');
+    loadStockTransfers(); loadSummary();
+  } catch (e) { showToast(e.message, true); }
+}
 
 async function loadAlertsBadge() {
   try {
@@ -504,6 +781,11 @@ async function loadWarehouses() {
         </div>` : '<div style="color:var(--text3)">Нет складов. Создайте первый.</div>'}
       </div>`;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function openWhModalById(id) {
+  const wh = warehouses.find(w => w.id === id);
+  if (wh) openWhModal(wh);
 }
 
 function openWhModal(wh) {
@@ -579,8 +861,9 @@ async function openWhDrawer(id) {
       ${wh.notes ? `<div class="info-row"><span class="info-label">Заметки</span><span style="color:var(--text2)">${esc(wh.notes)}</span></div>` : ''}
       <div style="margin-top:16px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Остатки (${stock.length})</div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Мин.</th><th></th></tr></thead><tbody>${stockRows}</tbody></table></div>
-      ${canEdit ? `<div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn btn-ghost" style="flex:1;font-size:12px" onclick="openWhModal(${JSON.stringify(wh).replace(/"/g,'&quot;')})">✏️ Редактировать</button>
+      ${canEdit ? `<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="flex:1;font-size:12px;min-width:120px" onclick="openWhModalById('${wh.id}')">✏️ Редактировать</button>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="startInventoryForWarehouse('${wh.id}')">📊 Инвентаризация</button>
         <button class="btn btn-ghost" style="font-size:12px;border-color:var(--rank3);color:var(--rank3)" onclick="deactivateWarehouse('${wh.id}')">Деактивировать</button>
       </div>` : ''}
     `;
@@ -742,7 +1025,8 @@ async function savePurchaseOrder() {
     const n = row.id.split('-')[2];
     const item_id = document.getElementById(`po-item-${n}`)?.value;
     const qty = parseFloat(document.getElementById(`po-qty-${n}`)?.value);
-    const price = parseFloat(document.getElementById(`po-price-${n}`)?.value) || 0;
+    let price = parseFloat(document.getElementById(`po-price-${n}`)?.value);
+    if (!Number.isFinite(price) || price <= 0) price = 1;
     if (item_id && qty > 0) lines.push({ item_id, quantity: qty, unit_price: price });
   });
   if (!lines.length) { showToast('Добавьте хотя бы одну позицию', true); return; }
@@ -757,7 +1041,9 @@ async function savePurchaseOrder() {
     });
     document.getElementById('po-modal').classList.remove('open');
     showToast('Закупка создана');
-    loadMovements();
+    if (currentTabIdx === 4) loadPurchaseOrders();
+    if (currentTabIdx === 6) loadMovements();
+    loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
 
@@ -808,16 +1094,9 @@ async function saveTransfer() {
     });
     document.getElementById('tr-modal').classList.remove('open');
     showToast('Перемещение создано');
-    loadMovements();
-  } catch(e) { showToast(e.message, true); }
-}
-
-async function deliverPurchaseOrder(id) {
-  if (!confirm('Провести приход по закупке? Остатки на складе будут обновлены.')) return;
-  try {
-    await api('POST', `/purchase-orders/${id}/deliver`);
-    showToast('Приход проведён, остатки обновлены');
-    loadMovements(); loadSummary();
+    if (currentTabIdx === 5) loadStockTransfers();
+    if (currentTabIdx === 6) loadMovements();
+    loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
 
@@ -826,7 +1105,9 @@ async function confirmTransfer(id) {
   try {
     await api('POST', `/stock-transfers/${id}/confirm`);
     showToast('Перемещение подтверждено');
-    loadMovements(); loadSummary();
+    if (currentTabIdx === 5) loadStockTransfers();
+    if (currentTabIdx === 6) loadMovements();
+    loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
 
@@ -835,23 +1116,19 @@ async function loadMovements() {
     const c = document.getElementById('content');
     c.innerHTML = `<div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>`;
     const canManage = can('tech_director') || can('exec_director') || can('admin');
-    const [moves, purchases, transfers] = await Promise.all([
-      api('GET', '/stock-movements?limit=50'),
-      api('GET', '/purchase-orders?limit=20').catch(() => []),
-      api('GET', '/stock-transfers?limit=20').catch(() => []),
-    ]);
+    const moves = await api('GET', '/stock-movements?limit=80');
     const TYPE_LABELS = { purchase: '📥 Закупка', transfer: '🔄 Перемещение', writeoff: '📤 Списание', adjustment: '📝 Корректировка', report_writeoff: '📊 По отчёту' };
-    const STATUS_LABELS = { draft: 'Черновик', ordered: 'Заказано', delivered: '✅ Получено', cancelled: '❌ Отменено', pending: '⏳ Ожидает', confirmed: '✅ Подтверждено' };
 
     c.innerHTML = `
       <div class="section" style="margin-bottom:12px">
-        <div class="section-title">🔄 Движения
-          ${canManage ? `<div style="margin-left:auto;display:flex;gap:6px">
-            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openMoveModal()">+ Ручное</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openTrModal()">🔄 Перемещение</button>
-            <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="openPoModal()">📥 Закупка</button>
+        <div class="section-title">📊 Журнал движений
+          ${canManage ? `<div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Ручное движение</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(5)">К перемещениям</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(4)">К закупкам</button>
           </div>` : ''}
         </div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Заказы на закупку и трансферы ведутся во вкладках «Закупки» и «Перемещения»; здесь — фактические движения по складу.</p>
         <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Цена</th><th>Кто</th></tr></thead><tbody>
         ${moves.map(m=>`<tr>
           <td style="font-size:11px;color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
@@ -865,61 +1142,137 @@ async function loadMovements() {
         </tr>`).join('')}
         </tbody></table></div>
       </div>
-
-      ${purchases.length ? `<div class="section">
-        <div class="section-title">📦 Закупки</div>
-        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Поставщик</th><th>Склад</th><th>Сумма</th><th>Позиций</th><th>Статус</th><th></th></tr></thead><tbody>
-        ${purchases.map(po=>`<tr>
-          <td style="font-size:11px">${new Date(po.order_date).toLocaleDateString('ru-RU')}</td>
-          <td>${esc(po.supplier||'—')}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(po.warehouse_name)}</td>
-          <td style="font-weight:600">${po.total_amount?.toLocaleString('ru-RU')||0} ₽</td>
-          <td style="color:var(--text3)">${po.lines_count}</td>
-          <td><span style="font-size:11px">${STATUS_LABELS[po.status]||po.status}</span></td>
-          <td>${canManage && po.status !== 'delivered' && po.status !== 'cancelled' ?
-            `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank1)" onclick="deliverPurchaseOrder('${po.id}')">Провести</button>` : ''
-          }</td>
-        </tr>`).join('')}
-        </tbody></table></div>
-      </div>` : ''}
-
-      ${transfers.length ? `<div class="section">
-        <div class="section-title">🔄 Перемещения</div>
-        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Откуда</th><th>Куда</th><th>Позиций</th><th>Статус</th><th></th></tr></thead><tbody>
-        ${transfers.map(tr=>`<tr>
-          <td style="font-size:11px">${new Date(tr.created_at).toLocaleDateString('ru-RU')}</td>
-          <td>${esc(tr.from_warehouse_name)}</td>
-          <td>${esc(tr.to_warehouse_name)}</td>
-          <td style="color:var(--text3)">${tr.lines_count}</td>
-          <td><span style="font-size:11px">${STATUS_LABELS[tr.status]||tr.status}</span></td>
-          <td>${canManage && tr.status === 'pending' ?
-            `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank1)" onclick="confirmTransfer('${tr.id}')">Подтвердить</button>` : ''
-          }</td>
-        </tr>`).join('')}
-        </tbody></table></div>
-      </div>` : ''}
     `;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
 
+let forecastCityFilter = '';
+let forecastDays = 7;
+
 async function loadDeficit(){
   try{
-    const data=await api('GET','/stock/deficit');
     const c=document.getElementById('content');
+    c.innerHTML='<div class="loading">Загрузка...</div>';
+    const [data, fcData, vens] = await Promise.all([
+      api('GET','/stock/deficit'),
+      api('GET', '/stock/forecast?days=' + encodeURIComponent(forecastDays) + (forecastCityFilter ? '&city=' + encodeURIComponent(forecastCityFilter) : '')).catch(() => ({ days: forecastDays, forecast: [] })),
+      api('GET', '/venues').catch(() => []),
+    ]);
+    const cities = [...new Set((vens || []).map(v => v.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+    const fcRows = fcData.forecast || [];
+    lastForecastRows = fcRows;
+    const fcTable = fcRows.length ? `<div class="table-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Меропр.</th><th>Прогноз</th><th>Останется</th><th>Статус</th></tr></thead><tbody>
+      ${fcRows.map(r => {
+        const st = r.status === 'critical' ? '🔴' : r.status === 'warning' ? '⚠' : '✅';
+        return `<tr>
+          <td>${esc(r.item_name)}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name)}</td>
+          <td>${r.current_qty}</td>
+          <td>${r.avg_daily}</td>
+          <td style="color:var(--text3)">${r.upcoming_events}</td>
+          <td>${r.projected_consumption}</td>
+          <td style="font-weight:600;color:${r.remaining_after <= 0 ? 'var(--rank3)' : r.status === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${r.remaining_after}</td>
+          <td>${st}</td>
+        </tr>`;
+      }).join('')}
+    </tbody></table></div>` : '<div style="color:var(--text3);margin-top:8px">Нет данных для прогноза</div>';
+    const canPo = can('tech_director') || can('exec_director') || can('admin');
     c.innerHTML=`<div class="section">
-      <div class="section-title">⚠️ Прогноз дефицита</div>
-      ${data.length?`<div class="table-wrap"><table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
+      <div class="section-title">⚠ Дефицит и прогноз</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Прогноз на период</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
+        <div class="field" style="margin:0;min-width:140px"><div class="fl">Период</div>
+          <select class="fselect" id="fc-days-preset" onchange="onForecastPresetChange()">
+            <option value="7" ${forecastDays===7?'selected':''}>7 дней</option>
+            <option value="14" ${forecastDays===14?'selected':''}>14 дней</option>
+            <option value="30" ${forecastDays===30?'selected':''}>30 дней</option>
+            <option value="custom" ${![7,14,30].includes(forecastDays)?'selected':''}>Свой</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;min-width:72px;display:${![7,14,30].includes(forecastDays)?'block':'none'}" id="fc-days-custom-wrap"><div class="fl">Дней</div>
+          <input class="fin" type="number" id="fc-days-input" min="1" max="365" value="${forecastDays}" style="width:72px"/>
+        </div>
+        <div class="field" style="margin:0;min-width:160px"><div class="fl">Город</div>
+          <select class="fselect" id="fc-city">
+            <option value="">Все</option>
+            ${cities.map(ct => `<option value="${esc(ct)}" ${forecastCityFilter===ct?'selected':''}>${esc(ct)}</option>`).join('')}
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="applyForecastFilters()">Обновить</button>
+        ${canPo ? `<button type="button" class="btn btn-ghost" style="font-size:12px" onclick="openPoFromForecast()">Создать заявку на закупку</button>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--text3)">Период: <b>${fcData.days || forecastDays}</b> дн. Прогноз расхода = средний расход/день (30 дн.) × дни.</div>
+      ${fcTable}
+      <div style="margin-top:20px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Текущий дефицит и запас по дням</div>
+      ${data.length?`<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>Товар</th><th>Склад</th><th>Остаток</th><th>Расход/день</th><th>Меропр. 7д</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
       ${data.map(d=>`<tr>
         <td>${esc(d.item_name)}</td>
         <td>${esc(d.warehouse_name)}</td>
         <td>${d.quantity}</td>
         <td>${d.avg_daily_consumption||'0'}</td>
+        <td style="color:var(--text3)">${d.upcoming_events_7d ?? '—'}</td>
         <td style="font-weight:600;color:${d.status==='critical'?'var(--rank3)':d.status==='warning'?'var(--rank2)':'var(--text)'}">${d.days_remaining!==null?d.days_remaining+'д':'∞'}</td>
         <td><span class="status-${d.status==='critical'?'crit':d.status==='warning'?'warn':'ok'}">${d.status==='critical'?'🔴 Критично':d.status==='warning'?'🟡 Скоро':'🟢 Норма'}</span></td>
       </tr>`).join('')}
-      </tbody></table></div>`:'<div style="color:var(--text3)">Нет данных о расходниках</div>'}
+      </tbody></table></div>`:'<div style="color:var(--text3);margin-top:8px">Нет данных о расходниках</div>'}
     </div>`;
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+function onForecastPresetChange() {
+  const pr = document.getElementById('fc-days-preset').value;
+  const cw = document.getElementById('fc-days-custom-wrap');
+  if (cw) cw.style.display = pr === 'custom' ? 'block' : 'none';
+}
+
+function applyForecastFilters() {
+  const pr = document.getElementById('fc-days-preset')?.value || '7';
+  forecastDays = pr === 'custom'
+    ? Math.min(365, Math.max(1, parseInt(document.getElementById('fc-days-input')?.value, 10) || 7))
+    : parseInt(pr, 10) || 7;
+  forecastCityFilter = document.getElementById('fc-city')?.value || '';
+  loadDeficit();
+}
+
+async function openPoFromForecast() {
+  try {
+    const fcData = await api('GET', '/stock/forecast?days=' + encodeURIComponent(forecastDays) + (forecastCityFilter ? '&city=' + encodeURIComponent(forecastCityFilter) : ''));
+    const rows = fcData.forecast || [];
+    const needRaw = rows.filter(r => r.status !== 'ok' && r.need_to_order > 0);
+    if (!needRaw.length) { showToast('Нет позиций в дефиците по прогнозу', true); return; }
+    const whId = needRaw[0].warehouse_id;
+    const need = needRaw.filter(r => r.warehouse_id === whId);
+    if (needRaw.length > need.length) {
+      showToast('В заявку включены позиции одного склада: ' + (need[0].warehouse_name || whId).toString().slice(0, 40), false);
+    }
+    poLineCount = 0;
+    document.getElementById('po-lines').innerHTML = '';
+    document.getElementById('po-supplier').value = '';
+    document.getElementById('po-notes').value = 'Из прогноза дефицита';
+    document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('po-delivery').value = '';
+    document.getElementById('po-total').textContent = '0 ₽';
+    const whSel = document.getElementById('po-warehouse');
+    whSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    if (whId) whSel.value = whId;
+    need.forEach(row => {
+      addPoLine();
+      const nodes = document.querySelectorAll('#po-lines [id^="po-line-"]');
+      const lastRow = nodes[nodes.length - 1];
+      if (!lastRow) return;
+      const n = lastRow.id.split('-')[2];
+      const sel = document.getElementById('po-item-' + n);
+      if (sel) sel.value = row.item_id;
+      const q = document.getElementById('po-qty-' + n);
+      if (q) q.value = row.need_to_order;
+      const priceInp = document.getElementById('po-price-' + n);
+      const it = items.find(i => i.id === row.item_id);
+      const p = parseFloat(it?.last_purchase_price);
+      if (priceInp) priceInp.value = Number.isFinite(p) && p > 0 ? p : 1;
+    });
+    updatePoTotal();
+    document.getElementById('po-modal').classList.add('open');
+  } catch (e) { showToast(e.message, true); }
 }
 
 async function loadEquipment() {
@@ -938,7 +1291,7 @@ async function loadEquipment() {
           ${equip.map(e => {
             const st = STATUS[e.status] || { label: e.status, color: 'var(--text2)' };
             const resourcePct = e.resource_limit && e.total_printed != null ? Math.min(100, Math.round((parseFloat(e.total_printed) || 0) / parseFloat(e.resource_limit) * 100)) : null;
-            const resourceColor = resourcePct == null ? '' : resourcePct > 80 ? 'var(--rank3)' : resourcePct > 50 ? 'var(--rank2)' : 'var(--rank1)';
+            const resourceColor = resourcePct == null ? '' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
             return `<div class="wh-card" onclick="openEqDrawer('${e.id}')">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
                 <span style="font-size:20px">🖨</span>
@@ -953,11 +1306,59 @@ async function loadEquipment() {
                   <div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:2px;transition:width .3s"></div>
                 </div>
               </div>` : ''}
+              <button type="button" class="btn btn-ghost" style="width:100%;margin-top:8px;font-size:11px;padding:4px 8px" onclick="event.stopPropagation();openEqHistoryModal('${e.id}')">📊 История счётчиков</button>
             </div>`;
           }).join('')}
         </div>` : '<div style="color:var(--text3)">Нет оборудования</div>'}
       </div>`;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function openEqHistoryModal(unitId) {
+  document.getElementById('eq-history-title').textContent = 'История счётчиков';
+  document.getElementById('eq-history-body').innerHTML = '<tr><td colspan="5" style="color:var(--text3)">Загрузка...</td></tr>';
+  document.getElementById('eq-history-chart').innerHTML = '';
+  document.getElementById('eq-history-forecast').textContent = '';
+  document.getElementById('eq-history-modal').classList.add('open');
+  try {
+    const hist = await api('GET', `/equipment/${unitId}/counter-history?limit=120`);
+    const eq = equipmentListCache.find(x => x.id === unitId);
+    if (eq) document.getElementById('eq-history-title').textContent = 'Счётчики: ' + (eq.item_name || '') + (eq.serial_number ? ' · ' + eq.serial_number : '');
+    const logs = hist.logs || [];
+    const byDay = {};
+    for (const l of logs) {
+      const d = (l.log_date || '').toString().slice(0, 10);
+      if (!d) continue;
+      byDay[d] = (byDay[d] || 0) + parseFloat(l.printed_qty || 0);
+    }
+    const days = Object.keys(byDay).sort();
+    const maxV = Math.max(1, ...Object.values(byDay));
+    document.getElementById('eq-history-chart').innerHTML = days.length ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Напечатано по дням (из журнала)</div>` + days.map(d => {
+      const v = byDay[d];
+      const pct = Math.round((v / maxV) * 100);
+      return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px"><span>${d}</span><span style="color:var(--text2)">${v.toLocaleString('ru-RU')} шт</span></div><div style="height:6px;background:var(--border);border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px"></div></div></div>`;
+    }).join('') : '<div style="color:var(--text3);font-size:12px">Недостаточно точек для графика</div>';
+
+    if (hist.forecast) {
+      const f = hist.forecast;
+      document.getElementById('eq-history-forecast').innerHTML = `<b>Прогноз замены:</b> среднее ${f.avg_daily} отпеч./день · остаток ресурса ${f.remaining_resource?.toLocaleString('ru-RU') ?? '—'} · износ ${f.resource_pct}%${f.days_until_replacement != null ? ` · ~${f.days_until_replacement} дн. до исчерпания` : ''}`;
+    } else {
+      document.getElementById('eq-history-forecast').innerHTML = 'Прогноз доступен при лимите ресурса и ≥2 записях в журнале.';
+    }
+
+    document.getElementById('eq-history-body').innerHTML = logs.length ? logs.map(l => {
+      const repLink = l.report_id ? `<a href="venue.html" style="color:var(--accent2);text-decoration:underline" title="Отчёты">#${String(l.report_id).slice(0, 8)}</a>` : '—';
+      return `<tr>
+        <td style="font-size:11px">${l.log_date ? new Date(l.log_date).toLocaleDateString('ru-RU') : '—'}</td>
+        <td style="font-size:11px">${repLink}</td>
+        <td style="font-size:11px;color:var(--text3)">${esc(l.format || '')}</td>
+        <td style="font-family:monospace;font-size:11px">${l.counter_start} → ${l.counter_end}</td>
+        <td style="font-weight:600;color:var(--rank1)">${l.printed_qty}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="5" style="color:var(--text3)">Нет записей</td></tr>';
+  } catch (e) {
+    document.getElementById('eq-history-body').innerHTML = `<tr><td colspan="5" style="color:var(--rank3)">${esc(e.message)}</td></tr>`;
+  }
 }
 
 // ── БЛОК 4: Оборудование ──
@@ -1028,7 +1429,7 @@ async function openEqDrawer(id) {
   try {
     const [equip_list, history] = await Promise.all([
       api('GET', '/equipment'),
-      api('GET', `/equipment/${id}/counter-history?limit=20`),
+      api('GET', `/equipment/${id}/counter-history?limit=60`),
     ]);
     equipmentListCache = equip_list;
     const eq = equip_list.find(e => e.id === id);
@@ -1038,6 +1439,7 @@ async function openEqDrawer(id) {
     const STATUS = { active: '🟢 Активно', repair: '🟡 В ремонте', written_off: '⚫ Списано', lost: '🔴 Утеряно' };
     const totalP = history.total_printed != null ? parseFloat(history.total_printed) : 0;
     const resourcePct = eq.resource_limit && totalP >= 0 ? Math.min(100, Math.round(totalP / parseFloat(eq.resource_limit) * 100)) : null;
+    const resourceBarColor = resourcePct == null ? 'var(--rank1)' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
     const counterRows = history.logs?.length
       ? history.logs.map(l => `<tr>
           <td style="font-size:11px">${new Date(l.log_date).toLocaleDateString('ru-RU')}</td>
@@ -1061,10 +1463,12 @@ async function openEqDrawer(id) {
           <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ресурс принтера</div>
           <div style="font-size:14px;font-weight:600;margin-bottom:6px">${totalP.toLocaleString('ru-RU')} / ${parseFloat(eq.resource_limit).toLocaleString('ru-RU')} отпечатков</div>
           <div style="height:6px;background:var(--border);border-radius:3px">
-            <div style="height:100%;width:${resourcePct}%;background:${resourcePct > 80 ? 'var(--rank3)' : resourcePct > 50 ? 'var(--rank2)' : 'var(--rank1)'};border-radius:3px"></div>
+            <div style="height:100%;width:${resourcePct}%;background:${resourceBarColor};border-radius:3px"></div>
           </div>
           <div style="font-size:11px;color:var(--text3);margin-top:4px">${resourcePct}% использовано</div>
+          ${history.forecast ? `<div style="font-size:11px;color:var(--text2);margin-top:8px">Прогноз: ~${history.forecast.avg_daily} отпеч./день · ${history.forecast.days_until_replacement != null ? '≈ ' + history.forecast.days_until_replacement + ' дн. до исчерпания' : '—'}</div>` : ''}
         </div>` : ''}
+      <div style="margin-top:10px"><button type="button" class="btn btn-ghost" style="width:100%;font-size:12px" onclick="event.stopPropagation();openEqHistoryModal('${eq.id}')">📊 История счётчиков</button></div>
       ${eq.service_notes ? `<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2)">${esc(eq.service_notes)}</div>` : ''}
       <div style="margin-top:16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">История счётчиков</div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Формат</th><th>Счётчики</th><th>Напечатано</th><th>Площадка</th></tr></thead>
@@ -1115,6 +1519,16 @@ async function loadInventory() {
         </table></div>` : '<div style="color:var(--text3)">Нет инвентаризаций</div>'}
       </div>`;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function startInventoryForWarehouse(warehouseId) {
+  try {
+    const sess = await api('POST', '/inventory-sessions', { warehouse_id: warehouseId });
+    showToast('Инвентаризация открыта');
+    closeWhDrawer();
+    await openInvSession(sess.id);
+    loadSummary();
+  } catch (e) { showToast(e.message, true); }
 }
 
 async function openNewInvSession() {
