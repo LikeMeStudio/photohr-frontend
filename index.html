@@ -158,6 +158,19 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .vp-can{background:rgba(144,144,168,.1);color:var(--text2);border:1px solid var(--border)}
 .vp-dis{background:rgba(242,85,85,.1);color:var(--rank3);border:1px solid rgba(242,85,85,.25)}
 
+.venue-city-heading{font-size:11px;font-weight:600;color:var(--text2);margin:10px 0 6px;padding:0 2px}
+.venue-city-heading:first-child{margin-top:0}
+.venue-cat-sub{font-size:10px;color:var(--text3);margin:4px 0 2px;padding:0 2px}
+.venue-sq{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:18px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;padding:0 4px;margin-right:8px;vertical-align:middle}
+.venue-drag{padding:6px 8px;margin-bottom:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.3}
+.venue-admin-row{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s}
+.venue-admin-row:hover{border-color:var(--accent2)}
+.venue-acc{margin-top:8px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.venue-acc-h{width:100%;text-align:left;padding:8px 12px;background:var(--bg3);border:none;color:var(--text);font-size:11px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:'Golos Text',sans-serif}
+.venue-acc-b{display:none;padding:10px 12px;border-top:1px solid var(--border);font-size:12px}
+.venue-acc.open .venue-acc-b{display:block}
+.venue-json{width:100%;min-height:120px;font-family:ui-monospace,monospace;font-size:11px;line-height:1.35}
+
 .comment-preview{background:var(--bg3);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.5;margin-top:10px;border-left:2px solid var(--accent)}
 .no-comment{font-size:11px;color:var(--text3);margin-top:8px;font-style:italic}
 .comment-count{font-size:11px;color:var(--text3);margin-top:4px}
@@ -762,7 +775,7 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
 
 <!-- Модалка архивного пользователя / редактирования площадки -->
 <div class="overlay" id="archived-user-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal" style="max-height:90vh;display:flex;flex-direction:column">
+<div class="modal" style="max-width:min(720px,96vw);width:100%;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">
   <div class="modal-title"><span id="aux-modal-title">Архивный пользователь</span><button class="dr-close" onclick="document.getElementById('archived-user-modal').classList.remove('open')">×</button></div>
   <div id="archived-user-content" style="flex:1;overflow-y:auto;padding-right:4px"></div>
 </div>
@@ -897,6 +910,19 @@ const ROLES = {
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (roles) => roles.includes(roleNow());
 const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
+function normalizeVenueDisplayColor(c){
+  const s=String(c==null?'':c).trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  if(/^#[0-9a-fA-F]{3}$/.test(s)) return '#'+s.slice(1).split('').map(ch=>ch+ch).join('').toLowerCase();
+  return '';
+}
+function venueHashHue(id){let hi=0;const sid=String(id||'0');for(let i=0;i<sid.length;i++)hi=(hi*31+sid.charCodeAt(i))>>>0;return hi;}
+function venuePickColor(v){return normalizeVenueDisplayColor(v?.display_color)||VENUE_COLORS[venueHashHue(v?.id)%VENUE_COLORS.length];}
+function venueShortLabel(v){return (v?.short_name!=null&&String(v.short_name).trim()!=='')?String(v.short_name).trim():String(v?.name||'').slice(0,3)||'?';}
+function normalizeCfgVenueIx(cfg){if(typeof cfg==='string'){try{cfg=JSON.parse(cfg);}catch{cfg=null;}}return(cfg&&typeof cfg==='object')?cfg:null;}
+function venueJsonPretty(val){const o=normalizeCfgVenueIx(val);try{return JSON.stringify(o==null?{}:o,null,2);}catch{return'{}';}}
+function safeTextareaContent(s){return String(s==null?'':s).replace(/<\/textarea/gi,'<\\/textarea');}
 const canEditCard = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin','site_specialist']);
 const canManageComments = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
 const canPassport = () => currentUser?.role === 'admin' || currentUser?.role === 'hr_director';
@@ -4223,113 +4249,283 @@ async function permanentDeleteUser(id, name){
 
 function renderAdminVenues(){
   const content = document.getElementById('tab-content');
-
-  // Группируем по категории
-  const grouped = {};
-  const noCategory = [];
+  const canAdd = can('hr_director');
+  const byCity = {};
   venues.forEach(v => {
-    const cat = v.category || '';
-    if (!cat) { noCategory.push(v); return; }
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(v);
+    const c = (v.city || '').trim() || 'Без города';
+    if (!byCity[c]) byCity[c] = [];
+    byCity[c].push(v);
   });
-
-  const sortedCats = Object.keys(grouped).sort();
-
-  const renderVenue = (v) => `
-    <div class="user-row ${!v.is_active?'inactive-row':''}" style="cursor:pointer" onclick="openEditVenue('${v.id}')">
-      <div style="flex:1">
-        <div class="user-row-name">${esc(v.name)}</div>
-        <div class="user-row-email">${v.city||''} ${!v.is_active?'· <span style="color:var(--rank3)">скрыта</span>':''}</div>
-      </div>
-      <span style="font-size:18px;color:var(--text3)">›</span>
-    </div>`;
-
-  content.innerHTML = `
-    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewVenueModal()">+ Добавить площадку</button>
-    ${sortedCats.map(cat => `
-      <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-          📁 ${cat} <span style="color:var(--text3);font-weight:400">(${grouped[cat].length})</span>
-        </div>
-        ${grouped[cat].map(renderVenue).join('')}
-      </div>
-    `).join('')}
-    ${noCategory.length ? `
-      <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--text3);margin-bottom:8px">
-          Без категории (${noCategory.length})
-        </div>
-        ${noCategory.map(renderVenue).join('')}
-      </div>
-    ` : ''}
-  `;
+  const cityOrder = Object.keys(byCity).sort((a, b) => a.localeCompare(b, 'ru'));
+  let html = '';
+  if (canAdd) {
+    html += `<button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewVenueModal()">+ Добавить площадку</button>`;
+  }
+  cityOrder.forEach(cty => {
+    html += `<div class="venue-city-heading">${esc(cty)}</div>`;
+    const grp = {};
+    byCity[cty].forEach(v => {
+      const cat = v.category || '—';
+      if (!grp[cat]) grp[cat] = [];
+      grp[cat].push(v);
+    });
+    Object.keys(grp).sort((a, b) => a.localeCompare(b, 'ru')).forEach(cat => {
+      html += `<div class="venue-cat-sub">${esc(cat)}</div>`;
+      grp[cat].forEach(v => {
+        const color = venuePickColor(v);
+        const shortName = esc(venueShortLabel(v));
+        const active = v.is_active !== false;
+        html += `<div class="venue-admin-row" onclick="openEditVenue('${v.id}')">
+          <span class="venue-sq" style="background:${color}">${shortName}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500">${esc(v.name)}</div>
+            <div style="font-size:10px;color:var(--text3)">${esc(cty)} · ${esc(cat)}${!active ? ' · скрыта' : ''}</div>
+          </div>
+          <span style="font-size:18px;color:var(--text3)">›</span>
+        </div>`;
+      });
+    });
+  });
+  content.innerHTML = html || '<div style="color:var(--text3)">Нет площадок</div>';
 }
 
-function openEditVenue(vid){
-  const v = venues.find(x=>x.id===vid);
-  if(!v) return;
+function venueAccToggle(btn){
+  const acc = btn.closest('.venue-acc');
+  if (acc) acc.classList.toggle('open');
+}
 
-  const cities = [...new Set(venues.map(x=>x.city).filter(Boolean))].sort();
-  const cats = [...new Set(venues.map(x=>x.category).filter(Boolean))].sort();
+async function openEditVenue(vid){
+  const v = venues.find(x => x.id === vid);
+  if (!v) return;
+  const fullEdit = can('hr_director');
+  const d = fullEdit ? '' : ' disabled';
+  let whLinked = [];
+  try {
+    const whAll = await api('GET', '/warehouses');
+    whLinked = (whAll || []).filter(w => String(w.venue_id) === String(vid) && w.is_active !== false);
+  } catch (e) { whLinked = []; }
 
-  const modal = document.getElementById('archived-user-modal');
-  document.getElementById('aux-modal-title').textContent = 'Редактировать площадку';
-
+  const cities = [...new Set(venues.map(x => x.city).filter(Boolean))].sort();
+  const cats = [...new Set(venues.map(x => x.category).filter(Boolean))].sort();
   const cityOpts = '<option value="">— не выбрано —</option>'
-    + cities.map(c=>`<option value="${c}" ${c===v.city?'selected':''}>${c}</option>`).join('')
+    + cities.map(c => `<option value="${esc(c)}" ${c === v.city ? 'selected' : ''}>${esc(c)}</option>`).join('')
     + '<option value="__new__">+ Добавить новый</option>';
   const catOpts = '<option value="">— не выбрано —</option>'
-    + cats.map(c=>`<option value="${c}" ${c===v.category?'selected':''}>${c}</option>`).join('')
+    + cats.map(c => `<option value="${esc(c)}" ${c === v.category ? 'selected' : ''}>${esc(c)}</option>`).join('')
     + '<option value="__new__">+ Добавить новый</option>';
+
+  const dc = normalizeVenueDisplayColor(v.display_color) || venuePickColor(v);
+  const pr = Number(v.priority_level ?? 2);
+  const diff = String(v.difficulty || 'normal');
+  const vtype = String(v.venue_type || 'permanent');
+  const vtypeExtra = ['permanent', 'seasonal', 'popup'].includes(vtype) ? '' : `<option value="${esc(vtype)}" selected>${esc(vtype)}</option>`;
+  const whBlock = whLinked.length
+    ? whLinked.map(w => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">${esc(w.name)} <span style="color:var(--text3)">· ${esc(w.warehouse_type || '')}</span></div>`).join('')
+    : '<div style="color:var(--text3);font-size:12px">Нет активных складов с привязкой к этой площадке</div>';
+
+  const modal = document.getElementById('archived-user-modal');
+  document.getElementById('aux-modal-title').textContent = fullEdit ? 'Редактировать площадку' : 'Площадка (просмотр)';
 
   document.getElementById('archived-user-content').innerHTML = `
     <div style="padding:4px 0">
-      <div class="field" style="margin-bottom:14px">
-        <div class="fl">Название *</div>
-        <input class="fin" id="ev-name" value="${v.name}" placeholder="Название площадки"/>
-      </div>
-      <div style="display:flex;gap:12px;margin-bottom:14px">
-        <div class="field" style="flex:1">
-          <div class="fl">Город</div>
-          <select class="fselect" id="ev-city" onchange="toggleCustomField(this,'ev-city-custom')" style="width:100%">${cityOpts}</select>
-          <input class="fin" id="ev-city-custom" placeholder="Введите название города" style="display:none;margin-top:6px"/>
+      <div class="venue-acc open">
+        <button type="button" class="venue-acc-h" onclick="venueAccToggle(this)">Основное <span>▼</span></button>
+        <div class="venue-acc-b">
+          <div class="field" style="margin-bottom:12px">
+            <div class="fl">Название *</div>
+            <input class="fin" id="ev-name" value="${esc(v.name)}" placeholder="Название" ${d}/>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div class="field">
+              <div class="fl">Город</div>
+              <select class="fselect" id="ev-city" onchange="toggleCustomField(this,'ev-city-custom')" ${d}>${cityOpts}</select>
+              <input class="fin" id="ev-city-custom" placeholder="Новый город" style="display:none;margin-top:6px" ${d}/>
+            </div>
+            <div class="field">
+              <div class="fl">Категория</div>
+              <select class="fselect" id="ev-category" onchange="toggleCustomField(this,'ev-cat-custom')" ${d}>${catOpts}</select>
+              <input class="fin" id="ev-cat-custom" placeholder="Новая категория" style="display:none;margin-top:6px" ${d}/>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <div class="fl">Тип площадки</div>
+            <select class="fselect" id="ev-vtype" ${d}>
+              <option value="permanent" ${vtype === 'permanent' ? 'selected' : ''}>Постоянная</option>
+              <option value="seasonal" ${vtype === 'seasonal' ? 'selected' : ''}>Сезонная</option>
+              <option value="popup" ${vtype === 'popup' ? 'selected' : ''}>Временная / popup</option>
+              ${vtypeExtra}
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <input type="checkbox" id="ev-active" ${v.is_active !== false ? 'checked' : ''} style="cursor:pointer" ${d}/>
+            <label for="ev-active" style="font-size:13px;cursor:pointer">Активна</label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field">
+              <div class="fl">Аббревиатура (VCH)</div>
+              <input class="fin" id="ev-short" value="${esc(v.short_name != null ? v.short_name : '')}" placeholder="?" ${d}/>
+            </div>
+            <div class="field">
+              <div class="fl">Цвет</div>
+              <input type="color" id="ev-dcolor" value="${esc(dc)}" ${d}/>
+            </div>
+            <div class="field">
+              <div class="fl">Порядок сортировки</div>
+              <input class="fin" id="ev-sort" type="number" value="${Number(v.sort_order ?? 0)}" ${d}/>
+            </div>
+            <div class="field">
+              <div class="fl">Приоритет</div>
+              <select class="fselect" id="ev-priority" ${d}>
+                <option value="1" ${pr === 1 ? 'selected' : ''}>1 · высокий</option>
+                <option value="2" ${pr === 2 ? 'selected' : ''}>2 · стандарт</option>
+                <option value="3" ${pr === 3 ? 'selected' : ''}>3 · низкий</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <div class="fl">Тяжёлость</div>
+              <select class="fselect" id="ev-difficulty" ${d}>
+                <option value="easy" ${diff === 'easy' ? 'selected' : ''}>Лёгкая</option>
+                <option value="normal" ${diff === 'normal' ? 'selected' : ''}>Обычная</option>
+                <option value="hard" ${diff === 'hard' ? 'selected' : ''}>Сложная</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="field" style="flex:1">
-          <div class="fl">Категория</div>
-          <select class="fselect" id="ev-category" onchange="toggleCustomField(this,'ev-cat-custom')" style="width:100%">${catOpts}</select>
-          <input class="fin" id="ev-cat-custom" placeholder="Введите название категории" style="display:none;margin-top:6px"/>
+      </div>
+      <div class="venue-acc">
+        <button type="button" class="venue-acc-h" onclick="venueAccToggle(this)">Адрес и гео <span>▼</span></button>
+        <div class="venue-acc-b">
+          <div class="field" style="margin-bottom:10px"><div class="fl">Адрес</div><input class="fin" id="ev-address" value="${esc(v.address || '')}" ${d}/></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><div class="fl">Широта</div><input class="fin" id="ev-lat" value="${v.latitude != null ? esc(String(v.latitude)) : ''}" placeholder="55.75" ${d}/></div>
+            <div class="field"><div class="fl">Долгота</div><input class="fin" id="ev-lng" value="${v.longitude != null ? esc(String(v.longitude)) : ''}" placeholder="37.62" ${d}/></div>
+            <div class="field"><div class="fl">Радиус чек-ина (м)</div><input class="fin" id="ev-checkin-r" type="number" value="${v.checkin_radius_m != null ? esc(String(v.checkin_radius_m)) : '200'}" ${d}/></div>
+            <div class="field"><div class="fl">Код чек-ина</div><input class="fin" id="ev-checkin-code" value="${esc(v.checkin_code || '')}" ${d}/></div>
+          </div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
-        <input type="checkbox" id="ev-active" ${v.is_active?'checked':''} style="cursor:pointer"/>
-        <label for="ev-active" style="font-size:14px;cursor:pointer">Активна (видна в системе)</label>
-      </div>
-      <div class="modal-footer" style="justify-content:space-between">
-        <button class="btn btn-danger" style="font-size:12px" onclick="deleteVenue('${v.id}','${v.name.replace(/'/g,"\\'")}')">Удалить площадку</button>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Отмена</button>
-          <button class="btn btn-primary" onclick="saveEditVenue('${v.id}')">Сохранить</button>
+      <div class="venue-acc">
+        <button type="button" class="venue-acc-h" onclick="venueAccToggle(this)">Описание <span>▼</span></button>
+        <div class="venue-acc-b">
+          <div class="field"><div class="fl">Описание</div><textarea class="fin" id="ev-desc" rows="3" ${d}>${safeTextareaContent(v.description || '')}</textarea></div>
+          <div class="field"><div class="fl">Контакты</div><textarea class="fin" id="ev-contact" rows="2" ${d}>${safeTextareaContent(v.contact_info || '')}</textarea></div>
         </div>
       </div>
-    </div>
-  `;
+      <div class="venue-acc">
+        <button type="button" class="venue-acc-h" onclick="venueAccToggle(this)">Расписание (JSON) <span>▼</span></button>
+        <div class="venue-acc-b">
+          <div class="field"><div class="fl">times_weekday</div><textarea class="fin venue-json" id="ev-json-times-wd" ${d}>${safeTextareaContent(venueJsonPretty(v.times_weekday))}</textarea></div>
+          <div class="field"><div class="fl">times_weekend</div><textarea class="fin venue-json" id="ev-json-times-we" ${d}>${safeTextareaContent(venueJsonPretty(v.times_weekend))}</textarea></div>
+          <div class="field"><div class="fl">times_holiday</div><textarea class="fin venue-json" id="ev-json-times-hol" ${d}>${safeTextareaContent(venueJsonPretty(v.times_holiday))}</textarea></div>
+          <div class="field"><div class="fl">staffing_min</div><textarea class="fin venue-json" id="ev-json-staff-min" ${d}>${safeTextareaContent(venueJsonPretty(v.staffing_min))}</textarea></div>
+          <div class="field"><div class="fl">staffing_max</div><textarea class="fin venue-json" id="ev-json-staff-max" ${d}>${safeTextareaContent(venueJsonPretty(v.staffing_max))}</textarea></div>
+          <div class="field"><div class="fl">staffing_weekday</div><textarea class="fin venue-json" id="ev-json-staff-wd" ${d}>${safeTextareaContent(venueJsonPretty(v.staffing_weekday))}</textarea></div>
+          <div class="field"><div class="fl">staffing_weekend</div><textarea class="fin venue-json" id="ev-json-staff-we" ${d}>${safeTextareaContent(venueJsonPretty(v.staffing_weekend))}</textarea></div>
+          <div class="field"><div class="fl">staffing_holiday</div><textarea class="fin venue-json" id="ev-json-staff-hol" ${d}>${safeTextareaContent(venueJsonPretty(v.staffing_holiday))}</textarea></div>
+          <div class="field"><div class="fl">default_shifts</div><textarea class="fin venue-json" id="ev-json-def" ${d}>${safeTextareaContent(venueJsonPretty(v.default_shifts))}</textarea></div>
+          <div class="field"><div class="fl">default_shifts_weekday</div><textarea class="fin venue-json" id="ev-json-def-wd" ${d}>${safeTextareaContent(venueJsonPretty(v.default_shifts_weekday))}</textarea></div>
+          <div class="field"><div class="fl">default_shifts_weekend</div><textarea class="fin venue-json" id="ev-json-def-we" ${d}>${safeTextareaContent(venueJsonPretty(v.default_shifts_weekend))}</textarea></div>
+          <div class="field"><div class="fl">default_shifts_holiday</div><textarea class="fin venue-json" id="ev-json-def-hol" ${d}>${safeTextareaContent(venueJsonPretty(v.default_shifts_holiday))}</textarea></div>
+        </div>
+      </div>
+      <div class="venue-acc">
+        <button type="button" class="venue-acc-h" onclick="venueAccToggle(this)">Аквагрим <span>▼</span></button>
+        <div class="venue-acc-b">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <input type="checkbox" id="ev-aq" ${v.has_aquagrim ? 'checked' : ''} ${d}/>
+            <label for="ev-aq" style="font-size:13px">Есть аквагрим</label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div class="field"><div class="fl">Гримёры</div><input class="fin" id="ev-aq-n" type="number" min="0" value="${Number(v.required_aquagrimers ?? 0)}" ${d}/></div>
+            <div class="field"><div class="fl">Старшие</div><input class="fin" id="ev-aq-sen" type="number" min="0" value="${Number(v.required_senior_aquagrimers ?? 0)}" ${d}/></div>
+            <div class="field"><div class="fl">Менеджеры АК</div><input class="fin" id="ev-aq-mgr" type="number" min="0" value="${Number(v.required_aq_managers ?? 0)}" ${d}/></div>
+          </div>
+        </div>
+      </div>
+      <div class="venue-acc">
+        <button type="button" class="venue-acc-h" onclick="venueAccToggle(this)">Склады (только чтение) <span>▼</span></button>
+        <div class="venue-acc-b">${whBlock}</div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+        ${currentUser.role === 'admin' ? `<button type="button" class="btn btn-danger" style="font-size:12px" onclick="deleteVenue('${v.id}','${String(v.name).replace(/'/g, "\\'")}')">Удалить</button>` : '<span></span>'}
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Закрыть</button>
+          ${fullEdit ? `<button type="button" class="btn btn-primary" onclick="saveEditVenue('${v.id}')">Сохранить</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+
   modal.classList.add('open');
 }
 
 async function saveEditVenue(vid){
+  if (!can('hr_director')) return;
   const name = document.getElementById('ev-name').value.trim();
+  if (!name) return showToast('Название обязательно', true);
   const city = getSelectOrCustom('ev-city', 'ev-city-custom');
   const category = getSelectOrCustom('ev-category', 'ev-cat-custom');
-  const is_active = document.getElementById('ev-active').checked;
-  if(!name) return showToast('Название обязательно', true);
+  const parseJson = (id, label) => {
+    const raw = (document.getElementById(id)?.value || '').trim();
+    if (!raw) return {};
+    try { return JSON.parse(raw); } catch (e) { throw new Error(label + ': неверный JSON'); }
+  };
+  let times_weekday, times_weekend, times_holiday, staffing_min, staffing_max, staffing_weekday, staffing_weekend, staffing_holiday;
+  let default_shifts, default_shifts_weekday, default_shifts_weekend, default_shifts_holiday;
   try {
-    await api('PATCH', `/venues/${vid}`, { name, city, category, is_active });
+    times_weekday = parseJson('ev-json-times-wd', 'times_weekday');
+    times_weekend = parseJson('ev-json-times-we', 'times_weekend');
+    times_holiday = parseJson('ev-json-times-hol', 'times_holiday');
+    staffing_min = parseJson('ev-json-staff-min', 'staffing_min');
+    staffing_max = parseJson('ev-json-staff-max', 'staffing_max');
+    staffing_weekday = parseJson('ev-json-staff-wd', 'staffing_weekday');
+    staffing_weekend = parseJson('ev-json-staff-we', 'staffing_weekend');
+    staffing_holiday = parseJson('ev-json-staff-hol', 'staffing_holiday');
+    default_shifts = parseJson('ev-json-def', 'default_shifts');
+    default_shifts_weekday = parseJson('ev-json-def-wd', 'default_shifts_weekday');
+    default_shifts_weekend = parseJson('ev-json-def-we', 'default_shifts_weekend');
+    default_shifts_holiday = parseJson('ev-json-def-hol', 'default_shifts_holiday');
+  } catch (e) {
+    return showToast(e.message, true);
+  }
+  const latRaw = document.getElementById('ev-lat').value.trim();
+  const lngRaw = document.getElementById('ev-lng').value.trim();
+  const latitude = latRaw === '' ? null : parseFloat(latRaw);
+  const longitude = lngRaw === '' ? null : parseFloat(lngRaw);
+  if (latRaw !== '' && Number.isNaN(latitude)) return showToast('Некорректная широта', true);
+  if (lngRaw !== '' && Number.isNaN(longitude)) return showToast('Некорректная долгота', true);
+  const payload = {
+    name,
+    city: city || null,
+    category: category || null,
+    is_active: document.getElementById('ev-active').checked,
+    venue_type: document.getElementById('ev-vtype').value,
+    short_name: document.getElementById('ev-short').value.trim() || null,
+    display_color: normalizeVenueDisplayColor(document.getElementById('ev-dcolor').value) || null,
+    sort_order: parseInt(document.getElementById('ev-sort').value || '0', 10) || 0,
+    priority_level: parseInt(document.getElementById('ev-priority').value || '2', 10) || 2,
+    difficulty: document.getElementById('ev-difficulty').value || 'normal',
+    address: document.getElementById('ev-address').value.trim() || null,
+    latitude,
+    longitude,
+    checkin_radius_m: parseInt(document.getElementById('ev-checkin-r').value || '200', 10) || 200,
+    checkin_code: document.getElementById('ev-checkin-code').value.trim() || null,
+    description: document.getElementById('ev-desc').value.trim() || null,
+    contact_info: document.getElementById('ev-contact').value.trim() || null,
+    times_weekday, times_weekend, times_holiday,
+    staffing_min, staffing_max, staffing_weekday, staffing_weekend, staffing_holiday,
+    default_shifts, default_shifts_weekday, default_shifts_weekend, default_shifts_holiday,
+    has_aquagrim: document.getElementById('ev-aq').checked,
+    required_aquagrimers: parseInt(document.getElementById('ev-aq-n').value || '0', 10) || 0,
+    required_senior_aquagrimers: parseInt(document.getElementById('ev-aq-sen').value || '0', 10) || 0,
+    required_aq_managers: parseInt(document.getElementById('ev-aq-mgr').value || '0', 10) || 0,
+  };
+  try {
+    await api('PATCH', `/venues/${vid}`, payload);
     document.getElementById('archived-user-modal').classList.remove('open');
     await loadVenues();
     renderAdminVenues();
     showToast('Площадка обновлена');
-  } catch(e){ showToast(e.message, true); }
+  } catch (e) { showToast(e.message, true); }
 }
 
 async function deleteVenue(vid, name){
