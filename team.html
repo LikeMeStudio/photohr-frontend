@@ -618,33 +618,22 @@ function setupUserPill() {
 
 function setupTeamNav() {
   const nav = document.getElementById('nav-links');
-  const navBtns = ['<a class="f-btn" href="index.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Фотографы</a>'];
-  if (currentUser.role !== 'photographer_user' && currentUser.role !== 'aq_user') {
-    navBtns.push('<a class="f-btn active" href="team.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Команда</a>');
+  const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
+  const navBtns = [];
+  navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
+  navBtns.push('<a class="f-btn active" href="index.html" style="' + ns + '">Команда</a>');
+  if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
+    navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
   }
-  if (hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin'])) {
-    navBtns.push('<a class="f-btn" href="recruiting.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Рекрутинг</a>');
+  if (hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) {
+    navBtns.push('<a class="f-btn" href="venue.html" style="' + ns + '">Отчёты</a>');
   }
-  if (hasAnyRole(['photographer_user', 'hr_manager', 'cashier', 'hr_director', 'tech_director', 'site_specialist', 'exec_director', 'admin'])) {
-    navBtns.push('<a class="f-btn" href="venue.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Площадка</a>');
+  if (hasAnyRole(['tech_director','hr_director','exec_director','admin'])) {
+    navBtns.push('<a class="f-btn" href="stock.html" style="' + ns + '">Склад</a>');
   }
-  if (hasAnyRole(['tech_director', 'hr_director', 'exec_director', 'admin'])) {
-    navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
+  if (hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) {
+    navBtns.push('<a class="f-btn" href="schedule.html" style="' + ns + '">Расписание</a>');
   }
-  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin', 'photographer_user'])) {
-    navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
-  }
-  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin'])) {
-    navBtns.push('<a class="f-btn" href="schedule.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Расписание</a>');
-  }
-  if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
-    navBtns.push('<a class="f-btn" href="checkin.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📍 Чекин</a>');
-  }
-  if (hasAnyRole(['aq_manager', 'hr_director', 'exec_director', 'admin', 'cashier'])) {
-    navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
-    navBtns.push('<a class="f-btn" href="aquagrim.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Аквагрим</a>');
-  }
-  navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
   nav.innerHTML = navBtns.join('');
 }
 

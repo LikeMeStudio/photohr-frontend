@@ -438,6 +438,7 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
     <div class="nav-links" id="nav-links"></div>
     <div class="header-stats" id="hstats"></div>
     <div class="header-right">
+      <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
       <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
       <button class="btn btn-ghost" onclick="logout()" style="font-size:13px;padding:6px 12px">Выйти</button>
     </div>
@@ -1289,38 +1290,31 @@ function setupUserPill() {
 }
 
 function setupToolbarActions() {
-  // Navigation links
+  // Navigation links — new order: Мой профиль, Команда, Рекрутинг, Отчёты, Склад, Расписание
   const nav = document.getElementById('nav-links');
-  const navBtns = ['<a class="f-btn active" href="index.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Фотографы</a>'];
-  if (currentUser.role !== 'photographer_user' && currentUser.role !== 'aq_user') {
-    navBtns.push('<a class="f-btn" href="team.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Команда</a>');
-  }
+  const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
+  const navBtns = [];
+  navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
+  navBtns.push('<a class="f-btn active" href="index.html" style="' + ns + '">Команда</a>');
   if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
-    navBtns.push('<a class="f-btn" href="recruiting.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Рекрутинг</a>');
+    navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
   }
   if (hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) {
-    navBtns.push('<a class="f-btn" href="venue.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Площадка</a>');
+    navBtns.push('<a class="f-btn" href="venue.html" style="' + ns + '">Отчёты</a>');
   }
   if (hasAnyRole(['tech_director','hr_director','exec_director','admin'])) {
-    navBtns.push('<a class="f-btn" href="stock.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Склад</a>');
-  }
-  if (hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user'])) {
-    navBtns.push('<a class="f-btn" href="calendar.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Календарь</a>');
+    navBtns.push('<a class="f-btn" href="stock.html" style="' + ns + '">Склад</a>');
   }
   if (hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) {
-    navBtns.push('<a class="f-btn" href="schedule.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Расписание</a>');
+    navBtns.push('<a class="f-btn" href="schedule.html" style="' + ns + '">Расписание</a>');
   }
-  if (currentUser.role === 'photographer_user' && currentUser.photographer_id) {
-    navBtns.push('<a class="f-btn" href="checkin.html" style="text-decoration:none;padding:5px 12px;font-size:12px">📍 Чекин</a>');
-  }
-  if (hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])) {
-    navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px;align-self:center"></span>');
-    navBtns.push('<a class="f-btn" href="aquagrim.html" style="text-decoration:none;padding:5px 12px;font-size:12px">Аквагрим</a>');
-  }
-  navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
   nav.innerHTML = navBtns.join('');
 
-  // Toolbar actions
+  // Management button in header-right
+  const mgmtBtn = document.getElementById('btn-management');
+  if (mgmtBtn) mgmtBtn.style.display = can('admin') ? '' : 'none';
+
+  // Toolbar actions (без кнопки Управление — она теперь в header)
   const el = document.getElementById('toolbar-actions');
   const btns = [];
   if (canEditCard()) btns.push(`<button class="btn btn-primary" onclick="openNewPh()">+ Сотрудник</button>`);
@@ -1335,7 +1329,6 @@ function setupToolbarActions() {
     btns.push(`<button class="btn btn-ghost" onclick="openLikesPanel()" title="Народное признание">❤️ Лайки</button>`);
   }
   if (canPassport()) btns.push(`<button class="btn btn-ghost" onclick="exportPhotographers()" title="Экспорт в Excel/CSV">↓ Экспорт</button>`);
-  if (can('admin'))  btns.push(`<button class="btn btn-ghost" onclick="openAdmin()">⚙ Управление</button>`);
   el.innerHTML = btns.join('');
 }
 

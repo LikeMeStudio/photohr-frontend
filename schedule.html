@@ -586,19 +586,12 @@ function setupNav(activeKey){
     const cls=activeKey===key?'f-btn active':'f-btn';
     return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
   };
-  navBtns.push(a('index','index.html','Фотографы'));
-  if(currentUser.role!=='photographer_user'&&currentUser.role!=='aq_user') navBtns.push(a('team','team.html','Команда'));
+  navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
+  navBtns.push(a('index','index.html','Команда'));
   if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));
-  if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Площадка'));
+  if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Отчёты'));
   if(hasAnyRole(['tech_director','hr_director','exec_director','admin'])) navBtns.push(a('stock','stock.html','Склад'));
-  if(hasAnyRole(['hr_manager','hr_director','exec_director','admin','photographer_user'])) navBtns.push(a('calendar','calendar.html','Календарь'));
   if(hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('schedule','schedule.html','Расписание'));
-  if(currentUser.role==='photographer_user'&&currentUser.photographer_id) navBtns.push(a('checkin','checkin.html','📍 Чекин'));
-  if(hasAnyRole(['aq_manager','hr_director','exec_director','admin','cashier'])){
-    navBtns.push('<span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>');
-    navBtns.push(a('aquagrim','aquagrim.html','Аквагрим'));
-  }
-  navBtns.push('<a class="f-btn" href="my.html" style="text-decoration:none;padding:6px 14px;font-size:12px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
   document.getElementById('nav-links').innerHTML=navBtns.join('');
 }
 
