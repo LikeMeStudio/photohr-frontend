@@ -306,6 +306,13 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   .overlay{align-items:flex-end;padding:0}
   .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
 }
+
+/* admin → площадки: группировка и цветные бейджи */
+.venue-city-heading{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 6px;padding-left:4px}
+.venue-cat-sub{font-size:11px;color:var(--accent2);margin:8px 0 4px;padding-left:8px;font-weight:500}
+.venue-sq{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:18px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;padding:0 4px;margin-right:8px;vertical-align:middle}
+.venue-admin-row{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s}
+.venue-admin-row:hover{border-color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -3881,50 +3888,52 @@ async function permanentDeleteUser(id, name){
   } catch(e){ showToast(e.message, true); }
 }
 
+const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
+function normalizeVenueDisplayColor(c){
+  if(!c) return null;
+  const s=String(c).trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+  if(/^#[0-9a-fA-F]{3}$/.test(s)) return s;
+  return null;
+}
+function venueHashHue(id){let h=0;const s=String(id||'0');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+function venuePickColor(v){return normalizeVenueDisplayColor(v?.display_color)||VENUE_COLORS[venueHashHue(v?.id)%VENUE_COLORS.length];}
+function venueShortLabel(v){return(v?.short_name!=null&&String(v.short_name).trim()!=='')?String(v.short_name).trim():String(v?.name||'').slice(0,3)||'?';}
 
 function renderAdminVenues(){
   const content = document.getElementById('tab-content');
-
-  // Группируем по категории
-  const grouped = {};
-  const noCategory = [];
+  const byCity = {};
   venues.forEach(v => {
-    const cat = v.category || '';
-    if (!cat) { noCategory.push(v); return; }
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(v);
+    const cty = (v.city || '').trim() || 'Без города';
+    if (!byCity[cty]) byCity[cty] = [];
+    byCity[cty].push(v);
   });
-
-  const sortedCats = Object.keys(grouped).sort();
-
-  const renderVenue = (v) => `
-    <div class="user-row ${!v.is_active?'inactive-row':''}" style="cursor:pointer" onclick="openEditVenue('${v.id}')">
-      <div style="flex:1">
-        <div class="user-row-name">${esc(v.name)}</div>
-        <div class="user-row-email">${v.city||''} ${!v.is_active?'· <span style="color:var(--rank3)">скрыта</span>':''}</div>
-      </div>
-      <span style="font-size:18px;color:var(--text3)">›</span>
-    </div>`;
-
-  content.innerHTML = `
-    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewVenueModal()">+ Добавить площадку</button>
-    ${sortedCats.map(cat => `
-      <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-          📁 ${cat} <span style="color:var(--text3);font-weight:400">(${grouped[cat].length})</span>
-        </div>
-        ${grouped[cat].map(renderVenue).join('')}
-      </div>
-    `).join('')}
-    ${noCategory.length ? `
-      <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--text3);margin-bottom:8px">
-          Без категории (${noCategory.length})
-        </div>
-        ${noCategory.map(renderVenue).join('')}
-      </div>
-    ` : ''}
-  `;
+  const cityOrder = Object.keys(byCity).sort((a, b) => a.localeCompare(b, 'ru'));
+  let html = '';
+  if (can('hr_director')) {
+    html += '<button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewVenueModal()">+ Добавить площадку</button>';
+  }
+  cityOrder.forEach(cty => {
+    html += `<div class="venue-city-heading">${esc(cty)}</div>`;
+    const grp = {};
+    byCity[cty].forEach(v => { const cat = v.category || '—'; if (!grp[cat]) grp[cat] = []; grp[cat].push(v); });
+    Object.keys(grp).sort((a, b) => a.localeCompare(b, 'ru')).forEach(cat => {
+      html += `<div class="venue-cat-sub">${esc(cat)} (${grp[cat].length})</div>`;
+      grp[cat].forEach(v => {
+        const color = venuePickColor(v);
+        const shortName = esc(venueShortLabel(v));
+        html += `<div class="venue-admin-row" onclick="openEditVenue('${v.id}')">
+          <span class="venue-sq" style="background:${color}">${shortName}</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:500">${esc(v.name)}</div>
+            <div style="font-size:10px;color:var(--text3)">${esc(v.city || '')}${!v.is_active ? ' · <span style="color:var(--rank3)">скрыта</span>' : ''}</div>
+          </div>
+          <span style="font-size:18px;color:var(--text3)">›</span>
+        </div>`;
+      });
+    });
+  });
+  content.innerHTML = html;
 }
 
 function phNormCfg(cfg){
