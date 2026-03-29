@@ -329,7 +329,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
-    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openTeamManagement()">⚙ Управление</button>
+    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
@@ -640,7 +640,7 @@ function setupTeamNav() {
 
   // Management button in header
   const mgmtBtn = document.getElementById('btn-management');
-  if (mgmtBtn) mgmtBtn.style.display = can('admin') ? '' : 'none';
+  if (mgmtBtn) mgmtBtn.style.display = hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']) ? '' : 'none';
 }
 
 function setupTeamToolbarActions() {
@@ -1504,7 +1504,25 @@ async function syncFromUsers() {
 }
 
 function exportTeam() { showToast('Экспорт в разработке'); }
-function openTeamManagement() { showToast('Управление в разработке'); }
+
+function openAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (!ov || !fr) return;
+  fr.src = 'admin.html';
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (ov) ov.style.display = 'none';
+  if (fr) fr.src = '';
+  document.body.style.overflow = '';
+  if (typeof loadVenues === 'function') loadVenues().catch(() => {});
+  if (typeof venuesList !== 'undefined' && typeof api === 'function')
+    api('GET', '/venues').then(v => { venuesList = v; }).catch(() => {});
+}
 
 async function openAchievementsPanel() {
   if (!can('hr_director')) { showToast('Недостаточно прав', true); return; }
@@ -2068,5 +2086,8 @@ function openGrantAch() {
   }
 })();
 </script>
+<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:stretch;justify-content:stretch;flex-direction:row">
+  <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none;flex:1"></iframe>
+</div>
 </body>
 </html>

@@ -132,6 +132,7 @@ a{color:inherit;text-decoration:none}
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats"></div>
   <div class="header-right">
+    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
   </div>
@@ -621,6 +622,7 @@ async function loadSchedulePanel(phId){
     currentUser=await api('GET','/auth/me');
     setupUserPill();
     setupNav('my');
+    setupMgmtButton();
     fillPlaceholderStats();
     if(!currentUser.photographer_id){
       document.getElementById('main').innerHTML='<div class="loading">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div>';
@@ -629,6 +631,29 @@ async function loadSchedulePanel(phId){
     await loadProfile();
   }catch(e){document.getElementById('main').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
+
+function openAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (!ov || !fr) return;
+  fr.src = 'admin.html';
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeAdmin() {
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (ov) ov.style.display = 'none';
+  if (fr) fr.src = '';
+  document.body.style.overflow = '';
+  if (typeof loadVenues === 'function') loadVenues().catch(() => {});
+  if (typeof venuesList !== 'undefined' && typeof api === 'function')
+    api('GET', '/venues').then(v => { venuesList = v; }).catch(() => {});
+}
+function setupMgmtButton() {
+  const b = document.getElementById('btn-management');
+  if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
+}
 
 async function loadProfile(){
   const phId=currentUser.photographer_id;
@@ -727,5 +752,8 @@ async function loadProfile(){
   if(myTab===1) loadSchedulePanel(phId);
 }
 </script>
+<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:stretch;justify-content:stretch;flex-direction:row">
+  <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none;flex:1"></iframe>
+</div>
 </body>
 </html>

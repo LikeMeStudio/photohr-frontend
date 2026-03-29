@@ -1282,7 +1282,22 @@ async function reloadAll(){
   render();
 }
 
-function openAdmin(){ window.location.href='photographers.html'; }
+function openAdmin(){
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (!ov || !fr) return;
+  fr.src = 'admin.html';
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeAdmin(){
+  const ov = document.getElementById('admin-overlay');
+  const fr = document.getElementById('admin-iframe');
+  if (ov) ov.style.display = 'none';
+  if (fr) fr.src = '';
+  document.body.style.overflow = '';
+  if (typeof loadVenues === 'function') loadVenues().catch(() => {});
+}
 
 function setupToolbarActions(){
   const el = document.getElementById('toolbar-actions');
@@ -1302,7 +1317,7 @@ function setupToolbarActions(){
   el.innerHTML = btns.join('');
 
   const mgmtBtn = document.getElementById('btn-management');
-  if(mgmtBtn) mgmtBtn.style.display = (navRoleNow()==='admin') ? '' : 'none';
+  if(mgmtBtn) mgmtBtn.style.display = hasAnyRoleNav(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
 }
 
 function exportAquagrimers(){
@@ -1327,6 +1342,9 @@ function exportAquagrimers(){
   }
 })();
 </script>
+<div id="admin-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:stretch;justify-content:stretch;flex-direction:row">
+  <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none;flex:1"></iframe>
+</div>
 </body>
 </html>
 
