@@ -81,6 +81,25 @@
   .overlay .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
 }
 .venue-card:hover{border-color:var(--accent)!important}
+.rc-wrap{margin-bottom:16px}
+.rc-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rc-nav .btn{padding:4px 10px}
+.rc-month{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600}
+.rc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.rc-head{font-size:10px;color:var(--text3);text-align:center;padding:4px}
+.rc-day{border:1px solid var(--border);border-radius:6px;padding:3px 4px;min-height:44px;font-size:10px;cursor:pointer;transition:border-color .15s}
+.rc-day:hover{border-color:var(--accent)}
+.rc-day .rc-num{font-family:'Unbounded',sans-serif;font-size:11px;margin-bottom:2px}
+.rc-day.rc-today{border-color:var(--accent)}
+.rc-day.rc-empty{border-color:transparent;cursor:default;min-height:0}
+.rc-day.rc-empty:hover{border-color:transparent}
+.rc-dots{display:flex;flex-wrap:wrap;gap:2px}
+.rc-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.rc-dot.st-approved{background:var(--rank1)}
+.rc-dot.st-submitted{background:#f5a623}
+.rc-dot.st-draft,.rc-dot.st-returned,.rc-dot.st-missing{background:var(--rank3)}
+.rc-legend{display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--text3);flex-wrap:wrap}
+.rc-legend span{display:flex;align-items:center;gap:3px}
 </style>
 </head>
 <body>
@@ -100,9 +119,6 @@
 <button class="btn btn-ghost" id="btn-back" onclick="backToDashboard()" style="display:none">← К площадкам</button>
 <select class="fselect" id="vs" style="display:none" onchange="load()"><option value="">Площадка...</option></select>
 <div id="rs"></div><div style="flex:1"></div><div id="rstat"></div>
-<button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
-<button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
-<button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
 </div>
 <div id="C"><div class="loading">Выберите площадку и дату</div></div>
 </div>
@@ -229,6 +245,87 @@ if(viewMode==='report')load();
 else loadDashboard();
 }
 
+let rcMonth=null;
+let rcData=[];
+
+function getRcMonth(){
+if(rcMonth)return rcMonth;
+const dt=document.getElementById('sd').value;
+return dt?dt.slice(0,7):new Date().toISOString().slice(0,7);
+}
+
+async function loadReportCalendar(){
+const m=getRcMonth();
+try{
+rcData=await api('GET',`/daily-reports/calendar?month=${m}`);
+}catch(e){rcData=[];}
+renderReportCalendar();
+}
+
+function rcPrevMonth(){
+const[y,m]=getRcMonth().split('-').map(Number);
+const d=new Date(y,m-2,1);
+rcMonth=d.toISOString().slice(0,7);
+loadReportCalendar();
+}
+
+function rcNextMonth(){
+const[y,m]=getRcMonth().split('-').map(Number);
+const d=new Date(y,m,1);
+rcMonth=d.toISOString().slice(0,7);
+loadReportCalendar();
+}
+
+function renderReportCalendar(){
+const wrap=document.getElementById('rc-calendar');
+if(!wrap)return;
+const m=getRcMonth();
+const[y,mo]=m.split('-').map(Number);
+const monthNames=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const dayNames=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const daysInMonth=new Date(y,mo,0).getDate();
+const firstDow=(new Date(y,mo-1,1).getDay()+6)%7;
+const todayStr=new Date().toISOString().split('T')[0];
+const byDate={};
+for(const r of rcData){
+if(!byDate[r.date])byDate[r.date]=[];
+byDate[r.date].push(r);
+}
+let html=`<div class="rc-nav">
+<button class="btn btn-ghost" onclick="rcPrevMonth()">◀</button>
+<span class="rc-month">${monthNames[mo-1]} ${y}</span>
+<button class="btn btn-ghost" onclick="rcNextMonth()">▶</button>
+</div>`;
+html+='<div class="rc-grid">';
+dayNames.forEach(d=>{html+=`<div class="rc-head">${d}</div>`;});
+for(let i=0;i<firstDow;i++)html+='<div class="rc-day rc-empty"></div>';
+for(let d=1;d<=daysInMonth;d++){
+const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const isToday=ds===todayStr;
+const entries=byDate[ds]||[];
+const dots=entries.map(e=>{
+const title=esc(e.venue_short||e.venue_name)+': '+({approved:'Проведён',submitted:'Отправлен',draft:'Черновик',returned:'Возвращён',missing:'Нет отчёта'}[e.status]||e.status);
+return`<div class="rc-dot st-${e.status}" title="${title}"></div>`;
+}).join('');
+html+=`<div class="rc-day${isToday?' rc-today':''}" onclick="rcClickDay('${ds}')">
+<div class="rc-num">${d}</div>
+<div class="rc-dots">${dots}</div>
+</div>`;
+}
+html+='</div>';
+html+=`<div class="rc-legend">
+<span><div class="rc-dot st-approved"></div> Проведён</span>
+<span><div class="rc-dot st-submitted"></div> Отправлен</span>
+<span><div class="rc-dot st-missing"></div> Нет отчёта / черновик</span>
+</div>`;
+wrap.innerHTML=html;
+}
+
+function rcClickDay(dateStr){
+document.getElementById('sd').value=dateStr;
+onDateChange();
+}
+
 let _prevVid='',_prevSd='';
 async function loadDashboard(){
 viewMode='dashboard';
@@ -260,6 +357,7 @@ html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
 <div class="stat"><div class="stat-num" style="color:var(--rank1)">${(d.summary.total_revenue!=null?d.summary.total_revenue:0).toLocaleString('ru-RU')}₽</div><div class="stat-lbl">Выручка</div></div>
 </div>`;
 }
+html+='<div id="rc-calendar" class="rc-wrap"></div>';
 if(withEvents.length){
 html+=`<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">📍 Работают сегодня (${withEvents.length})</div>`;
 html+='<div class="grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px">';
@@ -297,9 +395,10 @@ html+=`<div style="padding:12px;border-radius:12px;background:var(--bg2);border:
 html+='</div>';
 }
 if(!d.venues.length){
-html='<div class="loading">Нет активных площадок</div>';
+html='<div id="rc-calendar" class="rc-wrap"></div><div class="loading">Нет активных площадок</div>';
 }
 document.getElementById('C').innerHTML=html;
+loadReportCalendar();
 }
 
 async function openVenueReport(venueId){
@@ -642,7 +741,7 @@ ${report?.review_comment?`<div style="padding:6px;background:rgba(242,85,85,.06)
 </div>
 
 <div class="foot" style="align-items:center">
-${ed&&isEditor()?`<span id="autosave-status" style="font-size:10px;color:var(--text3);opacity:0.5;margin-right:8px"></span><button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button>`:ed&&!isEditor()?`<span style="font-size:12px;color:var(--text3)">Черновик редактирует администратор</span>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'Проведён':'На проверке'}</span>`}
+${ed&&isEditor()?`<span id="autosave-status" style="font-size:10px;color:var(--text3);opacity:0.5;margin-right:8px"></span><button class="btn btn-ghost" onclick="save('draft')">💾 Черновик</button><button class="btn btn-primary" onclick="save('submitted')">📤 Отправить</button>`:ed&&!isEditor()?`<span style="font-size:12px;color:var(--text3)">Черновик редактирует администратор</span>`:`<span style="font-size:12px;color:var(--text3)">${s==='approved'?'✅ Проведён':''}</span>${s==='submitted'&&canApproveReport()?`<button class="btn btn-ghost" onclick="returnReport()" style="color:var(--rank3)">↩ Вернуть</button><button class="btn btn-primary" onclick="approveReport()">✅ Провести</button>`:(s==='submitted'?'<span style="font-size:12px;color:var(--text3)">📤 На проверке</span>':'')}`}
 </div>`;
 
 // После основного innerHTML, добавить aq-блок если есть
@@ -1849,6 +1948,31 @@ if(st==='submitted')await api('POST',`/daily-reports/${created.id}/submit`);
 isDirty=false;
 toast(st==='submitted'?'📤 Отправлен':'💾 Сохранён');await load();
 }catch(e){toast(e.message,1);}}
+
+function canApproveReport(){
+return currentUser&&['cashier','exec_director','admin'].includes(currentUser.role);
+}
+
+async function approveReport(){
+if(!report?.id)return;
+if(!confirm('Провести отчёт? Это обновит рейтинги, спишет расходники и создаст начисления.'))return;
+try{
+await api('POST',`/daily-reports/${report.id}/approve`);
+toast('✅ Отчёт проведён');
+await load();
+}catch(e){toast(e.message,1);}
+}
+
+async function returnReport(){
+if(!report?.id)return;
+const comment=prompt('Комментарий (необязательно):');
+if(comment===null)return;
+try{
+await api('POST',`/daily-reports/${report.id}/return`,{comment:comment||null});
+toast('↩ Отчёт возвращён на доработку');
+await load();
+}catch(e){toast(e.message,1);}
+}
 
 function scheduleAutoSave(){
 void inputRecalc();
