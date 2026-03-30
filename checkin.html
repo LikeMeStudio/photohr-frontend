@@ -416,11 +416,37 @@ async function doCheckin(qrCode){
   }catch{}
 
   try{
-    const body={qr_code:qrCode,checkin_type:'arrival',latitude:lat,longitude:lng};
-    if(pendingAssignmentId)body.assignment_id=pendingAssignmentId;
-    
-    const result=await api('POST','/checkins',body);
-    
+    const checkinBody={qr_code:qrCode,checkin_type:'arrival',latitude:lat,longitude:lng};
+    if(pendingAssignmentId)checkinBody.assignment_id=pendingAssignmentId;
+
+    const checkinResp=await fetch(API+'/checkins',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+AT},
+      body:JSON.stringify(checkinBody)
+    });
+    const result=await checkinResp.json();
+
+    if(checkinResp.status===202&&result.pending_qr_join){
+      c.innerHTML=`
+        <div class="result" style="border-color:var(--rank2)">
+          <div class="result-icon">🔔</div>
+          <div class="result-title">Заявка отправлена!</div>
+          <div class="result-sub">Ожидайте подтверждения оператора площадки</div>
+          <div class="result-sub" style="margin-top:8px;font-size:11px;color:var(--text3)">Вы не были назначены на эту смену. Оператор получил уведомление и может добавить вас.</div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;justify-content:center">
+          <button class="btn btn-primary" onclick="loadMyShifts()">← К сменам</button>
+          <a href="my.html" class="btn btn-ghost">Мой профиль</a>
+        </div>
+      `;
+      pendingAssignmentId=null;
+      return;
+    }
+
+    if(!checkinResp.ok){
+      throw new Error(result.error||'Ошибка');
+    }
+
     c.innerHTML=`
       <div class="result result-ok">
         <div class="result-icon">✅</div>

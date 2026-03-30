@@ -832,12 +832,29 @@ ${isEditor()?`
 `}
 ${(()=>{
   const photoPhs = phs.filter(a=>!['print_operator','venue_manager','mentor'].includes(a.role_in_shift));
+  const pendingJoins = photoPhs.filter(a => a.status === 'pending_qr_join');
+  const activePhs = photoPhs.filter(a => a.status !== 'pending_qr_join');
+  const joinRequestsHtml = pendingJoins.length ? `
+    <div style="margin-bottom:8px">
+      ${pendingJoins.map(a => `
+        <div style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:13px">🔔</span>
+          <span style="font-size:12px;font-weight:600">${esc(a.photographer_name)}</span>
+          <span style="font-size:10px;color:var(--text3)">просит добавить в смену</span>
+          <div style="margin-left:auto;display:flex;gap:4px">
+            <button class="btn btn-primary" style="font-size:10px;padding:3px 10px" onclick="approveQrJoin('${a.id}')">✅ Принять</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:3px 10px;color:var(--rank3)" onclick="rejectQrJoin('${a.id}')">❌ Отклонить</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
   const roleOrder={'venue_manager':0,'print_operator':0,'mentor':1,'photographer':2};
   const roleLbl={'venue_manager':'Менеджер','mentor':'Наставник','print_operator':'Оператор','photographer':'Фото'};
-  const sorted=[...photoPhs].sort((a,b)=>(roleOrder[a.role_in_shift]||2)-(roleOrder[b.role_in_shift]||2));
+  const sorted=[...activePhs].sort((a,b)=>(roleOrder[a.role_in_shift]||2)-(roleOrder[b.role_in_shift]||2));
   const cols=[[],[],[]];let ci=0;
   sorted.forEach(a=>{cols[ci].push(a);if(cols[ci].length>=Math.ceil(sorted.length/3))ci=Math.min(ci+1,2);});
-  return`<div class="shift-grid">${cols.map(col=>col.length?`<div class="shift-col">${col.map(a=>{
+  return joinRequestsHtml + `<div class="shift-grid">${cols.map(col=>col.length?`<div class="shift-col">${col.map(a=>{
     const ch=a.checkin_at||a.checked_in;
     const cm=a.checkin_method||a.method;
     const rl=roleLbl[a.role_in_shift]||a.role_in_shift||'';
@@ -1189,17 +1206,35 @@ return{shift_id:shift.id,venue_id:document.getElementById('vs').value,report_dat
 async function addPhotographerToShift(){
 const sel=document.getElementById('add-ph-select');
 const phId=sel&&sel.value;
+const phName=sel?.options[sel.selectedIndex]?.text||'Сотрудник';
 if(!phId||!shift?.id)return;
-try{
 const phShift=allShifts.find(s=>s.target_role==='photographer')||shift;
-await api('POST',`/shifts/${phShift.id}/assignments`,{
-photographer_id:phId,
-role_in_shift:'photographer',
-assignment_type:'manual'
-});
-toast('Фотограф добавлен');
-load();
-}catch(e){toast(e.message,1);}
+try{
+  await api('POST',`/shifts/${phShift.id}/assignments`,{
+    photographer_id:phId, role_in_shift:'photographer', assignment_type:'manual'
+  });
+  toast('Фотограф добавлен');
+  load();
+}catch(e){
+  if(e.message&&e.message.includes('принудительное')){
+    if(confirm(`${phName}: нет доступности на этот день.\n\nДобавить принудительно?`)){
+      try{
+        await api('POST',`/shifts/${phShift.id}/assignments`,{
+          photographer_id:phId, role_in_shift:'photographer', assignment_type:'manual',
+          force:true, force_status:'confirmed'
+        });
+        toast('Фотограф добавлен (принудительно)');
+        load();
+      }catch(e2){toast(e2.message,1);}
+    }
+  } else if(e.message&&e.message.includes('другую смену')){
+    if(confirm(`${phName} назначен на другую площадку сегодня.\n\nВсё равно добавить? (будет конфликт)`)){
+      toast('Для переноса снимите сотрудника с другой смены через Расписание',1);
+    }
+  } else {
+    toast(e.message,1);
+  }
+}
 }
 
 async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,5000);}
@@ -1250,6 +1285,23 @@ async function correctCheckinTime(checkinId) {
     load();
   } catch (e) { toast(e.message, 1); }
 }
+async function approveQrJoin(assignmentId) {
+  if (!confirm('Добавить фотографа в смену и отметить приход?')) return;
+  try {
+    const result = await api('POST', `/shift-assignments/${assignmentId}/approve-qr-join`, { action: 'approve' });
+    toast(`${result.photographer_name || 'Фотограф'} добавлен в смену`);
+    load();
+  } catch (e) { toast(e.message, 1); }
+}
+async function rejectQrJoin(assignmentId) {
+  const comment = prompt('Причина отклонения (необязательно):');
+  if (comment === null) return;
+  try {
+    await api('POST', `/shift-assignments/${assignmentId}/approve-qr-join`, { action: 'reject', comment: comment || null });
+    toast('Заявка отклонена');
+    load();
+  } catch (e) { toast(e.message, 1); }
+}
 async function removeAssign(assignId){
 if(!confirm('Снять этого сотрудника со смены?'))return;
 try{
@@ -1260,13 +1312,25 @@ load();
 }
 async function addRoleAssign(photographerId,role){
 if(!shift)return;
-try{
 const roleShiftMap={'print_operator':'print_operator','venue_manager':'manager','mentor':'photographer'};
 const targetShift=allShifts.find(s=>s.target_role===(roleShiftMap[role]||'photographer'))||shift;
-await api('POST',`/shifts/${targetShift.id}/assignments`,{photographer_id:photographerId,role_in_shift:role});
-toast('Назначен');
-load();
-}catch(e){toast(e.message,1);}
+try{
+  await api('POST',`/shifts/${targetShift.id}/assignments`,{photographer_id:photographerId,role_in_shift:role});
+  toast('Назначен');
+  load();
+}catch(e){
+  if(e.message&&e.message.includes('принудительное')){
+    if(confirm('Нет доступности. Добавить принудительно?')){
+      try{
+        await api('POST',`/shifts/${targetShift.id}/assignments`,{
+          photographer_id:photographerId, role_in_shift:role, force:true, force_status:'confirmed'
+        });
+        toast('Назначен (принудительно)');
+        load();
+      }catch(e2){toast(e2.message,1);}
+    }
+  }else{toast(e.message,1);}
+}
 }
 async function fillRoleSelects(phs){
 if(!isEditor())return;
