@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Склад</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -53,6 +53,8 @@ a{color:inherit;text-decoration:none}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
 .loading{text-align:center;padding:40px;color:var(--text3)}
+.admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
+.admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px}
   .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
@@ -63,6 +65,20 @@ a{color:inherit;text-decoration:none}
   .main{padding:10px 12px}
   .overlay{align-items:flex-end;padding:0}
   .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
+  /* ── stock.html mobile v2 ── */
+  .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs .tab{flex-shrink:0}
+  .card-grid{grid-template-columns:1fr!important}
+  .table-wrap,#tab-content{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.tbl{min-width:600px}
+  .drawer{width:100%;max-width:100%}
+  .admin-iframe{width:100vw!important;max-width:100vw!important;height:100vh!important;border-radius:0!important}
+  .admin-overlay{padding:0!important;align-items:stretch!important}
+  /* Safe area для iPhone с notch */
+  .header{padding-top:max(10px, env(safe-area-inset-top))}
+  .toast{bottom:max(20px, env(safe-area-inset-bottom))}
+  body{padding-bottom:env(safe-area-inset-bottom)}
 }
 
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:4px}
@@ -85,7 +101,6 @@ a{color:inherit;text-decoration:none}
 .stat-box-num{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600}
 .stat-box-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
 .summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:16px}
-@media(max-width:768px){.drawer{width:100%;max-width:100%}.card-grid{grid-template-columns:1fr}}
 .venue-map-card summary::-webkit-details-marker{display:none}
 .po-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 .po-badge-draft{background:#3a3a4f;color:var(--text2)}
@@ -93,6 +108,7 @@ a{color:inherit;text-decoration:none}
 .po-badge-delivered{background:#1a3d2a;color:#3ecf8e}
 .po-badge-partial{background:#4a3510;color:#f5a623}
 .po-badge-cancelled{background:#4a1a1a;color:#f25555}
+.inv-cancelled-details summary::-webkit-details-marker{display:none}
 </style>
 </head>
 <body>
@@ -120,8 +136,9 @@ a{color:inherit;text-decoration:none}
     <button class="tab" onclick="switchTab(4)">🛒 Закупки</button>
     <button class="tab" onclick="switchTab(5)">🔄 Перемещения</button>
     <button class="tab" onclick="switchTab(6)">📊 Движения</button>
-    <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
-    <button class="tab" onclick="switchTab(8)" id="tab-alerts">📈 Аналитика</button>
+    <button class="tab" onclick="switchTab(7)">📋 Инвентаризация</button>
+    <button class="tab" onclick="switchTab(8)">🖨 Оборудование</button>
+    <button class="tab" onclick="switchTab(9)" id="tab-alerts">📈 Аналитика</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -254,10 +271,11 @@ a{color:inherit;text-decoration:none}
 <div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto">
   <div class="modal-title">
     <span id="inv-modal-title">Инвентаризация</span>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-ghost" style="font-size:12px" onclick="saveInvDraft()">💾 Сохранить</button>
-      <button class="btn btn-primary" style="font-size:12px" onclick="completeInvSession()">✅ Завершить</button>
-      <button class="dr-close" onclick="safeCloseInvModal()">×</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end">
+      <button type="button" id="inv-btn-save" class="btn btn-ghost" style="font-size:12px" onclick="saveInvDraft()">💾 Сохранить</button>
+      <button type="button" id="inv-btn-complete" class="btn btn-primary" style="font-size:12px" onclick="completeInvSession()">✅ Завершить</button>
+      <button type="button" id="inv-btn-abort" class="btn btn-ghost" style="font-size:12px;border-color:rgba(242,85,85,.5);color:var(--rank3)" onclick="cancelInvModalSession()">Отменить инвентаризацию</button>
+      <button type="button" class="dr-close" onclick="safeCloseInvModal()">×</button>
     </div>
   </div>
   <div id="inv-session-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
@@ -389,6 +407,38 @@ async function api(m,p,b){
   if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}
   return r.json();
 }
+
+/** POST /inventory-sessions; при 400 с уже открытой сессией в теле есть session_id */
+async function postNewInventorySession(warehouseId) {
+  const o = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ warehouse_id: warehouseId }) };
+  if (accessToken) o.headers['Authorization'] = `Bearer ${accessToken}`;
+  let r = await fetch(API + '/inventory-sessions', o);
+  if (r.status === 401 && refreshToken) {
+    try {
+      if (!refreshLock) {
+        refreshLock = (async () => {
+          const rr = await fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+          if (!rr.ok) throw new Error('refresh_failed');
+          const d = await rr.json();
+          accessToken = d.accessToken; refreshToken = d.refreshToken;
+          localStorage.setItem('fhr_refresh', refreshToken);
+          localStorage.setItem('fhr_access', accessToken);
+        })();
+      }
+      await refreshLock;
+      o.headers['Authorization'] = `Bearer ${accessToken}`;
+      r = await fetch(API + '/inventory-sessions', o);
+    } catch { doLogout(); return null; }
+    finally { refreshLock = null; }
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const ex = new Error(data.error || 'Ошибка');
+    if (data.session_id) ex.session_id = data.session_id;
+    throw ex;
+  }
+  return data;
+}
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');window.location.href='index.html';}
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',2500);}
 
@@ -483,7 +533,7 @@ function setupMgmtButton() {
 function switchTab(idx){
   currentTabIdx=idx;
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  const fns=[loadStockForecast,loadVenueMap,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadEquipment,loadAnalytics];
+  const fns=[loadStockForecast,loadVenueMap,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadInventory,loadEquipment,loadAnalytics];
   if(fns[idx]) fns[idx]();
 }
 
@@ -1519,60 +1569,138 @@ function closeEqDrawer() {
 async function loadInventory() {
   try {
     const c = document.getElementById('content');
-    const [sessions] = await Promise.all([
-      api('GET', '/inventory-sessions'),
-    ]);
-    const canManage = can('tech_director') || can('exec_director') || can('admin');
-    const STATUS_LABELS = { open: '🟡 Открыта', completed: '✅ Завершена', cancelled: '⚫ Отменена' };
+    const sessions = await api('GET', '/inventory-sessions');
+    const canCancel = can('tech_director') || can('exec_director') || can('admin');
+    const whs = warehouses.filter(w => w.is_active);
+    const openS = sessions.filter(s => s.status === 'open');
+    const doneS = sessions.filter(s => s.status === 'completed');
+    const cancelledS = sessions.filter(s => s.status === 'cancelled');
+
+    const startBar = canCancel && whs.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:18px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+        <div class="field" style="margin:0;min-width:220px;flex:1"><div class="fl">Склад для новой инвентаризации</div>
+          <select class="fselect" id="inv-start-warehouse">
+            <option value="">— выберите склад —</option>
+            ${whs.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('')}
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="startInvFromSelect()">+ Начать инвентаризацию</button>
+      </div>` : (!whs.length ? '<div style="color:var(--text3);margin-bottom:12px">Нет активных складов.</div>' : '');
+
+    const openCards = openS.length ? `
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:16px 0 10px;text-transform:uppercase;letter-spacing:.4px">Открытые</div>
+      <div class="card-grid">
+        ${openS.map(s => `
+          <div class="wh-card" style="cursor:default">
+            <div style="font-weight:600;margin-bottom:6px">${esc(s.warehouse_name)}</div>
+            <div style="font-size:11px;color:var(--text3)">Начало: ${new Date(s.session_date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+            <div style="font-size:11px;color:var(--text3)">Создал: ${esc(s.created_by_name || '—')}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px">Позиций: ${s.lines_count ?? '—'}</div>
+            <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+              <button type="button" class="btn btn-primary" style="font-size:11px;flex:1;min-width:100px" onclick="openInvSession('${s.id}')">Продолжить</button>
+              ${canCancel ? `<button type="button" class="btn btn-ghost" style="font-size:11px;border-color:rgba(242,85,85,.45);color:var(--rank3)" onclick="cancelInvListSession('${s.id}')">Отменить</button>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>` : `<div style="font-size:11px;font-weight:600;color:var(--text3);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.4px">Открытые</div><div style="color:var(--text3);font-size:12px">Нет открытых сессий</div>`;
+
+    const doneTable = doneS.length ? `
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:22px 0 10px;text-transform:uppercase;letter-spacing:.4px">Завершённые</div>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th>Склад</th><th>Начало</th><th>Завершено</th><th>Создал</th><th>Позиций</th><th>Корректировок</th></tr></thead><tbody>
+        ${doneS.map(s => `<tr style="cursor:pointer" onclick="openInvSession('${s.id}',true)" title="Просмотр">
+          <td>${esc(s.warehouse_name)}</td>
+          <td style="font-size:11px;color:var(--text3)">${new Date(s.session_date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+          <td style="font-size:11px;color:var(--text3)">${s.completed_at ? new Date(s.completed_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(s.created_by_name || '')}</td>
+          <td style="color:var(--text3)">${s.lines_count ?? '—'}</td>
+          <td style="font-weight:600;color:${parseInt(s.discrepancies_count, 10) > 0 ? 'var(--rank2)' : 'var(--text3)'}">${s.discrepancies_count ?? 0}</td>
+        </tr>`).join('')}
+      </tbody></table></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Строка таблицы — просмотр результатов</div>` : `<div style="font-size:11px;font-weight:600;color:var(--text3);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.4px">Завершённые</div><div style="color:var(--text3);font-size:12px">Нет завершённых сессий</div>`;
+
+    const cancelledBlock = cancelledS.length ? `
+      <details style="margin-top:22px" class="inv-cancelled-details">
+        <summary style="cursor:pointer;font-size:12px;color:var(--text3);user-select:none;list-style:none;padding:8px 0">Показать отменённые (${cancelledS.length})</summary>
+        <div style="margin-top:8px;padding-left:4px;border-left:2px solid var(--border)">
+          ${cancelledS.map(s => `<div style="font-size:12px;color:var(--text3);opacity:.85;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--text2)">${esc(s.warehouse_name)}</span> · ${new Date(s.session_date).toLocaleDateString('ru-RU')} · ${esc(s.created_by_name || '—')}
+          </div>`).join('')}
+        </div>
+      </details>` : '';
+
     c.innerHTML = `
       <div class="section">
-        <div class="section-title">📊 Инвентаризации
-          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openNewInvSession()">+ Начать инвентаризацию</button>` : ''}
-        </div>
-        ${sessions.length ? `<div class="table-wrap"><table class="tbl">
-          <thead><tr><th>Дата</th><th>Склад</th><th>Позиций</th><th>Расхождений</th><th>Создал</th><th>Статус</th><th></th></tr></thead>
-          <tbody>
-          ${sessions.map(s => `<tr>
-            <td>${new Date(s.session_date).toLocaleDateString('ru-RU')}</td>
-            <td>${esc(s.warehouse_name)}</td>
-            <td style="color:var(--text3)">${s.lines_count}</td>
-            <td style="font-weight:600;color:${parseInt(s.discrepancies_count) > 0 ? 'var(--rank3)' : 'var(--rank1)'}">${s.discrepancies_count || 0}</td>
-            <td style="color:var(--text3);font-size:11px">${esc(s.created_by_name||'')}</td>
-            <td>${STATUS_LABELS[s.status]||s.status}</td>
-            <td>
-              ${s.status === 'open' ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="openInvSession('${s.id}')">Открыть</button>` : ''}
-              ${s.status === 'completed' ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="openInvSession('${s.id}', true)">Просмотр</button>` : ''}
-            </td>
-          </tr>`).join('')}
-          </tbody>
-        </table></div>` : '<div style="color:var(--text3)">Нет инвентаризаций</div>'}
+        <div class="section-title">📋 Инвентаризация</div>
+        ${startBar}
+        ${openCards}
+        ${doneTable}
+        ${cancelledBlock}
       </div>`;
-  } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+  } catch (e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function startInvFromSelect() {
+  const sel = document.getElementById('inv-start-warehouse');
+  if (!sel || !sel.value) { showToast('Выберите склад', true); return; }
+  try {
+    const sess = await postNewInventorySession(sel.value);
+    if (!sess) return;
+    showToast('Инвентаризация открыта');
+    await openInvSession(sess.id);
+    loadInventory();
+    loadSummary();
+  } catch (e) {
+    if (e.session_id) {
+      showToast('Уже есть открытая сессия на этом складе — открываем', false);
+      await openInvSession(e.session_id);
+      loadInventory();
+      return;
+    }
+    showToast(e.message, true);
+  }
 }
 
 async function startInventoryForWarehouse(warehouseId) {
   try {
-    const sess = await api('POST', '/inventory-sessions', { warehouse_id: warehouseId });
+    const sess = await postNewInventorySession(warehouseId);
+    if (!sess) return;
     showToast('Инвентаризация открыта');
     closeWhDrawer();
     await openInvSession(sess.id);
     loadSummary();
+    if (currentTabIdx === 7) loadInventory();
+  } catch (e) {
+    if (e.session_id) {
+      showToast('Уже есть открытая сессия — открываем', false);
+      closeWhDrawer();
+      await openInvSession(e.session_id);
+      if (currentTabIdx === 7) loadInventory();
+      return;
+    }
+    showToast(e.message, true);
+  }
+}
+
+async function cancelInvListSession(id) {
+  if (!confirm('Отменить эту инвентаризацию? Остатки не изменятся.')) return;
+  try {
+    await api('POST', `/inventory-sessions/${id}/cancel`);
+    showToast('Сессия отменена');
+    loadInventory();
+    loadSummary();
   } catch (e) { showToast(e.message, true); }
 }
 
-async function openNewInvSession() {
-  const whs = warehouses.filter(w => w.is_active);
-  if (!whs.length) { showToast('Нет активных складов', true); return; }
-  const opts = whs.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
-  const choice = prompt(`Выберите склад (введите номер):\n${opts}`);
-  const idx = parseInt(choice) - 1;
-  if (isNaN(idx) || !whs[idx]) return;
+async function cancelInvModalSession() {
+  const id = document.getElementById('inv-session-id').value;
+  if (!id) return;
+  if (!confirm('Отменить инвентаризацию? Черновик закроется без корректировок остатков.')) return;
   try {
-    const sess = await api('POST', '/inventory-sessions', { warehouse_id: whs[idx].id });
-    showToast('Инвентаризация открыта');
-    await openInvSession(sess.id);
-    loadInventory();
-  } catch(e) { showToast(e.message, true); }
+    await api('POST', `/inventory-sessions/${id}/cancel`);
+    document.getElementById('inv-modal').classList.remove('open');
+    showToast('Инвентаризация отменена');
+    loadSummary();
+    if (currentTabIdx === 7) loadInventory();
+  } catch (e) { showToast(e.message, true); }
 }
 
 async function openInvSession(id, readOnly = false) {
@@ -1604,10 +1732,13 @@ async function openInvSession(id, readOnly = false) {
       </tr>`;
     }).join('');
 
-    const btnSave = document.querySelector('#inv-modal .btn-ghost');
-    const btnComplete = document.querySelector('#inv-modal .btn-primary');
-    if (btnSave) btnSave.style.display = (readOnly || sess.status !== 'open') ? 'none' : '';
-    if (btnComplete) btnComplete.style.display = (readOnly || sess.status !== 'open') ? 'none' : '';
+    const btnSave = document.getElementById('inv-btn-save');
+    const btnComplete = document.getElementById('inv-btn-complete');
+    const btnAbort = document.getElementById('inv-btn-abort');
+    const isOpenEdit = sess.status === 'open' && !readOnly;
+    if (btnSave) btnSave.style.display = isOpenEdit ? '' : 'none';
+    if (btnComplete) btnComplete.style.display = isOpenEdit ? '' : 'none';
+    if (btnAbort) btnAbort.style.display = isOpenEdit ? '' : 'none';
 
     document.getElementById('inv-modal').classList.add('open');
   } catch(e) { showToast(e.message, true); }
@@ -1789,10 +1920,8 @@ async function createMovement(){
   }catch(e){showToast(e.message,true);}
 }
 </script>
-<div id="admin-overlay" onclick="if(event.target===this)closeAdmin()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
-  <div style="width:min(960px,94vw);height:min(90vh,100%);border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)">
-    <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none"></iframe>
-  </div>
+<div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
+  <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
 </div>
 </body>
 </html>
