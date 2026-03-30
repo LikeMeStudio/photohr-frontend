@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Отчёты</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -61,6 +61,11 @@
 .loading{text-align:center;padding:40px;color:var(--text3)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
 .overlay .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-height:90vh;overflow-y:auto}
+/* Classes for mobile-overrideable inline elements */
+.venue-finance-row{display:flex;gap:12px;flex-wrap:wrap}
+.venue-finance-col{flex:1;min-width:200px}
+.admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
+.admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px}
   .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
@@ -79,6 +84,41 @@
   .foot .btn{width:100%}
   .overlay{align-items:flex-end;padding:0}
   .overlay .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
+  /* ── venue.html mobile v2 ── */
+  .qr-shift-row{flex-direction:column}
+  .qr-shift-row>.sec:first-child{flex:1 1 auto;max-width:100%}
+  .shift-col{max-width:100%;min-width:0}
+  .qr-box{max-width:260px;margin:0 auto}
+  .qr-timer{font-size:18px}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:0 12px}
+  .st{min-width:500px}
+  .st input{width:40px;font-size:12px;padding:3px 2px}
+  .st th{font-size:9px;padding:4px 3px}
+  .st td{padding:4px 3px;font-size:11px}
+  .st td:first-child{min-width:70px;max-width:90px;font-size:10px}
+  .pr{flex-direction:column;align-items:stretch;gap:4px}
+  .pr .fin{width:100%}
+  .pr-diff{text-align:left;min-width:0}
+  .sec{padding:12px;margin-bottom:10px;border-radius:10px}
+  .sec-t{font-size:12px;margin-bottom:8px}
+  .foot{flex-direction:column}
+  .foot .btn{width:100%;text-align:center}
+  .toolbar-unified{padding:8px 12px!important;gap:6px!important}
+  .toolbar-unified .fselect,.toolbar-unified .fin{font-size:12px;padding:6px 8px}
+  .rc-grid{gap:2px}
+  .rc-day{min-height:44px;padding:3px}
+  .rc-day .rc-num{font-size:10px}
+  .rc-badge{font-size:7px;padding:1px 2px}
+  .overlay .modal{max-width:100%!important;border-radius:18px 18px 0 0;max-height:88vh}
+  .sec div[style*="display:flex"][style*="min-width:200px"]{min-width:0!important;width:100%!important}
+  .venue-finance-row{flex-direction:column;gap:8px}
+  .venue-finance-col{min-width:0!important;width:100%}
+  .admin-iframe{width:100vw!important;max-width:100vw!important;height:100vh!important;border-radius:0!important}
+  .admin-overlay{padding:0!important;align-items:stretch!important}
+  /* Safe area для iPhone с notch */
+  .header{padding-top:max(10px, env(safe-area-inset-top))}
+  .toast{bottom:max(20px, env(safe-area-inset-bottom))}
+  body{padding-bottom:env(safe-area-inset-bottom)}
 }
 .venue-card:hover{border-color:var(--accent)!important}
 .rc-wrap{margin-bottom:16px}
@@ -703,7 +743,7 @@ ${isEditor()?`
     </div>
   </div>
   <div class="qr-box" id="qb" style="width:100%;max-width:480px;aspect-ratio:1;margin:0 auto"><div style="color:#999;font-size:10px">Нажмите ▶</div></div>
-  <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:4px">30 сек ротация</div>
+  <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:4px">5 сек ротация</div>
 </div>
 `:`
 <div class="sec"><div class="sec-t">📍 Мой чекин</div>
@@ -726,9 +766,14 @@ ${isEditor()?`
       const admins=phs.filter(a=>a.role_in_shift==='print_operator');
       return admins.length?admins.map(a=>{
         const ch=a.checkin_at||a.checked_in;
-        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px">
+        const cm=a.checkin_method||a.method;
+        const opMarks=ch?`${cm==='peer_confirmed'?'👥':''}${a.time_corrected?'✏️':''}${cm==='photo_receipt'&&a.review_status==='pending_review'?'📷':''}`:'';
+        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px;flex-wrap:wrap">
           <span>${esc((a.photographer_name||'').split(' ')[0])}</span>
           ${ch?(a.late_status==='late'?`<span style="color:var(--rank3)">⏰</span>`:(a.late_status==='almost'?`<span style="color:var(--rank2)">⚡</span>`:`<span style="color:var(--rank1)">✅</span>`)):`<span style="color:var(--text3)">⏳</span>`}
+          ${opMarks?`<span style="font-size:8px;color:var(--text3)">${opMarks}</span>`:''}
+          ${(cm==='photo_receipt'&&a.review_status==='pending_review'&&isEditor()&&a.checkin_id)?`<button class="btn btn-ghost" style="font-size:8px;padding:1px 4px" onclick="reviewCheckin('${a.checkin_id}','approved')">✓</button><button class="btn btn-ghost" style="font-size:8px;padding:1px 4px" onclick="reviewCheckin('${a.checkin_id}','rejected')">✕</button>${a.receipt_photo_url?`<a href="${API}${a.receipt_photo_url}" target="_blank" style="font-size:8px;color:var(--accent)">фото</a>`:''}`:''}
+          ${(ch&&isEditor()&&a.checkin_id)?`<button class="btn btn-ghost" style="font-size:8px;padding:1px 4px" onclick="correctCheckinTime('${a.checkin_id}')">⏱</button>`:''}
           <span style="cursor:pointer;font-size:8px;color:var(--rank3)" onclick="removeAssign('${a.id}')">✕</span>
         </div>`;
       }).join(''):`<span style="font-size:10px;color:var(--text3)">—</span>`;
@@ -741,9 +786,14 @@ ${isEditor()?`
       const mgrs=phs.filter(a=>a.role_in_shift==='venue_manager');
       return mgrs.length?mgrs.map(a=>{
         const ch=a.checkin_at||a.checked_in;
-        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px">
+        const cm=a.checkin_method||a.method;
+        const opMarks=ch?`${cm==='peer_confirmed'?'👥':''}${a.time_corrected?'✏️':''}${cm==='photo_receipt'&&a.review_status==='pending_review'?'📷':''}`:'';
+        return`<div style="display:flex;align-items:center;gap:4px;font-size:11px;flex-wrap:wrap">
           <span>${esc((a.photographer_name||'').split(' ')[0])}</span>
           ${ch?(a.late_status==='late'?`<span style="color:var(--rank3)">⏰</span>`:(a.late_status==='almost'?`<span style="color:var(--rank2)">⚡</span>`:`<span style="color:var(--rank1)">✅</span>`)):`<span style="color:var(--text3)">⏳</span>`}
+          ${opMarks?`<span style="font-size:8px;color:var(--text3)">${opMarks}</span>`:''}
+          ${(cm==='photo_receipt'&&a.review_status==='pending_review'&&isEditor()&&a.checkin_id)?`<button class="btn btn-ghost" style="font-size:8px;padding:1px 4px" onclick="reviewCheckin('${a.checkin_id}','approved')">✓</button><button class="btn btn-ghost" style="font-size:8px;padding:1px 4px" onclick="reviewCheckin('${a.checkin_id}','rejected')">✕</button>${a.receipt_photo_url?`<a href="${API}${a.receipt_photo_url}" target="_blank" style="font-size:8px;color:var(--accent)">фото</a>`:''}`:''}
+          ${(ch&&isEditor()&&a.checkin_id)?`<button class="btn btn-ghost" style="font-size:8px;padding:1px 4px" onclick="correctCheckinTime('${a.checkin_id}')">⏱</button>`:''}
           <span style="cursor:pointer;font-size:8px;color:var(--rank3)" onclick="removeAssign('${a.id}')">✕</span>
         </div>`;
       }).join(''):`<span style="font-size:10px;color:var(--text3)">—</span>`;
@@ -783,16 +833,23 @@ ${(()=>{
   sorted.forEach(a=>{cols[ci].push(a);if(cols[ci].length>=Math.ceil(sorted.length/3))ci=Math.min(ci+1,2);});
   return`<div class="shift-grid">${cols.map(col=>col.length?`<div class="shift-col">${col.map(a=>{
     const ch=a.checkin_at||a.checked_in;
+    const cm=a.checkin_method||a.method;
     const rl=roleLbl[a.role_in_shift]||a.role_in_shift||'';
+    const extraMarks=ch?`${cm==='peer_confirmed'?' <span style="font-size:9px;color:var(--text3)" title="Подтверждён сотрудником">👥</span>':''}${a.time_corrected?' <span style="font-size:9px;color:var(--accent2)" title="Время скорректировано HR">✏️</span>':''}${cm==='photo_receipt'&&a.review_status==='pending_review'?' <span style="font-size:9px;color:#f5a623">📷 проверка</span>':''}`:'';
     const statusHtml=ch
       ?(a.late_status==='late'
         ?`<span style="color:var(--rank3);font-size:9px">⏰+${a.late_minutes}м</span>`
         :(a.late_status==='almost'
           ?`<span style="color:var(--rank2);font-size:9px">⚡+${a.late_minutes}м</span>`
-          :`<span style="color:var(--rank1);font-size:9px">✅</span>`))
+          :`<span style="color:var(--rank1);font-size:9px">✅</span>`))+extraMarks
       +((isEditor()&&a.checkin_id)?`<span style="cursor:pointer;font-size:9px;color:var(--text3);margin-left:2px" onclick="cancelCheckin('${a.checkin_id}','${a.id}')">✕</span>`:'')
       +((a.late_status==='late'&&a.fine_amount>0&&!a.fine_cancelled&&hasAnyRole(['cashier','exec_director','admin']))?`<span style="cursor:pointer;font-size:9px;color:var(--rank2);margin-left:2px" onclick="cancelFine('${a.checkin_id}')">💸</span>`:'')
       +((a.fine_cancelled)?`<span style="font-size:9px;color:var(--text3);margin-left:2px">✓штр</span>`:'')
+      +((cm==='photo_receipt'&&a.review_status==='pending_review'&&isEditor())?`
+  <button class="btn btn-ghost" style="font-size:10px;padding:2px 6px;color:var(--rank1)" onclick="reviewCheckin('${a.checkin_id}','approved')">✅ Принять</button>
+  <button class="btn btn-ghost" style="font-size:10px;padding:2px 6px;color:var(--rank3)" onclick="reviewCheckin('${a.checkin_id}','rejected')">❌ Отклонить</button>
+  ${a.receipt_photo_url?`<a href="${API}${a.receipt_photo_url}" target="_blank" style="font-size:10px;color:var(--accent)">📷 Фото</a>`:''}`:'')
+      +((ch&&isEditor()&&a.checkin_id)?`<button class="btn btn-ghost" style="font-size:10px;padding:2px 6px" onclick="correctCheckinTime('${a.checkin_id}')">✏️ Время</button>`:'')
       :`<span style="color:var(--text3);font-size:9px">⏳</span>`+(isEditor()?`<span style="cursor:pointer;font-size:9px;color:var(--accent2);margin-left:2px" onclick="manCh('${a.id}')">✋</span>`:'');
     return`<div class="rr"><div class="rr-name">${esc((a.photographer_name||'').split(' ').slice(0,2).join(' '))}</div><span style="font-size:8px;color:var(--text3)">${rl}</span> ${statusHtml}${isEditor()?`<span style="cursor:pointer;font-size:9px;color:var(--rank3);margin-left:3px" title="Снять со смены" onclick="removeAssign('${a.id}')">🗑</span>`:''}</div>`;
   }).join('')}</div>`:'').join('')}</div>`;
@@ -815,8 +872,8 @@ ${ed&&phs.length&&prods.length&&isEditor()?`<div id="bonus-actions-wrap">${hasPh
 </div>
 
 ${ed&&isEditor()?`<div class="sec"><div class="sec-t">💸 Кассовые операции</div>
-<div style="display:flex;gap:12px;flex-wrap:wrap">
-<div style="flex:1;min-width:200px">
+<div class="venue-finance-row">
+<div class="venue-finance-col">
 <div class="fl">Авансы фотографам</div>
 <div id="adv-list">
 ${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
@@ -828,7 +885,7 @@ ${advRows.map(a=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items
 </div>
 <button class="btn btn-ghost" style="font-size:10px" onclick="addAdvanceRow()">+ Аванс</button>
 </div>
-<div style="flex:1;min-width:200px">
+<div class="venue-finance-col">
 <div class="fl">Мелкие расходы из кассы</div>
 <div id="petty-list">
 ${pettyRows.map(e=>`<div style="display:flex;gap:4px;margin-bottom:4px;align-items:center">
@@ -1138,9 +1195,9 @@ load();
 }catch(e){toast(e.message,1);}
 }
 
-async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,30000);}
+async function startQR(){if(qi)clearInterval(qi);await gqr();qi=setInterval(gqr,5000);}
 function stopQR(){if(qi){clearInterval(qi);qi=null;}document.getElementById('qb').innerHTML='<div style="color:#999;font-size:10px">Стоп</div>';document.getElementById('qt').textContent='--';}
-async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=Math.min(b.offsetWidth||460,480);new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||30;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
+async function gqr(){if(!shift)return;try{const d=await api('POST',`/shifts/${shift.id}/generate-qr`);const b=document.getElementById('qb');b.innerHTML='';const qrW=Math.min(b.offsetWidth||460,480);new QRCode(b,{text:d.qr_code,width:qrW,height:qrW,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.L});let s=d.expires_in||5;document.getElementById('qt').textContent=s+'с';const t=setInterval(()=>{s--;const e=document.getElementById('qt');if(e)e.textContent=s+'с';if(s<=0)clearInterval(t);},1000);}catch(e){document.getElementById('qb').innerHTML=`<div style="color:#f55;font-size:10px;padding:12px">${esc(e.message)}</div>`;}}
 async function manCh(id){try{await api('POST','/checkins',{assignment_id:id,checkin_type:'arrival',method:'manual'});toast('Отмечен');load();}catch(e){toast(e.message,1);}}
 async function cancelCheckin(checkinId,assignId){
 if(!checkinId){toast('ID чекина не найден',1);return;}
@@ -1160,6 +1217,31 @@ await api('POST',`/checkins/${checkinId}/cancel-fine`,{reason:reason||'Без у
 toast('Штраф отменён');
 load();
 }catch(e){toast(e.message,1);}
+}
+async function reviewCheckin(checkinId, status) {
+  if (!checkinId) { toast('ID чекина не найден', 1); return; }
+  let comment = null;
+  if (status === 'rejected') {
+    comment = prompt('Причина отклонения:');
+    if (comment === null) return;
+  }
+  try {
+    await api('POST', `/checkins/${checkinId}/review`, { status, comment: comment || null });
+    toast(status === 'approved' ? 'Чекин подтверждён' : 'Чекин отклонён');
+    load();
+  } catch (e) { toast(e.message, 1); }
+}
+async function correctCheckinTime(checkinId) {
+  if (!checkinId) { toast('ID чекина не найден', 1); return; }
+  const time = prompt('Новое время чекина (HH:MM):');
+  if (!time || !/^\d{2}:\d{2}$/.test(time)) { if (time !== null) toast('Формат: HH:MM', 1); return; }
+  const reason = prompt('Причина коррекции:');
+  if (!reason) { toast('Причина обязательна', 1); return; }
+  try {
+    await api('PATCH', `/checkins/${checkinId}/correct-time`, { corrected_time: time, reason });
+    toast('Время скорректировано');
+    load();
+  } catch (e) { toast(e.message, 1); }
 }
 async function removeAssign(assignId){
 if(!confirm('Снять этого сотрудника со смены?'))return;
@@ -2520,10 +2602,8 @@ function setupMgmtButton() {
   if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
 }
 </script>
-<div id="admin-overlay" onclick="if(event.target===this)closeAdmin()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
-  <div style="width:min(960px,94vw);height:min(90vh,100%);border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)">
-    <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none"></iframe>
-  </div>
+<div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
+  <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
 </div>
 </body>
 </html>
