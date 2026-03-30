@@ -193,7 +193,7 @@
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
-let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
+let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,allShifts=[],assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
 let checkinPollInterval=null;
 let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[],allPhotographersPool=[],_bonusDebounce=null,_saveDebounce=null;
 window.__bonusMeta={};
@@ -603,9 +603,12 @@ document.getElementById('C').innerHTML='<div class="loading">Загрузка...
 try{
 const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}&schedule_status=confirmed`);
 if(!ev.length){document.getElementById('C').innerHTML=`<div class="loading">Нет мероприятий <button class="btn btn-primary" style="margin-left:6px" onclick="mkEvent()">+ Создать</button></div>`;_prevVid=vid;_prevSd=dt;return;}
-const sh=await api('GET',`/shifts?event_id=${ev[0].id}`);shift=sh[0]||null;
+const sh=await api('GET',`/shifts?event_id=${ev[0].id}`);allShifts=sh||[];shift=sh[0]||null;
 if(!shift){document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';_prevVid=vid;_prevSd=dt;return;}
-assigns=await api('GET',`/shifts/${shift.id}/assignments`).catch(()=>[]);
+// Загружаем назначения ВСЕХ смен мероприятия и объединяем
+const allAssignPromises=allShifts.map(s=>api('GET',`/shifts/${s.id}/assignments`).catch(()=>[]));
+const allAssignArrays=await Promise.all(allAssignPromises);
+assigns=allAssignArrays.flat();
 let schemeData=null;
 try{
 schemeData=await api('GET',`/venues/${vid}/active-scheme?date=${encodeURIComponent(dt)}`);
@@ -670,12 +673,15 @@ _prevVid=vid;_prevSd=dt;
 async function pollCheckins(){
 if(!shift)return;
 try{
-const freshAssigns=await api('GET',`/shifts/${shift.id}/assignments`).catch(()=>null);
-if(!freshAssigns)return;
+const allFreshPromises=(allShifts.length?allShifts:[shift]).map(s=>api('GET',`/shifts/${s.id}/assignments`).catch(()=>[]));
+const allFreshArrays=await Promise.all(allFreshPromises);
+const freshAssigns=allFreshArrays.flat();
+if(!freshAssigns||!freshAssigns.length)return;
 let changed=false;
+if(freshAssigns.length!==assigns.length)changed=true;
 for(const fa of freshAssigns){
 const old=assigns.find(a=>a.id===fa.id);
-if(!old)continue;
+if(!old){changed=true;continue;}
 const oldCh=old.checkin_at||old.checked_in;
 const newCh=fa.checkin_at||fa.checked_in;
 if((!oldCh&&newCh)||(oldCh&&!newCh)||(old.late_status!==fa.late_status)){
@@ -1185,7 +1191,8 @@ const sel=document.getElementById('add-ph-select');
 const phId=sel&&sel.value;
 if(!phId||!shift?.id)return;
 try{
-await api('POST',`/shifts/${shift.id}/assignments`,{
+const phShift=allShifts.find(s=>s.target_role==='photographer')||shift;
+await api('POST',`/shifts/${phShift.id}/assignments`,{
 photographer_id:phId,
 role_in_shift:'photographer',
 assignment_type:'manual'
@@ -1254,7 +1261,9 @@ load();
 async function addRoleAssign(photographerId,role){
 if(!shift)return;
 try{
-await api('POST',`/shifts/${shift.id}/assignments`,{photographer_id:photographerId,role_in_shift:role});
+const roleShiftMap={'print_operator':'print_operator','venue_manager':'manager','mentor':'photographer'};
+const targetShift=allShifts.find(s=>s.target_role===(roleShiftMap[role]||'photographer'))||shift;
+await api('POST',`/shifts/${targetShift.id}/assignments`,{photographer_id:photographerId,role_in_shift:role});
 toast('Назначен');
 load();
 }catch(e){toast(e.message,1);}
