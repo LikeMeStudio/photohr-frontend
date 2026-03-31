@@ -2680,13 +2680,14 @@ async function loadScheduleOverview(){
       api('GET',`/schedule/snapshots${city?`?city=${encodeURIComponent(city)}`:''}`).catch(()=>[]),
     ]);
     const s=ov.summary||{};
-    const fill=Number(s.fill_rate||0);
+    const fillPct=Number(s.fill_rate||0);
+    const fillColor=fillPct>70?'var(--rank1)':fillPct>30?'var(--rank2)':'var(--rank3)';
     const summaryHtml=`<div class="section-title" style="margin-top:0">Сводка</div>
       <div class="ov-summary">
-        <div class="ov-card"><div class="ov-num">${esc(String(s.events??0))}</div><div class="ov-muted">мероприятий</div></div>
-        <div class="ov-card"><div class="ov-num">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
-        <div class="ov-card"><div class="ov-num">${esc(String(s.venues??0))}</div><div class="ov-muted">площадок</div></div>
-        <div class="ov-card"><div class="ov-num">${esc(String(fill))}%</div><div class="ov-muted">заполненность</div></div>
+        <div class="ov-card"><div class="ov-num" style="color:var(--accent2)">${esc(String(s.events??0))}</div><div class="ov-muted">мероприятий</div></div>
+        <div class="ov-card"><div class="ov-num" style="color:var(--text)">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
+        <div class="ov-card"><div class="ov-num" style="color:var(--rank1)">${esc(String(s.venues??0))}</div><div class="ov-muted">площадок</div></div>
+        <div class="ov-card"><div class="ov-num" style="color:${fillColor}">${esc(String(fillPct))}%</div><div class="ov-muted">заполненность</div></div>
       </div>`;
     const venues=(ov.venue_stats||[]).map(v=>{
       const req=parseInt(v.required||0,10)||0;
