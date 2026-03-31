@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Управление</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -106,6 +106,26 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   .drawer .field-row{grid-template-columns:1fr}
   .overlay{align-items:flex-end;padding:0}
   .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
+  /* ── admin.html mobile v2 ── */
+  #admin-main{padding:8px 10px!important}
+  #admin-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;gap:4px}
+  #admin-tabs::-webkit-scrollbar{display:none}
+  #admin-tabs .tab{flex-shrink:0;font-size:11px;padding:6px 10px}
+  .user-row{flex-wrap:wrap;gap:6px;padding:8px 10px}
+  .user-row-name{width:100%;font-size:13px}
+  .approve-row{flex-wrap:wrap;gap:6px}
+  .venue-admin-row{padding:8px 10px}
+  #archived-user-modal .modal{max-width:100%!important;border-radius:18px 18px 0 0}
+  #archived-user-modal .vs-unified-grid{grid-template-columns:1fr!important}
+  .vs-unified-grid{grid-template-columns:1fr!important}
+  #ph-bs-modal .modal{max-width:100%!important;border-radius:18px 18px 0 0}
+  #admin-root > div:first-child{padding:10px 12px!important;flex-wrap:wrap;gap:6px}
+  .field-row{flex-direction:column;gap:8px}
+  .field{min-width:0}
+  /* Safe area для iPhone с notch */
+  .header{padding-top:max(10px, env(safe-area-inset-top))}
+  .toast{bottom:max(20px, env(safe-area-inset-bottom))}
+  body{padding-bottom:env(safe-area-inset-bottom)}
 }
 
 /* ── Venue editor (admin modal): schedule grid ── */
@@ -155,6 +175,10 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .venue-admin-row{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s}
 .venue-admin-row:hover{border-color:var(--accent2)}
 
+/* global analytics (вкладка «Аналитика») */
+.section.ga-block{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
+.section.ga-block > .section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px}
+
 </style>
 </head>
 <body>
@@ -172,6 +196,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <button type="button" class="tab" onclick="switchAdminTab(1)">Площадки</button>
       <button type="button" class="tab" onclick="switchAdminTab(2)">Архив</button>
       <button type="button" class="tab" onclick="switchAdminTab(3)">История</button>
+      <button type="button" class="tab" id="adm-tab-analytics" onclick="switchAdminTab(4)">📊 Аналитика</button>
     </div>
     <div id="tab-content"></div>
   </div>
@@ -531,6 +556,209 @@ function switchAdminTab(i){
   else if(i===1) renderAdminVenues();
   else if(i===2) renderAdminArchive();
   else if(i===3) renderAdminHistory();
+  else if(i===4){
+    renderAdminAnalyticsShell();
+    void (async()=>{ await initGACityFilter(); loadGlobalAnalytics(); })();
+  }
+}
+
+function renderAdminAnalyticsShell(){
+  const content = document.getElementById('tab-content');
+  if(!content) return;
+  content.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px">
+      <span style="font-size:12px;color:var(--text2)">Период:</span>
+      <select class="fselect" id="ga-range" onchange="loadGlobalAnalytics()" style="min-width:160px;width:auto">
+        <option value="month">Текущий месяц</option>
+        <option value="prev-month">Прошлый месяц</option>
+        <option value="quarter">Текущий квартал</option>
+        <option value="year">Текущий год</option>
+      </select>
+      <span style="font-size:12px;color:var(--text2)">Город:</span>
+      <select class="fselect" id="ga-city" onchange="loadGlobalAnalytics()" style="min-width:140px;width:auto">
+        <option value="">Все</option>
+      </select>
+    </div>
+    <div id="ga-body" class="loading">Загрузка...</div>
+  `;
+}
+
+function gaDateRange(){
+  const sel=document.getElementById('ga-range')?.value||'month';
+  const now=new Date();
+  const y=now.getFullYear(), m=now.getMonth();
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  if(sel==='month') return {from:`${y}-${String(m+1).padStart(2,'0')}-01`, to:new Date(y,m+1,0).toISOString().slice(0,10), label:MONTHS[m]+' '+y};
+  if(sel==='prev-month'){const pm=m===0?11:m-1,py=m===0?y-1:y; return {from:`${py}-${String(pm+1).padStart(2,'0')}-01`, to:new Date(py,pm+1,0).toISOString().slice(0,10), label:MONTHS[pm]+' '+py};}
+  if(sel==='quarter'){const q=Math.floor(m/3),qs=q*3; return {from:`${y}-${String(qs+1).padStart(2,'0')}-01`, to:new Date(y,qs+3,0).toISOString().slice(0,10), label:'Q'+(q+1)+' '+y};}
+  if(sel==='year') return {from:`${y}-01-01`, to:`${y}-12-31`, label:String(y)};
+  return {from:`${y}-${String(m+1).padStart(2,'0')}-01`, to:new Date(y,m+1,0).toISOString().slice(0,10), label:MONTHS[m]+' '+y};
+}
+
+function gaCard(num, label, color){
+  return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;min-width:120px">
+    <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:${color||'var(--text)'}">${num}</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">${label}</div>
+  </div>`;
+}
+
+function gaSection(title, emoji, content, id){
+  return `<div class="section ga-block" style="margin-bottom:12px" id="ga-sec-${id||''}">
+    <div class="section-title" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">${emoji} ${title} <span style="font-size:10px;color:var(--text3)">▾</span></div>
+    <div>${content}</div>
+  </div>`;
+}
+
+function gaBar(label, value, max, color){
+  const pct=max>0?Math.min(100,Math.round(value/max*100)):0;
+  return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px"><span>${label}</span><span style="color:var(--text3)">${value}</span></div><div style="background:var(--bg);border-radius:4px;height:6px;margin-top:2px"><div style="background:${color||'var(--accent)'};border-radius:4px;height:100%;width:${pct}%"></div></div></div>`;
+}
+
+async function initGACityFilter(){
+  const sel=document.getElementById('ga-city');
+  if(!sel) return;
+  const prev=sel.value;
+  try{
+    const list=await api('GET','/venues');
+    const cities=[...new Set((list||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+    sel.innerHTML='<option value="">Все</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if(prev && [...sel.options].some(o=>o.value===prev)) sel.value=prev;
+  }catch(_){}
+}
+
+async function loadGlobalAnalytics(){
+  const body=document.getElementById('ga-body');
+  if(!body) return;
+  body.innerHTML='<div class="loading" style="padding:40px;text-align:center">⏳ Загрузка аналитики по всем модулям...</div>';
+
+  const range=gaDateRange();
+  const city=document.getElementById('ga-city')?.value||'';
+  const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
+  const from=encodeURIComponent(range.from), to=encodeURIComponent(range.to);
+
+  try{
+    const [schedule, reportsRaw, recruiting, stock, photographers, team]=await Promise.all([
+      api('GET',`/schedule/overview?from=${from}&to=${to}${cityQ}`).catch(()=>({summary:{}})),
+      api('GET',`/daily-reports?from=${range.from}&to=${range.to}&limit=500`).catch(()=>[]),
+      api('GET','/recruiting/analytics?period='+Math.max(30,Math.round((new Date(range.to)-new Date(range.from))/(86400000)))).catch(()=>({by_source:[],by_stage:[],hired_count:0,avg_time:[]})),
+      api('GET','/stock/summary').catch(()=>({})),
+      api('GET','/photographers').catch(()=>[]),
+      api('GET','/team').catch(()=>[]),
+    ]);
+
+    const reports=(reportsRaw||[]).filter(r=>!city || (r.venue_city||'').trim()===city);
+
+    const ss=schedule.summary||{};
+    const fill=Number(ss.fill_rate||0);
+
+    const approvedReports=(reports||[]).filter(r=>r.status==='approved');
+    const totalRevenue=approvedReports.reduce((s,r)=>s+parseFloat(r.total_revenue||0),0);
+    const avgRevenue=approvedReports.length>0?Math.round(totalRevenue/approvedReports.length):0;
+    const reportsSubmitted=(reports||[]).filter(r=>r.status==='submitted').length;
+    const reportsApproved=approvedReports.length;
+
+    const activePh=(photographers||[]).filter(p=>p.is_active&&p.hire_status==='active').length;
+    const totalPh=(photographers||[]).length;
+
+    const fillColor=fill>70?'var(--rank1)':fill>30?'var(--rank2)':'var(--rank3)';
+    const kpiHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+      ${gaCard(ss.events??0,'Мероприятий','var(--accent2)')}
+      ${gaCard(fill+'%','Заполненность',fillColor)}
+      ${gaCard(totalRevenue.toLocaleString('ru-RU')+'₽','Выручка','var(--rank1)')}
+      ${gaCard(activePh,'Активных сотр.','var(--accent)')}
+      ${gaCard(recruiting.hired_count||0,'Принято в штат','var(--rank1)')}
+      ${gaCard(stock.warehouses_count??0,'Складов','var(--text)')}
+    </div>`;
+
+    const venueStats=(schedule.venue_stats||[]);
+    const maxReq=venueStats.length?Math.max(1,...venueStats.map(v=>parseInt(v.required||0,10)||0)):1;
+    const schedBars=venueStats.map(v=>{
+      const req=parseInt(v.required||0,10)||0, asg=parseInt(v.assigned||0,10)||0;
+      const pct=req>0?Math.round(asg/req*100):0;
+      const col=pct>=80?'var(--rank1)':pct>=50?'var(--rank2)':'var(--rank3)';
+      return gaBar(v.name||'', `${asg}/${req} (${pct}%)`, 100, col);
+    }).join('');
+    const schedProblems=(schedule.problems||[]).map(p=>{
+      if(p.type==='understaffed') return `<div style="font-size:12px;margin-bottom:4px">🔴 ${p.count} площадок с недобором</div>`;
+      if(p.type==='forced') return `<div style="font-size:12px;margin-bottom:4px">⚠️ ${p.count} принудительных назначений</div>`;
+      if(p.type==='declined') return `<div style="font-size:12px;margin-bottom:4px">❌ ${p.count} отклонённых смен</div>`;
+      return '';
+    }).join('')||'<div style="color:var(--rank1);font-size:12px">✅ Без проблем</div>';
+    const schedHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">
+      ${gaCard(ss.events??0,'Мероприятий','var(--accent2)')}
+      ${gaCard(ss.shifts??0,'Смен','var(--text)')}
+      ${gaCard(ss.venues??0,'Площадок','var(--rank1)')}
+      ${gaCard(fill+'%','Заполненность',fillColor)}
+    </div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Загрузка по площадкам</div>
+    ${schedBars||'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
+    <div style="font-size:12px;font-weight:600;margin:12px 0 6px">Проблемы</div>
+    ${schedProblems}`;
+
+    const byVenue={};
+    approvedReports.forEach(r=>{
+      const vn=r.venue_name||'?';
+      if(!byVenue[vn]) byVenue[vn]={revenue:0,count:0};
+      byVenue[vn].revenue+=parseFloat(r.total_revenue||0);
+      byVenue[vn].count++;
+    });
+    const venueRevArr=Object.entries(byVenue).sort((a,b)=>b[1].revenue-a[1].revenue);
+    const maxVenueRev=venueRevArr.length?venueRevArr[0][1].revenue:1;
+    const salesBars=venueRevArr.slice(0,10).map(([name,d])=>
+      gaBar(name, d.revenue.toLocaleString('ru-RU')+'₽', maxVenueRev, 'var(--rank1)')
+    ).join('');
+    const salesHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
+      ${gaCard(totalRevenue.toLocaleString('ru-RU')+'₽','Общая выручка','var(--rank1)')}
+      ${gaCard(avgRevenue.toLocaleString('ru-RU')+'₽','Средняя/смену','var(--accent2)')}
+      ${gaCard(reportsApproved,'Проведённых отчётов','var(--rank1)')}
+      ${gaCard(reportsSubmitted,'Ожидают проведения','var(--rank2)')}
+    </div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Топ площадок по выручке</div>
+    ${salesBars||'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}`;
+
+    const recBySource=(recruiting.by_source||[]);
+    const maxSrc=recBySource.length?Math.max(1,...recBySource.map(s=>parseInt(s.count,10)||0)):1;
+    const recSourceBars=recBySource.map(s=>gaBar(s.source||'?', s.count, maxSrc, 'var(--accent)')).join('');
+    const recByStage=(recruiting.by_stage||[]).filter(s=>parseInt(s.count,10)>0);
+    const recStageRows=recByStage.map(s=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px"><div style="width:8px;height:8px;border-radius:50%;background:${s.color||'var(--text3)'}"></div><span>${esc(s.name)}</span><span style="color:var(--text3);margin-left:auto">${s.count}</span></div>`).join('');
+    const recAvgTime=(recruiting.avg_time||[]).filter(t=>parseFloat(t.avg_days)>0);
+    const recTimeRows=recAvgTime.map(t=>`<div style="font-size:12px;margin-bottom:4px">${esc(t.name)}: <b>${t.avg_days} дн.</b></div>`).join('');
+    const recHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">
+      ${gaCard(recruiting.hired_count||0,'Принято','var(--rank1)')}
+      ${gaCard(recBySource.reduce((s,x)=>s+(parseInt(x.count,10)||0),0),'Откликов за период','var(--accent2)')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div><div style="font-size:12px;font-weight:600;margin-bottom:8px">По источникам</div>${recSourceBars||'—'}</div>
+      <div><div style="font-size:12px;font-weight:600;margin-bottom:8px">По этапам</div>${recStageRows||'—'}
+        ${recTimeRows?'<div style="font-size:12px;font-weight:600;margin:10px 0 6px">Среднее время на этапе</div>'+recTimeRows:''}
+      </div>
+    </div>`;
+
+    const stockHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">
+      ${gaCard(stock.warehouses_count??0,'Складов','var(--text)')}
+      ${gaCard(stock.items_count??0,'Позиций','var(--accent2)')}
+      ${gaCard(stock.critical_count??0,'Критичных',parseInt(stock.critical_count||0,10)>0?'var(--rank3)':'var(--rank1)')}
+      ${gaCard(stock.equipment_count??0,'Оборудования','var(--text)')}
+      ${gaCard((Number(stock.total_value)||0).toLocaleString('ru-RU')+'₽','Стоимость','var(--rank2)')}
+    </div>`;
+
+    const teamHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
+      ${gaCard(activePh,'Активных фотографов','var(--rank1)')}
+      ${gaCard(totalPh-activePh,'Неактивных','var(--text3)')}
+      ${gaCard((team||[]).length,'Управленцев','var(--accent2)')}
+    </div>`;
+
+    body.innerHTML=`<div style="font-family:'Unbounded',sans-serif;font-size:15px;margin-bottom:14px">${esc(range.label)}</div>`
+      +kpiHtml
+      +gaSection('Расписание','📅',schedHtml,'schedule')
+      +gaSection('Продажи','💰',salesHtml,'sales')
+      +gaSection('Рекрутинг','📋',recHtml,'recruiting')
+      +gaSection('Склад','📦',stockHtml,'stock')
+      +gaSection('Команда','👥',teamHtml,'team');
+
+  }catch(e){
+    body.innerHTML=`<div style="color:var(--rank3);font-size:13px">Ошибка: ${esc(e.message)}</div>`;
+  }
 }
 
 async function renderAdminHistory(){
