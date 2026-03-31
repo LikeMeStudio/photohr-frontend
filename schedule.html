@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Расписание</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -134,7 +134,7 @@ a{color:inherit;text-decoration:none}
 .pool-city{border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:10px;background:var(--bg3)}
 .pool-city-title{font-size:12px;font-weight:600;margin-bottom:6px}
 .pool-city-list{display:flex;flex-wrap:wrap;gap:6px}
-.sm-wrap{padding:0;margin:0;width:100%;overflow:auto;max-height:65vh;position:relative;border:1px solid var(--border);border-radius:10px;scrollbar-width:thin}
+.sm-wrap{padding:0;margin:0;width:100%;overflow:auto;max-height:520px;position:relative;border:1px solid var(--border);border-radius:10px;scrollbar-width:thin}
 .sm-table{width:100%;border-collapse:separate;border-spacing:0;font-size:10px;min-width:max(100%,600px);max-width:100%}
 .sm-table th,.sm-table td{border:1px solid var(--border);padding:2px 3px;text-align:center;min-width:50px;max-width:70px}
 .sm-table td:not(.sm-name){padding:0}
@@ -159,11 +159,72 @@ a{color:inherit;text-decoration:none}
 #panel-2 #tetris-placeholder.loading,
 #panel-2 #staff-matrix-placeholder.loading{padding:8px;margin:0;text-align:center;color:var(--text3)}
 #panel-2 > div:not(.section){width:100%;box-sizing:border-box}
+.sched-layout{display:flex;gap:16px}
+.sched-sidebar{width:260px;flex-shrink:0}
+.sched-main{flex:1;min-width:0}
+.admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
+.admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 @media(max-width:768px){
-  .header{padding:10px 14px}
-  .nav-links{order:3;width:100%;overflow-x:auto}
-  .tabs-main{scrollbar-width:none}
+  .header{padding:10px 14px;gap:8px}
+  .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+  .nav-links::-webkit-scrollbar{display:none}
+  .header-stats{display:none}
+  .logo{font-size:16px}
+  .tabs-main{scrollbar-width:none;-ms-overflow-style:none}
+  .tabs-main::-webkit-scrollbar{display:none}
   .main{padding:12px}
+  /* ── schedule.html mobile v2 ── */
+  .tabs-main{flex-wrap:nowrap;overflow-x:auto;gap:4px;padding-bottom:6px}
+  .tab-main{padding:8px 14px;font-size:12px;flex-shrink:0}
+  .section{padding:10px;margin-bottom:10px;border-radius:10px}
+  .section-title{font-size:12px;margin-bottom:8px}
+  .cal-grid{gap:3px}
+  .cal-cell{min-height:64px;padding:4px;font-size:10px}
+  .cal-num{font-size:11px;margin-bottom:2px}
+  .ev-pill{font-size:8px;padding:2px 3px}
+  .tt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
+  .tt-table{min-width:700px}
+  .tt-table th,.tt-table td{padding:4px 3px;font-size:9px}
+  .tt-venue{min-width:80px!important;max-width:100px!important;font-size:10px!important}
+  .tt-h-day{font-size:8px!important}
+  .tt-pill{font-size:8px}
+  .tt-pill .tt-vn{font-size:8px}
+  .sm-wrap{overflow-x:auto;overflow-y:auto;max-height:520px;-webkit-overflow-scrolling:touch;border-radius:8px}
+  .sm-table{min-width:500px}
+  .sm-table th,.sm-table td{padding:2px;min-width:40px;max-width:55px}
+  .sm-table th:first-child,.sm-table td.sm-name{min-width:90px;max-width:120px;font-size:9px}
+  .sm-cell{min-height:24px;font-size:8px}
+  .venue-side{max-height:300px}
+  .venue-drag{padding:5px 6px;font-size:11px}
+  .venue-drag-name{font-size:11px}
+  .section:has(#tr-all){overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap!important}
+  #tr-all,#tr-photographer,#tr-print_operator,#tr-manager,#tr-mentor,#tr-helper{flex-shrink:0;font-size:11px;padding:5px 10px}
+  .section:has(#sm-city-filter) > div:has(#sm-all){overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap!important}
+  #sm-all,#sm-photographer,#sm-print_operator,#sm-manager,#sm-mentor,#sm-helper{flex-shrink:0;font-size:11px;padding:5px 10px}
+  .section:has(#tet-city){flex-wrap:wrap!important;gap:6px!important}
+  .section:has(#tet-city) .fselect{flex:1;min-width:120px}
+  .section:has(#tet-city) .btn{font-size:11px;padding:6px 10px}
+  #submissions-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tbl{min-width:600px}
+  .subm-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .subm-tabs::-webkit-scrollbar{display:none}
+  .subm-tab-btn{flex-shrink:0;font-size:11px;padding:5px 10px}
+  .mini-cal{grid-template-columns:repeat(7,30px);gap:3px}
+  .mini-day{width:30px;height:30px;font-size:10px}
+  .overlay{align-items:flex-end;padding:0}
+  .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
+  .period-row{flex-direction:column;gap:6px}
+  .period-actions{display:flex;flex-wrap:wrap;gap:4px}
+  .period-actions .btn{font-size:10px;padding:4px 8px}
+  .info-grid{grid-template-columns:1fr}
+  .sched-layout{flex-direction:column;gap:10px}
+  .sched-sidebar{width:100%}
+  .admin-iframe{width:100vw!important;max-width:100vw!important;height:100vh!important;border-radius:0!important}
+  .admin-overlay{padding:0!important;align-items:stretch!important}
+  /* Safe area для iPhone с notch */
+  .header{padding-top:max(10px, env(safe-area-inset-top))}
+  .toast{bottom:max(20px, env(safe-area-inset-bottom))}
+  body{padding-bottom:env(safe-area-inset-bottom)}
 }
 .vs-wrap{font-size:11px;color:var(--text)}
 .vs-sec{margin-bottom:8px;padding:6px 8px;border-radius:8px;border:1px solid var(--border)}
@@ -259,12 +320,12 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-ghost" id="confirm-schedule-btn" onclick="confirmSchedulePeriod()">Утвердить расписание</button>
       <button class="btn btn-ghost" onclick="openBulkFromButton()">+ Создать</button>
     </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:280px">
+    <div class="sched-layout">
+      <div class="sched-main">
         <div class="cal-grid" id="sch-cal-head"></div>
         <div class="cal-grid" id="sch-cal-grid" style="margin-top:4px"></div>
       </div>
-      <div style="width:300px;max-width:100%" class="section">
+      <div class="section sched-sidebar">
         <div class="section-title">Площадки</div>
         <input class="fin" id="venue-search" placeholder="Поиск..." style="width:100%;margin-bottom:8px" oninput="filterVenueList()"/>
         <div class="venue-side" id="venue-list"></div>
@@ -284,8 +345,8 @@ a{color:inherit;text-decoration:none}
   </div>
   <div id="panel-2" class="sched-panel" style="display:none">
     <div class="section" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-      <select class="fselect" id="tet-city" onchange="loadPool(poolRole)"><option value="">Все города</option></select>
-      <select class="fselect" id="tet-period" onchange="loadPool(poolRole)">
+      <select class="fselect" id="tet-city" onchange="syncCityFilter(this.value)"><option value="">Все города</option></select>
+      <select class="fselect" id="tet-period" onchange="loadPool()">
         <option value="">Период: загрузка...</option>
       </select>
       <button class="btn btn-primary" onclick="runAutoAssign(true)">🤖 Авто (preview)</button>
@@ -294,7 +355,9 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-ghost" onclick="publishSchedule()">✅ Опубликовать</button>
     </div>
     <div class="section" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <span style="font-size:12px;color:var(--text2)">Показать:</span>
+      <select class="fselect" id="global-city-filter" onchange="switchGlobalCity(this.value)" style="min-width:140px"><option value="">Все города</option></select>
+      <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+      <span style="font-size:12px;color:var(--text2)">Роль:</span>
       <button type="button" class="btn btn-primary" id="tr-all" onclick="switchTetrisFilter('all')">Все</button>
       <button type="button" class="btn btn-ghost" id="tr-photographer" onclick="switchTetrisFilter('photographer')">📸 Фотографы</button>
       <button type="button" class="btn btn-ghost" id="tr-print_operator" onclick="switchTetrisFilter('print_operator')">🖨 Операторы печати</button>
@@ -312,6 +375,17 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="section">
       <div class="section-title">👥 Расстановка по сотрудникам</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <select class="fselect" id="sm-city-filter" onchange="renderStaffMatrix()" style="min-width:140px"><option value="">Все города</option></select>
+        <span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>
+        <span style="font-size:12px;color:var(--text2)">Роль:</span>
+        <button type="button" class="btn btn-primary" id="sm-all" onclick="switchMatrixRoleFilter('all')">Все</button>
+        <button type="button" class="btn btn-ghost" id="sm-photographer" onclick="switchMatrixRoleFilter('photographer')">📸 Фотографы</button>
+        <button type="button" class="btn btn-ghost" id="sm-print_operator" onclick="switchMatrixRoleFilter('print_operator')">🖨 Операторы печати</button>
+        <button type="button" class="btn btn-ghost" id="sm-manager" onclick="switchMatrixRoleFilter('manager')">👔 Менеджеры</button>
+        <button type="button" class="btn btn-ghost" id="sm-mentor" onclick="switchMatrixRoleFilter('mentor')">🎓 Наставники</button>
+        <button type="button" class="btn btn-ghost" id="sm-helper" onclick="switchMatrixRoleFilter('helper')">🤝 Помощники</button>
+      </div>
       <div id="staff-matrix-placeholder" class="loading">Загрузка...</div>
     </div>
     <div class="section">
@@ -551,13 +625,14 @@ let tetrisEventsByKey={};
 const VENUE_COLORS=['#7c6cff','#3ecf8e','#f5a623','#e86aa6','#6aa6e8','#f25555','#9b8dff','#5ee8d0','#e87a6a','#8a7aee'];
 let poolRole='photographer';
 let tetrisFilter='all';
+let matrixRoleFilter='all';
+let globalCityFilter='';
 const ROLE_SHORT={photographer:'фото',print_operator:'опер.печ.',manager:'менеджер',mentor:'наставник',helper:'помощник'};
 let draggingPoolPhotographerId=null;
 let draggingPoolPhotographerName='';
 let draggingPoolPhotographerCity='';
 let tetrisPeriods=[];
 let forceAssignResolver=null;
-let cityPoolRoles={};
 let scmState=null;
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
@@ -596,7 +671,7 @@ function setupNav(activeKey){
   document.getElementById('nav-links').innerHTML=navBtns.join('');
 }
 
-async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool(poolRole);}}
+async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool();}}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
 function setScheduleStatus(v){
@@ -839,6 +914,19 @@ function initTetrisCityFilter(){
   const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
   sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value=(current&&cities.includes(current))?current:'';
+  globalCityFilter=sel.value||'';
+  const gcf=document.getElementById('global-city-filter');
+  if(gcf){
+    gcf.innerHTML=sel.innerHTML;
+    gcf.value=globalCityFilter;
+  }
+  const smcf=document.getElementById('sm-city-filter');
+  if(smcf){
+    const smCur=smcf.value||'';
+    smcf.innerHTML=sel.innerHTML;
+    const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))];
+    smcf.value=(smCur&&cities.includes(smCur))?smCur:'';
+  }
 }
 function initPeriodCityFilter(){
   const sel=document.getElementById('np-city');
@@ -1704,6 +1792,21 @@ function baseAvailBg(status){
   if(status==='available_evening') return 'rgba(155,141,255,.15)';
   return 'rgba(144,144,168,.12)';
 }
+function staffMatchesMatrixRoleFilter(p){
+  if(!matrixRoleFilter||matrixRoleFilter==='all') return true;
+  const roles=[p.employee_role||''].concat(Array.isArray(p.employee_roles)?p.employee_roles:[]);
+  const hasMeta=roles.some(Boolean)||p.can_be_admin||p.can_be_manager||p.can_be_mentor;
+  if(!hasMeta) return true;
+  if(roles.includes(matrixRoleFilter)) return true;
+  if(matrixRoleFilter==='print_operator' && p.can_be_admin) return true;
+  if(matrixRoleFilter==='manager' && p.can_be_manager) return true;
+  if(matrixRoleFilter==='mentor' && p.can_be_mentor) return true;
+  return false;
+}
+function effectiveDnDRole(){
+  if(tetrisFilter && tetrisFilter!=='all') return tetrisFilter;
+  return poolRole||'photographer';
+}
 function shortVenueLabel(a){
   const t=(a.venue_short_name||a.venue_name||'?').trim();
   return t.length>6?t.slice(0,5)+'…':t;
@@ -1715,7 +1818,7 @@ function findFirstShiftForPoolDropOnMatrix(dateStr){
     const list=tetrisEventsByKey[key]||[];
     for(const ev of list){
       if(city && ev.venue_city && String(ev.venue_city)!==String(city)) continue;
-      const shift=(ev.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+      const shift=(ev.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===effectiveDnDRole() && Number(s.assigned||0)<Number(s.required||0));
       if(shift) return {key,shift,ev};
     }
   }
@@ -1904,7 +2007,7 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const period=getSelectedTetrisPeriod();
   const date_from=String(period?.period_start||'').slice(0,10);
   const date_to=String(period?.period_end||'').slice(0,10);
-  const city=document.getElementById('tet-city')?.value||'';
+  const city=document.getElementById('sm-city-filter')?.value||'';
   const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
   let assigns;
   try{ assigns=await api('GET',`/staffing/assignments-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${cityQ}`); }catch(e){ showToast(e.message,true); return; }
@@ -1913,7 +2016,7 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   if(!sourceAsg){ showToast('Назначение не найдено',true); return; }
   const srcDate=String(sourceAsg.event_date).slice(0,10);
   const targetList=(assigns||[]).filter(a=>String(a.photographer_id)===String(targetPid)&&String(a.event_date).slice(0,10)===targetDateNorm);
-  const roleSrc=payload.roleInShift||sourceAsg.role_in_shift||poolRole;
+  const roleSrc=payload.roleInShift||sourceAsg.role_in_shift||effectiveDnDRole();
   const fromName=String(payload.fromName||payload.fromPname||'Сотрудник');
   const fromVenueShort=String(payload.venueShort||shortVenueLabel({venue_short_name:sourceAsg.venue_short_name,venue_name:sourceAsg.venue_name}));
   const venueIdForMove=String(payload.venueId||sourceAsg.venue_id||'');
@@ -1940,8 +2043,8 @@ async function handleMatrixAssignDrop(payload,targetPid,targetDate,targetPname){
   const nameB=String(targetPname||'Сотрудник 2');
   const shortB=shortVenueLabel({venue_short_name:targetAsg.venue_short_name,venue_name:targetAsg.venue_name});
   if(!confirm(`Поменять местами?\n${fromName}: ${fromVenueShort} → ${shortB}\n${nameB}: ${shortB} → ${fromVenueShort}`)) return;
-  const roleA=sourceAsg.role_in_shift||poolRole;
-  const roleB=targetAsg.role_in_shift||poolRole;
+  const roleA=sourceAsg.role_in_shift||effectiveDnDRole();
+  const roleB=targetAsg.role_in_shift||effectiveDnDRole();
   const keyA=`${sourceAsg.venue_id}|${srcDate}`;
   const keyB=`${targetAsg.venue_id}|${String(targetAsg.event_date).slice(0,10)}`;
   const fromAid=String(sourceAsg.assignment_id!=null?sourceAsg.assignment_id:sourceAsg.id||'').trim();
@@ -2002,9 +2105,10 @@ async function dropStaffMatrixCell(ev,el){
         events=findEventsForVenueDate(vid,date);
         if(!events.length){
           const shifts=(createdResp&&createdResp.shifts)||[];
-          const sh=shifts.find(s=>(s.target_role||s.role)===poolRole)||shifts[0];
+          const rDnD=effectiveDnDRole();
+          const sh=shifts.find(s=>(s.target_role||s.role)===rDnD)||shifts[0];
           if(sh){
-            await assignToShift(sh.id,pid,poolRole,`${vid}|${date}`,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+            await assignToShift(sh.id,pid,rDnD,`${vid}|${date}`,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
             await renderTetris();
             await renderStaffMatrix();
             return;
@@ -2014,19 +2118,20 @@ async function dropStaffMatrixCell(ev,el){
         }
       }catch(e){ showToast(e.message||'Ошибка создания',true); return; }
     }
-    let found=findShiftWithCapacityForRole(events,poolRole);
+    const rDnD=effectiveDnDRole();
+    let found=findShiftWithCapacityForRole(events,rDnD);
     if(!found){
-      const any=findAnyShiftForRole(events,poolRole);
+      const any=findAnyShiftForRole(events,rDnD);
       if(any){
-        const roleLabel=ROLE_SHORT[poolRole]||poolRole;
+        const roleLabel=ROLE_SHORT[rDnD]||rDnD;
         if(!confirm(`Все места для роли «${roleLabel}» заняты. Назначить сверх нормы?`)) return;
         found=any;
       }else{
-        showToast('Нет смены для роли '+(ROLE_SHORT[poolRole]||poolRole),true);
+        showToast('Нет смены для роли '+(ROLE_SHORT[rDnD]||rDnD),true);
         return;
       }
     }
-    await assignToShift(found.shift.id,pid,poolRole,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+    await assignToShift(found.shift.id,pid,rDnD,found.key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
     await renderStaffMatrix();
     return;
@@ -2037,7 +2142,7 @@ async function dropStaffMatrixCell(ev,el){
     const list=tetrisEventsByKey[key]||[];
     const evItem=list.find(x=>String(x.id)===String(data.eventId))||list[0];
     if(!evItem||!shiftId){ showToast('Не найдена смена для этой площадки',true); return; }
-    await assignToShift(shiftId,pid,poolRole,key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+    await assignToShift(shiftId,pid,effectiveDnDRole(),key,name,{skipOpenTetris:true,skipLoadPoolTetris:true});
     await renderTetris();
     return;
   }
@@ -2046,7 +2151,7 @@ async function dropStaffMatrixCell(ev,el){
   if(!poolId){ showToast('Перетащите чип площадки, плашку из тетриса или сотрудника из пула',true); return; }
   const found=findFirstShiftForPoolDropOnMatrix(dateStr);
   if(!found){ showToast('Нет свободной смены на эту дату (выберите площадку в тетрисе и перетащите её ячейку)',true); return; }
-  await assignToShift(found.shift.id,poolId,poolRole,found.key,poolName||name,{skipOpenTetris:true,skipLoadPoolTetris:true});
+  await assignToShift(found.shift.id,poolId,effectiveDnDRole(),found.key,poolName||name,{skipOpenTetris:true,skipLoadPoolTetris:true});
   await renderTetris();
 }
 async function removeAssignmentFromMatrix(aid,rk){
@@ -2063,7 +2168,7 @@ async function scmApplyReassign(){
   const ds=String(scmState.ds).slice(0,10);
   const rk=`${ass.venue_id}|${ds}`;
   const aid=String(ass.assignment_id||ass.id||'');
-  const role=ass.role_in_shift||poolRole;
+  const role=ass.role_in_shift||effectiveDnDRole();
   try{
     await api('DELETE',`/shift-assignments/${aid}`);
     const found=findShiftForVenueDateRole(vid,ds,role);
@@ -2106,7 +2211,7 @@ async function renderStaffMatrix(){
   const period=getSelectedTetrisPeriod();
   const date_from=String(period?.period_start||'').slice(0,10);
   const date_to=String(period?.period_end||'').slice(0,10);
-  const city=document.getElementById('tet-city')?.value||'';
+  const city=document.getElementById('sm-city-filter')?.value||'';
   if(!date_from||!date_to){ ph.innerHTML='<div style="font-size:12px;color:var(--text3)">Выберите период</div>'; return; }
   const from=parseDateLocal(date_from), to=parseDateLocal(date_to);
   if(!from||!to||from>to){ ph.innerHTML='<div style="font-size:12px;color:var(--text3)">Некорректный период</div>'; return; }
@@ -2125,7 +2230,8 @@ async function renderStaffMatrix(){
       const id=String(a.photographer_id);
       if(!byPh.has(id)) byPh.set(id,{id,name:a.photographer_name||'—',availability:[],city:''});
     });
-    const photographers=[...byPh.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru'));
+    let photographers=[...byPh.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru'));
+    photographers=photographers.filter(staffMatchesMatrixRoleFilter);
     const assignMap=new Map();
     (assigns||[]).forEach(a=>{
       const ds=String(a.event_date).slice(0,10);
@@ -2180,7 +2286,7 @@ function smCellClick(ev,pid,ds,pname){
   const period=getSelectedTetrisPeriod();
   const date_from=String(period?.period_start||'').slice(0,10);
   const date_to=String(period?.period_end||'').slice(0,10);
-  const city=document.getElementById('tet-city')?.value||'';
+  const city=document.getElementById('sm-city-filter')?.value||'';
   api('GET',`/staffing/assignments-matrix?from=${encodeURIComponent(date_from)}&to=${encodeURIComponent(date_to)}${city?`&city=${encodeURIComponent(city)}`:''}`).then(assigns=>{
     const items=(assigns||[]).filter(a=>String(a.photographer_id)===String(pid)&&String(a.event_date).slice(0,10)===ds);
     if(!items.length) return;
@@ -2237,7 +2343,7 @@ async function renderTetris(){
           let pillClass='tt-pill';
           if(totalDeclined>0) pillClass+=' tt-pill--declined';
           else if(totalAsg===0&&totalReq===0) pillClass+=' tt-pill--empty';
-          const firstShift=(sum||[]).find(x=>(x.role||x.target_role||'photographer')===poolRole && Number(x.required||0)>Number(x.assigned||0))
+          const firstShift=(sum||[]).find(x=>(x.role||x.target_role||'photographer')===effectiveDnDRole() && Number(x.required||0)>Number(x.assigned||0))
             || (sum||[]).find(x=>x.id);
           const abbr=esc(ev.venue_short_name||ev.venue_name||'');
           const lines=roleLines.map(r=>{
@@ -2249,7 +2355,7 @@ async function renderTetris(){
           return `<div class="${pillClass}" data-event-id="${esc(ev.id||'')}" data-shift-id="${esc(firstShift?.id||'')}" data-vid="${esc(ev.venue_id||'')}" data-ds="${esc(ds)}" data-tk="${esc(key)}" draggable="true" ondragstart="startTetrisPillDrag(event)" onclick="event.stopPropagation();openTetrisCell('${key}','${ev.id||''}')" style="cursor:pointer"><div class="tt-vn">${abbr}</div>${lines}${totalDeclined>0?` <span class="tt-decline-mark">❌${totalDeclined}</span>`:''}</div>`;
         }).join('');
         const firstEvent=list[0]||{};
-        const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===poolRole) || {}).id || '';
+        const firstShift=((firstEvent.shifts_summary||[]).find(x=>(x.role||'photographer')===effectiveDnDRole()) || {}).id || '';
         row+=`<td><div class="tt-drop" data-key="${key}" data-event-id="${esc(firstEvent.id||'')}" data-shift-id="${esc(firstShift)}" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropPoolOnCell(event,'${key}')" onclick="openTetrisCell(this.dataset.key,this.dataset.eventId)">${cells}</div></td>`;
       });
       body+=row+'</tr>';
@@ -2261,22 +2367,32 @@ async function renderTetris(){
 
 function switchTetrisFilter(filter){
   tetrisFilter=filter||'all';
+  poolRole=(tetrisFilter==='all')?'photographer':tetrisFilter;
   ['all','photographer','print_operator','manager','mentor','helper'].forEach(r=>{
     const btn=document.getElementById('tr-'+r);
     if(btn) btn.className='btn '+(r===tetrisFilter?'btn-primary':'btn-ghost');
   });
-  renderTetris();
+  void loadPool();
 }
-function setCityPoolRole(cityKey, role){
-  if(role==='admin') role='print_operator';
-  poolRole=role;
-  cityPoolRoles[cityKey]=role;
-  loadPool(poolRole);
+function switchMatrixRoleFilter(filter){
+  matrixRoleFilter=filter||'all';
+  ['all','photographer','print_operator','manager','mentor','helper'].forEach(r=>{
+    const btn=document.getElementById('sm-'+r);
+    if(btn) btn.className='btn '+(r===matrixRoleFilter?'btn-primary':'btn-ghost');
+  });
+  void renderStaffMatrix();
 }
-function roleBtn(cityKey, role, label){
-  const active=(cityPoolRoles[cityKey]||poolRole||'photographer')===role;
-  const citySafe=String(cityKey||'').replace(/'/g,"\\'");
-  return `<button class="quick-btn" style="${active?'border-color:var(--accent);color:var(--text)':''}" onclick="setCityPoolRole('${citySafe}','${esc(role)}')">${label}</button>`;
+function switchGlobalCity(city){
+  globalCityFilter=city||'';
+  const tetCity=document.getElementById('tet-city');
+  if(tetCity) tetCity.value=globalCityFilter;
+  void loadPool();
+}
+function syncCityFilter(city){
+  globalCityFilter=city||'';
+  const gcf=document.getElementById('global-city-filter');
+  if(gcf) gcf.value=globalCityFilter;
+  void loadPool();
 }
 function tierFromSales(score){
   const n=Number(score);
@@ -2286,10 +2402,10 @@ function tierFromSales(score){
   return '🥉C';
 }
 async function loadPool(role){
-  poolRole=role||poolRole||'photographer';
+  if(role!=null&&role!==undefined&&role!=='') poolRole=role||poolRole||'photographer';
   const period=getSelectedTetrisPeriod();
   const date=String(period?.period_start||'').slice(0,10);
-  if(!date){ document.getElementById('ph-pool').innerHTML='—'; return; }
+  if(!date){ document.getElementById('ph-pool').innerHTML='—'; await renderTetris(); return; }
   try{
     const selectedCity=document.getElementById('tet-city')?.value||'';
     const rows=await api('GET',`/staffing/available?date=${encodeURIComponent(date)}&role=all${selectedCity?`&city=${encodeURIComponent(selectedCity)}`:''}`);
@@ -2301,11 +2417,12 @@ async function loadPool(role){
     });
     const visibleCities=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ru'));
     document.getElementById('ph-pool').innerHTML=visibleCities.map(city=>{
-      const key=`${city}`;
-      if(!cityPoolRoles[key]) cityPoolRoles[key]=poolRole||'photographer';
-      const roleNow=cityPoolRoles[key];
+      const roleNow=tetrisFilter==='all'?null:tetrisFilter;
       const people=groups[city].filter(p=>{
+        if(!roleNow) return true;
         const roles=[p.employee_role||''].concat(Array.isArray(p.employee_roles)?p.employee_roles:[]);
+        const hasMeta=roles.some(Boolean)||p.can_be_admin||p.can_be_manager||p.can_be_mentor;
+        if(!hasMeta) return true;
         if(roles.includes(roleNow)) return true;
         if(roleNow==='print_operator' && p.can_be_admin) return true;
         if(roleNow==='manager' && p.can_be_manager) return true;
@@ -2314,13 +2431,6 @@ async function loadPool(role){
       });
       return `<div class="pool-city">
         <div class="pool-city-title">Пул ${esc(city)}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-          ${roleBtn(key,'photographer','📸 Фотографы')}
-          ${roleBtn(key,'print_operator','🖨 Опер.печати')}
-          ${roleBtn(key,'manager','👔 Менеджеры')}
-          ${roleBtn(key,'mentor','🎓 Наставники')}
-          ${roleBtn(key,'helper','🤝 Помощники')}
-        </div>
         <div class="pool-city-list">${people.map(p=>{
           const tier=tierFromSales(p.sales_score);
           const nm=String(p.name||'');
@@ -2355,16 +2465,17 @@ async function dropPoolOnCell(ev,key){
       const created=await api('POST','/events',{venue_id:vid,event_date:ds,schedule_status:'draft',day_type:dayTypeFromYmd(ds)});
       showToast('Мероприятие создано');
       await loadTab0();
-      await loadPool(poolRole);
+      await loadPool();
       await renderTetris();
-      const found=findShiftForVenueDateRole(vid,ds,poolRole);
+      const rDnD=effectiveDnDRole();
+      const found=findShiftForVenueDateRole(vid,ds,rDnD);
       if(!found){
         const shifts=created.shifts||[];
-        const sh=shifts.find(s=>(s.target_role||s.role)===poolRole)||shifts[0];
-        if(sh) await assignToShift(sh.id,pid,poolRole,`${vid}|${ds}`,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
+        const sh=shifts.find(s=>(s.target_role||s.role)===rDnD)||shifts[0];
+        if(sh) await assignToShift(sh.id,pid,rDnD,`${vid}|${ds}`,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
         else showToast('Смена не создана — назначьте вручную',true);
       }else{
-        await assignToShift(found.shift.id,pid,poolRole,found.key,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
+        await assignToShift(found.shift.id,pid,rDnD,found.key,pname,{skipOpenTetris:true,skipLoadPoolTetris:true});
       }
     }catch(e){ showToast(e.message,true); }
     return;
@@ -2373,11 +2484,12 @@ async function dropPoolOnCell(ev,key){
   if(pcity && evItem?.venue_city && String(pcity)!==String(evItem.venue_city)){
     if(!confirm(`Сотрудник из ${pcity}, площадка в ${evItem.venue_city}. Продолжить?`)) return;
   }
+  const rDnD=effectiveDnDRole();
   const dsShift=String(ev.currentTarget?.dataset?.shiftId||'');
   const shift=(evItem.shifts_summary||[]).find(s=>String(s.id||'')===dsShift)
-    || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===poolRole && Number(s.assigned||0)<Number(s.required||0));
+    || (evItem.shifts_summary||[]).find(s=>s.id && (s.role||s.target_role||'photographer')===rDnD && Number(s.assigned||0)<Number(s.required||0));
   if(!shift){ showToast('Нет свободной позиции для выбранной роли', true); return; }
-  await assignToShift(shift.id,pid,poolRole,dataKey,pname);
+  await assignToShift(shift.id,pid,rDnD,dataKey,pname);
 }
 function closeForceAssignModal(choice){
   document.getElementById('force-assign-modal')?.classList.remove('open');
@@ -2432,7 +2544,7 @@ async function assignToShift(shiftId,photographerId,role,key,photographerName,op
     else{ showToast(e.message,true); return; }
   }
   if(!opts?.skipLoadPoolTetris){
-    await loadPool(poolRole);
+    await loadPool();
     await renderTetris();
   }
   if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
@@ -2441,7 +2553,7 @@ async function removeAssignment(assignmentId,key,opts){
   try{
     await api('DELETE',`/shift-assignments/${assignmentId}`);
     showToast('Назначение снято');
-    if(!opts?.skipLoadPoolTetris) await loadPool(poolRole);
+    if(!opts?.skipLoadPoolTetris) await loadPool();
     await renderTetris();
     if(key&&!(opts&&opts.skipOpenTetris)) openTetrisCell(key);
   }catch(e){showToast(e.message,true);}
@@ -2840,10 +2952,8 @@ function setupMgmtButton() {
   if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
 }
 </script>
-<div id="admin-overlay" onclick="if(event.target===this)closeAdmin()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
-  <div style="width:min(960px,94vw);height:min(90vh,100%);border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)">
-    <iframe id="admin-iframe" src="" title="Управление" style="width:100%;height:100%;border:none"></iframe>
-  </div>
+<div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
+  <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
 </div>
 </body>
 <!-- cache-bust: 2026-03-28-0210 -->
