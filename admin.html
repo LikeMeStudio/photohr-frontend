@@ -562,18 +562,49 @@ function switchAdminTab(i){
   }
 }
 
+let gaMonth = new Date().getMonth();
+let gaYear = new Date().getFullYear();
+let gaCompareMonth = gaMonth === 0 ? 11 : gaMonth - 1;
+let gaCompareYear = gaMonth === 0 ? gaYear - 1 : gaYear;
+
+function gaShiftMonth(delta){
+  gaMonth += delta;
+  if(gaMonth > 11){ gaMonth = 0; gaYear++; }
+  if(gaMonth < 0){ gaMonth = 11; gaYear--; }
+  gaUpdateLabels();
+  loadGlobalAnalytics();
+}
+function gaShiftCompareMonth(delta){
+  gaCompareMonth += delta;
+  if(gaCompareMonth > 11){ gaCompareMonth = 0; gaCompareYear++; }
+  if(gaCompareMonth < 0){ gaCompareMonth = 11; gaCompareYear--; }
+  gaUpdateLabels();
+  if(document.getElementById('ga-compare')?.checked) loadGlobalAnalytics();
+}
+function gaUpdateLabels(){
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const ml = document.getElementById('ga-month-label');
+  const cl = document.getElementById('ga-compare-label');
+  if(ml) ml.textContent = MONTHS[gaMonth]+' '+gaYear;
+  if(cl) cl.textContent = MONTHS[gaCompareMonth]+' '+gaCompareYear;
+}
+
 function renderAdminAnalyticsShell(){
   const content = document.getElementById('tab-content');
   if(!content) return;
   content.innerHTML = `
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px">
-      <span style="font-size:12px;color:var(--text2)">Период:</span>
-      <select class="fselect" id="ga-range" onchange="loadGlobalAnalytics()" style="min-width:160px;width:auto">
-        <option value="month">Текущий месяц</option>
-        <option value="prev-month">Прошлый месяц</option>
-        <option value="quarter">Текущий квартал</option>
-        <option value="year">Текущий год</option>
-      </select>
+      <span style="font-size:12px;color:var(--text2)">Месяц:</span>
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px" onclick="gaShiftMonth(-1)">◀</button>
+      <span id="ga-month-label" style="font-size:13px;font-weight:600;min-width:140px;text-align:center;display:inline-block"></span>
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px" onclick="gaShiftMonth(1)">▶</button>
+      <span style="width:1px;height:18px;background:var(--border);margin:0 6px"></span>
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="ga-compare" onchange="loadGlobalAnalytics()"/> Сравнить с:
+      </label>
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px" onclick="gaShiftCompareMonth(-1)">◀</button>
+      <span id="ga-compare-label" style="font-size:12px;min-width:120px;text-align:center;display:inline-block;color:var(--text2)"></span>
+      <button type="button" class="btn btn-ghost" style="padding:4px 10px" onclick="gaShiftCompareMonth(1)">▶</button>
       <span style="font-size:12px;color:var(--text2)">Город:</span>
       <select class="fselect" id="ga-city" onchange="loadGlobalAnalytics()" style="min-width:140px;width:auto">
         <option value="">Все</option>
@@ -581,24 +612,41 @@ function renderAdminAnalyticsShell(){
     </div>
     <div id="ga-body" class="loading">Загрузка...</div>
   `;
+  gaUpdateLabels();
 }
 
 function gaDateRange(){
-  const sel=document.getElementById('ga-range')?.value||'month';
-  const now=new Date();
-  const y=now.getFullYear(), m=now.getMonth();
+  const from = `${gaYear}-${String(gaMonth+1).padStart(2,'0')}-01`;
+  const to = new Date(gaYear, gaMonth+1, 0).toISOString().slice(0,10);
   const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-  if(sel==='month') return {from:`${y}-${String(m+1).padStart(2,'0')}-01`, to:new Date(y,m+1,0).toISOString().slice(0,10), label:MONTHS[m]+' '+y};
-  if(sel==='prev-month'){const pm=m===0?11:m-1,py=m===0?y-1:y; return {from:`${py}-${String(pm+1).padStart(2,'0')}-01`, to:new Date(py,pm+1,0).toISOString().slice(0,10), label:MONTHS[pm]+' '+py};}
-  if(sel==='quarter'){const q=Math.floor(m/3),qs=q*3; return {from:`${y}-${String(qs+1).padStart(2,'0')}-01`, to:new Date(y,qs+3,0).toISOString().slice(0,10), label:'Q'+(q+1)+' '+y};}
-  if(sel==='year') return {from:`${y}-01-01`, to:`${y}-12-31`, label:String(y)};
-  return {from:`${y}-${String(m+1).padStart(2,'0')}-01`, to:new Date(y,m+1,0).toISOString().slice(0,10), label:MONTHS[m]+' '+y};
+  return { from, to, label: MONTHS[gaMonth]+' '+gaYear };
+}
+function gaCompareDateRange(){
+  const from = `${gaCompareYear}-${String(gaCompareMonth+1).padStart(2,'0')}-01`;
+  const to = new Date(gaCompareYear, gaCompareMonth+1, 0).toISOString().slice(0,10);
+  const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  return { from, to, label: MONTHS[gaCompareMonth]+' '+gaCompareYear };
 }
 
-function gaCard(num, label, color){
+function gaCard(num, label, color, compareNum, suffix){
+  const suf = suffix || '';
+  const fmtNum = (n) => (typeof n === 'number' ? n.toLocaleString('ru-RU') + suf : String(n));
+  let delta = '';
+  if(compareNum !== undefined && compareNum !== null){
+    const diff = typeof num === 'number' && typeof compareNum === 'number' ? num - compareNum : null;
+    if(diff !== null && diff !== 0){
+      const sign = diff > 0 ? '▲' : '▼';
+      const dColor = diff > 0 ? 'var(--rank1)' : 'var(--rank3)';
+      delta = `<div style="font-size:10px;color:${dColor};margin-top:2px">${sign} ${Math.abs(diff).toLocaleString('ru-RU')}${suf} (было ${fmtNum(compareNum)})</div>`;
+    } else {
+      delta = `<div style="font-size:10px;color:var(--text3);margin-top:2px">= (было ${fmtNum(compareNum ?? 0)})</div>`;
+    }
+  }
+  const main = typeof num === 'number' ? fmtNum(num) : num;
   return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;min-width:120px">
-    <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:${color||'var(--text)'}">${num}</div>
+    <div style="font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;color:${color||'var(--text)'}">${main}</div>
     <div style="font-size:11px;color:var(--text3);margin-top:4px">${label}</div>
+    ${delta}
   </div>`;
 }
 
@@ -626,48 +674,69 @@ async function initGACityFilter(){
   }catch(_){}
 }
 
+async function gaFetchPeriodMetrics(range, city){
+  const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
+  const from=encodeURIComponent(range.from), to=encodeURIComponent(range.to);
+  const periodDays=Math.max(30,Math.round((new Date(range.to)-new Date(range.from))/(86400000)));
+  const [schedule, reportsRaw, recruiting, stock, photographers, team]=await Promise.all([
+    api('GET',`/schedule/overview?from=${from}&to=${to}${cityQ}`).catch(()=>({summary:{}})),
+    api('GET',`/daily-reports?from=${range.from}&to=${range.to}&limit=500`).catch(()=>[]),
+    api('GET','/recruiting/analytics?period='+periodDays).catch(()=>({by_source:[],by_stage:[],hired_count:0,avg_time:[]})),
+    api('GET','/stock/summary').catch(()=>({})),
+    api('GET','/photographers').catch(()=>[]),
+    api('GET','/team').catch(()=>[]),
+  ]);
+  const reports=(reportsRaw||[]).filter(r=>!city || (r.venue_city||'').trim()===city);
+  const ss=schedule.summary||{};
+  const fill=Number(ss.fill_rate||0);
+  const approvedReports=(reports||[]).filter(r=>r.status==='approved');
+  const totalRevenue=approvedReports.reduce((s,r)=>s+parseFloat(r.total_revenue||0),0);
+  const avgRevenue=approvedReports.length>0?Math.round(totalRevenue/approvedReports.length):0;
+  const reportsSubmitted=(reports||[]).filter(r=>r.status==='submitted').length;
+  const reportsApproved=approvedReports.length;
+  const activePh=(photographers||[]).filter(p=>p.is_active&&p.hire_status==='active').length;
+  const totalPh=(photographers||[]).length;
+  const recBySource=(recruiting.by_source||[]);
+  const recResponses=recBySource.reduce((s,x)=>s+(parseInt(x.count,10)||0),0);
+  return { range, schedule, reports, recruiting, stock, photographers, team, ss, fill, approvedReports, totalRevenue, avgRevenue, reportsSubmitted, reportsApproved, activePh, totalPh, recResponses };
+}
+
 async function loadGlobalAnalytics(){
   const body=document.getElementById('ga-body');
   if(!body) return;
   body.innerHTML='<div class="loading" style="padding:40px;text-align:center">⏳ Загрузка аналитики по всем модулям...</div>';
 
-  const range=gaDateRange();
   const city=document.getElementById('ga-city')?.value||'';
-  const cityQ=city?`&city=${encodeURIComponent(city)}`:'';
-  const from=encodeURIComponent(range.from), to=encodeURIComponent(range.to);
+  const compareOn=!!document.getElementById('ga-compare')?.checked;
+  const range=gaDateRange();
+  const rangeC=gaCompareDateRange();
 
   try{
-    const [schedule, reportsRaw, recruiting, stock, photographers, team]=await Promise.all([
-      api('GET',`/schedule/overview?from=${from}&to=${to}${cityQ}`).catch(()=>({summary:{}})),
-      api('GET',`/daily-reports?from=${range.from}&to=${range.to}&limit=500`).catch(()=>[]),
-      api('GET','/recruiting/analytics?period='+Math.max(30,Math.round((new Date(range.to)-new Date(range.from))/(86400000)))).catch(()=>({by_source:[],by_stage:[],hired_count:0,avg_time:[]})),
-      api('GET','/stock/summary').catch(()=>({})),
-      api('GET','/photographers').catch(()=>[]),
-      api('GET','/team').catch(()=>[]),
-    ]);
+    let cur, prev;
+    if(compareOn){
+      [cur, prev] = await Promise.all([
+        gaFetchPeriodMetrics(range, city),
+        gaFetchPeriodMetrics(rangeC, city),
+      ]);
+    } else {
+      cur = await gaFetchPeriodMetrics(range, city);
+      prev = null;
+    }
+    const p = compareOn ? prev : null;
+    const cmp = (v) => (compareOn && p ? v : undefined);
 
-    const reports=(reportsRaw||[]).filter(r=>!city || (r.venue_city||'').trim()===city);
-
-    const ss=schedule.summary||{};
-    const fill=Number(ss.fill_rate||0);
-
-    const approvedReports=(reports||[]).filter(r=>r.status==='approved');
-    const totalRevenue=approvedReports.reduce((s,r)=>s+parseFloat(r.total_revenue||0),0);
-    const avgRevenue=approvedReports.length>0?Math.round(totalRevenue/approvedReports.length):0;
-    const reportsSubmitted=(reports||[]).filter(r=>r.status==='submitted').length;
-    const reportsApproved=approvedReports.length;
-
-    const activePh=(photographers||[]).filter(p=>p.is_active&&p.hire_status==='active').length;
-    const totalPh=(photographers||[]).length;
+    const { schedule, recruiting, stock, photographers, team, ss, fill, approvedReports, totalRevenue, avgRevenue, reportsSubmitted, reportsApproved, activePh, totalPh } = cur;
+    const recBySource=(recruiting.by_source||[]);
+    const recResponses = cur.recResponses;
 
     const fillColor=fill>70?'var(--rank1)':fill>30?'var(--rank2)':'var(--rank3)';
     const kpiHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
-      ${gaCard(ss.events??0,'Мероприятий','var(--accent2)')}
-      ${gaCard(fill+'%','Заполненность',fillColor)}
-      ${gaCard(totalRevenue.toLocaleString('ru-RU')+'₽','Выручка','var(--rank1)')}
-      ${gaCard(activePh,'Активных сотр.','var(--accent)')}
-      ${gaCard(recruiting.hired_count||0,'Принято в штат','var(--rank1)')}
-      ${gaCard(stock.warehouses_count??0,'Складов','var(--text)')}
+      ${gaCard(ss.events??0,'Мероприятий','var(--accent2)', cmp(p?.ss?.events ?? 0))}
+      ${gaCard(fill,'Заполненность',fillColor, cmp(p?.fill), '%')}
+      ${gaCard(totalRevenue,'Выручка','var(--rank1)', cmp(p?.totalRevenue), '₽')}
+      ${gaCard(activePh,'Активных сотр.','var(--accent)', cmp(p?.activePh))}
+      ${gaCard(recruiting.hired_count||0,'Принято в штат','var(--rank1)', cmp(p?.recruiting?.hired_count ?? 0))}
+      ${gaCard(stock.warehouses_count??0,'Складов','var(--text)', cmp(p?.stock?.warehouses_count ?? 0))}
     </div>`;
 
     const venueStats=(schedule.venue_stats||[]);
@@ -678,17 +747,17 @@ async function loadGlobalAnalytics(){
       const col=pct>=80?'var(--rank1)':pct>=50?'var(--rank2)':'var(--rank3)';
       return gaBar(v.name||'', `${asg}/${req} (${pct}%)`, 100, col);
     }).join('');
-    const schedProblems=(schedule.problems||[]).map(p=>{
-      if(p.type==='understaffed') return `<div style="font-size:12px;margin-bottom:4px">🔴 ${p.count} площадок с недобором</div>`;
-      if(p.type==='forced') return `<div style="font-size:12px;margin-bottom:4px">⚠️ ${p.count} принудительных назначений</div>`;
-      if(p.type==='declined') return `<div style="font-size:12px;margin-bottom:4px">❌ ${p.count} отклонённых смен</div>`;
+    const schedProblems=(schedule.problems||[]).map(pr=>{
+      if(pr.type==='understaffed') return `<div style="font-size:12px;margin-bottom:4px">🔴 ${pr.count} площадок с недобором</div>`;
+      if(pr.type==='forced') return `<div style="font-size:12px;margin-bottom:4px">⚠️ ${pr.count} принудительных назначений</div>`;
+      if(pr.type==='declined') return `<div style="font-size:12px;margin-bottom:4px">❌ ${pr.count} отклонённых смен</div>`;
       return '';
     }).join('')||'<div style="color:var(--rank1);font-size:12px">✅ Без проблем</div>';
     const schedHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">
-      ${gaCard(ss.events??0,'Мероприятий','var(--accent2)')}
-      ${gaCard(ss.shifts??0,'Смен','var(--text)')}
-      ${gaCard(ss.venues??0,'Площадок','var(--rank1)')}
-      ${gaCard(fill+'%','Заполненность',fillColor)}
+      ${gaCard(ss.events??0,'Мероприятий','var(--accent2)', cmp(p?.ss?.events ?? 0))}
+      ${gaCard(ss.shifts??0,'Смен','var(--text)', cmp(p?.ss?.shifts ?? 0))}
+      ${gaCard(ss.venues??0,'Площадок','var(--rank1)', cmp(p?.ss?.venues ?? 0))}
+      ${gaCard(fill,'Заполненность',fillColor, cmp(p?.fill), '%')}
     </div>
     <div style="font-size:12px;font-weight:600;margin-bottom:8px">Загрузка по площадкам</div>
     ${schedBars||'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}
@@ -708,15 +777,14 @@ async function loadGlobalAnalytics(){
       gaBar(name, d.revenue.toLocaleString('ru-RU')+'₽', maxVenueRev, 'var(--rank1)')
     ).join('');
     const salesHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
-      ${gaCard(totalRevenue.toLocaleString('ru-RU')+'₽','Общая выручка','var(--rank1)')}
-      ${gaCard(avgRevenue.toLocaleString('ru-RU')+'₽','Средняя/смену','var(--accent2)')}
-      ${gaCard(reportsApproved,'Проведённых отчётов','var(--rank1)')}
-      ${gaCard(reportsSubmitted,'Ожидают проведения','var(--rank2)')}
+      ${gaCard(totalRevenue,'Общая выручка','var(--rank1)', cmp(p?.totalRevenue), '₽')}
+      ${gaCard(avgRevenue,'Средняя/смену','var(--accent2)', cmp(p?.avgRevenue))}
+      ${gaCard(reportsApproved,'Проведённых отчётов','var(--rank1)', cmp(p?.reportsApproved))}
+      ${gaCard(reportsSubmitted,'Ожидают проведения','var(--rank2)', cmp(p?.reportsSubmitted))}
     </div>
     <div style="font-size:12px;font-weight:600;margin-bottom:8px">Топ площадок по выручке</div>
     ${salesBars||'<div style="color:var(--text3);font-size:12px">Нет данных</div>'}`;
 
-    const recBySource=(recruiting.by_source||[]);
     const maxSrc=recBySource.length?Math.max(1,...recBySource.map(s=>parseInt(s.count,10)||0)):1;
     const recSourceBars=recBySource.map(s=>gaBar(s.source||'?', s.count, maxSrc, 'var(--accent)')).join('');
     const recByStage=(recruiting.by_stage||[]).filter(s=>parseInt(s.count,10)>0);
@@ -724,8 +792,8 @@ async function loadGlobalAnalytics(){
     const recAvgTime=(recruiting.avg_time||[]).filter(t=>parseFloat(t.avg_days)>0);
     const recTimeRows=recAvgTime.map(t=>`<div style="font-size:12px;margin-bottom:4px">${esc(t.name)}: <b>${t.avg_days} дн.</b></div>`).join('');
     const recHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">
-      ${gaCard(recruiting.hired_count||0,'Принято','var(--rank1)')}
-      ${gaCard(recBySource.reduce((s,x)=>s+(parseInt(x.count,10)||0),0),'Откликов за период','var(--accent2)')}
+      ${gaCard(recruiting.hired_count||0,'Принято','var(--rank1)', cmp(p?.recruiting?.hired_count ?? 0))}
+      ${gaCard(recResponses,'Откликов за период','var(--accent2)', cmp(p?.recResponses))}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div><div style="font-size:12px;font-weight:600;margin-bottom:8px">По источникам</div>${recSourceBars||'—'}</div>
@@ -734,21 +802,26 @@ async function loadGlobalAnalytics(){
       </div>
     </div>`;
 
+    const critCol=parseInt(stock.critical_count||0,10)>0?'var(--rank3)':'var(--rank1)';
     const stockHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px">
-      ${gaCard(stock.warehouses_count??0,'Складов','var(--text)')}
-      ${gaCard(stock.items_count??0,'Позиций','var(--accent2)')}
-      ${gaCard(stock.critical_count??0,'Критичных',parseInt(stock.critical_count||0,10)>0?'var(--rank3)':'var(--rank1)')}
-      ${gaCard(stock.equipment_count??0,'Оборудования','var(--text)')}
-      ${gaCard((Number(stock.total_value)||0).toLocaleString('ru-RU')+'₽','Стоимость','var(--rank2)')}
+      ${gaCard(stock.warehouses_count??0,'Складов','var(--text)', cmp(p?.stock?.warehouses_count ?? 0))}
+      ${gaCard(stock.items_count??0,'Позиций','var(--accent2)', cmp(p?.stock?.items_count ?? 0))}
+      ${gaCard(stock.critical_count??0,'Критичных',critCol, cmp(p?.stock?.critical_count ?? 0))}
+      ${gaCard(stock.equipment_count??0,'Оборудования','var(--text)', cmp(p?.stock?.equipment_count ?? 0))}
+      ${gaCard(Number(stock.total_value)||0,'Стоимость','var(--rank2)', cmp(p ? Number(p.stock?.total_value)||0 : undefined), '₽')}
     </div>`;
 
     const teamHtml=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
-      ${gaCard(activePh,'Активных фотографов','var(--rank1)')}
-      ${gaCard(totalPh-activePh,'Неактивных','var(--text3)')}
-      ${gaCard((team||[]).length,'Управленцев','var(--accent2)')}
+      ${gaCard(activePh,'Активных фотографов','var(--rank1)', cmp(p?.activePh))}
+      ${gaCard(totalPh-activePh,'Неактивных','var(--text3)', cmp(p ? p.totalPh - p.activePh : undefined))}
+      ${gaCard((team||[]).length,'Управленцев','var(--accent2)', cmp(p ? (p.team||[]).length : undefined))}
     </div>`;
 
-    body.innerHTML=`<div style="font-family:'Unbounded',sans-serif;font-size:15px;margin-bottom:14px">${esc(range.label)}</div>`
+    const titleLine = compareOn && p
+      ? `<div style="font-family:'Unbounded',sans-serif;font-size:15px;margin-bottom:14px">${esc(cur.range.label)} <span style="color:var(--text3);font-weight:500">vs</span> ${esc(p.range.label)}</div>`
+      : `<div style="font-family:'Unbounded',sans-serif;font-size:15px;margin-bottom:14px">${esc(cur.range.label)}</div>`;
+
+    body.innerHTML=titleLine
       +kpiHtml
       +gaSection('Расписание','📅',schedHtml,'schedule')
       +gaSection('Продажи','💰',salesHtml,'sales')
