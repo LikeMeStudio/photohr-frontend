@@ -118,6 +118,15 @@ a{color:inherit;text-decoration:none}
 .po-badge-delivered{background:#1a3d2a;color:#3ecf8e}
 .po-badge-partial{background:#4a3510;color:#f5a623}
 .po-badge-cancelled{background:#4a1a1a;color:#f25555}
+.tr-transfer-pending td{color:var(--rank3);font-weight:500}
+.tr-transfer-pending{background:rgba(242,85,85,.1)}
+.eq-mini-card{width:100%;max-width:140px;min-height:100px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:border-color .15s}
+.eq-mini-card:hover{border-color:var(--accent2)}
+.eq-group-summary{list-style:none;cursor:pointer;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.eq-group-summary::-webkit-details-marker{display:none}
+details.eq-group{margin-bottom:12px}
+details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
+.eq-group-chevron{transition:transform .2s;font-size:12px;color:var(--text3)}
 .inv-cancelled-details summary::-webkit-details-marker{display:none}
 </style>
 </head>
@@ -139,11 +148,11 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab(0)">📦 Остатки и прогноз</button>
+    <button class="tab active" onclick="switchTab(0)" id="tab-forecast">📦 Остатки и прогноз</button>
     <button class="tab" onclick="switchTab(1)">🏢 Склады</button>
     <button class="tab" onclick="switchTab(2)">📋 Справочник</button>
     <button class="tab" onclick="switchTab(3)">🛒 Закупки</button>
-    <button class="tab" onclick="switchTab(4)">🔄 Перемещения</button>
+    <button class="tab" onclick="switchTab(4)" id="tab-transfers">🔄 Перемещения</button>
     <button class="tab" onclick="switchTab(5)">📊 Движения</button>
     <button class="tab" onclick="switchTab(6)">📋 Инвентаризация</button>
     <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
@@ -209,8 +218,11 @@ a{color:inherit;text-decoration:none}
   <div class="field"><div class="fl">Название *</div><input class="fin" id="item-name" placeholder="Бумага DNP 10x15"/></div>
   <div class="field"><div class="fl">Тип *</div>
     <select class="fselect" id="item-type">
-      <option value="consumable">Расходник</option>
-      <option value="equipment">Оборудование</option>
+      <option value="consumable">📦 Расходник</option>
+      <option value="equipment">🔧 Оборудование</option>
+      <option value="decoration">🎨 Декорация</option>
+      <option value="accessory">🎁 Аксессуар</option>
+      <option value="material">📐 Материал</option>
     </select>
   </div>
   <div class="field"><div class="fl">Единица измерения</div><input class="fin" id="item-unit" placeholder="шт, рулон, пачка..."/></div>
@@ -343,6 +355,18 @@ a{color:inherit;text-decoration:none}
   <div class="modal-footer" id="po-view-footer" style="display:none">
     <button class="btn btn-ghost" onclick="safeCloseModal('po-view-modal')">Закрыть</button>
     <button class="btn btn-primary" onclick="submitPoDeliver()">Провести приёмку</button>
+  </div>
+</div>
+</div>
+
+<div class="overlay" id="tr-peek-modal" onclick="if(event.target===this)safeCloseModal('tr-peek-modal')">
+<div class="modal" style="max-width:440px;max-height:90vh;overflow-y:auto">
+  <div class="modal-title"><span id="tr-peek-title">Перемещение</span><button class="dr-close" onclick="safeCloseModal('tr-peek-modal')">×</button></div>
+  <div id="tr-peek-meta" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+  <div id="tr-peek-body" style="font-size:12px"></div>
+  <div class="modal-footer" style="margin-top:12px">
+    <button type="button" class="btn btn-ghost" onclick="safeCloseModal('tr-peek-modal')">Закрыть</button>
+    <button type="button" class="btn btn-primary" style="font-size:12px" id="tr-peek-goto" onclick="switchTab(4);safeCloseModal('tr-peek-modal')">К заявкам</button>
   </div>
 </div>
 </div>
@@ -565,6 +589,26 @@ function dndOnDropWh(ev,toWhId){
   ev.preventDefault();
   let data;
   try{data=JSON.parse(ev.dataTransfer.getData('application/json')||'{}');}catch{return;}
+  if(data.kind==='equipment'){
+    if(!data.unit_id||data.from_warehouse_id==null)return;
+    if(String(data.from_warehouse_id)===String(toWhId)){showToast('Уже на этом складе',true);return;}
+    const canEq=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
+    if(!canEq){showToast('Недостаточно прав для перемещения оборудования',true);return;}
+    const wh=warehouses.find(w=>String(w.id)===String(toWhId));
+    const label=(data.label||'Оборудование').replace(/</g,'');
+    if(!confirm(`Переместить «${label}» на склад «${wh?.name||toWhId}»?`))return;
+    (async()=>{
+      try{
+        await api('PATCH',`/equipment/${data.unit_id}`,{warehouse_id:toWhId});
+        showToast('Оборудование перемещено');
+        if(selectedWarehouseId)await renderWhStockPanel(selectedWarehouseId);
+        loadWarehouses();
+        loadSummary();
+        if(currentTabIdx===7)loadEquipment();
+      }catch(e){showToast(e.message,true);}
+    })();
+    return;
+  }
   if(!data.item_id||!data.from_warehouse_id)return;
   if(data.from_warehouse_id===toWhId){showToast('Уже на этом складе',true);return;}
   const maxQ=parseFloat(data.max_qty)||0;
@@ -660,6 +704,15 @@ function dndRowDragStart(ev){
     unit,
     from_warehouse_id:whId,
     max_qty:qMax,
+  }));
+}
+function dndEqDragStart(ev,unitId,fromWhId,label){
+  ev.stopPropagation();
+  ev.dataTransfer.setData('application/json',JSON.stringify({
+    kind:'equipment',
+    unit_id:unitId,
+    from_warehouse_id:fromWhId,
+    label:label||'Оборудование',
   }));
 }
 
@@ -803,7 +856,7 @@ async function loadStockTransfers() {
         </div>
         <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по строке — состав заявки. Для «Ожидает» — подтверждение и отмена в раскрытии.</p>
         ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th></tr></thead><tbody>
-        ${list.map(tr => `<tr style="cursor:pointer" onclick="toggleTransferExpand('${tr.id}')">
+        ${list.map(tr => `<tr class="${tr.status === 'pending' ? 'tr-transfer-pending' : ''}" style="cursor:pointer" onclick="toggleTransferExpand('${tr.id}')">
           <td style="font-size:11px">${tr.created_at ? new Date(tr.created_at).toLocaleDateString('ru-RU') : '—'}</td>
           <td>${esc(tr.from_warehouse_name)}</td>
           <td>${esc(tr.to_warehouse_name)}</td>
@@ -818,6 +871,7 @@ async function loadStockTransfers() {
   } catch (e) {
     c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
+  loadStockTabBadges();
 }
 
 async function cancelTransfer(id) {
@@ -843,6 +897,51 @@ async function loadAlertsBadge() {
   } catch(e) { /* не критично */ }
 }
 
+async function loadStockTabBadges() {
+  try {
+    const tabFc = document.getElementById('tab-forecast');
+    const tabTr = document.getElementById('tab-transfers');
+    const [matrix, fcData, trList] = await Promise.all([
+      api('GET', '/stock/matrix').catch(() => ({ items: [], warehouses: [], balances: [] })),
+      api('GET', '/stock/forecast?days=30').catch(() => ({ forecast: [] })),
+      api('GET', '/stock-transfers?status=pending&limit=500').catch(() => []),
+    ]);
+    const balMap = new Map();
+    for (const b of matrix.balances || []) balMap.set(`${b.item_id}_${b.warehouse_id}`, b);
+    const whIds = (matrix.warehouses || []).map(w => w.id);
+    const critItems = new Set();
+    for (const r of fcData.forecast || []) {
+      if (forecastRowUiStatus(r) === 'critical') critItems.add(String(r.item_id));
+    }
+    for (const it of matrix.items || []) {
+      const rp = parseFloat(it.reorder_point) || 0;
+      if (rp <= 0 || !whIds.length) continue;
+      let total = 0;
+      for (const wid of whIds) {
+        const b = balMap.get(`${it.id}_${wid}`);
+        total += parseFloat(b?.quantity) || 0;
+      }
+      if (total < rp) critItems.add(String(it.id));
+    }
+    const fcN = critItems.size;
+    const pend = Array.isArray(trList) ? trList.length : 0;
+    if (tabFc) {
+      if (fcN > 0) {
+        tabFc.innerHTML = `📦 Остатки и прогноз <span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:4px">${fcN}</span>`;
+      } else {
+        tabFc.textContent = '📦 Остатки и прогноз';
+      }
+    }
+    if (tabTr) {
+      if (pend > 0) {
+        tabTr.innerHTML = `🔄 Перемещения <span style="background:var(--rank2);color:#0f0f13;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:4px">${pend}</span>`;
+      } else {
+        tabTr.textContent = '🔄 Перемещения';
+      }
+    }
+  } catch (e) { /* не критично */ }
+}
+
 async function loadSummary() {
   try {
     const s = await api('GET', '/stock/summary');
@@ -857,15 +956,52 @@ async function loadSummary() {
       ${s.total_stock_value > 0 ? `<div class="stat"><div class="stat-num" style="font-size:13px">${s.total_stock_value.toLocaleString('ru-RU')} ₽</div><div class="stat-lbl">стоимость</div></div>` : ''}
     `;
     loadAlertsBadge();
+    loadStockTabBadges();
   } catch(e) { /* не критично */ }
 }
-
 function whStockStatusEmoji(qty,minQ){
   const q=parseFloat(qty)||0,m=parseFloat(minQ)||0;
   if(m<=0)return'🟢';
   if(q<=m)return'🔴';
   if(q<=m*1.5)return'🟡';
   return'🟢';
+}
+function whPanelItemBucketKey(t) {
+  const x = String(t || 'consumable').toLowerCase();
+  if (x === 'consumable' || !t) return 'consumable';
+  if (x === 'decoration') return 'decoration';
+  if (x === 'accessory') return 'accessory';
+  if (x === 'material') return 'material';
+  if (x === 'equipment') return 'equipment_stock';
+  return 'other';
+}
+function whPanelBuildStockRow(s, whId, canMin, canDnd) {
+  const q = parseFloat(s.quantity) || 0;
+  const mn = s.min_quantity;
+  const st = whStockStatusEmoji(q, mn);
+  const minCell = canMin
+    ? `<span id="whmin-${s.item_id}-${whId}" style="cursor:pointer;border-bottom:1px dashed var(--text3)" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин.">${mn != null && parseFloat(mn) > 0 ? mn : '—'} <span style="font-size:10px">✏</span></span>`
+    : `<span>${mn != null && parseFloat(mn) > 0 ? mn : '—'}</span>`;
+  const qMax = parseFloat(s.quantity) || 0;
+  const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
+  const un = esc(s.unit || '').replace(/"/g, '&quot;');
+  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" style="cursor:grab"` : '';
+  return `<tr${drag}>
+    <td>${esc(s.item_name)}</td>
+    <td style="font-weight:600;text-align:center">${q.toLocaleString('ru-RU')}</td>
+    <td style="text-align:center;color:var(--text3)">${esc(s.unit || '')}</td>
+    <td style="text-align:center">${minCell}</td>
+    <td style="text-align:center">${st}</td>
+    <td style="color:var(--text3)">—</td>
+  </tr>`;
+}
+function whPanelStockTableSection(title, rowsHtml) {
+  return `<div style="margin-top:12px">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${title}</div>
+    <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>ИНВ./SN</th></tr></thead><tbody>
+    ${rowsHtml || '<tr><td colspan="6" style="color:var(--text3)">Нет позиций</td></tr>'}
+    </tbody></table></div>
+  </div>`;
 }
 function onWhCardClick(id,ev){
   if(ev.target.closest('.wh-card-gear'))return;
@@ -890,51 +1026,48 @@ async function renderWhStockPanel(whId){
       api('GET','/stock?warehouse_id='+encodeURIComponent(whId)),
       api('GET','/equipment').catch(()=>[]),
     ]);
-    const eqHere=(equip||[]).filter(e=>e.warehouse_id===whId);
+    const eqHere=(equip||[]).filter(e=>String(e.warehouse_id)===String(whId));
     let hasCrit=false;
     const canMin=can('tech_director')||can('exec_director')||can('admin');
     const canDnd=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
-    const rows=(stock||[]).map(s=>{
-      const q=parseFloat(s.quantity)||0;
-      const mn=s.min_quantity;
-      const st=whStockStatusEmoji(q,mn);
+    const buckets={consumable:[],decoration:[],accessory:[],material:[],equipment_stock:[],other:[]};
+    for(const s of stock||[]){
+      buckets[whPanelItemBucketKey(s.item_type)].push(s);
+      const q=parseFloat(s.quantity)||0,mn=s.min_quantity;
       if(mn>0&&q<=parseFloat(mn))hasCrit=true;
-      const minCell=canMin
-        ? `<span id="whmin-${s.item_id}-${whId}" style="cursor:pointer;border-bottom:1px dashed var(--text3)" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn!=null&&mn!==''?parseFloat(mn):'null'})" title="Изменить мин.">${mn!=null&&parseFloat(mn)>0?mn:'—'} <span style="font-size:10px">✏</span></span>`
-        : `<span>${mn!=null&&parseFloat(mn)>0?mn:'—'}</span>`;
-      const qMax=parseFloat(s.quantity)||0;
-      const nm=esc(s.item_name||'').replace(/"/g,'&quot;');
-      const un=esc(s.unit||'').replace(/"/g,'&quot;');
-      const drag=canDnd&&qMax>0?` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" style="cursor:grab"`: '';
-      return`<tr${drag}>
-        <td>${esc(s.item_name)}</td>
-        <td style="font-weight:600;text-align:center">${q.toLocaleString('ru-RU')}</td>
-        <td style="text-align:center;color:var(--text3)">${esc(s.unit||'')}</td>
-        <td style="text-align:center">${minCell}</td>
-        <td style="text-align:center">${st}</td>
-        <td style="color:var(--text3)">—</td>
-      </tr>`;
-    }).join('');
-    const eqBlock=eqHere.length?eqHere.map(e=>{
+    }
+    const sec=(arr,title)=>whPanelStockTableSection(title,arr.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join(''));
+    const eqDragLbl=e=>((e.item_name||'')+' · SN '+(e.serial_number||'—')).trim();
+    const eqBlockInner=eqHere.length?eqHere.map(e=>{
       const lim=parseFloat(e.resource_limit)||0;
       const tot=parseFloat(e.total_printed)||0;
       const pct=lim>0?Math.min(100,Math.round(tot/lim*100)):0;
-      return`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+      const drag=canDnd?` draggable="true" ondragstart="dndEqDragStart(event,'${e.id}','${whId}',${JSON.stringify(eqDragLbl(e))})" style="cursor:grab"`: '';
+      return`<div${drag} style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
         <div style="font-weight:600">${esc(e.item_name)}</div>
         <div style="color:var(--text3);font-size:11px">SN: ${esc(e.serial_number||'—')}${e.inventory_number?' · ИНВ: '+esc(e.inventory_number):''}</div>
         ${lim>0?`<div style="margin-top:4px;font-size:11px">Ресурс: ${tot.toLocaleString('ru-RU')}/${lim.toLocaleString('ru-RU')} (${pct}%)</div><div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px"><div style="width:${pct}%;height:100%;background:${pct>95?'var(--rank3)':pct>80?'var(--rank2)':'var(--rank1)'};border-radius:2px"></div></div>`:''}
       </div>`;
     }).join(''):'<div style="color:var(--text3);font-size:12px">Нет оборудования</div>';
+    const eqBlock=`<div style="margin-top:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">🖨 Оборудование (${eqHere.length})${canDnd?' · перетащите на другой склад':''}</div>
+      ${eqBlockInner}
+    </div>`;
     const canEdit=can('tech_director')||can('exec_director')||can('admin');
     const titleEmoji=hasCrit?' 🔴':' 🟢';
+    const stockBlocks=[
+      sec(buckets.consumable,'📦 Расходники ('+buckets.consumable.length+')'),
+      eqBlock,
+      sec(buckets.decoration,'🎨 Декорации ('+buckets.decoration.length+')'),
+      sec(buckets.accessory,'🎁 Аксессуары ('+buckets.accessory.length+')'),
+      sec(buckets.material,'📐 Материалы ('+buckets.material.length+')'),
+      sec(buckets.equipment_stock,'🔧 Оборудование — учёт остатков ('+buckets.equipment_stock.length+')'),
+      sec(buckets.other,'📎 Прочее ('+buckets.other.length+')'),
+    ].join('');
     host.innerHTML=`
       <div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
         <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Склад: ${esc(wh?.name||whId)}${titleEmoji}</div>
-        <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>ИНВ./SN</th></tr></thead><tbody>
-        ${rows||'<tr><td colspan="6" style="color:var(--text3)">Нет остатков</td></tr>'}
-        </tbody></table></div>
-        <div style="margin-top:14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Оборудование</div>
-        ${eqBlock}
+        ${stockBlocks}
         ${canEdit?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
           <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="startInventoryForWarehouse('${whId}')">📊 Инвентаризация</button>
           <button type="button" class="btn btn-ghost" style="font-size:12px;border-color:var(--rank3);color:var(--rank3)" onclick="deactivateWarehouse('${whId}')">Деактивировать</button>
@@ -983,7 +1116,7 @@ async function loadWarehouses() {
         <div class="section-title">🏢 Склады
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
-        ${canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите позицию на <b>другой</b> склад. Несколько направлений — в одной корзине.</p>` : ''}
+        ${canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите <b>позицию</b> или <b>единицу оборудования</b> на другой склад (оборудование — с подтверждением).</p>` : ''}
         ${list.length ? `<div class="card-grid">
           ${list.map(w => `
             <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
@@ -1069,7 +1202,7 @@ async function loadItems() {
     const items_all = await api('GET', '/inventory-items');
     const c = document.getElementById('content');
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
-    const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование' };
+    const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование', decoration: '🎨 Декорация', accessory: '🎁 Аксессуар', material: '📐 Материал' };
     c.innerHTML = `
       <div class="section">
         <div class="section-title">📋 Справочник позиций
@@ -1281,10 +1414,23 @@ function movementTypeDisplay(m) {
   return TYPE_LABELS[m.movement_type] || m.movement_type;
 }
 
+function transferMovementWhNames(m) {
+  if (m.movement_type !== 'transfer') return { from: m.from_warehouse_name || '—', to: m.to_warehouse_name || '—' };
+  let fromN = m.from_warehouse_name || '—';
+  let toN = m.to_warehouse_name || '—';
+  const n = m.notes || '';
+  const send = n.match(/Отправка\s*→\s*(.+?)\s*\(\s*заявка/i);
+  const recv = n.match(/Приёмка\s*←\s*(.+?)\s*\(\s*заявка/i);
+  if (send) toN = send[1].trim();
+  if (recv) fromN = recv[1].trim();
+  return { from: fromN, to: toN };
+}
+
 function movementNotesHtml(m) {
   const n = m.notes || '';
   const invMatch = n.match(/inv_session:([0-9a-f-]{8,})/i);
   const poMatch = n.match(/Закупка\s*#\s*([a-f0-9]+)/i);
+  const trPref = n.match(/\(\s*заявка\s+([a-f0-9]+)\s*\)/i);
   const display = n.replace(/\s*inv_session:[a-f0-9-]+\s*/gi, ' ').trim();
   if (m.movement_type === 'adjustment' && invMatch) {
     const sid = invMatch[1];
@@ -1293,6 +1439,10 @@ function movementNotesHtml(m) {
   if (m.movement_type === 'purchase' && poMatch) {
     const pref = poMatch[1];
     return `<span style="font-size:11px;color:var(--accent2);cursor:pointer;text-decoration:underline" onclick="openPoByNotePrefix('${pref}')">${esc(display || n)}</span>`;
+  }
+  if (m.movement_type === 'transfer' && trPref) {
+    const pref = trPref[1];
+    return `<span style="font-size:11px;color:var(--accent2);cursor:pointer;text-decoration:underline" onclick="openTransferPeekByPrefix('${pref}')">${esc(display || n || '—')}</span>`;
   }
   return `<span style="font-size:11px;color:var(--text2)">${esc(display || n || '—')}</span>`;
 }
@@ -1304,6 +1454,24 @@ async function openPoByNotePrefix(prefix) {
     const po = list.find(p => String(p.id).toLowerCase().startsWith(pref));
     if (po) openPoDetail(po.id);
     else showToast('Заказ не найден', true);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function openTransferPeekByPrefix(prefRaw) {
+  try {
+    const list = await api('GET', '/stock-transfers?limit=400');
+    const pref = String(prefRaw || '').replace(/-/g, '').toLowerCase();
+    const tr = list.find(t => {
+      const id = String(t.id).toLowerCase().replace(/-/g, '');
+      return id.startsWith(pref);
+    });
+    if (!tr) { showToast('Заявка не найдена', true); return; }
+    const d = await api('GET', '/stock-transfers/' + tr.id);
+    document.getElementById('tr-peek-title').textContent = 'Перемещение';
+    document.getElementById('tr-peek-meta').innerHTML = `${esc(TR_STATUS_RU[d.status] || d.status)} · ${esc(d.from_warehouse_name || '')} → ${esc(d.to_warehouse_name || '')}${d.created_at ? ' · ' + new Date(d.created_at).toLocaleDateString('ru-RU') : ''}`;
+    const lines = d.lines || [];
+    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${l.quantity} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
+    document.getElementById('tr-peek-modal').classList.add('open');
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -1323,19 +1491,19 @@ async function loadMovements() {
             <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(3)">К закупкам</button>
           </div>` : ''}
         </div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Корректировки с инвентаризацией и закупки — клик по тексту примечания. Перемещения: 📤 списание со склада, 📥 приход на склад.</p>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Корректировки, закупки и перемещения с заявкой — клик по примечанию. Перемещения: 📤 отправка / 📥 приёмка.</p>
         <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Цена</th><th>Примечание</th><th>Кто</th></tr></thead><tbody>
-        ${moves.map(m=>`<tr>
+        ${moves.map(m=>{ const wh = transferMovementWhNames(m); return `<tr>
           <td style="font-size:11px;color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
           <td>${movementTypeDisplay(m)}</td>
           <td>${esc(m.item_name)}</td>
           <td style="font-weight:600">${m.quantity} ${esc(m.unit||'')}</td>
-          <td style="color:var(--text3);font-size:11px">${esc(m.from_warehouse_name||'—')}</td>
-          <td style="color:var(--text3);font-size:11px">${esc(m.to_warehouse_name||'—')}</td>
+          <td style="color:var(--text3);font-size:11px">${esc(wh.from)}</td>
+          <td style="color:var(--text3);font-size:11px">${esc(wh.to)}</td>
           <td style="color:var(--text3);font-size:11px">${m.unit_price ? m.unit_price.toLocaleString('ru-RU')+'₽' : '—'}</td>
           <td style="max-width:220px">${movementNotesHtml(m)}</td>
           <td style="color:var(--text3);font-size:11px">${esc(m.created_by_name||'')}</td>
-        </tr>`).join('')}
+        </tr>`;}).join('')}
         </tbody></table></div>
       </div>
     `;
@@ -1422,7 +1590,21 @@ async function matrixSetReorder(itemId, currentRp) {
     loadStockForecast();
   } catch (e) { showToast(e.message, true); }
 }
-function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly, canEditMatrix) {
+function matrixRowSigmaReorderStyles(total, rp) {
+  const t = parseFloat(total) || 0;
+  const r = parseFloat(rp) || 0;
+  if (r <= 0) return { sum: '', thresh: '' };
+  if (t < r) {
+    const s = 'color:var(--rank3);font-weight:700';
+    return { sum: s, thresh: s + ';background:rgba(242,85,85,.14)' };
+  }
+  if (t < r * 1.3) {
+    const s = 'color:var(--rank2);font-weight:600';
+    return { sum: s, thresh: s + ';background:rgba(245,166,35,.2)' };
+  }
+  return { sum: '', thresh: '' };
+}
+function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
   const balMap = new Map();
   for (const b of matrix.balances || []) {
     balMap.set(`${b.item_id}_${b.warehouse_id}`, b);
@@ -1476,12 +1658,11 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly, canEditMat
       return `<td title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums">${show ? q.toLocaleString('ru-RU') : '—'}</td>`;
     }).join('');
     const rp = parseFloat(it.reorder_point) || 0;
-    const rpCell = canEditMatrix
-      ? `<td style="text-align:center;cursor:pointer" onclick="matrixSetReorder('${it.id}',${rp})" title="Изменить">${rp > 0 ? rp : '—'}</td>`
-      : `<td style="text-align:center">${rp > 0 ? rp : '—'}</td>`;
+    const rs = matrixRowSigmaReorderStyles(total, rp);
+    const rpCell = `<td style="text-align:center;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? rp : '—'}</td>`;
     return `<tr>
       <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
-      <td style="text-align:center;font-weight:600">${total.toLocaleString('ru-RU')}</td>
+      <td style="text-align:center;font-weight:600;${rs.sum}">${total.toLocaleString('ru-RU')}</td>
       ${rpCell}
       ${cells}
     </tr>`;
@@ -1521,9 +1702,8 @@ async function loadStockForecast() {
       return (parseFloat(a.current_qty) || 0) - (parseFloat(b.current_qty) || 0);
     });
     const canPo = can('tech_director') || can('exec_director') || can('admin');
-    const canEditMatrix = can('tech_director') || can('exec_director') || can('admin');
     const periodDays = fcData.days || detailFcDays;
-    const matrixHtml = buildMatrixSection(matrix, fcAll, matrixCityFilter, matrixProblemsOnly, canEditMatrix);
+    const matrixHtml = buildMatrixSection(matrix, fcAll, matrixCityFilter, matrixProblemsOnly);
     const fcTable = fcRows.length
       ? `<div class="table-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Остаток</th><th>Мин.</th><th>Расход/день</th><th>Мероприятий</th><th>Прогноз расхода</th><th>Останется</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
       ${fcRows.map(r => {
@@ -1565,7 +1745,7 @@ async function loadStockForecast() {
         </label>
         <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="applyStockTabFilters()">Обновить</button>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">🔴 ≤ мин · 🟡 выше мин, но ≤ мин×1.5 · 🟢 &gt; мин×1.5 (если мин не задан — 🟢). Минимумы меняются во вкладке «Склады».</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">🔴 ≤ мин · 🟡 выше мин, но ≤ мин×1.5 · 🟢 &gt; мин×1.5 (если мин не задан — 🟢). Минимумы — во вкладке «Склады». Колонка «Порог» в матрице только для просмотра; изменить порог можно в «Справочнике».</div>
       <div style="font-size:11px;font-weight:600;color:var(--text3);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px">Матрица остатков</div>
       ${matrixHtml}
       <div style="font-size:11px;font-weight:600;color:var(--text3);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.4px">Детальный прогноз</div>
@@ -1593,6 +1773,7 @@ async function loadStockForecast() {
       </div>
       ${fcTable}
     </div>`;
+    loadStockTabBadges();
   } catch (e) {
     document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
@@ -1680,34 +1861,48 @@ async function loadEquipment() {
     const c = document.getElementById('content');
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
     const STATUS = { active: { label: '🟢 Активно', color: 'var(--rank1)' }, repair: { label: '🟡 Ремонт', color: 'var(--rank2)' }, written_off: { label: '⚫ Списано', color: 'var(--text3)' }, lost: { label: '🔴 Утеряно', color: 'var(--rank3)' } };
+    const groups = new Map();
+    for (const e of equip) {
+      const key = e.item_id || '_';
+      if (!groups.has(key)) groups.set(key, { name: e.item_name || 'Позиция', units: [] });
+      groups.get(key).units.push(e);
+    }
+    const groupArr = [...groups.values()].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ru'));
+    const miniCard = (e) => {
+      const st = STATUS[e.status] || { label: e.status, color: 'var(--text2)' };
+      const resourcePct = e.resource_limit && e.total_printed != null ? Math.min(100, Math.round((parseFloat(e.total_printed) || 0) / parseFloat(e.resource_limit) * 100)) : null;
+      const resourceColor = resourcePct == null ? '' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
+      return `<div class="eq-mini-card" onclick="openEqDrawer('${e.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+          <span style="font-size:15px">🖨</span>
+          <span style="font-size:9px;color:${st.color}">${st.label}</span>
+        </div>
+        <div style="font-size:11px;font-weight:600;line-height:1.25;margin-bottom:2px">${e.serial_number ? 'SN ' + esc(e.serial_number) : 'Без SN'}</div>
+        <div style="font-size:10px;color:var(--text3)">${e.inventory_number ? 'ИНВ ' + esc(e.inventory_number) + ' · ' : ''}📍 ${esc(e.warehouse_name || '—')}</div>
+        ${resourcePct != null ? `<div style="margin-top:6px">
+          <div style="font-size:9px;color:var(--text3);margin-bottom:2px">${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
+          <div style="height:3px;background:var(--border);border-radius:2px"><div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:2px"></div></div>
+        </div>` : ''}
+        <button type="button" class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:10px;padding:3px 6px" onclick="event.stopPropagation();openEqHistoryModal('${e.id}')">📊 Счётчики</button>
+      </div>`;
+    };
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🖨 Оборудование (${equip.length})
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openEqModal()">+ Добавить</button>` : ''}
         </div>
-        ${equip.length ? `<div class="card-grid">
-          ${equip.map(e => {
-            const st = STATUS[e.status] || { label: e.status, color: 'var(--text2)' };
-            const resourcePct = e.resource_limit && e.total_printed != null ? Math.min(100, Math.round((parseFloat(e.total_printed) || 0) / parseFloat(e.resource_limit) * 100)) : null;
-            const resourceColor = resourcePct == null ? '' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
-            return `<div class="wh-card" onclick="openEqDrawer('${e.id}')">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-                <span style="font-size:20px">🖨</span>
-                <span style="font-size:11px;color:${st.color}">${st.label}</span>
-              </div>
-              <div style="font-weight:600;margin-bottom:2px">${esc(e.item_name)}</div>
-              <div style="font-size:11px;color:var(--text3)">${e.serial_number ? 'SN: ' + esc(e.serial_number) : 'SN: —'}${e.inventory_number ? ' · ИНВ: ' + esc(e.inventory_number) : ''}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:4px">📍 ${esc(e.warehouse_name || '—')}${e.venue_name ? ' · ' + esc(e.venue_name) : ''}</div>
-              ${resourcePct != null ? `<div style="margin-top:8px">
-                <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Ресурс: ${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
-                <div style="height:4px;background:var(--border);border-radius:2px">
-                  <div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:2px;transition:width .3s"></div>
-                </div>
-              </div>` : ''}
-              <button type="button" class="btn btn-ghost" style="width:100%;margin-top:8px;font-size:11px;padding:4px 8px" onclick="event.stopPropagation();openEqHistoryModal('${e.id}')">📊 История счётчиков</button>
-            </div>`;
-          }).join('')}
-        </div>` : '<div style="color:var(--text3)">Нет оборудования</div>'}
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Сгруппировано по типу позиции. Заголовок группы — раскрыть / свернуть экземпляры.</p>
+        ${equip.length ? groupArr.map(g => `
+          <details class="eq-group" ${g.units.length <= 4 ? 'open' : ''}>
+            <summary class="eq-group-summary">
+              <span>🖨 ${esc(g.name)} <span style="color:var(--text3);font-weight:500;font-size:11px">(${g.units.length})</span></span>
+              <span class="eq-group-chevron">▸</span>
+            </summary>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding:4px 0 8px 4px">
+              ${g.units.map(miniCard).join('')}
+            </div>
+          </details>
+        `).join('') : '<div style="color:var(--text3)">Нет оборудования</div>'}
       </div>`;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
