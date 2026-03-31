@@ -120,6 +120,8 @@ a{color:inherit;text-decoration:none}
 .po-badge-cancelled{background:#4a1a1a;color:#f25555}
 .tr-transfer-pending td{color:var(--rank3);font-weight:500}
 .tr-transfer-pending{background:rgba(242,85,85,.1)}
+@keyframes trTransferHighlightFade{from{background-color:rgba(138,92,246,.18)}to{background-color:transparent}}
+.tr-transfer-highlight td{animation:trTransferHighlightFade 2s ease forwards}
 .eq-mini-card{width:100%;max-width:140px;min-height:100px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:border-color .15s}
 .eq-mini-card:hover{border-color:var(--accent2)}
 .eq-group-summary{list-style:none;cursor:pointer;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -362,11 +364,12 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 <div class="overlay" id="tr-peek-modal" onclick="if(event.target===this)safeCloseModal('tr-peek-modal')">
 <div class="modal" style="max-width:440px;max-height:90vh;overflow-y:auto">
   <div class="modal-title"><span id="tr-peek-title">Перемещение</span><button class="dr-close" onclick="safeCloseModal('tr-peek-modal')">×</button></div>
+  <input type="hidden" id="tr-peek-transfer-id" value=""/>
   <div id="tr-peek-meta" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
   <div id="tr-peek-body" style="font-size:12px"></div>
   <div class="modal-footer" style="margin-top:12px">
     <button type="button" class="btn btn-ghost" onclick="safeCloseModal('tr-peek-modal')">Закрыть</button>
-    <button type="button" class="btn btn-primary" style="font-size:12px" id="tr-peek-goto" onclick="switchTab(4);safeCloseModal('tr-peek-modal')">К заявкам</button>
+    <button type="button" class="btn btn-primary" style="font-size:12px" id="tr-peek-goto" onclick="goTransferPeekGoto()">К заявкам</button>
   </div>
 </div>
 </div>
@@ -590,13 +593,15 @@ function dndOnDropWh(ev,toWhId){
   let data;
   try{data=JSON.parse(ev.dataTransfer.getData('application/json')||'{}');}catch{return;}
   if(data.kind==='equipment'){
-    if(!data.unit_id||data.from_warehouse_id==null)return;
-    if(String(data.from_warehouse_id)===String(toWhId)){showToast('Уже на этом складе',true);return;}
+    if(!data.unit_id)return;
+    if(String(data.from_warehouse_id||'')===String(toWhId)){showToast('Уже на этом складе',true);return;}
     const canEq=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
     if(!canEq){showToast('Недостаточно прав для перемещения оборудования',true);return;}
     const wh=warehouses.find(w=>String(w.id)===String(toWhId));
-    const label=(data.label||'Оборудование').replace(/</g,'');
-    if(!confirm(`Переместить «${label}» на склад «${wh?.name||toWhId}»?`))return;
+    const nm=(data.equipment_name||data.label||'Оборудование').replace(/</g,'');
+    const sn=String(data.serial_number||'').trim();
+    const q=sn?`Переместить «${nm}» SN:${sn} на склад «${wh?.name||toWhId}»?`:`Переместить «${nm}» на склад «${wh?.name||toWhId}»?`;
+    if(!confirm(q))return;
     (async()=>{
       try{
         await api('PATCH',`/equipment/${data.unit_id}`,{warehouse_id:toWhId});
@@ -609,6 +614,7 @@ function dndOnDropWh(ev,toWhId){
     })();
     return;
   }
+  if(data.kind&&data.kind!=='stock-item')return;
   if(!data.item_id||!data.from_warehouse_id)return;
   if(data.from_warehouse_id===toWhId){showToast('Уже на этом складе',true);return;}
   const maxQ=parseFloat(data.max_qty)||0;
@@ -699,6 +705,7 @@ function dndRowDragStart(ev){
   const name=el.getAttribute('data-item-name')||'';
   const unit=el.getAttribute('data-item-unit')||'';
   ev.dataTransfer.setData('application/json',JSON.stringify({
+    kind:'stock-item',
     item_id:itemId,
     item_name:name,
     unit,
@@ -706,13 +713,19 @@ function dndRowDragStart(ev){
     max_qty:qMax,
   }));
 }
-function dndEqDragStart(ev,unitId,fromWhId,label){
+function dndEquipmentRowDragStart(ev){
   ev.stopPropagation();
+  const el=ev.currentTarget;
+  const id=el.getAttribute('data-equipment-id');
+  const name=el.getAttribute('data-equipment-name')||'';
+  const fromWh=el.getAttribute('data-from-wh')||'';
+  const serial=el.getAttribute('data-equipment-serial')||'';
   ev.dataTransfer.setData('application/json',JSON.stringify({
     kind:'equipment',
-    unit_id:unitId,
-    from_warehouse_id:fromWhId,
-    label:label||'Оборудование',
+    unit_id:id,
+    from_warehouse_id:fromWh||null,
+    equipment_name:name,
+    serial_number:serial,
   }));
 }
 
@@ -842,10 +855,16 @@ async function toggleTransferExpand(id) {
   }
 }
 
+function transferIdShort8(id) {
+  return String(id || '').replace(/-/g, '').slice(0, 8);
+}
+
 async function loadStockTransfers() {
   const c = document.getElementById('content');
   c.innerHTML = '<div class="loading">Загрузка перемещений...</div>';
   transferRowDetailCache = {};
+  const highlightId = window._highlightTransferId || null;
+  if (highlightId) window._highlightTransferId = null;
   try {
     const canManage = can('tech_director') || can('hr_manager') || can('exec_director') || can('admin');
     const list = await api('GET', '/stock-transfers?limit=100');
@@ -855,9 +874,10 @@ async function loadStockTransfers() {
           ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openTrModal()">+ Новое</button>` : ''}
         </div>
         <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по строке — состав заявки. Для «Ожидает» — подтверждение и отмена в раскрытии.</p>
-        ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th></tr></thead><tbody>
-        ${list.map(tr => `<tr class="${tr.status === 'pending' ? 'tr-transfer-pending' : ''}" style="cursor:pointer" onclick="toggleTransferExpand('${tr.id}')">
+        ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>№</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th></tr></thead><tbody>
+        ${list.map(tr => `<tr id="tr-st-main-${tr.id}" class="${tr.status === 'pending' ? 'tr-transfer-pending' : ''}" style="cursor:pointer" onclick="toggleTransferExpand('${tr.id}')">
           <td style="font-size:11px">${tr.created_at ? new Date(tr.created_at).toLocaleDateString('ru-RU') : '—'}</td>
+          <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(transferIdShort8(tr.id))}</td>
           <td>${esc(tr.from_warehouse_name)}</td>
           <td>${esc(tr.to_warehouse_name)}</td>
           <td style="color:var(--text3)">${tr.lines_count ?? '—'}</td>
@@ -865,9 +885,20 @@ async function loadStockTransfers() {
           <td style="font-size:11px;color:var(--text3)">${esc(tr.requested_by_name || '—')}</td>
           <td style="font-size:11px;color:var(--text3)">${esc(tr.confirmed_by_name || '—')}</td>
         </tr>
-        <tr id="tr-st-exp-${tr.id}" style="display:none"><td colspan="7" id="tr-st-exp-cell-${tr.id}" style="background:var(--bg);padding:0"></td></tr>`).join('')}
+        <tr id="tr-st-exp-${tr.id}" style="display:none"><td colspan="8" id="tr-st-exp-cell-${tr.id}" style="background:var(--bg);padding:0"></td></tr>`).join('')}
         </tbody></table></div>` : '<div style="color:var(--text3)">Нет заявок на перемещение</div>'}
       </div>`;
+    if (highlightId) {
+      requestAnimationFrame(() => {
+        const row = document.getElementById('tr-st-main-' + highlightId);
+        if (row) {
+          row.classList.add('tr-transfer-highlight');
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          toggleTransferExpand(highlightId);
+          setTimeout(() => row.classList.remove('tr-transfer-highlight'), 2100);
+        }
+      });
+    }
   } catch (e) {
     c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
@@ -972,8 +1003,37 @@ function whPanelItemBucketKey(t) {
   if (x === 'decoration') return 'decoration';
   if (x === 'accessory') return 'accessory';
   if (x === 'material') return 'material';
-  if (x === 'equipment') return 'equipment_stock';
+  if (x === 'equipment') return 'other';
   return 'other';
+}
+function formatEqSnInvHtml(e) {
+  const sn = String(e.serial_number || '').trim();
+  const inv = String(e.inventory_number || '').trim();
+  if (sn && inv) return `SN: ${esc(sn)} · ИНВ: ${esc(inv)}`;
+  if (sn) return `SN: ${esc(sn)}`;
+  if (inv) return `ИНВ: ${esc(inv)}`;
+  return '—';
+}
+function eqUnitStatusEmoji(st) {
+  const m = { active: '🟢', repair: '🟡', written_off: '⚫', lost: '🔴' };
+  return m[st] || '🟢';
+}
+function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
+  return eqHere.map(e => {
+    const snInv = formatEqSnInvHtml(e);
+    const st = eqUnitStatusEmoji(e.status);
+    const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
+    const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
+    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" style="cursor:grab"` : '';
+    return `<tr${drag}>
+      <td>${esc(e.item_name)}</td>
+      <td style="font-weight:600;text-align:center">1</td>
+      <td style="text-align:center;color:var(--text3)">шт</td>
+      <td style="text-align:center">—</td>
+      <td style="text-align:center">${st}</td>
+      <td style="color:var(--text3);font-size:11px">${snInv}</td>
+    </tr>`;
+  }).join('');
 }
 function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const q = parseFloat(s.quantity) || 0;
@@ -1030,39 +1090,23 @@ async function renderWhStockPanel(whId){
     let hasCrit=false;
     const canMin=can('tech_director')||can('exec_director')||can('admin');
     const canDnd=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
-    const buckets={consumable:[],decoration:[],accessory:[],material:[],equipment_stock:[],other:[]};
+    const buckets={consumable:[],decoration:[],accessory:[],material:[],other:[]};
     for(const s of stock||[]){
       buckets[whPanelItemBucketKey(s.item_type)].push(s);
       const q=parseFloat(s.quantity)||0,mn=s.min_quantity;
       if(mn>0&&q<=parseFloat(mn))hasCrit=true;
     }
     const sec=(arr,title)=>whPanelStockTableSection(title,arr.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join(''));
-    const eqDragLbl=e=>((e.item_name||'')+' · SN '+(e.serial_number||'—')).trim();
-    const eqBlockInner=eqHere.length?eqHere.map(e=>{
-      const lim=parseFloat(e.resource_limit)||0;
-      const tot=parseFloat(e.total_printed)||0;
-      const pct=lim>0?Math.min(100,Math.round(tot/lim*100)):0;
-      const drag=canDnd?` draggable="true" ondragstart="dndEqDragStart(event,'${e.id}','${whId}',${JSON.stringify(eqDragLbl(e))})" style="cursor:grab"`: '';
-      return`<div${drag} style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <div style="font-weight:600">${esc(e.item_name)}</div>
-        <div style="color:var(--text3);font-size:11px">SN: ${esc(e.serial_number||'—')}${e.inventory_number?' · ИНВ: '+esc(e.inventory_number):''}</div>
-        ${lim>0?`<div style="margin-top:4px;font-size:11px">Ресурс: ${tot.toLocaleString('ru-RU')}/${lim.toLocaleString('ru-RU')} (${pct}%)</div><div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px"><div style="width:${pct}%;height:100%;background:${pct>95?'var(--rank3)':pct>80?'var(--rank2)':'var(--rank1)'};border-radius:2px"></div></div>`:''}
-      </div>`;
-    }).join(''):'<div style="color:var(--text3);font-size:12px">Нет оборудования</div>';
-    const eqBlock=`<div style="margin-top:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">🖨 Оборудование (${eqHere.length})${canDnd?' · перетащите на другой склад':''}</div>
-      ${eqBlockInner}
-    </div>`;
+    const eqSection=eqHere.length?whPanelStockTableSection('🔧 Оборудование ('+eqHere.length+')',whPanelBuildEquipmentTableRows(eqHere,whId,canDnd)):'';
     const canEdit=can('tech_director')||can('exec_director')||can('admin');
     const titleEmoji=hasCrit?' 🔴':' 🟢';
     const stockBlocks=[
       sec(buckets.consumable,'📦 Расходники ('+buckets.consumable.length+')'),
-      eqBlock,
-      sec(buckets.decoration,'🎨 Декорации ('+buckets.decoration.length+')'),
-      sec(buckets.accessory,'🎁 Аксессуары ('+buckets.accessory.length+')'),
-      sec(buckets.material,'📐 Материалы ('+buckets.material.length+')'),
-      sec(buckets.equipment_stock,'🔧 Оборудование — учёт остатков ('+buckets.equipment_stock.length+')'),
-      sec(buckets.other,'📎 Прочее ('+buckets.other.length+')'),
+      eqSection,
+      ...(buckets.decoration.length?[sec(buckets.decoration,'🎨 Декорации ('+buckets.decoration.length+')')]:[]),
+      ...(buckets.accessory.length?[sec(buckets.accessory,'🎁 Аксессуары ('+buckets.accessory.length+')')]:[]),
+      ...(buckets.material.length?[sec(buckets.material,'📐 Материалы ('+buckets.material.length+')')]:[]),
+      ...(buckets.other.length?[sec(buckets.other,'📎 Прочее ('+buckets.other.length+')')]:[]),
     ].join('');
     host.innerHTML=`
       <div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
@@ -1457,6 +1501,13 @@ async function openPoByNotePrefix(prefix) {
   } catch (e) { showToast(e.message, true); }
 }
 
+function goTransferPeekGoto() {
+  const id = document.getElementById('tr-peek-transfer-id')?.value || '';
+  safeCloseModal('tr-peek-modal');
+  if (id) window._highlightTransferId = id;
+  switchTab(4);
+}
+
 async function openTransferPeekByPrefix(prefRaw) {
   try {
     const list = await api('GET', '/stock-transfers?limit=400');
@@ -1467,6 +1518,7 @@ async function openTransferPeekByPrefix(prefRaw) {
     });
     if (!tr) { showToast('Заявка не найдена', true); return; }
     const d = await api('GET', '/stock-transfers/' + tr.id);
+    document.getElementById('tr-peek-transfer-id').value = tr.id;
     document.getElementById('tr-peek-title').textContent = 'Перемещение';
     document.getElementById('tr-peek-meta').innerHTML = `${esc(TR_STATUS_RU[d.status] || d.status)} · ${esc(d.from_warehouse_name || '')} → ${esc(d.to_warehouse_name || '')}${d.created_at ? ' · ' + new Date(d.created_at).toLocaleDateString('ru-RU') : ''}`;
     const lines = d.lines || [];
@@ -1877,8 +1929,8 @@ async function loadEquipment() {
           <span style="font-size:15px">🖨</span>
           <span style="font-size:9px;color:${st.color}">${st.label}</span>
         </div>
-        <div style="font-size:11px;font-weight:600;line-height:1.25;margin-bottom:2px">${e.serial_number ? 'SN ' + esc(e.serial_number) : 'Без SN'}</div>
-        <div style="font-size:10px;color:var(--text3)">${e.inventory_number ? 'ИНВ ' + esc(e.inventory_number) + ' · ' : ''}📍 ${esc(e.warehouse_name || '—')}</div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.35;margin-bottom:4px">${formatEqSnInvHtml(e)}</div>
+        <div style="font-size:10px;color:var(--text3)">📍 ${esc(e.warehouse_name || '—')}</div>
         ${resourcePct != null ? `<div style="margin-top:6px">
           <div style="font-size:9px;color:var(--text3);margin-bottom:2px">${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
           <div style="height:3px;background:var(--border);border-radius:2px"><div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:2px"></div></div>
