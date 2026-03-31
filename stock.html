@@ -47,6 +47,11 @@ a{color:inherit;text-decoration:none}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
 .overlay.open{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+.modal.modal-wh-detail{max-width:min(920px,96vw)}
+.matrix-wrap{overflow:auto;max-height:55vh;margin-top:10px;border:1px solid var(--border);border-radius:10px}
+.matrix-wrap table.tbl{min-width:520px;font-size:10px}
+.matrix-wrap .tbl th,.matrix-wrap .tbl td{padding:4px 6px;white-space:nowrap}
+.matrix-sticky-col{position:sticky;left:0;background:var(--bg2);z-index:1;box-shadow:2px 0 6px rgba(0,0,0,.15)}
 .modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
 .modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
 .dr-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -130,15 +135,14 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab(0)">📦 Остатки и прогноз</button>
-    <button class="tab" onclick="switchTab(1)">📍 Площадки</button>
-    <button class="tab" onclick="switchTab(2)">🏢 Склады</button>
-    <button class="tab" onclick="switchTab(3)">📋 Справочник</button>
-    <button class="tab" onclick="switchTab(4)">🛒 Закупки</button>
-    <button class="tab" onclick="switchTab(5)">🔄 Перемещения</button>
-    <button class="tab" onclick="switchTab(6)">📊 Движения</button>
-    <button class="tab" onclick="switchTab(7)">📋 Инвентаризация</button>
-    <button class="tab" onclick="switchTab(8)">🖨 Оборудование</button>
-    <button class="tab" onclick="switchTab(9)" id="tab-alerts">📈 Аналитика</button>
+    <button class="tab" onclick="switchTab(1)">🏢 Склады</button>
+    <button class="tab" onclick="switchTab(2)">📋 Справочник</button>
+    <button class="tab" onclick="switchTab(3)">🛒 Закупки</button>
+    <button class="tab" onclick="switchTab(4)">🔄 Перемещения</button>
+    <button class="tab" onclick="switchTab(5)">📊 Движения</button>
+    <button class="tab" onclick="switchTab(6)">📋 Инвентаризация</button>
+    <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
+    <button class="tab" onclick="switchTab(8)" id="tab-alerts">📈 Аналитика</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -217,14 +221,15 @@ a{color:inherit;text-decoration:none}
 </div>
 </div>
 
-<!-- Warehouse Drawer -->
-<div class="drawer-backdrop" id="wh-drawer-backdrop" onclick="closeWhDrawer()"></div>
-<div class="drawer" id="wh-drawer">
-  <div class="drawer-title">
-    <span id="wh-drawer-name">Склад</span>
-    <button class="dr-close" onclick="closeWhDrawer()">×</button>
+<!-- Warehouse detail (центральная модалка v2) -->
+<div class="overlay" id="wh-detail-modal" onclick="if(event.target===this)closeWhDetailModal()">
+<div class="modal modal-wh-detail" style="max-height:90vh;overflow:hidden;display:flex;flex-direction:column;padding:0">
+  <div class="modal-title" style="flex-shrink:0;padding:16px 20px 0 20px">
+    <span id="wh-detail-title">Склад</span>
+    <button class="dr-close" onclick="closeWhDetailModal()">×</button>
   </div>
-  <div id="wh-drawer-body">Загрузка...</div>
+  <div id="wh-detail-body" style="overflow-y:auto;flex:1;padding:0 20px 20px 20px">Загрузка...</div>
+</div>
 </div>
 
 <!-- Purchase Order Modal -->
@@ -380,6 +385,9 @@ let venues=[],users=[],currentWhId=null;
 let equipmentListCache=[];
 let refreshLock=null;
 let lastForecastRows=[];
+let matrixProblemsOnly=false;
+let dndTransferCart=null;
+let _whExpandStock={};
 
 async function api(m,p,b){
   const o={method:m,headers:{'Content-Type':'application/json'}};
@@ -533,7 +541,7 @@ function setupMgmtButton() {
 function switchTab(idx){
   currentTabIdx=idx;
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  const fns=[loadStockForecast,loadVenueMap,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadInventory,loadEquipment,loadAnalytics];
+  const fns=[loadStockForecast,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadInventory,loadEquipment,loadAnalytics];
   if(fns[idx]) fns[idx]();
 }
 
@@ -541,109 +549,111 @@ function switchTab(idx){
 
 const WH_TYPE_LABELS_MAP = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
 
-async function loadVenueMap() {
-  const c = document.getElementById('content');
-  c.innerHTML = '<div class="loading">Загрузка карты площадок...</div>';
-  try {
-    const data = await api('GET', '/stock/venue-map');
-    const critByWh = {};
-    for (const row of data.critStock || []) {
-      if (!critByWh[row.warehouse_id]) critByWh[row.warehouse_id] = [];
-      critByWh[row.warehouse_id].push(row);
-    }
-    const eqByWh = {};
-    for (const eq of data.equipment || []) {
-      if (!eq.warehouse_id) continue;
-      if (!eqByWh[eq.warehouse_id]) eqByWh[eq.warehouse_id] = [];
-      eqByWh[eq.warehouse_id].push(eq);
-    }
-    const venueMap = new Map();
-    for (const r of data.venues || []) {
-      if (!venueMap.has(r.id)) {
-        venueMap.set(r.id, {
-          id: r.id, name: r.name, short_name: r.short_name, display_color: r.display_color,
-          city: r.city, category: r.category,
-          upcoming_events_7d: r.upcoming_events_7d || 0,
-          warehouses: [],
-        });
-      }
-      const v = venueMap.get(r.id);
-      if (r.warehouse_id) {
-        v.warehouses.push({
-          warehouse_id: r.warehouse_id,
-          warehouse_name: r.warehouse_name,
-          warehouse_type: r.warehouse_type,
-          stock_items_count: parseInt(r.stock_items_count, 10) || 0,
-          deficit_count: parseInt(r.deficit_count, 10) || 0,
-          equipment_count: parseInt(r.equipment_count, 10) || 0,
-        });
-      }
-    }
-    const withWh = []; const withoutWh = [];
-    for (const v of venueMap.values()) {
-      if (v.warehouses.length) withWh.push(v);
-      else withoutWh.push(v);
-    }
-    function groupByCity(list) {
-      const m = {};
-      for (const v of list) {
-        const ct = v.city || 'Без города';
-        if (!m[ct]) m[ct] = [];
-        m[ct].push(v);
-      }
-      return Object.keys(m).sort((a, b) => a.localeCompare(b, 'ru')).map(ct => ({ city: ct, venues: m[ct] }));
-    }
-    function renderVenueCard(v) {
-      const color = venuePickColor(v);
-      const abbr = esc(venueShortLabel(v));
-      const whBlocks = v.warehouses.map(w => {
-        const crit = (critByWh[w.warehouse_id] || []).slice(0, 6);
-        const eqs = (eqByWh[w.warehouse_id] || []).slice(0, 10);
-        const critHtml = crit.map(x => {
-          const low = parseFloat(x.quantity) <= parseFloat(x.min_quantity || 0);
-          return `<div style="font-size:11px;color:var(--text2)">📊 ${esc(x.item_name)}: ${x.quantity} ${esc(x.unit || '')} (мин: ${x.min_quantity}) ${low ? '⚠' : '✅'}</div>`;
-        }).join('');
-        const eqHtml = eqs.map(e => {
-          const lim = parseFloat(e.resource_limit) || 0;
-          const tot = parseFloat(e.total_printed) || 0;
-          const pct = e.resource_pct != null ? e.resource_pct : (lim > 0 ? Math.round(tot / lim * 100) : null);
-          const bar = pct != null ? `<div style="height:3px;background:var(--border);border-radius:2px;margin-top:2px"><div style="width:${Math.min(100, pct)}%;height:100%;background:${pct > 95 ? 'var(--rank3)' : pct > 80 ? 'var(--rank2)' : 'var(--rank1)'};border-radius:2px"></div></div>` : '';
-          return `<div style="font-size:11px;margin-bottom:6px">🖨 ${esc(e.item_name)}${e.serial_number ? ' #' + esc(e.serial_number) : ''} — ${tot.toLocaleString('ru-RU')}${lim ? '/' + lim.toLocaleString('ru-RU') + ' (' + pct + '%)' : ''}${bar}</div>`;
-        }).join('');
-        const paperEst = (v.upcoming_events_7d || 0) * 25;
-        return `<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
-          <div style="font-weight:600">📦 Склад: ${esc(w.warehouse_name)} <span style="font-size:10px;color:var(--text3)">(${esc(WH_TYPE_LABELS_MAP[w.warehouse_type] || w.warehouse_type || '—')})</span></div>
-          <div style="font-size:11px;color:var(--text3);margin:4px 0">Остатки: ${w.stock_items_count} поз. ${w.deficit_count > 0 ? `(⚠ ${w.deficit_count} дефицит)` : '✅'}</div>
-          ${eqHtml ? `<div style="font-size:10px;color:var(--text3);margin-top:6px">Принтеры:</div>${eqHtml}` : '<div style="font-size:11px;color:var(--text3)">Нет активного оборудования на складе</div>'}
-          ${critHtml ? `<div style="margin-top:8px;font-size:10px;color:var(--text3)">Ниже минимума:</div>${critHtml}` : ''}
-        </div>`;
-      }).join('');
-      return `<details class="venue-map-card" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">
-        <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;font-size:11px;font-weight:700;color:#fff;background:${color}">${abbr}</span>
-          <div><div style="font-weight:600">${esc(v.name)}</div><div style="font-size:11px;color:var(--text3)">${esc(v.city || '—')}${v.category ? ' · ' + esc(v.category) : ''}</div></div>
-        </summary>
-        <div style="margin-top:12px;padding-left:4px">
-          ${whBlocks || '<div style="color:var(--rank3)">⚠ Нет привязанного склада</div>'}
-          <div style="margin-top:10px;font-size:11px;color:var(--text3)">📅 Мероприятий на неделе: ${v.upcoming_events_7d || 0}</div>
-          <div style="font-size:11px;color:var(--text3)">📈 Ориентир расхода бумаги: ~${(v.upcoming_events_7d || 0) * 25} шт <span style="opacity:.7">(оценка)</span></div>
-        </div>
-      </details>`;
-    }
-    let html = '<div class="section"><div class="section-title">📍 Площадки → склады → оборудование → остатки</div>';
-    for (const grp of groupByCity(withWh)) {
-      html += `<div style="font-size:11px;font-weight:600;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.4px">${esc(grp.city)}</div>`;
-      html += grp.venues.map(renderVenueCard).join('');
-    }
-    if (withoutWh.length) {
-      html += `<div style="font-size:11px;font-weight:600;color:var(--rank3);margin:18px 0 8px">⚠ Без склада — привяжите склад к площадке во вкладке «Склады»</div>`;
-      html += withoutWh.map(renderVenueCard).join('');
-    }
-    html += '</div>';
-    c.innerHTML = html;
-  } catch (e) {
-    c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+function whVenueBadgeHtml(w) {
+  if (w.warehouse_type !== 'venue' || !w.venue_id) return '';
+  const v = venues.find(x => x.id === w.venue_id);
+  if (!v) return w.venue_name ? `<span style="font-size:10px;color:var(--text3)">${esc(w.venue_name)}</span>` : '';
+  const color = venuePickColor(v);
+  const abbr = esc(venueShortLabel(v));
+  return `<span title="${esc(v.name)}" style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:${color};margin-left:6px">${abbr}</span>`;
+}
+
+function dndAllowDrop(ev){ev.preventDefault();}
+function dndOnDropWh(ev,toWhId){
+  ev.preventDefault();
+  let data;
+  try{data=JSON.parse(ev.dataTransfer.getData('application/json')||'{}');}catch{return;}
+  if(!data.item_id||!data.from_warehouse_id)return;
+  if(data.from_warehouse_id===toWhId){showToast('Уже на этом складе',true);return;}
+  const maxQ=parseFloat(data.max_qty)||0;
+  if(maxQ<=0){showToast('Нет остатка для перемещения',true);return;}
+  const defQ=Math.min(1,maxQ);
+  const qtyStr=prompt(`Кол-во «${data.item_name}» на склад (макс ${maxQ}):`,String(defQ));
+  const qty=parseFloat(qtyStr);
+  if(!Number.isFinite(qty)||qty<=0)return;
+  if(qty>maxQ){showToast('Больше доступного остатка',true);return;}
+  if(!dndTransferCart)dndTransferCart={from_warehouse_id:null,to_warehouse_id:null,lines:[]};
+  if(dndTransferCart.from_warehouse_id&&dndTransferCart.from_warehouse_id!==data.from_warehouse_id){
+    showToast('В корзине позиции с другого склада. Очистите корзину.',true);
+    return;
   }
+  dndTransferCart.from_warehouse_id=data.from_warehouse_id;
+  dndTransferCart.to_warehouse_id=toWhId;
+  const ex=dndTransferCart.lines.find(l=>l.item_id===data.item_id);
+  const cap=parseFloat(ex?.max_qty)||maxQ;
+  if(ex){ex.quantity=Math.min(cap,(parseFloat(ex.quantity)||0)+qty);}else{
+    dndTransferCart.lines.push({item_id:data.item_id,item_name:data.item_name,unit:data.unit||'',quantity:qty,max_qty:maxQ});
+  }
+  updateDndCartUI();
+  showToast('Добавлено в корзину перемещения',false);
+}
+function clearDndCart(){dndTransferCart=null;updateDndCartUI();}
+function updateDndCartUI(){
+  const host=document.getElementById('dnd-cart-host');
+  if(!host)return;
+  if(!dndTransferCart||!dndTransferCart.lines.length){host.innerHTML='';return;}
+  const fromN=esc(warehouses.find(w=>w.id===dndTransferCart.from_warehouse_id)?.name||dndTransferCart.from_warehouse_id);
+  const toN=esc(warehouses.find(w=>w.id===dndTransferCart.to_warehouse_id)?.name||dndTransferCart.to_warehouse_id);
+  host.innerHTML=`<div style="margin-top:14px;padding:12px;background:var(--bg3);border:1px solid var(--accent);border-radius:12px">
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">🛒 Перемещение: ${fromN} → ${toN}</div>
+    <div style="font-size:11px;color:var(--text2);max-height:120px;overflow-y:auto">${dndTransferCart.lines.map(l=>`<div>${esc(l.item_name)} — ${l.quantity} ${esc(l.unit)}</div>`).join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button type="button" class="btn btn-primary" style="font-size:12px" onclick="submitDndTransferFromCart()">Создать заявку</button>
+      <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="clearDndCart()">Очистить</button>
+    </div></div>`;
+}
+async function submitDndTransferFromCart(){
+  if(!dndTransferCart||!dndTransferCart.lines.length||!dndTransferCart.to_warehouse_id){showToast('Корзина пуста',true);return;}
+  const canManage=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
+  if(!canManage){showToast('Недостаточно прав',true);return;}
+  try{
+    await api('POST','/stock-transfers',{
+      from_warehouse_id:dndTransferCart.from_warehouse_id,
+      to_warehouse_id:dndTransferCart.to_warehouse_id,
+      notes:'DnD со вкладки «Склады»',
+      lines:dndTransferCart.lines.map(l=>({item_id:l.item_id,quantity:l.quantity})),
+    });
+    showToast('Перемещение создано');
+    clearDndCart();
+    loadWarehouses();
+    loadSummary();
+  }catch(e){showToast(e.message,true);}
+}
+function dndRowDragStart(ev){
+  ev.stopPropagation();
+  const el=ev.currentTarget;
+  const whId=el.getAttribute('data-from-wh');
+  const itemId=el.getAttribute('data-item-id');
+  const stock=_whExpandStock[whId]||[];
+  const row=stock.find(x=>String(x.item_id)===String(itemId));
+  const q=parseFloat(row?.quantity)||0;
+  ev.dataTransfer.setData('application/json',JSON.stringify({
+    item_id:itemId,
+    item_name:row?.item_name||'',
+    unit:row?.unit||'',
+    from_warehouse_id:whId,
+    max_qty:q,
+  }));
+}
+async function toggleDndWhExpand(whId,ev){
+  if(ev)ev.stopPropagation();
+  const panel=document.getElementById('dnd-wh-'+whId);
+  if(!panel)return;
+  const open=panel.style.display!=='block';
+  panel.style.display=open?'block':'none';
+  if(!open)return;
+  panel.innerHTML='<div style="color:var(--text3);font-size:11px;padding:6px">Загрузка...</div>';
+  try{
+    let stock=_whExpandStock[whId];
+    if(!stock){stock=await api('GET','/stock?warehouse_id='+encodeURIComponent(whId));_whExpandStock[whId]=stock;}
+    const list=(stock||[]).filter(s=>parseFloat(s.quantity)>0);
+    panel.innerHTML=list.length?list.map(s=>{
+      const q=parseFloat(s.quantity)||0;
+      return`<div draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" ondragstart="dndRowDragStart(event)" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin:4px 0;background:var(--bg);border-radius:8px;border:1px solid var(--border);cursor:grab;font-size:11px">
+        <span>${esc(s.item_name)}</span><span style="font-weight:600">${q} ${esc(s.unit||'')}</span>
+      </div>`;
+    }).join(''):'<div style="color:var(--text3);font-size:11px">Нет остатков для перетаскивания</div>';
+  }catch(e){panel.innerHTML=`<div style="color:var(--rank3);font-size:11px">${esc(e.message)}</div>`;}
 }
 
 function poStatusBadge(st) {
@@ -724,8 +734,8 @@ async function submitPoDeliver() {
     showToast('Поставка принята');
     loadSummary();
     if (currentTabIdx === 0) loadStockForecast();
-    if (currentTabIdx === 4) loadPurchaseOrders();
-    if (currentTabIdx === 6) loadMovements();
+    if (currentTabIdx === 3) loadPurchaseOrders();
+    if (currentTabIdx === 5) loadMovements();
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -810,26 +820,41 @@ async function loadWarehouses() {
       api('GET', '/users').catch(() => []),
     ]);
     venues = vens; users = usrs;
+    warehouses = whs;
     const c = document.getElementById('content');
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canDnd = can('tech_director') || can('hr_manager') || can('exec_director') || can('admin');
     const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
     const TYPE_CLS = { central: 'wh-type-central', venue: 'wh-type-venue', mobile: 'wh-type-mobile' };
+    const list = whs.filter(w => w.is_active);
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🏢 Склады
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
-        ${whs.length ? `<div class="card-grid">
-          ${whs.filter(w => w.is_active).map(w => `
-            <div class="wh-card" onclick="openWhDrawer('${w.id}')">
-              <div><span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span></div>
-              <div style="font-weight:600;margin-bottom:4px">${esc(w.name)}</div>
-              <div style="font-size:11px;color:var(--text3)">${w.city ? esc(w.city) + ' · ' : ''}${esc(w.venue_name || '—')}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || 'Не назначен')}</div>
+        ${canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Раскройте ▼ у склада, перетащите позицию на карточку <b>другого</b> склада — заявка соберётся в корзине внизу.</p>` : ''}
+        ${list.length ? `<div class="card-grid">
+          ${list.map(w => `
+            <div class="wh-card" style="cursor:default" ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''}>
+              <div style="display:flex;align-items:flex-start;gap:8px">
+                <div onclick="openWhDetailModal('${w.id}')" style="flex:1;cursor:pointer;min-width:0">
+                  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+                    <span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span>
+                    ${whVenueBadgeHtml(w)}
+                  </div>
+                  <div style="font-weight:600;margin-bottom:4px;margin-top:6px">${esc(w.name)}</div>
+                  <div style="font-size:11px;color:var(--text3)">${w.city ? esc(w.city) + ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '—')}</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || 'Не назначен')}</div>
+                </div>
+                ${canDnd ? `<button type="button" class="dr-close" style="flex-shrink:0" onclick="toggleDndWhExpand('${w.id}',event)" title="Позиции для перемещения">▼</button>` : ''}
+              </div>
+              ${canDnd ? `<div id="dnd-wh-${w.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"></div>` : ''}
             </div>
           `).join('')}
         </div>` : '<div style="color:var(--text3)">Нет складов. Создайте первый.</div>'}
+        <div id="dnd-cart-host"></div>
       </div>`;
+    updateDndCartUI();
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
 
@@ -881,19 +906,24 @@ async function saveWarehouse() {
   } catch(e) { showToast(e.message, true); }
 }
 
-async function openWhDrawer(id) {
+function closeWhDetailModal() {
+  document.getElementById('wh-detail-modal').classList.remove('open');
+  currentWhId = null;
+}
+
+async function openWhDetailModal(id) {
   currentWhId = id;
-  document.getElementById('wh-drawer-backdrop').classList.add('open');
-  document.getElementById('wh-drawer').classList.add('open');
-  document.getElementById('wh-drawer-body').innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>';
+  document.getElementById('wh-detail-modal').classList.add('open');
+  document.getElementById('wh-detail-body').innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px">Загрузка...</div>';
   try {
-    const [whs, stock] = await Promise.all([
+    const [whs, stock, equip] = await Promise.all([
       api('GET', '/warehouses'),
       api('GET', `/stock?warehouse_id=${id}`),
+      api('GET', '/equipment').catch(() => []),
     ]);
     const wh = whs.find(w => w.id === id);
     if (!wh) return;
-    document.getElementById('wh-drawer-name').textContent = wh.name;
+    document.getElementById('wh-detail-title').textContent = wh.name;
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
     const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
     const stockRows = stock.length ? stock.map(s => `
@@ -903,7 +933,20 @@ async function openWhDrawer(id) {
         <td style="color:var(--text3)">${s.min_quantity || '—'}</td>
         <td><span style="color:${s.is_low ? 'var(--rank3)' : 'var(--rank1)'}">${s.is_low ? '⚠️' : '✅'}</span></td>
       </tr>`).join('') : '<tr><td colspan="4" style="color:var(--text3);padding:8px">Нет остатков</td></tr>';
-    document.getElementById('wh-drawer-body').innerHTML = `
+    const eqHere = (equip || []).filter(e => e.warehouse_id === id);
+    const eqBlock = eqHere.length
+      ? eqHere.map(e => {
+          const resourcePct = e.resource_limit && e.total_printed != null ? Math.min(100, Math.round((parseFloat(e.total_printed) || 0) / parseFloat(e.resource_limit) * 100)) : null;
+          const resourceColor = resourcePct == null ? 'var(--rank1)' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
+          return `<div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+            <div style="font-weight:600">${esc(e.item_name)}</div>
+            <div style="font-size:11px;color:var(--text3)">SN: ${esc(e.serial_number || '—')}${e.inventory_number ? ' · ИНВ: ' + esc(e.inventory_number) : ''}</div>
+            ${resourcePct != null ? `<div style="margin-top:6px;font-size:10px;color:var(--text3)">Ресурс: ${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
+              <div style="height:5px;background:var(--border);border-radius:3px;margin-top:4px"><div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:3px"></div></div>` : ''}
+          </div>`;
+        }).join('')
+      : '<div style="color:var(--text3);font-size:12px">Нет оборудования на этом складе</div>';
+    document.getElementById('wh-detail-body').innerHTML = `
       <div class="info-row"><span class="info-label">Тип</span><span>${TYPE_LABELS[wh.warehouse_type] || wh.warehouse_type}</span></div>
       ${wh.city ? `<div class="info-row"><span class="info-label">Город</span><span>${esc(wh.city)}</span></div>` : ''}
       ${wh.address ? `<div class="info-row"><span class="info-label">Адрес</span><span>${esc(wh.address)}</span></div>` : ''}
@@ -911,26 +954,22 @@ async function openWhDrawer(id) {
       ${wh.notes ? `<div class="info-row"><span class="info-label">Заметки</span><span style="color:var(--text2)">${esc(wh.notes)}</span></div>` : ''}
       <div style="margin-top:16px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Остатки (${stock.length})</div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Мин.</th><th></th></tr></thead><tbody>${stockRows}</tbody></table></div>
+      <div style="margin-top:18px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Оборудование (${eqHere.length})</div>
+      ${eqBlock}
       ${canEdit ? `<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="flex:1;font-size:12px;min-width:120px" onclick="openWhModalById('${wh.id}')">✏️ Редактировать</button>
         <button class="btn btn-ghost" style="font-size:12px" onclick="startInventoryForWarehouse('${wh.id}')">📊 Инвентаризация</button>
         <button class="btn btn-ghost" style="font-size:12px;border-color:var(--rank3);color:var(--rank3)" onclick="deactivateWarehouse('${wh.id}')">Деактивировать</button>
       </div>` : ''}
     `;
-  } catch(e) { document.getElementById('wh-drawer-body').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
-}
-
-function closeWhDrawer() {
-  document.getElementById('wh-drawer-backdrop').classList.remove('open');
-  document.getElementById('wh-drawer').classList.remove('open');
-  currentWhId = null;
+  } catch(e) { document.getElementById('wh-detail-body').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
 
 async function deactivateWarehouse(id) {
   if (!confirm('Деактивировать склад? Это действие нельзя отменить из интерфейса.')) return;
   try {
     await api('DELETE', `/warehouses/${id}`);
-    closeWhDrawer();
+    closeWhDetailModal();
     showToast('Склад деактивирован');
     loadWarehouses(); loadSummary();
   } catch(e) { showToast(e.message, true); }
@@ -1072,8 +1111,8 @@ async function savePurchaseOrder() {
     document.getElementById('po-modal').classList.remove('open');
     showToast('Закупка создана');
     if (currentTabIdx === 0) loadStockForecast();
-    if (currentTabIdx === 4) loadPurchaseOrders();
-    if (currentTabIdx === 6) loadMovements();
+    if (currentTabIdx === 3) loadPurchaseOrders();
+    if (currentTabIdx === 5) loadMovements();
     loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
@@ -1126,8 +1165,8 @@ async function saveTransfer() {
     document.getElementById('tr-modal').classList.remove('open');
     showToast('Перемещение создано');
     if (currentTabIdx === 0) loadStockForecast();
-    if (currentTabIdx === 5) loadStockTransfers();
-    if (currentTabIdx === 6) loadMovements();
+    if (currentTabIdx === 4) loadStockTransfers();
+    if (currentTabIdx === 5) loadMovements();
     loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
@@ -1138,10 +1177,22 @@ async function confirmTransfer(id) {
     await api('POST', `/stock-transfers/${id}/confirm`);
     showToast('Перемещение подтверждено');
     if (currentTabIdx === 0) loadStockForecast();
-    if (currentTabIdx === 5) loadStockTransfers();
-    if (currentTabIdx === 6) loadMovements();
+    if (currentTabIdx === 4) loadStockTransfers();
+    if (currentTabIdx === 5) loadMovements();
     loadSummary();
   } catch(e) { showToast(e.message, true); }
+}
+
+function movementNotesHtml(m) {
+  const n = m.notes || '';
+  const match = n.match(/inv_session:([a-f0-9-]{8,})/i);
+  const textOnly = match ? n.replace(/\s*inv_session:[a-f0-9-]+\s*/i, ' ').trim() : n;
+  let badge = '';
+  if (m.movement_type === 'adjustment' && match) {
+    const sid = match[1];
+    badge = ` <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:10px;vertical-align:middle" onclick="event.stopPropagation();openInvSession('${sid}',true)">Инвент.</button>`;
+  }
+  return `<span style="font-size:11px;color:var(--text2)">${esc(textOnly || '—')}</span>${badge}`;
 }
 
 async function loadMovements() {
@@ -1157,12 +1208,12 @@ async function loadMovements() {
         <div class="section-title">📊 Журнал движений
           ${canManage ? `<div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Ручное движение</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(5)">К перемещениям</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(4)">К закупкам</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(4)">К перемещениям</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(3)">К закупкам</button>
           </div>` : ''}
         </div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Заказы на закупку и трансферы ведутся во вкладках «Закупки» и «Перемещения»; здесь — фактические движения по складу.</p>
-        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Цена</th><th>Кто</th></tr></thead><tbody>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Заказы на закупку и трансферы ведутся во вкладках «Закупки» и «Перемещения»; здесь — фактические движения по складу. У корректировок после инвентаризации есть ссылка на сессию.</p>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Цена</th><th>Примечание</th><th>Кто</th></tr></thead><tbody>
         ${moves.map(m=>`<tr>
           <td style="font-size:11px;color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
           <td>${TYPE_LABELS[m.movement_type]||m.movement_type}</td>
@@ -1171,6 +1222,7 @@ async function loadMovements() {
           <td style="color:var(--text3);font-size:11px">${esc(m.from_warehouse_name||'—')}</td>
           <td style="color:var(--text3);font-size:11px">${esc(m.to_warehouse_name||'—')}</td>
           <td style="color:var(--text3);font-size:11px">${m.unit_price ? m.unit_price.toLocaleString('ru-RU')+'₽' : '—'}</td>
+          <td style="max-width:200px">${movementNotesHtml(m)}</td>
           <td style="color:var(--text3);font-size:11px">${esc(m.created_by_name||'')}</td>
         </tr>`).join('')}
         </tbody></table></div>
@@ -1200,13 +1252,131 @@ function forecastRowDaysLeft(r) {
   return null;
 }
 
+function fcMatrixTooltip(fcMap, itemId, whId) {
+  const r = fcMap.get(`${itemId}_${whId}`);
+  if (!r) return '';
+  const d = forecastRowDaysLeft(r);
+  return `Расход/день: ${r.avg_daily} · Прогноз: ${r.projected_consumption} · Останется: ${r.remaining_after} · Дней: ${d != null ? d : '—'}`;
+}
+function matrixCellStyle(qty, minQ) {
+  const q = parseFloat(qty) || 0;
+  const m = parseFloat(minQ) || 0;
+  if (q <= 0) return 'background:rgba(242,85,85,.15)';
+  if (m > 0 && q <= m) return 'background:rgba(245,166,35,.18)';
+  return 'background:rgba(62,207,142,.12)';
+}
+async function matrixSetMinQty(itemId, whId, currentQty, currentMin) {
+  if (!can('tech_director') && !can('exec_director') && !can('admin')) { showToast('Недостаточно прав', true); return; }
+  const def = currentMin != null && !Number.isNaN(Number(currentMin)) ? String(currentMin) : '0';
+  const v = prompt('Минимальный остаток на этом складе:', def);
+  if (v === null) return;
+  const minQ = parseFloat(v);
+  if (!Number.isFinite(minQ) || minQ < 0) { showToast('Некорректное число', true); return; }
+  try {
+    await api('POST', '/stock/set', { item_id: itemId, warehouse_id: whId, quantity: parseFloat(currentQty) || 0, min_quantity: minQ });
+    showToast('Сохранено');
+    loadStockForecast();
+  } catch (e) { showToast(e.message, true); }
+}
+async function matrixSetReorder(itemId, currentRp) {
+  if (!can('tech_director') && !can('exec_director') && !can('admin')) { showToast('Недостаточно прав', true); return; }
+  const v = prompt('Порог пополнения (reorder_point):', String(currentRp ?? 0));
+  if (v === null) return;
+  const rp = parseFloat(v);
+  if (!Number.isFinite(rp) || rp < 0) { showToast('Некорректное число', true); return; }
+  try {
+    await api('PATCH', `/inventory-items/${itemId}`, { reorder_point: rp });
+    showToast('Сохранено');
+    const idx = items.findIndex(x => String(x.id) === String(itemId));
+    if (idx >= 0) items[idx].reorder_point = rp;
+    loadStockForecast();
+  } catch (e) { showToast(e.message, true); }
+}
+function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly, canEditMatrix) {
+  const balMap = new Map();
+  for (const b of matrix.balances || []) {
+    balMap.set(`${b.item_id}_${b.warehouse_id}`, b);
+  }
+  const fcMap = new Map();
+  for (const r of fcRows || []) {
+    fcMap.set(`${r.item_id}_${r.warehouse_id}`, r);
+  }
+  let whCols = (matrix.warehouses || []).slice();
+  if (cityFilter) whCols = whCols.filter(w => (w.city || '') === cityFilter);
+  const whIds = whCols.map(w => w.id);
+  if (!whIds.length) {
+    return '<div style="color:var(--text3);margin-top:8px">Нет складов для выбранного города в матрице.</div>';
+  }
+  function rowSeverity(it) {
+    const rp = parseFloat(it.reorder_point) || 0;
+    let total = 0;
+    let hasZero = false;
+    let hasLow = false;
+    for (const wid of whIds) {
+      const b = balMap.get(`${it.id}_${wid}`);
+      const q = parseFloat(b?.quantity) || 0;
+      total += q;
+      const minQ = parseFloat(b?.min_quantity) || 0;
+      if (q <= 0) hasZero = true;
+      if (minQ > 0 && q > 0 && q <= minQ) hasLow = true;
+    }
+    if (hasZero || (rp > 0 && total < rp)) return 0;
+    if (hasLow || (rp > 0 && total < rp * 1.2)) return 1;
+    return 2;
+  }
+  let itemRows = (matrix.items || []).slice();
+  itemRows.sort((a, b) => {
+    const sa = rowSeverity(a);
+    const sb = rowSeverity(b);
+    if (sa !== sb) return sa - sb;
+    return (a.name || '').localeCompare(b.name || '', 'ru');
+  });
+  if (problemsOnly) itemRows = itemRows.filter(it => rowSeverity(it) < 2);
+  const thead = `<th class="matrix-sticky-col">Позиция</th><th>Σ</th><th>Порог</th>${whCols.map(w => {
+    const colTitle = esc((w.name || '') + (w.city ? ', ' + w.city : ''));
+    return `<th title="${colTitle}" style="max-width:80px">${esc((w.name || '').length > 14 ? (w.name || '').slice(0, 14) + '…' : (w.name || ''))}</th>`;
+  }).join('')}`;
+  const tbody = itemRows.map(it => {
+    let total = 0;
+    const cells = whIds.map(wid => {
+      const b = balMap.get(`${it.id}_${wid}`);
+      const q = parseFloat(b?.quantity) || 0;
+      total += q;
+      const minQ = b?.min_quantity;
+      const tip = fcMatrixTooltip(fcMap, it.id, wid);
+      const st = matrixCellStyle(q, minQ);
+      const minArg = minQ != null && minQ !== '' ? parseFloat(minQ) : 'null';
+      const minBtn = canEditMatrix
+        ? `<button type="button" class="dr-close" style="padding:0 4px;font-size:10px;vertical-align:middle;margin-left:2px" title="Мин. остаток" onclick="event.stopPropagation();matrixSetMinQty('${it.id}','${wid}',${q},${minArg})">⚙</button>`
+        : '';
+      const show = q > 0 || b;
+      return `<td title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums">${show ? q.toLocaleString('ru-RU') : '—'}${minBtn}</td>`;
+    }).join('');
+    const rp = parseFloat(it.reorder_point) || 0;
+    const rpCell = canEditMatrix
+      ? `<td style="text-align:center;cursor:pointer" onclick="matrixSetReorder('${it.id}',${rp})" title="Изменить">${rp > 0 ? rp : '—'}</td>`
+      : `<td style="text-align:center">${rp > 0 ? rp : '—'}</td>`;
+    return `<tr>
+      <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
+      <td style="text-align:center;font-weight:600">${total.toLocaleString('ru-RU')}</td>
+      ${rpCell}
+      ${cells}
+    </tr>`;
+  }).join('');
+  if (!itemRows.length) {
+    return '<div style="color:var(--text3);margin-top:8px">Нет строк (снимите фильтр «только проблемные» или добавьте позиции).</div>';
+  }
+  return `<div class="matrix-wrap"><table class="tbl"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
+}
+
 async function loadStockForecast() {
   try {
     const c = document.getElementById('content');
     c.innerHTML = '<div class="loading">Загрузка...</div>';
-    const [fcData, vens] = await Promise.all([
+    const [fcData, vens, matrix] = await Promise.all([
       api('GET', '/stock/forecast?days=' + encodeURIComponent(forecastDays) + (forecastCityFilter ? '&city=' + encodeURIComponent(forecastCityFilter) : '')),
       api('GET', '/venues').catch(() => []),
+      api('GET', '/stock/matrix').catch(() => ({ items: [], warehouses: [], balances: [] })),
     ]);
     const cities = [...new Set((vens || []).map(v => v.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
     let fcRows = [...(fcData.forecast || [])];
@@ -1218,7 +1388,9 @@ async function loadStockForecast() {
       return (parseFloat(a.current_qty) || 0) - (parseFloat(b.current_qty) || 0);
     });
     const canPo = can('tech_director') || can('exec_director') || can('admin');
+    const canEditMatrix = can('tech_director') || can('exec_director') || can('admin');
     const periodDays = fcData.days || forecastDays;
+    const matrixHtml = buildMatrixSection(matrix, fcRows, forecastCityFilter, matrixProblemsOnly, canEditMatrix);
     const fcTable = fcRows.length
       ? `<div class="table-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Остаток</th><th>Мин.</th><th>Расход/день</th><th>Мероприятий</th><th>Прогноз расхода</th><th>Останется</th><th>Дней осталось</th><th>Статус</th></tr></thead><tbody>
       ${fcRows.map(r => {
@@ -1265,10 +1437,17 @@ async function loadStockForecast() {
             ${cities.map(ct => `<option value="${esc(ct)}" ${forecastCityFilter === ct ? 'selected' : ''}>${esc(ct)}</option>`).join('')}
           </select>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-left:4px">
+          <input type="checkbox" id="matrix-problems-only" ${matrixProblemsOnly ? 'checked' : ''}/>
+          Только проблемные (матрица)
+        </label>
         <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="applyForecastFilters()">Обновить</button>
         ${canPo ? `<button type="button" class="btn btn-ghost" style="font-size:12px" onclick="openPoFromForecast()">Создать заявку на закупку</button>` : ''}
       </div>
-      <div style="font-size:11px;color:var(--text3)">Период прогноза: <b>${periodDays}</b> дн. Прогноз расхода = средний расход/день (30 дн.) × дни.</div>
+      <div style="font-size:11px;color:var(--text3)">Период прогноза: <b>${periodDays}</b> дн. Прогноз расхода = средний расход/день (30 дн.) × дни. Колонки матрицы фильтруются по выбранному городу.</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px">Матрица остатков (расходники × склады)</div>
+      ${matrixHtml}
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px">Детальный прогноз</div>
       ${fcTable}
     </div>`;
   } catch (e) {
@@ -1288,6 +1467,8 @@ function applyForecastFilters() {
     ? Math.min(365, Math.max(1, parseInt(document.getElementById('fc-days-input')?.value, 10) || 7))
     : parseInt(pr, 10) || 7;
   forecastCityFilter = document.getElementById('fc-city')?.value || '';
+  const mp = document.getElementById('matrix-problems-only');
+  if (mp) matrixProblemsOnly = !!mp.checked;
   loadStockForecast();
 }
 
@@ -1377,7 +1558,7 @@ async function loadEquipment() {
                 <span style="font-size:11px;color:${st.color}">${st.label}</span>
               </div>
               <div style="font-weight:600;margin-bottom:2px">${esc(e.item_name)}</div>
-              <div style="font-size:11px;color:var(--text3)">${e.serial_number ? 'SN: ' + esc(e.serial_number) : '—'}</div>
+              <div style="font-size:11px;color:var(--text3)">${e.serial_number ? 'SN: ' + esc(e.serial_number) : 'SN: —'}${e.inventory_number ? ' · ИНВ: ' + esc(e.inventory_number) : ''}</div>
               <div style="font-size:11px;color:var(--text3);margin-top:4px">📍 ${esc(e.warehouse_name || '—')}${e.venue_name ? ' · ' + esc(e.venue_name) : ''}</div>
               ${resourcePct != null ? `<div style="margin-top:8px">
                 <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Ресурс: ${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
@@ -1664,16 +1845,16 @@ async function startInventoryForWarehouse(warehouseId) {
     const sess = await postNewInventorySession(warehouseId);
     if (!sess) return;
     showToast('Инвентаризация открыта');
-    closeWhDrawer();
+    closeWhDetailModal();
     await openInvSession(sess.id);
     loadSummary();
-    if (currentTabIdx === 7) loadInventory();
+    if (currentTabIdx === 6) loadInventory();
   } catch (e) {
     if (e.session_id) {
       showToast('Уже есть открытая сессия — открываем', false);
-      closeWhDrawer();
+      closeWhDetailModal();
       await openInvSession(e.session_id);
-      if (currentTabIdx === 7) loadInventory();
+      if (currentTabIdx === 6) loadInventory();
       return;
     }
     showToast(e.message, true);
@@ -1699,7 +1880,7 @@ async function cancelInvModalSession() {
     document.getElementById('inv-modal').classList.remove('open');
     showToast('Инвентаризация отменена');
     loadSummary();
-    if (currentTabIdx === 7) loadInventory();
+    if (currentTabIdx === 6) loadInventory();
   } catch (e) { showToast(e.message, true); }
 }
 
@@ -1777,7 +1958,9 @@ async function completeInvSession() {
     document.getElementById('inv-modal').classList.remove('open');
     showToast(`Инвентаризация завершена. Корректировок: ${result.adjustments}`);
     if (currentTabIdx === 0) loadStockForecast();
-    loadInventory(); loadSummary();
+    if (currentTabIdx === 6) loadInventory();
+    if (currentTabIdx === 5) loadMovements();
+    loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
 
@@ -1798,9 +1981,11 @@ async function loadAnalytics() {
   const c = document.getElementById('content');
   c.innerHTML = '<div class="loading">Загрузка аналитики...</div>';
   try {
-    const [analytics, alerts] = await Promise.all([
+    const fromInv = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+    const [analytics, alerts, invSessions] = await Promise.all([
       api('GET', '/stock/analytics'),
       api('GET', '/stock/alerts'),
+      api('GET', '/stock/analytics/inventory?from=' + encodeURIComponent(fromInv)).catch(() => []),
     ]);
 
     function barChart(items, valueKey, labelKey, unitKey, maxItems = 8, colorVar = 'var(--accent)') {
@@ -1849,8 +2034,47 @@ async function loadAnalytics() {
             </div>`).join('')}` : ''}
       </div>` : '';
 
+    const invList = Array.isArray(invSessions) ? invSessions : [];
+    const invByMonth = {};
+    for (const r of invList) {
+      const d = (r.completed_at || '').toString().slice(0, 10);
+      if (!d) continue;
+      const ym = d.slice(0, 7);
+      if (!invByMonth[ym]) invByMonth[ym] = { sessions: 0, disc: 0, val: 0 };
+      invByMonth[ym].sessions += 1;
+      invByMonth[ym].disc += parseFloat(r.discrepancies) || 0;
+      invByMonth[ym].val += parseFloat(r.total_discrepancy_value) || 0;
+    }
+    const invMonths = Object.keys(invByMonth).sort();
+    const invMaxDisc = Math.max(1, ...invMonths.map(m => invByMonth[m].disc));
+    const invSection = invList.length ? `
+      <div class="section" style="margin-bottom:12px">
+        <div class="section-title">📋 Расхождения по инвентаризации (90 дн.)</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Завершённые сессии: строки с фактом ≠ учёту, суммарные расхождения по количеству и оценке.</p>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Склад</th><th>Завершено</th><th>Строк</th><th>Расхождений</th><th>Δ кол-ва</th><th>Оценка Δ ₽</th></tr></thead><tbody>
+        ${invList.slice(0, 40).map(r => `<tr>
+          <td>${esc(r.warehouse_name || '')}</td>
+          <td style="font-size:11px;color:var(--text3)">${r.completed_at ? new Date(r.completed_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+          <td style="color:var(--text3)">${r.lines_count ?? '—'}</td>
+          <td style="font-weight:600;color:${parseInt(r.discrepancies, 10) > 0 ? 'var(--rank2)' : 'var(--text3)'}">${r.discrepancies ?? 0}</td>
+          <td>${parseFloat(r.total_discrepancy_qty || 0).toLocaleString('ru-RU')}</td>
+          <td style="color:var(--text2)">${parseFloat(r.total_discrepancy_value || 0).toLocaleString('ru-RU')} ₽</td>
+        </tr>`).join('')}
+        </tbody></table></div>
+        ${invMonths.length ? `<div style="margin-top:14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Расхождения по месяцам (кол-во строк с Δ)</div>
+        ${invMonths.map(m => {
+          const x = invByMonth[m];
+          const pct = Math.round((x.disc / invMaxDisc) * 100);
+          return `<div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span>${m}</span><span style="color:var(--text2)">${x.disc} расхожд. · ${x.val.toLocaleString('ru-RU')} ₽</span></div>
+            <div style="height:6px;background:var(--border);border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--rank2);border-radius:3px"></div></div>
+          </div>`;
+        }).join('')}` : ''}
+      </div>` : '<div class="section" style="margin-bottom:12px"><div class="section-title">📋 Инвентаризация</div><div style="color:var(--text3);font-size:12px">Нет завершённых сессий за выбранный период.</div></div>';
+
     c.innerHTML = `
       ${alertsSection}
+      ${invSection}
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px">
         <div class="section">
