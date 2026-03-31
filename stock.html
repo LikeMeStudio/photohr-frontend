@@ -1036,13 +1036,13 @@ function whPanelItemBucketKey(t) {
   if (x === 'equipment') return 'other';
   return 'other';
 }
-function formatEqSnInvHtml(e) {
+function formatEqSnCell(e) {
   const sn = String(e.serial_number || '').trim();
+  return sn ? esc(sn) : '—';
+}
+function formatEqInvCell(e) {
   const inv = String(e.inventory_number || '').trim();
-  if (sn && inv) return `SN: ${esc(sn)} · ИНВ: ${esc(inv)}`;
-  if (sn) return `SN: ${esc(sn)}`;
-  if (inv) return `ИНВ: ${esc(inv)}`;
-  return '—';
+  return inv ? esc(inv) : '—';
 }
 function eqUnitStatusEmoji(st) {
   const m = { active: '🟢', repair: '🟡', written_off: '⚫', lost: '🔴' };
@@ -1050,7 +1050,6 @@ function eqUnitStatusEmoji(st) {
 }
 function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
   return eqHere.map(e => {
-    const snInv = formatEqSnInvHtml(e);
     const st = eqUnitStatusEmoji(e.status);
     const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
@@ -1061,7 +1060,8 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
       <td style="text-align:center;color:var(--text3)">шт</td>
       <td style="text-align:center">—</td>
       <td style="text-align:center">${st}</td>
-      <td style="color:var(--text3);font-size:11px">${snInv}</td>
+      <td style="text-align:center;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
+      <td style="text-align:center;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
     </tr>`;
   }).join('');
 }
@@ -1082,14 +1082,15 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
     <td style="text-align:center;color:var(--text3)">${esc(s.unit || '')}</td>
     <td style="text-align:center">${minCell}</td>
     <td style="text-align:center">${st}</td>
-    <td style="color:var(--text3)">—</td>
+    <td style="text-align:center;color:var(--text3)">—</td>
+    <td style="text-align:center;color:var(--text3)">—</td>
   </tr>`;
 }
 function whPanelStockTableSection(title, rowsHtml) {
   return `<div style="margin-top:12px">
     <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${title}</div>
-    <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>ИНВ./SN</th></tr></thead><tbody>
-    ${rowsHtml || '<tr><td colspan="6" style="color:var(--text3)">Нет позиций</td></tr>'}
+    <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+    ${rowsHtml || '<tr><td colspan="8" style="color:var(--text3)">Нет позиций</td></tr>'}
     </tbody></table></div>
   </div>`;
 }
@@ -1362,7 +1363,7 @@ function addPoLine() {
   div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
     <select class="fselect" id="po-item-${n}" style="font-size:11px">
-      ${items.filter(i=>i.item_type==='consumable').map(i=>`<option value="${i.id}" data-price="${i.last_purchase_price||0}">${esc(i.name)}</option>`).join('')}
+      ${items.filter(i=>i.is_active!==false).map(i=>`<option value="${i.id}" data-price="${i.last_purchase_price||0}">${esc(i.name)}</option>`).join('')}
     </select>
     <input class="fin" type="number" id="po-qty-${n}" placeholder="Кол-во" min="1" oninput="updatePoTotal()" style="font-size:11px"/>
     <input class="fin" type="number" id="po-price-${n}" placeholder="Цена" min="0" oninput="updatePoTotal()" style="font-size:11px"/>
@@ -1959,7 +1960,10 @@ async function loadEquipment() {
           <span style="font-size:15px">🖨</span>
           <span style="font-size:9px;color:${st.color}">${st.label}</span>
         </div>
-        <div style="font-size:10px;color:var(--text3);line-height:1.35;margin-bottom:4px">${formatEqSnInvHtml(e)}</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:10px;color:var(--text3);line-height:1.3;margin-bottom:4px">
+          <span style="color:var(--text3);opacity:.75">SN</span><span style="font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</span>
+          <span style="color:var(--text3);opacity:.75">ИНВ.</span><span style="font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</span>
+        </div>
         <div style="font-size:10px;color:var(--text3)">📍 ${esc(e.warehouse_name || '—')}</div>
         ${resourcePct != null ? `<div style="margin-top:6px">
           <div style="font-size:9px;color:var(--text3);margin-bottom:2px">${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
