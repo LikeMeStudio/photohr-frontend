@@ -2527,7 +2527,7 @@ async function loadAnalytics() {
 
 function openMoveModal(){
   const itemSel=document.getElementById('mv-item');
-  itemSel.innerHTML=items.filter(i=>i.item_type==='consumable').map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.unit||'шт')})</option>`).join('');
+  itemSel.innerHTML=items.filter(i=>i.is_active!==false).map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.unit||'шт')})</option>`).join('');
   const whOpts='<option value="">—</option>'+warehouses.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('mv-from').innerHTML=whOpts;
   document.getElementById('mv-to').innerHTML=whOpts;
