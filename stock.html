@@ -585,8 +585,11 @@ function whVenueBadgeHtml(w) {
 }
 
 function dndAllowDrop(ev){ev.preventDefault();}
-function dndFindGroup(fromId,toId){
-  return dndTransferGroups.find(g=>g.from_id===fromId&&g.to_id===toId);
+function dndFindStockGroup(fromId,toId){
+  return dndTransferGroups.find(g=>(!g.kind||g.kind==='stock-item')&&String(g.from_id)===String(fromId)&&String(g.to_id)===String(toId));
+}
+function dndFindEquipmentGroup(fromId,toId){
+  return dndTransferGroups.find(g=>g.kind==='equipment'&&String(g.from_id)===String(fromId)&&String(g.to_id)===String(toId));
 }
 function dndOnDropWh(ev,toWhId){
   ev.preventDefault();
@@ -597,21 +600,23 @@ function dndOnDropWh(ev,toWhId){
     if(String(data.from_warehouse_id||'')===String(toWhId)){showToast('Уже на этом складе',true);return;}
     const canEq=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
     if(!canEq){showToast('Недостаточно прав для перемещения оборудования',true);return;}
-    const wh=warehouses.find(w=>String(w.id)===String(toWhId));
-    const nm=(data.equipment_name||data.label||'Оборудование').replace(/</g,'');
-    const sn=String(data.serial_number||'').trim();
-    const q=sn?`Переместить «${nm}» SN:${sn} на склад «${wh?.name||toWhId}»?`:`Переместить «${nm}» на склад «${wh?.name||toWhId}»?`;
-    if(!confirm(q))return;
-    (async()=>{
-      try{
-        await api('PATCH',`/equipment/${data.unit_id}`,{warehouse_id:toWhId});
-        showToast('Оборудование перемещено');
-        if(selectedWarehouseId)await renderWhStockPanel(selectedWarehouseId);
-        loadWarehouses();
-        loadSummary();
-        if(currentTabIdx===7)loadEquipment();
-      }catch(e){showToast(e.message,true);}
-    })();
+    const fromName=warehouses.find(w=>String(w.id)===String(data.from_warehouse_id))?.name||data.from_warehouse_id||'—';
+    const toName=warehouses.find(w=>String(w.id)===String(toWhId))?.name||toWhId;
+    let g=dndFindEquipmentGroup(data.from_warehouse_id,toWhId);
+    if(!g){
+      g={kind:'equipment',from_id:data.from_warehouse_id,to_id:toWhId,from_name:fromName,to_name:toName,items:[]};
+      dndTransferGroups.push(g);
+    }
+    const eqId=data.unit_id;
+    if(g.items.some(l=>String(l.equipment_id)===String(eqId))){showToast('Уже в корзине',true);return;}
+    g.items.push({
+      equipment_id:eqId,
+      name:(data.equipment_name||data.label||'Оборудование').replace(/</g,''),
+      serial:String(data.serial_number||'').trim(),
+      qty:1,
+    });
+    updateDndCartUI();
+    showToast('Добавлено в корзину',false);
     return;
   }
   if(data.kind&&data.kind!=='stock-item')return;
@@ -626,9 +631,9 @@ function dndOnDropWh(ev,toWhId){
   if(qty>maxQ){showToast('Больше доступного остатка',true);return;}
   const fromName=warehouses.find(w=>w.id===data.from_warehouse_id)?.name||data.from_warehouse_id;
   const toName=warehouses.find(w=>w.id===toWhId)?.name||toWhId;
-  let g=dndFindGroup(data.from_warehouse_id,toWhId);
+  let g=dndFindStockGroup(data.from_warehouse_id,toWhId);
   if(!g){
-    g={from_id:data.from_warehouse_id,to_id:toWhId,from_name:fromName,to_name:toName,items:[]};
+    g={kind:'stock-item',from_id:data.from_warehouse_id,to_id:toWhId,from_name:fromName,to_name:toName,items:[]};
     dndTransferGroups.push(g);
   }
   const ex=g.items.find(l=>String(l.item_id)===String(data.item_id));
@@ -649,7 +654,7 @@ function dndRemoveGroupLine(gi,ii){
 }
 function dndOnQtyInput(gi,ii,val){
   const g=dndTransferGroups[gi];
-  if(!g||!g.items[ii])return;
+  if(!g||!g.items[ii]||g.kind==='equipment')return;
   const q=parseFloat(val);
   const max=parseFloat(g.items[ii].max_qty)||q;
   if(!Number.isFinite(q)||q<=0)return;
@@ -662,12 +667,21 @@ function updateDndCartUI(){
   const blocks=dndTransferGroups.map((g,gi)=>`
     <div style="margin-bottom:12px;padding:10px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
       <div style="font-size:12px;font-weight:600;margin-bottom:6px">📦 Перемещение ${gi+1}: ${esc(g.from_name)} → ${esc(g.to_name)}</div>
-      ${g.items.map((it,ii)=>`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;margin:4px 0">
+      ${g.items.map((it,ii)=>{
+        if(g.kind==='equipment'){
+          const sn=it.serial?` SN:${esc(it.serial)}`:'';
+          return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;margin:4px 0">
+        <span style="flex:1;min-width:120px">🔧 ${esc(it.name)}${sn}</span>
+        <button type="button" class="dr-close" onclick="dndRemoveGroupLine(${gi},${ii})" title="Убрать">×</button>
+      </div>`;
+        }
+        return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;margin:4px 0">
         <span style="flex:1;min-width:120px">${esc(it.name)} — ${esc(it.unit)}</span>
         <label style="color:var(--text3)">кол-во:</label>
         <input class="fin" type="number" style="width:72px;font-size:11px" min="0.01" step="0.01" max="${it.max_qty}" value="${it.quantity}" onblur="dndOnQtyInput(${gi},${ii},this.value)"/>
         <button type="button" class="dr-close" onclick="dndRemoveGroupLine(${gi},${ii})" title="Убрать">×</button>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
     </div>`).join('');
   host.innerHTML=`<div style="margin-top:14px;padding:12px;background:var(--bg3);border:1px solid var(--accent);border-radius:12px">
     ${blocks}
@@ -681,19 +695,35 @@ async function submitDndTransferFromCart(){
   const canManage=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
   if(!canManage){showToast('Недостаточно прав',true);return;}
   try{
+    let stockN=0,eqN=0;
     for(const g of dndTransferGroups){
       if(!g.items.length)continue;
-      await api('POST','/stock-transfers',{
-        from_warehouse_id:g.from_id,
-        to_warehouse_id:g.to_id,
-        notes:'DnD со вкладки «Склады»',
-        lines:g.items.map(l=>({item_id:l.item_id,quantity:parseFloat(l.quantity)||0})),
-      });
+      if(g.kind==='equipment'){
+        for(const it of g.items){
+          const sn=it.serial?` SN:${it.serial}`:'';
+          if(!confirm(`Переместить оборудование? ${it.name}${sn} → ${g.to_name}`))return;
+          await api('PATCH',`/equipment/${it.equipment_id}`,{warehouse_id:g.to_id});
+          eqN++;
+        }
+      }else{
+        await api('POST','/stock-transfers',{
+          from_warehouse_id:g.from_id,
+          to_warehouse_id:g.to_id,
+          notes:'DnD со вкладки «Склады»',
+          lines:g.items.map(l=>({item_id:l.item_id,quantity:parseFloat(l.quantity)||0})),
+        });
+        stockN++;
+      }
     }
-    showToast('Заявки созданы: '+dndTransferGroups.length);
+    const parts=[];
+    if(stockN)parts.push(`заявок: ${stockN}`);
+    if(eqN)parts.push(`оборудования: ${eqN}`);
+    showToast(parts.length?`Готово (${parts.join(', ')})`:'Готово');
     clearDndCart();
     loadWarehouses();
     loadSummary();
+    if(selectedWarehouseId)await renderWhStockPanel(selectedWarehouseId);
+    if(currentTabIdx===7)loadEquipment();
   }catch(e){showToast(e.message,true);}
 }
 function dndRowDragStart(ev){
@@ -1160,7 +1190,7 @@ async function loadWarehouses() {
         <div class="section-title">🏢 Склады
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
-        ${canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите <b>позицию</b> или <b>единицу оборудования</b> на другой склад (оборудование — с подтверждением).</p>` : ''}
+        ${canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите <b>позицию</b> или <b>оборудование</b> на другой склад — строка попадёт в корзину; затем «Создать заявки» (расходники — заявка на перемещение, оборудование — подтверждение и смена склада).</p>` : ''}
         ${list.length ? `<div class="card-grid">
           ${list.map(w => `
             <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
