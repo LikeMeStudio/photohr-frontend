@@ -308,6 +308,7 @@ a{color:inherit;text-decoration:none}
     <button class="tab-main" data-i="1" onclick="switchMainTab(1)">📋 Заявки</button>
     <button class="tab-main" data-i="2" onclick="switchMainTab(2)">🧩 Расстановка</button>
     <button class="tab-main" data-i="3" onclick="switchMainTab(3)">📊 Обзор</button>
+    <button class="tab-main" id="tab-sched-4" data-i="4" onclick="switchMainTab(4)">📈 Аналитика</button>
   </div>
   <div id="panel-0" class="sched-panel">
     <div class="section panel-0-toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
@@ -403,6 +404,24 @@ a{color:inherit;text-decoration:none}
         <select class="fselect" id="ov-city" onchange="loadScheduleOverview()" style="font-size:12px;min-width:160px"></select>
       </div>
       <div id="ov-body" class="loading">Откройте вкладку для загрузки</div>
+    </div>
+  </div>
+  <div id="panel-4" class="sched-panel" style="display:none">
+    <div class="section">
+      <div class="section-title">📈 Аналитика расписания</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+        <span style="font-size:12px;color:var(--text2)">Период:</span>
+        <select class="fselect" id="an-range" onchange="loadAnalytics()" style="font-size:12px;min-width:180px">
+          <option value="month">Текущий месяц</option>
+          <option value="prev-month">Прошлый месяц</option>
+          <option value="quarter">Текущий квартал</option>
+          <option value="year">Текущий год</option>
+          <option value="compare">Сравнение по месяцам</option>
+        </select>
+        <span style="font-size:12px;color:var(--text2)">Город:</span>
+        <select class="fselect" id="an-city" onchange="loadAnalytics()" style="font-size:12px;min-width:160px"><option value="">Все города</option></select>
+      </div>
+      <div id="an-body" class="loading">Откройте вкладку для загрузки</div>
     </div>
   </div>
 </div>
@@ -671,7 +690,7 @@ function setupNav(activeKey){
   document.getElementById('nav-links').innerHTML=navBtns.join('');
 }
 
-async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<4;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool();}}
+async function switchMainTab(i){document.querySelectorAll('.tab-main').forEach((t,j)=>t.classList.toggle('active',j===i));for(let k=0;k<5;k++){const el=document.getElementById('panel-'+k);if(el)el.style.display=k===i?'block':'none';}if(i===1)loadPeriodsSubs();if(i===3){await loadTetrisPeriods();await loadScheduleOverview();}if(i===2){await loadTetrisPeriods();await renderTetris();loadPool();}if(i===4)await loadAnalytics();}
 function schPrevMonth(){schMonth--;if(schMonth<0){schMonth=11;schYear--;}loadTab0();}
 function schNextMonth(){schMonth++;if(schMonth>11){schMonth=0;schYear++;}loadTab0();}
 function setScheduleStatus(v){
@@ -2646,6 +2665,12 @@ function initOvCityFilter(){
   const cities=[...new Set((venuesList||[]).map(v=>(v.city||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
   sel.innerHTML='<option value="">Все города</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value=(current&&cities.includes(current))?current:'';
+  const anCity=document.getElementById('an-city');
+  if(anCity){
+    const anCur=anCity.value||'';
+    anCity.innerHTML=sel.innerHTML;
+    anCity.value=(anCur&&cities.includes(anCur))?anCur:'';
+  }
 }
 function getSelectedOvPeriod(){
   const id=document.getElementById('ov-period')?.value;
@@ -2685,7 +2710,7 @@ async function loadScheduleOverview(){
     const summaryHtml=`<div class="section-title" style="margin-top:0">Сводка</div>
       <div class="ov-summary">
         <div class="ov-card"><div class="ov-num" style="color:var(--accent2)">${esc(String(s.events??0))}</div><div class="ov-muted">мероприятий</div></div>
-        <div class="ov-card"><div class="ov-num" style="color:var(--text)">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
         <div class="ov-card"><div class="ov-num" style="color:var(--rank1)">${esc(String(s.venues??0))}</div><div class="ov-muted">площадок</div></div>
         <div class="ov-card"><div class="ov-num" style="color:${fillColor}">${esc(String(fillPct))}%</div><div class="ov-muted">заполненность</div></div>
       </div>`;
@@ -2717,6 +2742,105 @@ async function loadScheduleOverview(){
       +phHtml+`<div class="section-title" style="margin-top:14px">Проблемы</div>`+(probHtml||'<div style="color:var(--text3);font-size:12px">Проблем не найдено</div>')
       +`<div class="section-title" style="margin-top:14px">История снимков</div>`+snapRows;
   }catch(e){ body.innerHTML=`<div style="color:var(--rank3);font-size:13px">${esc(e.message)}</div>`; }
+}
+
+function getAnalyticsDateRange(){
+  const sel=document.getElementById('an-range')?.value||'month';
+  const now=new Date();
+  const y=now.getFullYear(), m=now.getMonth();
+  if(sel==='month') return {from:`${y}-${String(m+1).padStart(2,'0')}-01`, to:new Date(y,m+1,0).toISOString().slice(0,10), label:`${MONTHS[m]} ${y}`};
+  if(sel==='prev-month'){
+    const pm=m===0?11:m-1, py=m===0?y-1:y;
+    return {from:`${py}-${String(pm+1).padStart(2,'0')}-01`, to:new Date(py,pm+1,0).toISOString().slice(0,10), label:`${MONTHS[pm]} ${py}`};
+  }
+  if(sel==='quarter'){
+    const q=Math.floor(m/3); const qs=q*3;
+    return {from:`${y}-${String(qs+1).padStart(2,'0')}-01`, to:new Date(y,qs+3,0).toISOString().slice(0,10), label:`Q${q+1} ${y}`};
+  }
+  if(sel==='year') return {from:`${y}-01-01`, to:`${y}-12-31`, label:String(y)};
+  if(sel==='compare') return {type:'compare', year:y};
+  return {from:`${y}-${String(m+1).padStart(2,'0')}-01`, to:new Date(y,m+1,0).toISOString().slice(0,10), label:`${MONTHS[m]} ${y}`};
+}
+
+async function loadAnalytics(){
+  const body=document.getElementById('an-body');
+  if(!body) return;
+  initOvCityFilter();
+  body.innerHTML='<div class="loading">Загрузка аналитики...</div>';
+
+  const city=document.getElementById('an-city')?.value||'';
+  const cityParam=city?`&city=${encodeURIComponent(city)}`:'';
+  const range=getAnalyticsDateRange();
+
+  try{
+    if(range.type==='compare'){
+      const y=range.year;
+      const currentMonth=new Date().getMonth();
+      const promises=[];
+      for(let mi=0;mi<=currentMonth;mi++){
+        const from=`${y}-${String(mi+1).padStart(2,'0')}-01`;
+        const to=new Date(y,mi+1,0).toISOString().slice(0,10);
+        promises.push(api('GET',`/schedule/overview?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${cityParam}`).catch(()=>({summary:{}})));
+      }
+      const results=await Promise.all(promises);
+      let tbl='<table class="tbl"><thead><tr><th>Месяц</th><th>Мероприятий</th><th>Смен</th><th>Площадок</th><th>Заполненность</th></tr></thead><tbody>';
+      results.forEach((ov,i)=>{
+        const s=ov.summary||{};
+        const fill=Number(s.fill_rate||0);
+        const fillColor=fill>70?'var(--rank1)':fill>30?'var(--rank2)':'var(--rank3)';
+        tbl+=`<tr>
+          <td style="font-weight:600">${esc(MONTHS[i])} ${y}</td>
+          <td style="color:var(--accent2)">${esc(String(s.events??0))}</td>
+          <td>${esc(String(s.shifts??0))}</td>
+          <td style="color:var(--rank1)">${esc(String(s.venues??0))}</td>
+          <td style="color:${fillColor};font-weight:600">${esc(String(fill))}%</td>
+        </tr>`;
+      });
+      tbl+='</tbody></table>';
+      body.innerHTML=`<div class="section-title">Сравнение по месяцам ${esc(String(y))}</div>${tbl}`;
+      return;
+    }
+
+    const ov=await api('GET',`/schedule/overview?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${cityParam}`);
+    const s=ov.summary||{};
+    const fill=Number(s.fill_rate||0);
+    const fillColor=fill>70?'var(--rank1)':fill>30?'var(--rank2)':'var(--rank3)';
+
+    const summaryHtml=`<div class="section-title">${esc(range.label)}</div>
+      <div class="ov-summary">
+        <div class="ov-card"><div class="ov-num" style="color:var(--accent2)">${esc(String(s.events??0))}</div><div class="ov-muted">мероприятий</div></div>
+        <div class="ov-card"><div class="ov-num">${esc(String(s.shifts??0))}</div><div class="ov-muted">смен</div></div>
+        <div class="ov-card"><div class="ov-num" style="color:var(--rank1)">${esc(String(s.venues??0))}</div><div class="ov-muted">площадок</div></div>
+        <div class="ov-card"><div class="ov-num" style="color:${fillColor}">${esc(String(fill))}%</div><div class="ov-muted">заполненность</div></div>
+      </div>`;
+
+    const venues=(ov.venue_stats||[]).map(v=>{
+      const req=parseInt(v.required||0,10)||0;
+      const asg=parseInt(v.assigned||0,10)||0;
+      const pct=req>0?Math.min(100,Math.round(asg/Math.max(1,req)*100)):0;
+      const col=ovBarColor(pct);
+      return`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(v.name||'')}</span><span style="color:var(--text3)">${pct}% (${asg}/${req} смен)</span></div><div class="ov-bar-track"><div class="ov-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>`;
+    }).join('')||'<div style="color:var(--text3);font-size:12px">Нет данных</div>';
+
+    const phRows=(ov.photographer_stats||[]).slice(0,15).map((p,i)=>{
+      return`<tr><td style="color:var(--text3);font-size:11px">${i+1}</td><td>${esc(p.name||'')}</td><td style="text-align:center;font-weight:600">${esc(String(p.assigned_shifts??0))}</td></tr>`;
+    }).join('');
+
+    const probHtml=(ov.problems||[]).map(pr=>{
+      if(pr.type==='understaffed') return`<div style="margin-bottom:6px">🔴 <b>${esc(String(pr.count))}</b> площадок с недобором</div>`;
+      if(pr.type==='forced') return`<div style="margin-bottom:6px">⚠️ <b>${esc(String(pr.count))}</b> принудительных назначений</div>`;
+      if(pr.type==='declined') return`<div style="margin-bottom:6px">❌ <b>${esc(String(pr.count))}</b> отклонённых смен</div>`;
+      return'';
+    }).join('')||'<div style="color:var(--rank1)">✅ Проблем не найдено</div>';
+
+    body.innerHTML=summaryHtml
+      +`<div class="section-title" style="margin-top:16px">Загрузка площадок</div>`+venues
+      +`<div class="section-title" style="margin-top:16px">Топ сотрудников по сменам</div>
+        <table class="tbl"><thead><tr><th>#</th><th>Сотрудник</th><th>Смен</th></tr></thead><tbody>${phRows||'<tr><td colspan="3" style="color:var(--text3)">Нет данных</td></tr>'}</tbody></table>`
+      +`<div class="section-title" style="margin-top:16px">Проблемы</div>`+probHtml;
+  }catch(e){
+    body.innerHTML=`<div style="color:var(--rank3);font-size:13px">${esc(e.message)}</div>`;
+  }
 }
 
 function vsClone(o){return JSON.parse(JSON.stringify(o));}
