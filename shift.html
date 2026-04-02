@@ -194,7 +194,7 @@ async function loadShift() {
   const today = new Date().toISOString().split('T')[0];
   try {
     const upcoming = await api('GET', '/my/upcoming-shifts?limit=30');
-    const okStatus = (st) => st === 'confirmed' || st === 'pending_confirmation';
+    const okStatus = (st) => st && !['cancelled', 'declined'].includes(st);
     const forDay = (upcoming || []).filter(s => {
       const d = (s.event_date || '').split('T')[0];
       return d === today && okStatus(s.status);
@@ -233,6 +233,17 @@ function renderShiftInfo(shift) {
   const time = [shift.start_time, shift.end_time].filter(Boolean).map(t => String(t).slice(0, 5)).join(' – ');
   const ROLE_SHORT = { photographer: 'фото', print_operator: 'опер', manager: 'мен', mentor: 'наст', helper: 'пом' };
   const name = shift.shift_name || shift.event_name || '';
+  const st = shift.status || '';
+  let badgeCls = 'badge-pending';
+  let badgeText = '⏳';
+  if (st === 'checked_in' || st === 'confirmed') {
+    badgeCls = 'badge-paid';
+    badgeText = st === 'checked_in' ? '✓ Чекин' : '✓ Подтв.';
+  } else if (st === 'pending_qr_join') {
+    badgeText = '⏳ QR';
+  } else if (st === 'pending_confirmation') {
+    badgeText = '⏳ Подтв.';
+  }
 
   document.getElementById('shift-info').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
@@ -240,7 +251,7 @@ function renderShiftInfo(shift) {
         <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600">${esc(shift.venue_name || shift.venue_short || '—')}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px">${esc(new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' }))}${time ? ' · ' + esc(time) : ''}</div>
       </div>
-      <span class="badge ${shift.status === 'confirmed' ? 'badge-paid' : 'badge-pending'}">${shift.status === 'confirmed' ? '✓ Подтв.' : '⏳'}</span>
+      <span class="badge ${badgeCls}">${esc(badgeText)}</span>
     </div>
     <div style="font-size:12px;color:var(--text2)">
       Роль: <b>${esc(ROLE_SHORT[shift.role_in_shift] || shift.role_in_shift)}</b>
