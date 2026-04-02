@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Вход</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
 
@@ -62,6 +62,9 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 @media(max-width:768px){
   .login-box{padding:28px 22px}
+  /* Safe area для iPhone с notch */
+  #login-screen{padding-top:max(20px, env(safe-area-inset-top));padding-bottom:env(safe-area-inset-bottom)}
+  body{padding-bottom:env(safe-area-inset-bottom)}
 }
 
 </style>
