@@ -682,6 +682,7 @@ function setupNav(activeKey){
     return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
   };
   navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
+  if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','exec_director','admin'])) navBtns.push(a('shift','shift.html','📸 Смена'));
   navBtns.push(a('index','photographers.html','Команда'));
   if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));
   if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Отчёты'));

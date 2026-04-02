@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PhotoHR — Рабочая смена</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#18181b;--bg2:#23232b;--bg3:#2d2d38;--border:#35354a;--text1:#e8e8f0;--text2:#b0b0c8;--text3:#7a7a96;--accent:#7c6aff;--accent2:#9d8cff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;--radius:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min-height:100vh;padding-bottom:80px}
+.header{position:sticky;top:0;z-index:100;background:var(--bg1);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+.header-title{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
+.header-right{display:flex;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;text-decoration:none}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-danger{background:var(--rank3);border-color:var(--rank3);color:#fff}
+.btn-sm{padding:6px 10px;font-size:11px}
+.section{padding:16px;border-bottom:1px solid var(--border)}
+.section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-bottom:12px}
+.stat-card{background:var(--bg2);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)}
+.stat-value{font-size:16px;font-weight:700}
+.stat-label{font-size:10px;color:var(--text3);margin-top:2px}
+.sale-card{background:var(--bg2);border-radius:var(--radius);padding:12px;margin-bottom:8px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s}
+.sale-card:active{border-color:var(--accent)}
+.form-group{margin-bottom:12px}
+.form-label{font-size:11px;color:var(--text3);margin-bottom:4px;display:block}
+.fin{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);font-size:14px;font-family:inherit}
+.fin:focus{outline:none;border-color:var(--accent)}
+.fselect{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text1);font-size:14px;font-family:inherit;appearance:none}
+.cart-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px}
+.cart-item-name{flex:1;font-size:13px}
+.cart-qty{width:50px;text-align:center;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);font-size:14px}
+.qr-display{text-align:center;padding:20px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+.modal-sheet{background:var(--bg1);border-radius:16px 16px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:20px 16px 30px}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;background:var(--bg3);color:var(--text1);font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.error{border:1px solid var(--rank3)}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-state-icon{font-size:40px;margin-bottom:8px}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600}
+.badge-paid{background:rgba(62,207,142,.15);color:var(--rank1)}
+.badge-pending{background:rgba(245,166,35,.15);color:var(--rank2)}
+.badge-presale{background:rgba(124,108,255,.15);color:var(--accent2)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">📸 Рабочая смена</div>
+  <div class="header-right">
+    <a href="my.html" class="btn btn-ghost btn-sm">Мой профиль</a>
+  </div>
+</div>
+
+<div id="shift-info" class="section">
+  <div class="loading" style="color:var(--text3);font-size:13px">Загрузка смены...</div>
+</div>
+
+<div id="sales-section" class="section" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="section-title" style="margin-bottom:0">🛒 Продажи сегодня</div>
+    <button class="btn btn-primary btn-sm" onclick="openNewSale()">+ Новая продажа</button>
+  </div>
+  <div id="sales-stats" class="stat-row"></div>
+  <div id="sales-list"></div>
+</div>
+
+<div id="sale-modal" class="modal-bg" onclick="if(event.target===this)closeSaleModal()">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="sale-modal-content"></div>
+  </div>
+</div>
+
+<div id="qr-modal" class="modal-bg" onclick="if(event.target===this)closeQrModal()">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="qr-modal-content"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : 'https://fotohr-server-production.up.railway.app/api';
+const FRONTEND_URL = window.location.hostname === 'localhost' ? window.location.origin : 'https://likemestudio.github.io/photohr-frontend';
+let accessToken = localStorage.getItem('fhr_access');
+let refreshToken = localStorage.getItem('fhr_refresh');
+let refreshLock = null;
+let currentUser = null;
+let currentShift = null;
+let venueProducts = [];
+let todaySales = [];
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
+  if (body) opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  if (res.status === 401) {
+    if (!refreshLock) {
+      refreshLock = (async () => {
+        const rr = await fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+        if (!rr.ok) throw new Error('refresh_failed');
+        const data = await rr.json();
+        accessToken = data.accessToken; refreshToken = data.refreshToken;
+        localStorage.setItem('fhr_access', accessToken); localStorage.setItem('fhr_refresh', refreshToken);
+      })();
+    }
+    try { await refreshLock; opts.headers['Authorization'] = `Bearer ${accessToken}`; res = await fetch(API + path, opts); }
+    catch { doLogout(); return null; }
+    finally { refreshLock = null; }
+  }
+  if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Ошибка' })); throw new Error(err.error || 'Ошибка'); }
+  return res.json();
+}
+function doLogout() { localStorage.removeItem('fhr_access'); localStorage.removeItem('fhr_refresh'); location.href = 'index.html'; }
+
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, err) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); }
+
+(async () => {
+  if (!accessToken && !refreshToken) { location.href = 'index.html'; return; }
+  try {
+    currentUser = await api('GET', '/auth/me');
+    if (!currentUser.photographer_id) {
+      document.getElementById('shift-info').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚫</div><div>Нет привязанного профиля фотографа</div></div>';
+      return;
+    }
+    await loadShift();
+  } catch { doLogout(); }
+})();
+
+async function loadShift() {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const upcoming = await api('GET', '/my/upcoming-shifts?limit=30');
+    const okStatus = (st) => st === 'confirmed' || st === 'pending_confirmation';
+    const forDay = (upcoming || []).filter(s => {
+      const d = (s.event_date || '').split('T')[0];
+      return d === today && okStatus(s.status);
+    });
+    const todayShift = forDay.find(s => s.role_in_shift === 'photographer') || forDay[0];
+
+    if (!todayShift || !todayShift.venue_id) {
+      document.getElementById('shift-info').innerHTML = `<div class="empty-state">
+        <div class="empty-state-icon">📅</div>
+        <div style="font-size:14px;margin-bottom:8px">Нет смены на сегодня</div>
+        <div style="font-size:12px;color:var(--text3)">Ваши предстоящие смены — в <a href="my.html" style="color:var(--accent)">личном кабинете</a></div>
+      </div>`;
+      return;
+    }
+
+    currentShift = todayShift;
+
+    venueProducts = await api('GET', `/venues/${todayShift.venue_id}/products`).catch(() => []);
+
+    const phCard = await api('GET', `/photographers/${currentUser.photographer_id}`).catch(() => ({}));
+    currentUser._cameraPrefix = phCard.camera_prefix || 'DSC_';
+
+    renderShiftInfo(todayShift);
+    document.getElementById('sales-section').style.display = '';
+    await loadTodaySales();
+  } catch (e) {
+    document.getElementById('shift-info').innerHTML = `<div class="empty-state" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+}
+
+function renderShiftInfo(shift) {
+  const time = [shift.start_time, shift.end_time].filter(Boolean).map(t => String(t).slice(0, 5)).join(' – ');
+  const ROLE_SHORT = { photographer: 'фото', print_operator: 'опер', manager: 'мен', mentor: 'наст', helper: 'пом' };
+  const name = shift.shift_name || shift.event_name || '';
+
+  document.getElementById('shift-info').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+      <div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600">${esc(shift.venue_name || shift.venue_short || '—')}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">${esc(new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' }))}${time ? ' · ' + esc(time) : ''}</div>
+      </div>
+      <span class="badge ${shift.status === 'confirmed' ? 'badge-paid' : 'badge-pending'}">${shift.status === 'confirmed' ? '✓ Подтв.' : '⏳'}</span>
+    </div>
+    <div style="font-size:12px;color:var(--text2)">
+      Роль: <b>${esc(ROLE_SHORT[shift.role_in_shift] || shift.role_in_shift)}</b>
+      ${name ? ' · ' + esc(name) : ''}
+    </div>
+  `;
+}
+
+async function loadTodaySales() {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const data = await api('GET', `/photo-sales?date=${encodeURIComponent(today)}&venue_id=${encodeURIComponent(currentShift.venue_id)}`);
+    todaySales = data.sales || [];
+    renderSalesStats();
+    renderSalesList();
+  } catch (e) {
+    console.warn('loadTodaySales:', e.message);
+    todaySales = [];
+    renderSalesList();
+  }
+}
+
+function renderSalesStats() {
+  const total = todaySales.length;
+  const revenue = todaySales.reduce((s, sale) => s + (parseFloat(sale.total_amount) || 0), 0);
+  const paid = todaySales.filter(s => s.payment_status === 'paid').length;
+  const delivered = todaySales.filter(s => s.is_delivered).length;
+
+  document.getElementById('sales-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Продаж</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--rank1)">${revenue.toLocaleString('ru-RU')}₽</div><div class="stat-label">Выручка</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--accent2)">${paid}/${total}</div><div class="stat-label">Оплачено</div></div>
+    <div class="stat-card"><div class="stat-value">${delivered}/${total}</div><div class="stat-label">Выдано</div></div>
+  `;
+}
+
+function renderSalesList() {
+  const el = document.getElementById('sales-list');
+  if (!todaySales.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📷</div><div style="font-size:13px">Пока нет продаж. Нажмите «+ Новая продажа»</div></div>`;
+    return;
+  }
+
+  const STATUS_BADGE = { paid: '<span class="badge badge-paid">Оплачено</span>', pending: '<span class="badge badge-pending">Не оплачено</span>', partially_paid: '<span class="badge badge-pending">Частично</span>' };
+  const TYPE_BADGE = { pre_sale: '<span class="badge badge-presale">Пред-продажа</span>' };
+
+  el.innerHTML = todaySales.map(s => {
+    const amt = parseFloat(s.total_amount) || 0;
+    const time = new Date(s.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    return `<div class="sale-card" onclick="openSaleDetail('${s.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:600;font-size:14px">${amt > 0 ? amt.toLocaleString('ru-RU') + '₽' : '—'}</span>
+        <div style="display:flex;gap:4px">${TYPE_BADGE[s.sale_type] || ''}${STATUS_BADGE[s.payment_status] || ''}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">${time} · ${s.series_count || 0} серий · ${s.items_count || 0} товаров${s.guest_name ? ' · ' + esc(s.guest_name) : ''}${s.is_delivered ? ' · ✓ выдано' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+let newSaleState = { series: [], items: [], saleType: 'sale', paymentMethod: 'cash', guest: {} };
+let detailSaleForQr = null;
+let detailSaleIdForSeries = null;
+
+function openNewSale() {
+  newSaleState = {
+    series: [{ camera_prefix: currentUser._cameraPrefix || 'DSC_', frame_start: '', frame_end: '' }],
+    items: [],
+    saleType: 'sale',
+    paymentMethod: 'cash',
+    guest: {},
+  };
+  renderSaleForm();
+  document.getElementById('sale-modal').classList.add('open');
+}
+function closeSaleModal() { document.getElementById('sale-modal').classList.remove('open'); }
+
+function renderSaleForm() {
+  const s = newSaleState;
+  let html = `<div class="section-title">📸 Новая продажа</div>`;
+
+  html += `<div class="form-group"><label class="form-label">Тип</label>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn btn-sm ${s.saleType === 'sale' ? 'btn-primary' : ''}" onclick="newSaleState.saleType='sale';renderSaleForm()">💰 Продажа</button>
+      <button type="button" class="btn btn-sm ${s.saleType === 'pre_sale' ? 'btn-primary' : ''}" onclick="newSaleState.saleType='pre_sale';renderSaleForm()">👀 Пред-продажа</button>
+    </div></div>`;
+
+  html += `<div class="form-group"><label class="form-label">📷 Серии кадров</label>`;
+  s.series.forEach((ser, si) => {
+    html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input class="fin" style="width:70px;font-size:12px;padding:8px" placeholder="DSC_" value="${esc(ser.camera_prefix)}" oninput="newSaleState.series[${si}].camera_prefix=this.value">
+      <input class="fin" style="flex:1;font-size:14px;padding:8px" type="number" placeholder="Начало" value="${esc(ser.frame_start)}" oninput="newSaleState.series[${si}].frame_start=this.value" inputmode="numeric">
+      <span style="color:var(--text3)">—</span>
+      <input class="fin" style="flex:1;font-size:14px;padding:8px" type="number" placeholder="Конец" value="${esc(ser.frame_end)}" oninput="newSaleState.series[${si}].frame_end=this.value" inputmode="numeric">
+      ${s.series.length > 1 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.series.splice(${si},1);renderSaleForm()" style="color:var(--rank3);padding:4px">✕</button>` : ''}
+    </div>`;
+  });
+  html += `<button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.series.push({camera_prefix:currentUser._cameraPrefix||'DSC_',frame_start:'',frame_end:''});renderSaleForm()">+ Ещё серия</button></div>`;
+
+  html += `<div class="form-group"><label class="form-label">🛍 Товары</label>`;
+  if (!s.items.length) {
+    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Добавьте товары из списка ниже</div>`;
+  }
+  s.items.forEach((item, ii) => {
+    html += `<div class="cart-item">
+      <div class="cart-item-name">${esc(item.name)}<br><span style="font-size:11px;color:var(--text3)">${Number(item.unit_price).toLocaleString('ru-RU')}₽</span></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="changeCartQty(${ii},-1)" style="padding:4px 8px">−</button>
+      <input class="cart-qty" type="number" value="${item.quantity}" min="1" oninput="newSaleState.items[${ii}].quantity=Math.max(1,parseInt(this.value,10)||1);renderSaleForm()" inputmode="numeric">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="changeCartQty(${ii},1)" style="padding:4px 8px">+</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.items.splice(${ii},1);renderSaleForm()" style="color:var(--rank3);padding:4px">✕</button>
+    </div>`;
+  });
+
+  const usedIds = new Set(s.items.map(it => it.product_id));
+  const available = venueProducts.filter(vp => !usedIds.has(vp.product_id));
+  if (available.length) {
+    html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`;
+    available.forEach(vp => {
+      const pid = esc(vp.product_id);
+      const pnm = JSON.stringify(vp.name || 'Товар');
+      const prc = parseFloat(vp.price) || 0;
+      html += `<button type="button" class="btn btn-ghost btn-sm" onclick="addToCart('${pid}', ${pnm}, ${prc})" style="font-size:11px">+ ${esc(vp.name || '')} ${Number(vp.price).toLocaleString('ru-RU')}₽</button>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  const totalAmount = s.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
+  html += `<div style="font-size:16px;font-weight:700;text-align:right;margin-bottom:14px;color:var(--rank1)">Итого: ${totalAmount.toLocaleString('ru-RU')}₽</div>`;
+
+  if (s.saleType === 'sale') {
+    html += `<div class="form-group"><label class="form-label">💳 Способ оплаты</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="btn btn-sm ${s.paymentMethod === 'cash' ? 'btn-primary' : ''}" onclick="newSaleState.paymentMethod='cash';renderSaleForm()">💵 Наличные</button>
+        <button type="button" class="btn btn-sm ${s.paymentMethod === 'acquiring' ? 'btn-primary' : ''}" onclick="newSaleState.paymentMethod='acquiring';renderSaleForm()">💳 Эквайринг</button>
+        <button type="button" class="btn btn-sm ${s.paymentMethod === 'mixed' ? 'btn-primary' : ''}" onclick="newSaleState.paymentMethod='mixed';renderSaleForm()">🔀 Смешанная</button>
+      </div></div>`;
+  }
+
+  html += `<div class="form-group"><label class="form-label">👤 Контакты гостя (необязательно)</label>
+    <div style="display:grid;gap:6px">
+      <input class="fin" placeholder="Имя" value="${esc(s.guest.name || '')}" oninput="newSaleState.guest.name=this.value" style="font-size:13px;padding:8px">
+      <input class="fin" placeholder="Email" type="email" value="${esc(s.guest.email || '')}" oninput="newSaleState.guest.email=this.value" style="font-size:13px;padding:8px">
+      <input class="fin" placeholder="Телефон" type="tel" value="${esc(s.guest.phone || '')}" oninput="newSaleState.guest.phone=this.value" style="font-size:13px;padding:8px">
+    </div></div>`;
+
+  html += `<div style="display:flex;gap:8px;margin-top:16px">
+    <button type="button" class="btn btn-ghost" onclick="closeSaleModal()" style="flex:1">Отмена</button>
+    <button type="button" class="btn btn-primary" onclick="submitSale()" style="flex:2">${s.saleType === 'sale' ? '✅ Провести продажу' : '👁 Создать пред-продажу'}</button>
+  </div>`;
+
+  document.getElementById('sale-modal-content').innerHTML = html;
+}
+
+function addToCart(productId, name, price) {
+  newSaleState.items.push({ product_id: productId, name, unit_price: price, quantity: 1 });
+  renderSaleForm();
+}
+
+function changeCartQty(index, delta) {
+  const item = newSaleState.items[index];
+  if (!item) return;
+  item.quantity = Math.max(1, (item.quantity || 1) + delta);
+  renderSaleForm();
+}
+
+async function submitSale() {
+  const s = newSaleState;
+
+  const validSeries = s.series.filter(ser => ser.frame_start && ser.frame_end);
+  if (!validSeries.length) { toast('Укажите хотя бы одну серию кадров', true); return; }
+  for (const ser of validSeries) {
+    if (parseInt(ser.frame_end, 10) < parseInt(ser.frame_start, 10)) { toast('Конец серии не может быть меньше начала', true); return; }
+  }
+  if (s.saleType === 'sale' && !s.items.length) { toast('Добавьте хотя бы один товар', true); return; }
+
+  const totalAmount = s.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
+
+  const multi = validSeries.length > 1;
+  const itemPayload = s.items.map((it) => ({ product_id: it.product_id, quantity: parseInt(it.quantity, 10) || 1, unit_price: parseFloat(it.unit_price) || 0 }));
+  const itemsForApi = multi
+    ? validSeries.flatMap((_, si) => itemPayload.map((it) => ({ ...it, series_index: si })))
+    : itemPayload;
+
+  const body = {
+    venue_id: currentShift.venue_id,
+    event_id: currentShift.event_id || null,
+    shift_id: currentShift.shift_id || null,
+    sale_type: s.saleType,
+    series: validSeries.map((ser) => ({ camera_prefix: ser.camera_prefix || 'DSC_', frame_start: parseInt(ser.frame_start, 10), frame_end: parseInt(ser.frame_end, 10) })),
+    items: itemsForApi,
+    guest: (s.guest.name || s.guest.email || s.guest.phone) ? s.guest : null,
+    payment_method: s.saleType === 'sale' ? s.paymentMethod : null,
+    paid_amount: s.saleType === 'sale' ? totalAmount : 0,
+  };
+
+  try {
+    const result = await api('POST', '/photo-sales', body);
+    closeSaleModal();
+    toast('✅ Продажа создана');
+    showQrCode(result);
+    await loadTodaySales();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function showQrCode(sale) {
+  const qrUrl = sale.qr_url || `${FRONTEND_URL}/guest.html?t=${sale.qr_token}`;
+  const amt = parseFloat(sale.total_amount) || 0;
+  const qrImg = `https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
+
+  document.getElementById('qr-modal-content').innerHTML = `
+    <div class="qr-display">
+      <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:12px">${sale.sale_type === 'pre_sale' ? '👁 Пред-продажа' : '✅ Продажа оформлена'}</div>
+      <img src="${qrImg}" alt="QR" style="width:200px;height:200px;border-radius:8px;background:#fff;padding:8px">
+      <div style="margin-top:12px;font-size:20px;font-weight:700;color:var(--rank1)">${amt > 0 ? amt.toLocaleString('ru-RU') + '₽' : ''}</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--text3)">Покажите QR-код гостю или оператору печати</div>
+      <div style="margin-top:12px;font-size:10px;color:var(--text3);word-break:break-all">${esc(qrUrl)}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button type="button" class="btn btn-ghost" onclick="closeQrModal()" style="flex:1">Закрыть</button>
+    </div>
+  `;
+  document.getElementById('qr-modal').classList.add('open');
+}
+function closeQrModal() { document.getElementById('qr-modal').classList.remove('open'); }
+
+async function openSaleDetail(saleId) {
+  try {
+    const sale = await api('GET', `/photo-sales/${saleId}`);
+    detailSaleForQr = { qr_token: sale.qr_token, total_amount: parseFloat(sale.total_amount) || 0, sale_type: sale.sale_type || 'sale' };
+    detailSaleIdForSeries = saleId;
+    const qrUrl = `${FRONTEND_URL}/guest.html?t=${sale.qr_token}`;
+    const qrImg = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
+    const amt = parseFloat(sale.total_amount) || 0;
+    const STATUS = { paid: '✅ Оплачено', pending: '⏳ Не оплачено', partially_paid: '⚠️ Частично' };
+
+    let html = `<div class="section-title">${sale.sale_type === 'pre_sale' ? '👁 Пред-продажа' : '📋 Продажа'} #${String(saleId).slice(0, 8)}</div>`;
+
+    html += `<div style="text-align:center;margin-bottom:14px">
+      <img src="${qrImg}" alt="" style="width:160px;height:160px;border-radius:8px;background:#fff;padding:6px">
+      <div style="margin-top:8px;font-size:18px;font-weight:700;color:var(--rank1)">${amt.toLocaleString('ru-RU')}₽</div>
+      <div style="margin-top:4px">${STATUS[sale.payment_status] || esc(sale.payment_status)}</div>
+    </div>`;
+
+    if (sale.series && sale.series.length) {
+      html += `<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">📷 Серии:</div>`;
+      sale.series.forEach(sr => {
+        const n = (parseInt(sr.frame_end, 10) - parseInt(sr.frame_start, 10) + 1) || 0;
+        html += `<div style="font-size:12px;color:var(--text2);padding:2px 0">${esc(sr.camera_prefix)}${sr.frame_start} — ${esc(sr.camera_prefix)}${sr.frame_end} (${n} кадров)</div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (sale.items && sale.items.length) {
+      html += `<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">🛍 Товары:</div>`;
+      sale.items.forEach(it => {
+        html += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+          <span>${esc(it.product_name)} × ${it.quantity}</span>
+          <span style="color:var(--rank1)">${Number(it.total || 0).toLocaleString('ru-RU')}₽</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (sale.guest_name || sale.guest_email || sale.guest_phone) {
+      html += `<div style="margin-bottom:12px;font-size:12px;color:var(--text3)">👤 ${[sale.guest_name, sale.guest_email, sale.guest_phone].filter(Boolean).map(esc).join(' · ')}</div>`;
+    }
+
+    html += `<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" onclick="closeSaleModal()" style="flex:1">Закрыть</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="showQrCode(detailSaleForQr)">📱 QR</button>
+      ${!sale.is_delivered && sale.series && sale.series.length ? `<button type="button" class="btn btn-sm" onclick="addSeriesToSale(detailSaleIdForSeries)">+ Серия</button>` : ''}
+    </div>`;
+
+    document.getElementById('sale-modal-content').innerHTML = html;
+    document.getElementById('sale-modal').classList.add('open');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function addSeriesToSale(saleId) {
+  if (!saleId) return;
+  const prefix = prompt('Префикс камеры (DSC_, IMG_):', currentUser._cameraPrefix || 'DSC_');
+  if (prefix === null) return;
+  const start = prompt('Начало серии (номер кадра):');
+  if (start === null || start === '') return;
+  const end = prompt('Конец серии (номер кадра):');
+  if (end === null || end === '') return;
+
+  try {
+    await api('POST', `/photo-sales/${saleId}/add-series`, {
+      camera_prefix: prefix,
+      frame_start: parseInt(start, 10),
+      frame_end: parseInt(end, 10),
+    });
+    toast('✅ Серия добавлена');
+    closeSaleModal();
+    await loadTodaySales();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+</script>
+</body>
+</html>
