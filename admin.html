@@ -197,8 +197,10 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <button type="button" class="tab" onclick="switchAdminTab(2)">Архив</button>
       <button type="button" class="tab" onclick="switchAdminTab(3)">История</button>
       <button type="button" class="tab" id="adm-tab-analytics" onclick="switchAdminTab(4)">📊 Аналитика</button>
+      <button type="button" class="btn btn-ghost" data-admin-tab="reports" onclick="switchAdminTab('reports')" style="font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--border)">📋 Отчёты</button>
     </div>
     <div id="tab-content"></div>
+    <div id="admin-tab-reports" style="display:none"></div>
   </div>
 </div>
 <!-- ── NEW USER MODAL ── -->
@@ -551,15 +553,63 @@ async function createVenue(){
 }
 
 function switchAdminTab(i){
-  document.querySelectorAll('#admin-tabs .tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  if(i===0) renderAdminUsers();
-  else if(i===1) renderAdminVenues();
-  else if(i===2) renderAdminArchive();
-  else if(i===3) renderAdminHistory();
-  else if(i===4){
+  const idx = i === 'reports' ? 5 : i;
+  const tc = document.getElementById('tab-content');
+  const tr = document.getElementById('admin-tab-reports');
+  document.querySelectorAll('#admin-tabs .tab').forEach((t,j)=>t.classList.toggle('active',j===idx));
+  const repBtn = document.querySelector('[data-admin-tab="reports"]');
+  if(repBtn) repBtn.classList.toggle('active', idx===5);
+  if(idx===5){
+    if(tc) tc.style.display='none';
+    if(tr){ tr.style.display='block'; loadAdminReports(); }
+    return;
+  }
+  if(tc) tc.style.display='block';
+  if(tr) tr.style.display='none';
+  if(idx===0) renderAdminUsers();
+  else if(idx===1) renderAdminVenues();
+  else if(idx===2) renderAdminArchive();
+  else if(idx===3) renderAdminHistory();
+  else if(idx===4){
     renderAdminAnalyticsShell();
     void (async()=>{ await initGACityFilter(); loadGlobalAnalytics(); })();
   }
+}
+
+let adminReportFilters={status:'',from:'',to:'',city:''};
+async function loadAdminReports(){
+  const el=document.getElementById('admin-tab-reports'); if(!el)return;
+  el.innerHTML='<div class="loading">Загрузка...</div>';
+  try{
+    const qs=Object.entries(adminReportFilters).filter(([,v])=>v).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&');
+    const [data,stats]=await Promise.all([api('GET',`/daily-reports/review-list?${qs}&limit=100`),api('GET',`/daily-reports/review-stats?${qs}`)]);
+    renderAdminReports(data,stats);
+  }catch(e){el.innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+function renderAdminReports(data,stats){
+  const el=document.getElementById('admin-tab-reports'); const reports=data.reports||[]; const s=stats||{};
+  let html=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+    <div class="stat-card" onclick="adminReportFilters.status='submitted';loadAdminReports()" style="cursor:pointer"><div class="stat-value" style="color:var(--rank2);font-size:18px">${s.pending||0}</div><div class="stat-label">На проверке</div></div>
+    <div class="stat-card" onclick="adminReportFilters.status='approved';loadAdminReports()" style="cursor:pointer"><div class="stat-value" style="color:var(--rank1);font-size:18px">${s.approved||0}</div><div class="stat-label">Проведено</div></div>
+    <div class="stat-card" onclick="adminReportFilters.status='returned';loadAdminReports()" style="cursor:pointer"><div class="stat-value" style="color:var(--rank3);font-size:18px">${s.returned||0}</div><div class="stat-label">Возвращено</div></div>
+    <div class="stat-card" onclick="adminReportFilters.status='draft';loadAdminReports()" style="cursor:pointer"><div class="stat-value" style="font-size:18px">${s.draft||0}</div><div class="stat-label">Черновики</div></div>
+    <div class="stat-card" onclick="adminReportFilters.status='';loadAdminReports()" style="cursor:pointer"><div class="stat-value" style="font-size:18px">${s.total||0}</div><div class="stat-label">Все</div></div></div>`;
+  html+=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="date" class="fin" value="${adminReportFilters.from||''}" onchange="adminReportFilters.from=this.value;loadAdminReports()" style="width:130px;font-size:11px">—
+    <input type="date" class="fin" value="${adminReportFilters.to||''}" onchange="adminReportFilters.to=this.value;loadAdminReports()" style="width:130px;font-size:11px">
+    <select class="fselect" style="width:auto;font-size:11px" onchange="adminReportFilters.city=this.value;loadAdminReports()">
+      <option value="">Все города</option><option value="Москва" ${adminReportFilters.city==='Москва'?'selected':''}>Москва</option><option value="Санкт-Петербург" ${adminReportFilters.city==='Санкт-Петербург'?'selected':''}>СПБ</option></select>
+    ${(s.approved_revenue||0)>0?`<span style="margin-left:auto;font-size:13px;color:var(--rank1);font-weight:600">${Number(s.approved_revenue).toLocaleString('ru-RU')}₽</span>`:''}</div>`;
+  if(!reports.length){html+='<div style="text-align:center;padding:30px;color:var(--text3)">Нет отчётов</div>';}
+  else{
+    const SL={submitted:'📤',approved:'✅',returned:'↩',rejected:'❌',draft:'📝'};
+    html+=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:2px solid var(--border);text-align:left">
+      <th style="padding:6px">Дата</th><th style="padding:6px">Площадка</th><th style="padding:6px">Город</th><th style="padding:6px">Ст.</th><th style="padding:6px;text-align:right">Выручка</th><th style="padding:6px">Отправил</th><th style="padding:6px">Проверил</th></tr></thead><tbody>`;
+    for(const r of reports){const rd=(r.report_date||'').split('T')[0];const dl=new Date(rd+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+      html+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px;font-weight:600">${esc(dl)}</td><td style="padding:6px">${esc(r.venue_short||r.venue_name)}</td><td style="padding:6px;font-size:11px;color:var(--text3)">${esc(r.venue_city||'')}</td><td style="padding:6px">${SL[r.status]||r.status}</td><td style="padding:6px;text-align:right;color:var(--rank1)">${(parseFloat(r.total_revenue)||0).toLocaleString('ru-RU')}₽</td><td style="padding:6px;font-size:11px">${esc(r.submitted_by_name||'—')}</td><td style="padding:6px;font-size:11px">${esc(r.reviewed_by_name||'')}</td></tr>`;}
+    html+='</tbody></table>';
+  }
+  el.innerHTML=html;
 }
 
 let gaMonth = new Date().getMonth();
