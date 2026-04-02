@@ -1274,7 +1274,8 @@ async function deactivateWarehouse(id) {
 
 async function loadItems() {
   try {
-    const items_all = await api('GET', '/inventory-items');
+    items = await api('GET', '/inventory-items');
+    const items_all = items;
     const c = document.getElementById('content');
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
     const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование', decoration: '🎨 Декорация', accessory: '🎁 Аксессуар', material: '📐 Материал' };
@@ -1295,7 +1296,7 @@ async function loadItems() {
             <td>${it.min_quantity ?? '—'}</td>
             <td>${it.reorder_point > 0 ? it.reorder_point : '—'}</td>
             <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
-            <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it)})'>✏️</button>` : ''}</td>
+            <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it)})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}</td>
           </tr>`).join('')}
           </tbody>
         </table></div>` : '<div style="color:var(--text3)">Нет позиций. Добавьте первую.</div>'}
@@ -1337,6 +1338,107 @@ async function saveItem() {
     showToast(id ? 'Позиция обновлена' : 'Позиция создана');
     loadItems(); loadSummary();
   } catch(e) { showToast(e.message, true); }
+}
+
+async function deleteItem(itemId, itemName) {
+  try {
+    const data = await api('GET', `/inventory-items/${itemId}/usage`);
+
+    if (!data.usage.has_usage) {
+      if (!confirm(`Удалить позицию «${itemName}»?\n\nПозиция не использовалась ни в каких операциях и будет удалена безвозвратно.`)) return;
+      await api('DELETE', `/inventory-items/${itemId}`);
+      showToast('Позиция удалена');
+      loadItems(); loadSummary();
+      return;
+    }
+
+    const u = data.usage;
+    const details = [];
+    if (u.balances) details.push(`остатки на ${u.balances} скл.`);
+    if (u.movements) details.push(`${u.movements} движ.`);
+    if (u.transfer_lines) details.push(`${u.transfer_lines} перемещ.`);
+    if (u.purchase_lines) details.push(`${u.purchase_lines} закупок`);
+    if (u.inventory_lines) details.push(`${u.inventory_lines} инвент.`);
+    if (u.equipment) details.push(`${u.equipment} оборуд.`);
+
+    openMergeModal(itemId, itemName, details.join(', '));
+  } catch (e) {
+    showToast(e.message, true);
+  }
+}
+
+function openMergeModal(sourceId, sourceName, usageText) {
+  const old = document.getElementById('merge-modal');
+  if (old) old.remove();
+
+  const sourceItem = items.find(i => String(i.id) === String(sourceId));
+  const sourceType = sourceItem?.item_type || 'consumable';
+  const candidates = items.filter(i => String(i.id) !== String(sourceId) && i.is_active !== false && i.item_type === sourceType);
+
+  const modal = document.createElement('div');
+  modal.id = 'merge-modal';
+  modal.className = 'overlay open';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:520px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Слияние позиции</span><button type="button" class="dr-close" onclick="document.getElementById('merge-modal').remove()">×</button></div>
+      <div>
+        <div style="background:rgba(242,85,85,.1);border:1px solid rgba(242,85,85,.3);border-radius:8px;padding:12px;margin-bottom:16px">
+          <div style="font-weight:600;color:var(--rank3);margin-bottom:4px">⚠️ Позиция используется</div>
+          <div style="font-size:12px;color:var(--text2)">«${esc(sourceName)}» имеет связанные записи: ${esc(usageText)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">Выберите позицию, с которой объединить. Все записи будут перенесены на неё с комментарием о слиянии.</div>
+        </div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Объединить с:</label>
+        ${candidates.length ? `
+          <select id="merge-target" style="width:100%;padding:8px 10px;background:var(--card);color:var(--text1);border:1px solid var(--border);border-radius:6px;font-size:13px;margin-bottom:16px">
+            <option value="">— Выберите позицию —</option>
+            ${candidates.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.category || '—')}, ${esc(c.unit || 'шт')})</option>`).join('')}
+          </select>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-ghost" onclick="document.getElementById('merge-modal').remove()">Отмена</button>
+            <button class="btn btn-primary" style="background:var(--rank3)" onclick="executeMerge('${sourceId}')">Объединить и удалить</button>
+          </div>
+        ` : `
+          <div style="color:var(--text3);font-size:12px;margin-bottom:16px">Нет подходящих позиций того же типа для слияния. Создайте целевую позицию сначала.</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-ghost" onclick="document.getElementById('merge-modal').remove()">Закрыть</button>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function executeMerge(sourceId) {
+  const targetId = document.getElementById('merge-target')?.value;
+  if (!targetId) { showToast('Выберите позицию для слияния', true); return; }
+
+  const targetItem = items.find(i => String(i.id) === String(targetId));
+  const sourceItem = items.find(i => String(i.id) === String(sourceId));
+  const targetName = targetItem?.name || '';
+  const sourceName = sourceItem?.name || '';
+
+  if (!confirm(`Объединить «${sourceName}» → «${targetName}»?\n\nВсе записи (остатки, движения, закупки и т.д.) будут перенесены на «${targetName}», а «${sourceName}» будет удалена.\n\nЭто действие нельзя отменить.`)) return;
+
+  try {
+    const result = await api('POST', `/inventory-items/${sourceId}/merge`, { target_id: targetId });
+    document.getElementById('merge-modal')?.remove();
+
+    const m = result.moved || {};
+    const movedParts = [];
+    if (m.movements) movedParts.push(`движений: ${m.movements}`);
+    if (m.transfer_lines) movedParts.push(`перемещений: ${m.transfer_lines}`);
+    if (m.purchase_lines) movedParts.push(`закупок: ${m.purchase_lines}`);
+    if (m.inventory_lines) movedParts.push(`инвентаризаций: ${m.inventory_lines}`);
+    if (m.equipment) movedParts.push(`оборудования: ${m.equipment}`);
+    if (m.balances) movedParts.push(`остатков: ${m.balances}`);
+
+    showToast(`Слияние выполнено: ${result.source_name} → ${result.target_name}` + (movedParts.length ? ` (${movedParts.join(', ')})` : ''));
+    loadItems(); loadSummary();
+  } catch (e) {
+    showToast(e.message, true);
+  }
 }
 
 // ── БЛОК 2: Закупки и перемещения ──
