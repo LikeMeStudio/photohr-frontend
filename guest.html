@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LikeMe Studio — Ваши фотографии</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#18181b;--bg2:#23232b;--bg3:#2d2d38;--border:#35354a;--text1:#e8e8f0;--text2:#b0b0c8;--text3:#7a7a96;--accent:#7c6aff;--accent2:#9d8cff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;--radius:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+.container{width:100%;max-width:480px;padding:16px}
+.logo{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:700;text-align:center;padding:24px 0 8px;color:var(--accent2)}
+.logo span{color:var(--accent)}
+.card{background:var(--bg2);border-radius:var(--radius);padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+.card-title{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:10px}
+.badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600}
+.badge-paid{background:rgba(62,207,142,.15);color:var(--rank1)}
+.badge-pending{background:rgba(245,166,35,.15);color:var(--rank2)}
+.badge-delivered{background:rgba(124,108,255,.15);color:var(--accent2)}
+.badge-presale{background:rgba(157,140,255,.1);color:var(--accent2)}
+.item-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.item-row:last-child{border:none}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:12px}
+.photo-thumb{aspect-ratio:1;border-radius:8px;overflow:hidden;position:relative;background:var(--bg3);display:flex;align-items:center;justify-content:center}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-thumb .watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:10px;color:rgba(255,255,255,.5);text-align:center;pointer-events:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:12px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;width:100%;transition:opacity .15s}
+.btn:active{opacity:.8}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text1)}
+.empty{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.footer{text-align:center;padding:24px;font-size:11px;color:var(--text3);margin-top:auto}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">Like<span>Me</span> Studio</div>
+  <div id="content"><div class="empty"><div class="empty-icon">📷</div><div>Загрузка...</div></div></div>
+</div>
+
+<div class="footer">
+  © LikeMe Studio · <a href="https://likemestudio.ru" style="color:var(--accent2);text-decoration:none">likemestudio.ru</a>
+</div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : 'https://fotohr-server-production.up.railway.app/api';
+
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('t');
+  if (!token) {
+    document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">🔗</div><div style="font-size:14px">Неверная ссылка</div><div style="font-size:12px;margin-top:8px">Отсканируйте QR-код, полученный от фотографа</div></div>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/photo-sales/by-token/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Не найдено');
+    }
+    const data = await res.json();
+    renderGuestPage(data);
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div style="font-size:14px">${esc(e.message)}</div><div style="font-size:12px;margin-top:8px;color:var(--text3)">Возможно, ссылка устарела. Обратитесь к фотографу.</div></div>`;
+  }
+})();
+
+function renderGuestPage(data) {
+  const amt = parseFloat(data.total_amount) || 0;
+  const paid = parseFloat(data.paid_amount) || 0;
+  const isPaid = data.payment_status === 'paid';
+  const isPreSale = data.sale_type === 'pre_sale';
+  const isDelivered = data.is_delivered;
+
+  let html = '';
+
+  html += `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">${isPreSale ? '👁 Предварительный заказ' : '📋 Ваш заказ'}</div>
+      <div>
+        ${isDelivered ? '<span class="badge badge-delivered">✓ Выдано</span>' : ''}
+        ${isPaid ? '<span class="badge badge-paid">Оплачено</span>' : isPreSale ? '<span class="badge badge-presale">Предварительный</span>' : '<span class="badge badge-pending">К оплате</span>'}
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+      📍 ${esc(data.venue_name)} · 📸 ${esc(data.photographer_name)} · ${new Date(data.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+    </div>`;
+
+  if (data.items && data.items.length) {
+    html += `<div style="margin-bottom:10px">`;
+    for (const item of data.items) {
+      const total = parseFloat(item.total) || 0;
+      html += `<div class="item-row">
+        <span>${esc(item.product_name)} × ${item.quantity}</span>
+        <span style="font-weight:600">${total.toLocaleString('ru-RU')}₽</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (amt > 0) {
+    html += `<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;font-weight:700;border-top:2px solid var(--border)">
+      <span>Итого</span>
+      <span style="color:var(--rank1)">${amt.toLocaleString('ru-RU')}₽</span>
+    </div>`;
+    if (!isPaid && !isPreSale && paid < amt) {
+      html += `<div style="font-size:12px;color:var(--rank2);margin-top:4px">К оплате: ${(amt - paid).toLocaleString('ru-RU')}₽</div>`;
+    }
+  }
+
+  if (data.series && data.series.length) {
+    html += `<div style="margin-top:10px;font-size:12px;color:var(--text3)">📷 Кадры: `;
+    html += data.series.map(s => `${esc(s.camera_prefix)}${s.frame_start}–${s.frame_end}`).join(', ');
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  if (data.photos && data.photos.length) {
+    const hasWatermark = data.photos.some(p => p.show_watermark);
+    html += `<div class="card">
+      <div class="card-title">📷 Ваши фотографии ${data.is_free_digital ? '(бесплатно)' : ''}</div>`;
+
+    if (hasWatermark && !data.is_free_digital) {
+      html += `<div style="font-size:12px;color:var(--rank2);margin-bottom:10px;padding:8px;background:rgba(245,166,35,.1);border-radius:8px">
+        Для скачивания в полном качестве — докупите до ${data.free_digital_threshold || 5} фотографий
+      </div>`;
+    }
+
+    html += `<div class="photo-grid">`;
+    for (const photo of data.photos) {
+      if (photo.download_url && !photo.show_watermark) {
+        html += `<a href="${esc(photo.download_url)}" target="_blank" rel="noopener noreferrer" class="photo-thumb" title="Скачать">
+          <img src="${esc(photo.thumbnail_url || photo.download_url)}" alt="Фото ${esc(photo.frame_number)}">
+        </a>`;
+      } else {
+        html += `<div class="photo-thumb">
+          ${photo.thumbnail_url ? `<img src="${esc(photo.thumbnail_url)}" alt="Фото ${esc(photo.frame_number)}">` : `<span style="font-size:24px">📷</span>`}
+          <div class="watermark">LikeMe<br>Studio</div>
+        </div>`;
+      }
+    }
+    html += `</div></div>`;
+  } else if (isDelivered || isPreSale) {
+    html += `<div class="card">
+      <div class="card-title">📷 Фотографии</div>
+      <div style="text-align:center;padding:20px;color:var(--text3)">
+        <div style="font-size:32px;margin-bottom:8px">⏳</div>
+        <div style="font-size:13px">Фотографии загружаются и скоро появятся здесь</div>
+        <div style="font-size:12px;margin-top:4px">Обычно в течение дня после визита</div>
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="card" style="background:transparent;border:none;padding:8px;text-align:center">
+    <div style="font-size:11px;color:var(--text3)">
+      ${isDelivered ? '✅ Фотографии выданы' : isPreSale ? '👁 Предварительный заказ — вернитесь позже' : isPaid ? '✓ Оплачено — заберите фотографии у оператора печати' : '📍 Подойдите к оператору печати для оплаты и получения'}
+    </div>
+  </div>`;
+
+  document.getElementById('content').innerHTML = html;
+}
+</script>
+</body>
+</html>

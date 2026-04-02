@@ -568,6 +568,162 @@ async function openReviewDetail(reportId,venueId,dateStr){
 async function approveReportReview(id){ if(!confirm('Провести отчёт?'))return; try{await api('POST',`/daily-reports/${id}/approve`);toast('✅ Проведён');loadReviewData();}catch(e){toast(e.message,1);} }
 async function returnReportReview(id){ const c=prompt('Комментарий:'); if(c===null)return; try{await api('POST',`/daily-reports/${id}/return`,{comment:c||null});toast('↩ Возвращён');loadReviewData();}catch(e){toast(e.message,1);} }
 
+function canDeliverByQr(){
+  const r = currentUser?.role;
+  if (!r) return false;
+  return ['cashier','hr_manager','site_specialist','hr_director','exec_director','admin','print_operator'].includes(r);
+}
+let deliverQrToken = '';
+function openDeliverModal() {
+  document.getElementById('deliver-modal').style.display = 'flex';
+  deliverQrToken = '';
+  document.getElementById('deliver-content').innerHTML = `
+    <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:14px">📦 Выдача фотографий</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">QR-токен или ссылка гостя</label>
+      <div style="display:flex;gap:8px">
+        <input id="deliver-token" class="fin" placeholder="Вставьте токен или отсканируйте QR" style="flex:1">
+        <button type="button" class="btn btn-primary" onclick="lookupDelivery()" style="width:auto;padding:8px 16px">🔍</button>
+      </div>
+    </div>
+    <div id="deliver-result"></div>
+  `;
+}
+function closeDeliverModal() { document.getElementById('deliver-modal').style.display = 'none'; }
+
+async function lookupDelivery() {
+  let token = (document.getElementById('deliver-token')?.value || '').trim();
+  if (!token) { toast('Введите токен', 1); return; }
+  if (/guest\.html|[?&]t=/.test(token)) {
+    try {
+      const u = token.startsWith('http') ? new URL(token) : new URL(token.replace(/^\/+/, ''), 'https://placeholder.invalid/');
+      const t = u.searchParams.get('t');
+      if (t) token = t;
+    } catch (e) {
+      const m = token.match(/[?&]t=([^&]+)/);
+      if (m) token = decodeURIComponent(m[1]);
+    }
+  }
+
+  const el = document.getElementById('deliver-result');
+  el.innerHTML = '<div style="color:var(--text3);padding:10px">Поиск...</div>';
+
+  try {
+    const data = await api('GET', `/photo-sales/by-token/${encodeURIComponent(token)}`);
+    deliverQrToken = token;
+    renderDeliverCard(data);
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--rank3);padding:10px">${esc(e.message)}</div>`;
+  }
+}
+
+function renderDeliverCard(data) {
+  const amt = parseFloat(data.total_amount) || 0;
+  const paid = parseFloat(data.paid_amount) || 0;
+  const isPaid = data.payment_status === 'paid';
+  const isDelivered = data.is_delivered;
+  const tok = deliverQrToken;
+
+  let html = `<div style="background:var(--bg2);border-radius:12px;padding:14px;margin-top:10px;border-left:3px solid ${isDelivered ? 'var(--rank1)' : isPaid ? 'var(--accent)' : 'var(--rank2)'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-weight:600;font-size:14px">${esc(data.venue_name)}</span>
+      ${isDelivered ? '<span style="color:var(--rank1);font-size:12px">✅ Уже выдано</span>' : isPaid ? '<span style="color:var(--rank1);font-size:12px">💰 Оплачено</span>' : `<span style="color:var(--rank2);font-size:12px">⚠️ К оплате: ${(amt - paid).toLocaleString('ru-RU')}₽</span>`}
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">
+      📸 ${esc(data.photographer_name)} · ${new Date(data.created_at).toLocaleDateString('ru-RU')}
+      ${data.guest_name ? ' · 👤 ' + esc(data.guest_name) : ''}
+    </div>`;
+
+  if (data.items && data.items.length) {
+    html += `<div style="margin-bottom:8px">`;
+    for (const item of data.items) {
+      html += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+        <span>${esc(item.product_name)} × ${item.quantity}</span>
+        <span>${Number(item.total || 0).toLocaleString('ru-RU')}₽</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (data.series && data.series.length) {
+    html += `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">📷 ${data.series.map(s => esc(s.camera_prefix) + s.frame_start + '–' + s.frame_end).join(', ')}</div>`;
+  }
+
+  html += `<div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--rank1)">Итого: ${amt.toLocaleString('ru-RU')}₽</div>`;
+
+  if (!data.guest_email && !data.guest_phone) {
+    html += `<div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">👤 Контакты гостя (для отправки фото)</div>
+      <div style="display:grid;gap:6px">
+        <input id="deliver-guest-email" class="fin" placeholder="Email" style="font-size:12px;padding:8px">
+        <input id="deliver-guest-phone" class="fin" placeholder="Телефон" style="font-size:12px;padding:8px">
+      </div>
+    </div>`;
+  }
+
+  if (!isDelivered) {
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${!isPaid ? `<button type="button" class="btn" onclick="markPaidAndDeliver()" style="flex:1;min-width:120px;background:var(--rank2);border:none">💰 Оплачено + Выдать</button>` : ''}
+      <button type="button" class="btn btn-primary" onclick="markDelivered()" style="flex:1;min-width:120px">📦 Выдать фото</button>
+    </div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('deliver-result').innerHTML = html;
+}
+
+async function markDelivered() {
+  const token = deliverQrToken;
+  if (!token) { toast('Сначала найдите заказ', 1); return; }
+  try {
+    const email = document.getElementById('deliver-guest-email')?.value?.trim();
+    const phone = document.getElementById('deliver-guest-phone')?.value?.trim();
+    if (email || phone) {
+      const data = await api('GET', `/photo-sales/by-token/${encodeURIComponent(token)}`);
+      if (data.id) await api('PATCH', `/photo-sales/${data.id}/guest`, { email: email || undefined, phone: phone || undefined }).catch(() => {});
+    }
+    await api('POST', `/photo-sales/by-token/${encodeURIComponent(token)}/deliver`);
+    toast('✅ Фото выданы');
+    closeDeliverModal();
+  } catch (e) { toast(e.message, 1); }
+}
+
+async function markPaidAndDeliver() {
+  const token = deliverQrToken;
+  if (!token) { toast('Сначала найдите заказ', 1); return; }
+  try {
+    const data = await api('GET', `/photo-sales/by-token/${encodeURIComponent(token)}`);
+    if (data.id) {
+      await api('PATCH', `/photo-sales/${data.id}/pay`, { payment_method: 'cash', paid_amount: parseFloat(data.total_amount) || 0 });
+    }
+    await markDelivered();
+  } catch (e) { toast(e.message, 1); }
+}
+
+async function syncDigitalSales() {
+  const vid = document.getElementById('vs').value;
+  const dt = document.getElementById('sd').value;
+  if (!vid || !dt) { toast('Выберите площадку и дату', 1); return; }
+  if (!confirm('Синхронизировать цифровые продажи фотографов в отчёт за ' + dt + '?')) return;
+  try {
+    const result = await api('POST', '/photo-sales/sync-to-report', { venue_id: vid, date: dt });
+    toast(`✅ Синхронизировано: ${result.synced != null ? result.synced : 0} продаж`);
+    load();
+  } catch (e) { toast(e.message, 1); }
+}
+
+async function matchCloudPhotos() {
+  const vid = document.getElementById('vs').value;
+  const dt = document.getElementById('sd').value;
+  if (!vid || !dt) { toast('Выберите площадку и дату', 1); return; }
+  const folder = prompt('Путь к папке на Яндекс.Диске:\n(напр. /PhotoHR/2026-04-02/Океанариум)', `/PhotoHR/${dt}`);
+  if (!folder) return;
+  try {
+    const result = await api('POST', '/photo-sales/match-cloud', { folder_path: folder, venue_id: vid, date: dt });
+    toast(`📷 Сопоставлено: ${result.matched != null ? result.matched : 0} файлов из ${result.series_checked != null ? result.series_checked : 0} серий`);
+  } catch (e) { toast(e.message, 1); }
+}
+
 function openReviewReport(venueId,dateStr){
 reviewMode=false;
 document.getElementById('sd').value=dateStr;
@@ -1045,6 +1201,20 @@ ${ed&&isEditor()?`<span id="autosave-status" style="font-size:10px;color:var(--t
 const venueObj = venues.find(v => v.id === document.getElementById('vs').value);
 if (venueObj && venueObj.has_aquagrim && isEditor()) {
   document.getElementById('C').innerHTML += renderAqSection();
+}
+document.getElementById('venue-deliver-wrap')?.remove();
+document.getElementById('venue-cloud-sync-wrap')?.remove();
+if (canDeliverByQr()) {
+  const deliverBtn = document.createElement('div');
+  deliverBtn.id = 'venue-deliver-wrap';
+  deliverBtn.style.cssText = 'padding:10px 16px;border-top:1px solid var(--border)';
+  deliverBtn.innerHTML = '<button class="btn btn-ghost" onclick="openDeliverModal()" style="width:100%;font-size:13px">📦 Выдача фото по QR</button>';
+  document.getElementById('C').appendChild(deliverBtn);
+  const cloudBtns = document.createElement('div');
+  cloudBtns.id = 'venue-cloud-sync-wrap';
+  cloudBtns.style.cssText = 'padding:6px 16px;display:flex;gap:8px;border-top:1px solid var(--border)';
+  cloudBtns.innerHTML = '<button class="btn btn-ghost" onclick="syncDigitalSales()" style="flex:1;font-size:11px">🔄 Синхр. продажи</button><button class="btn btn-ghost" onclick="matchCloudPhotos()" style="flex:1;font-size:11px">☁️ Матчинг фото</button>';
+  document.getElementById('C').appendChild(cloudBtns);
 }
 if(document.getElementById('btn-settings'))document.getElementById('btn-settings').style.display=(viewMode==='report'&&isEditor())?'':'none';
 fillRoleSelects(phs);
@@ -2778,6 +2948,11 @@ function setupMgmtButton() {
   if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
 }
 </script>
+<div id="deliver-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;justify-content:center;align-items:center" onclick="if(event.target===this)closeDeliverModal()">
+  <div style="background:var(--bg1);border-radius:16px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;padding:20px;border:1px solid var(--border)">
+    <div id="deliver-content"></div>
+  </div>
+</div>
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
   <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
 </div>
