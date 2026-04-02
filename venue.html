@@ -120,6 +120,7 @@
   .toast{bottom:max(20px, env(safe-area-inset-bottom))}
   body{padding-bottom:env(safe-area-inset-bottom)}
 }
+.zone-cell.live-drop-over,.live-drop-over{outline:2px solid var(--accent);background:rgba(124,108,255,.08)}
 .venue-card:hover{border-color:var(--accent)!important}
 .rc-wrap{margin-bottom:16px}
 .rc-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -160,6 +161,7 @@
 <div class="toolbar-unified" style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
 <input class="fin" type="date" id="sd" onchange="onDateChange()" style="width:auto"/>
 <button class="btn btn-ghost" id="btn-settings" onclick="openVenueSettings()" title="Настройки площадки" style="font-size:14px;padding:5px 10px;display:none">⚙️</button>
+<button type="button" class="btn btn-primary" id="btn-live" onclick="toggleLiveShiftPanel()" style="display:none;font-size:12px;padding:4px 10px;background:#e74c3c;border-color:#c0392b">🔴 LIVE</button>
 <button class="btn btn-ghost" id="btn-back" onclick="backToDashboard()" style="display:none">← К площадкам</button>
 <select class="fselect" id="vs" style="display:none" onchange="load()"><option value="">Площадка...</option></select>
 <div id="rs"></div><div style="flex:1"></div><div id="rstat"></div>
@@ -194,6 +196,9 @@
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,venues=[],shift=null,allShifts=[],assigns=[],prods=[],report=null,qi=null,viewMode='dashboard',dashboardData=null;
+window.__liveEventId=null;
+let liveShiftPollTimer=null;
+let _liveDashboardCache=null;
 let checkinPollInterval=null;
 let isDirty=false,settingsChanged=false,autoSaveTimeout=null,venueBonusConfigs=[],_calcLock=false,allSchemes=[],bonusConfigs=[],allPhotographersPool=[],_bonusDebounce=null,_saveDebounce=null;
 window.__bonusMeta={};
@@ -265,6 +270,7 @@ const roleNow=()=>currentUser?.role||'photographer_user';
 const can=(r)=>(ROLES[roleNow()]??-1)>=(ROLES[r]??99);
 const isEditor=()=>can('hr_manager');
 const hasAnyRole=(roles)=>roles.includes(roleNow());
+const canLiveShiftUi=()=>hasAnyRole(['cashier','hr_manager','hr_director','exec_director','admin']);
 function openProfile(){location.href='photographers.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
@@ -738,9 +744,12 @@ let _prevVid='',_prevSd='';
 async function loadDashboard(){
 viewMode='dashboard';
 reviewMode=false;
+window.__liveEventId=null;
+updateLiveShiftButton();
 const dt=document.getElementById('sd').value;
 if(!dt)return;
 document.getElementById('btn-settings').style.display='none';
+document.getElementById('btn-live').style.display='none';
 document.getElementById('btn-back').style.display='none';
 const btnReview=document.getElementById('btn-review');
 if(btnReview)btnReview.style.display=canApproveReports()?'':'none';
@@ -861,9 +870,9 @@ isDirty=false;
 document.getElementById('C').innerHTML='<div class="loading">Загрузка...</div>';
 try{
 const ev=await api('GET',`/events?venue_id=${vid}&from=${dt}&to=${dt}&schedule_status=confirmed`);
-if(!ev.length){document.getElementById('C').innerHTML=`<div class="loading">Нет мероприятий <button class="btn btn-primary" style="margin-left:6px" onclick="mkEvent()">+ Создать</button></div>`;_prevVid=vid;_prevSd=dt;return;}
+if(!ev.length){window.__liveEventId=null;updateLiveShiftButton();document.getElementById('C').innerHTML=`<div class="loading">Нет мероприятий <button class="btn btn-primary" style="margin-left:6px" onclick="mkEvent()">+ Создать</button></div>`;_prevVid=vid;_prevSd=dt;return;}
 const sh=await api('GET',`/shifts?event_id=${ev[0].id}`);allShifts=sh||[];shift=sh[0]||null;
-if(!shift){document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';_prevVid=vid;_prevSd=dt;return;}
+if(!shift){window.__liveEventId=ev[0]?.id||null;updateLiveShiftButton();document.getElementById('C').innerHTML='<div class="loading">Смена не создана</div>';_prevVid=vid;_prevSd=dt;return;}
 // Загружаем назначения ВСЕХ смен мероприятия и объединяем
 const allAssignPromises=allShifts.map(s=>api('GET',`/shifts/${s.id}/assignments`).catch(()=>[]));
 const allAssignArrays=await Promise.all(allAssignPromises);
@@ -923,6 +932,8 @@ if (venue && venue.has_aquagrim) {
 }
 
 render(ev[0]);
+window.__liveEventId=ev[0].id||null;
+updateLiveShiftButton();
 if(checkinPollInterval)clearInterval(checkinPollInterval);
 checkinPollInterval=setInterval(pollCheckins,15000);
 _prevVid=vid;_prevSd=dt;
@@ -2651,6 +2662,22 @@ async function openVenueSettings(){
         ${venue.checkin_radius_m?`<div style="font-size:11px;color:var(--text3)">Радиус чекина: ${venue.checkin_radius_m}м</div>`:''}
       </div>
 
+      ${canLiveShiftUi()?`<div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">🗺 Зоны площадки</div>
+        <div id="vs-zones-list"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <input class="fin" id="new-zone-name" placeholder="Название зоны" style="flex:1;min-width:120px">
+          <select class="fselect" id="new-zone-type" style="width:120px">
+            <option value="photo">📸 Фото</option>
+            <option value="print">🖨 Печать</option>
+            <option value="entrance">🚪 Вход</option>
+            <option value="cashier">💰 Касса</option>
+            <option value="other">📍 Другое</option>
+          </select>
+          <button type="button" class="btn btn-primary" onclick="addVenueZoneBtn('${vid}')" style="font-size:12px">+ Зона</button>
+        </div>
+      </div>`:''}
+
       ${productsBlock}
 
       <div style="padding-top:12px;border-top:1px solid var(--border)">
@@ -2705,7 +2732,247 @@ async function openVenueSettings(){
       </div>
       ` : ''}
     `;
+    if(canLiveShiftUi()) renderVsZonesList(vid);
   }catch(e){c.innerHTML=`<div style="color:var(--rank3)">${esc(e.message)}</div>`;}
+}
+
+async function renderVsZonesList(vid){
+  const el=document.getElementById('vs-zones-list');
+  if(!el||!vid)return;
+  try{
+    const zones=await api('GET',`/venues/${vid}/zones`);
+    el.innerHTML=(zones||[]).length?(zones||[]).map(z=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="flex:1">${esc(z.name)} <span style="color:var(--text3);font-size:10px">${esc(z.zone_type||'')}</span></span>
+      <button type="button" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--rank3)" data-vz-id="${esc(z.id)}" onclick="deleteVenueZoneBtn(this)">✕</button>
+    </div>`).join(''):'<div style="font-size:11px;color:var(--text3)">Зон пока нет — добавьте для LIVE-расстановки</div>';
+  }catch(e){el.innerHTML='<div style="font-size:11px;color:var(--rank3)">'+esc(e.message)+'</div>';}
+}
+
+async function addVenueZoneBtn(vid){
+  const nm=document.getElementById('new-zone-name')?.value?.trim();
+  const zt=document.getElementById('new-zone-type')?.value||'photo';
+  if(!nm){toast('Введите название зоны',1);return;}
+  try{
+    await api('POST',`/venues/${vid}/zones`,{name:nm,zone_type:zt});
+    toast('Зона добавлена');
+    document.getElementById('new-zone-name').value='';
+    await renderVsZonesList(vid);
+  }catch(e){toast(e.message,1);}
+}
+
+async function deleteVenueZoneBtn(btn){
+  const id=btn.getAttribute('data-vz-id');
+  if(!id||!confirm('Удалить зону?'))return;
+  const vid=document.getElementById('vs').value;
+  try{
+    await api('DELETE',`/venue-zones/${id}`);
+    toast('Зона удалена');
+    await renderVsZonesList(vid);
+  }catch(e){toast(e.message,1);}
+}
+
+function updateLiveShiftButton(){
+  const b=document.getElementById('btn-live');
+  if(!b)return;
+  b.style.display=(canLiveShiftUi()&&window.__liveEventId)?'inline-flex':'none';
+}
+
+function closeLiveShiftPanel(){
+  const o=document.getElementById('live-shift-overlay');
+  if(o)o.style.display='none';
+  if(liveShiftPollTimer){clearInterval(liveShiftPollTimer);liveShiftPollTimer=null;}
+  document.body.style.overflow='';
+}
+
+function toggleLiveShiftPanel(){
+  const o=document.getElementById('live-shift-overlay');
+  if(!o||!window.__liveEventId){toast('Нет мероприятия на эту дату',1);return;}
+  if(o.style.display==='flex'){closeLiveShiftPanel();return;}
+  o.style.display='flex';
+  document.body.style.overflow='hidden';
+  loadLiveShiftDashboard();
+  if(liveShiftPollTimer)clearInterval(liveShiftPollTimer);
+  liveShiftPollTimer=setInterval(()=>{if(document.getElementById('live-shift-overlay')?.style.display==='flex')loadLiveShiftDashboard(true);},15000);
+}
+
+function liveHourSlots(){
+  const out=[];
+  for(let h=10;h<22;h++){
+    const a=String(h).padStart(2,'0')+':00';
+    const b=String(h+1).padStart(2,'0')+':00';
+    out.push({time_from:a,time_to:b});
+  }
+  return out;
+}
+
+async function loadLiveShiftDashboard(silent){
+  const eid=window.__liveEventId;
+  const body=document.getElementById('live-shift-body');
+  if(!eid||!body)return;
+  try{
+    const dash=await api('GET',`/events/${eid}/live-dashboard`);
+    _liveDashboardCache=dash;
+    const slots=liveHourSlots();
+    const staffPhoto=(dash.staff||[]).filter(s=>s.role_in_shift==='photographer');
+    const zones=dash.zones||[];
+    let poolHtml=staffPhoto.map(s=>`<div class="live-drag-ph" draggable="true" data-photographer-id="${esc(s.photographer_id)}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;margin:4px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:grab;font-size:11px">
+      ${s.photo_url?`<img src="${API.replace('/api','')}${esc(s.photo_url)}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">`:''}
+      <span>${esc(s.name)}</span>
+    </div>`).join('')||'<span style="color:var(--text3)">Нет фотографов на смене</span>';
+
+    let matrix='<table class="st" style="font-size:10px;margin-top:8px"><thead><tr><th>Зона</th>';
+    slots.forEach(sl=>{matrix+=`<th>${esc(sl.time_from.slice(0,5))}</th>`;});
+    matrix+='</tr></thead><tbody>';
+    for(const z of zones){
+      matrix+=`<tr><td style="font-weight:600">${esc(z.name)}</td>`;
+      for(const sl of slots){
+        const assigns=(z.assignments||[]).filter(a=>{
+          const tf=String(a.time_from||'').slice(0,5);
+          const tt=String(a.time_to||'').slice(0,5);
+          return tf<=sl.time_from&&tt>sl.time_from;
+        });
+        const cellContent=assigns.map(a=>`<div style="font-size:9px;margin-bottom:2px">${esc(a.photographer_name)} <button type="button" class="btn btn-ghost" style="font-size:8px;padding:0 2px" data-za-del="${esc(a.id)}" onclick="deleteZoneAssignmentBtn(this)">✕</button></div>`).join('')||'—';
+        matrix+=`<td class="zone-cell" data-zone-id="${esc(z.id)}" data-time-from="${esc(sl.time_from)}" data-time-to="${esc(sl.time_to)}" style="vertical-align:top;min-width:52px">${cellContent}</td>`;
+      }
+      matrix+='</tr>';
+    }
+    if(!zones.length) matrix+='<tr><td colspan="'+(slots.length+1)+'" style="color:var(--text3)">Нет зон — добавьте в настройках площадки (⚙️)</td></tr>';
+    matrix+='</tbody></table>';
+
+    const pend=(dash.pending_actions||[]).map(a=>`<div style="padding:6px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;background:var(--bg3)">
+      <div style="font-weight:600">${esc(a.action_type)}</div>
+      <div style="font-size:10px;color:var(--text3)">${esc(a.requested_by_name)}</div>
+      <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" style="font-size:10px;padding:2px 8px" data-act-id="${esc(a.id)}" data-act-st="approved" onclick="resolveShiftActionBtn(this)">Ок</button>
+        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px" data-act-id="${esc(a.id)}" data-act-st="rejected" onclick="resolveShiftActionBtn(this)">Отклонить</button>
+      </div>
+    </div>`).join('')||'<div style="color:var(--text3)">Нет заявок</div>';
+
+    const msgs=(dash.recent_messages||[]).map(m=>`<div style="font-size:10px;margin-bottom:4px"><b>${esc(m.sender_name)}</b> ${esc(m.content)}</div>`).join('')||'';
+
+    body.innerHTML=`<div style="display:grid;grid-template-columns:1fr 280px;gap:12px;align-items:start">
+      <div>
+        <div class="sec-t">👥 Фотографы — перетащите в ячейку зоны × время</div>
+        <div style="margin-bottom:10px">${poolHtml}</div>
+        <div class="sec-t">🗺 Матрица зон</div>
+        <div id="live-zone-matrix">${matrix}</div>
+      </div>
+      <div>
+        <div class="sec-t">⏳ Заявки</div>${pend}
+        <div class="sec-t" style="margin-top:12px">💬 Последние сообщения</div>
+        <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg3)">${msgs}</div>
+      </div>
+    </div>`;
+    bindLiveZoneDnD();
+  }catch(e){if(!silent)toast(e.message,1);body.innerHTML='<div style="color:var(--rank3)">'+esc(e.message)+'</div>';}
+}
+
+function bindLiveZoneDnD(){
+  document.querySelectorAll('.live-drag-ph').forEach(el=>{
+    el.addEventListener('dragstart',(ev)=>{
+      ev.dataTransfer.setData('text/plain',el.getAttribute('data-photographer-id')||'');
+      ev.dataTransfer.effectAllowed='copy';
+    });
+  });
+  document.querySelectorAll('#live-zone-matrix .zone-cell').forEach(cell=>{
+    cell.addEventListener('dragover',(ev)=>{ev.preventDefault();ev.dataTransfer.dropEffect='copy';cell.classList.add('live-drop-over');});
+    cell.addEventListener('dragleave',()=>cell.classList.remove('live-drop-over'));
+    cell.addEventListener('drop',async (ev)=>{
+      ev.preventDefault();
+      cell.classList.remove('live-drop-over');
+      const photographerId=ev.dataTransfer.getData('text/plain');
+      const zoneId=cell.getAttribute('data-zone-id');
+      const timeFrom=cell.getAttribute('data-time-from');
+      const timeTo=cell.getAttribute('data-time-to');
+      if(!photographerId||!zoneId||!window.__liveEventId)return;
+      try{
+        await api('POST',`/events/${window.__liveEventId}/zone-assignments`,{zone_id:zoneId,photographer_id:photographerId,time_from:timeFrom,time_to:timeTo});
+        toast('Назначен на зону');
+        loadLiveShiftDashboard(true);
+      }catch(e){toast(e.message,1);}
+    });
+  });
+}
+
+async function deleteZoneAssignmentBtn(btn){
+  const id=btn.getAttribute('data-za-del');
+  if(!id)return;
+  try{
+    await api('DELETE',`/zone-assignments/${id}`);
+    toast('Назначение снято');
+    loadLiveShiftDashboard(true);
+  }catch(e){toast(e.message,1);}
+}
+
+async function resolveShiftActionBtn(btn){
+  const id=btn.getAttribute('data-act-id');
+  const st=btn.getAttribute('data-act-st');
+  if(!id||!st)return;
+  try{
+    await api('PATCH',`/shift-actions/${id}/resolve`,{status:st});
+    toast('Обновлено');
+    loadLiveShiftDashboard(true);
+  }catch(e){toast(e.message,1);}
+}
+
+function openManagerRatingsModal(){
+  const eid=window.__liveEventId;
+  if(!eid){toast('Нет мероприятия',1);return;}
+  const ov=document.getElementById('live-ratings-overlay');
+  const box=document.getElementById('live-ratings-body');
+  if(!ov||!box)return;
+  const dash=_liveDashboardCache;
+  const staff=(dash&&dash.staff)?dash.staff.filter(s=>s.role_in_shift==='photographer'):[];
+  box.innerHTML=staff.map(s=>{
+    const pid=String(s.photographer_id||'');
+    if(!pid)return'';
+    return`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg3)">
+      <div style="font-weight:600;margin-bottom:8px">${esc(s.name)}</div>
+      <div style="display:grid;gap:6px;font-size:11px">
+        <label>Профессионализм <input type="range" min="1" max="5" value="3" id="r-prof-${pid}" style="width:100%"></label>
+        <label>Клиент <input type="range" min="1" max="5" value="3" id="r-client-${pid}" style="width:100%"></label>
+        <label>Командность <input type="range" min="1" max="5" value="3" id="r-team-${pid}" style="width:100%"></label>
+        <label>Инициатива <input type="range" min="1" max="5" value="3" id="r-init-${pid}" style="width:100%"></label>
+        <label>Внешний вид <input type="range" min="1" max="5" value="3" id="r-appear-${pid}" style="width:100%"></label>
+        <label><b>Итого *</b> <input type="range" min="1" max="5" value="3" id="r-overall-${pid}" style="width:100%"></label>
+        <textarea class="fin" id="r-str-${pid}" placeholder="Сильные стороны" rows="2" style="font-size:11px"></textarea>
+        <textarea class="fin" id="r-imp-${pid}" placeholder="Зоны роста" rows="2" style="font-size:11px"></textarea>
+        <textarea class="fin" id="r-private-${pid}" placeholder="Приватные заметки (не видит сотрудник)" rows="2" style="font-size:11px"></textarea>
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="r-visible-${pid}"> Показать сотруднику</label>
+        <button type="button" class="btn btn-primary" style="font-size:12px" data-save-rating="${pid}" onclick="saveManagerRatingBtn(this)">💾 Сохранить оценку</button>
+      </div>
+    </div>`;
+  }).join('')||'<div style="color:var(--text3)">Нет фотографов на смене</div>';
+  ov.style.display='flex';
+}
+
+function closeManagerRatingsModal(){
+  const ov=document.getElementById('live-ratings-overlay');
+  if(ov)ov.style.display='none';
+}
+
+async function saveManagerRatingBtn(btn){
+  const pid=btn.getAttribute('data-save-rating');
+  const eid=window.__liveEventId;
+  if(!pid||!eid)return;
+  const gid=(x)=>document.getElementById(x);
+  const data={
+    photographer_id:pid,
+    professionalism:parseInt(gid('r-prof-'+pid).value,10),
+    client_interaction:parseInt(gid('r-client-'+pid).value,10),
+    teamwork:parseInt(gid('r-team-'+pid).value,10),
+    initiative:parseInt(gid('r-init-'+pid).value,10),
+    appearance:parseInt(gid('r-appear-'+pid).value,10),
+    overall:parseInt(gid('r-overall-'+pid).value,10),
+    strengths:gid('r-str-'+pid).value.trim()||null,
+    improvements:gid('r-imp-'+pid).value.trim()||null,
+    private_notes:gid('r-private-'+pid).value.trim()||null,
+    is_visible_to_employee:gid('r-visible-'+pid).checked
+  };
+  try{
+    await api('POST',`/events/${eid}/manager-ratings`,data);
+    toast('Оценка сохранена');
+  }catch(e){toast(e.message,1);}
 }
 
 function openNewProduct(){document.getElementById('new-prod-form').style.display='block';}
@@ -2948,6 +3215,27 @@ function setupMgmtButton() {
   if (b) b.style.display = hasAnyRole(['hr_manager','hr_director','exec_director','admin']) ? '' : 'none';
 }
 </script>
+<div class="overlay" id="live-shift-overlay" style="display:none;z-index:220;align-items:center;justify-content:center" onclick="if(event.target===this)closeLiveShiftPanel()">
+  <div class="modal" style="max-width:1100px;width:96%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0;gap:10px;flex-wrap:wrap">
+      <span style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600">🔴 LIVE — смена</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" onclick="openManagerRatingsModal()" style="font-size:12px">⭐ Оценки</button>
+        <button type="button" class="btn btn-ghost" onclick="closeLiveShiftPanel()">✕ Закрыть</button>
+      </div>
+    </div>
+    <div id="live-shift-body" style="overflow-y:auto;flex:1;font-size:12px;min-height:200px"><div class="loading">Загрузка…</div></div>
+  </div>
+</div>
+<div class="overlay" id="live-ratings-overlay" style="display:none;z-index:230;align-items:center;justify-content:center" onclick="if(event.target===this)closeManagerRatingsModal()">
+  <div class="modal" style="max-width:560px;width:94%;max-height:88vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600">⭐ Оценки фотографов</span>
+      <button type="button" class="btn btn-ghost" onclick="closeManagerRatingsModal()">✕</button>
+    </div>
+    <div id="live-ratings-body"></div>
+  </div>
+</div>
 <div id="deliver-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;justify-content:center;align-items:center" onclick="if(event.target===this)closeDeliverModal()">
   <div style="background:var(--bg1);border-radius:16px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;padding:20px;border:1px solid var(--border)">
     <div id="deliver-content"></div>

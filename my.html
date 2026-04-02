@@ -681,6 +681,7 @@ async function loadSchedulePanel(phId){
       <div class="section"><div class="section-title">📅 Моё расписание</div><div id="avail-hr-notices" style="margin-bottom:10px"></div><div id="my-sched-holder"><div class="loading">Загрузка...</div></div></div>
       <div class="section"><div class="section-title">Профиль</div><div style="font-size:13px">Город: ${esc(ph.city||'—')}</div></div>
       <div class="section"><div class="section-title">Ближайшие смены</div>${forcedNotices}${upHtml}</div>
+      <div class="section"><div class="section-title">⭐ Оценки менеджеров</div><div id="my-visible-ratings" style="font-size:12px;color:var(--text3)">Загрузка…</div></div>
       <div class="section"><div class="section-title">Пожелания по площадкам</div>
         <div style="font-size:12px;margin-bottom:6px">❤️ Люблю: ${loves.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
         <div style="font-size:12px;margin-bottom:6px">✓ Могу: ${cans.map(v=>esc(v.venue_name)).join(', ')||'—'}</div>
@@ -751,6 +752,30 @@ async function loadSchedulePanel(phId){
       const el=document.getElementById('avail-editor'); if(el) el.innerHTML='<div style="font-size:12px;color:var(--text3)">Открытого периода для подачи нет.</div>';
     }
     (async ()=>{
+      const vr=document.getElementById('my-visible-ratings');
+      if(vr){
+        try{
+          const data=await api('GET',`/photographers/${encodeURIComponent(phId)}/manager-ratings-summary`);
+          const rec=(data&&data.recent)||[];
+          const s=data&&data.summary;
+          if(!rec.length){
+            vr.innerHTML='<span style="color:var(--text3)">Пока нет опубликованных оценок за смены</span>';
+          }else{
+            const avg=s&&s.avg_overall!=null?`<div style="margin-bottom:8px;font-size:12px">Средняя (видимые вам): <b style="color:var(--accent2)">${esc(String(s.avg_overall))}</b> / 5 · записей: ${esc(String(s.total_ratings||0))}</div>`:'';
+            vr.innerHTML=avg+rec.map(r=>{
+              const o=Math.min(5,Math.max(0,Math.round(Number(r.overall)||0)));
+              const stars='★'.repeat(o)+'☆'.repeat(5-o);
+              const dt=r.event_date?new Date(r.event_date).toLocaleDateString('ru-RU'):'';
+              return`<div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg3)">
+                <div style="color:#f5a623;font-size:13px">${stars} <b>${esc(String(r.overall||'—'))}</b>/5</div>
+                <div style="font-size:11px;color:var(--text2)">${esc(r.venue_name||'')} · ${esc(dt)} · ${esc(r.rated_by_name||'')}</div>
+                ${r.strengths?`<div style="font-size:11px;margin-top:4px;color:var(--text1)">${esc(r.strengths)}</div>`:''}
+                ${r.improvements?`<div style="font-size:11px;margin-top:2px;color:var(--text3)">${esc(r.improvements)}</div>`:''}
+              </div>`;
+            }).join('');
+          }
+        }catch(e){ vr.innerHTML='<span style="color:var(--text3)">Не удалось загрузить оценки</span>'; }
+      }
       const hold=document.getElementById('my-shift-history');
       if(!hold) return;
       try{

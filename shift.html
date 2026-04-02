@@ -49,6 +49,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 .badge-paid{background:rgba(62,207,142,.15);color:var(--rank1)}
 .badge-pending{background:rgba(245,166,35,.15);color:var(--rank2)}
 .badge-presale{background:rgba(124,108,255,.15);color:var(--accent2)}
+.shift-tabs{display:flex;gap:4px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.shift-tabs button{flex:0 0 auto;padding:8px 10px;font-size:11px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:inherit;cursor:pointer;white-space:nowrap}
+.shift-tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -60,8 +63,51 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
   </div>
 </div>
 
+<div class="shift-tabs" id="shift-tabs" style="display:none">
+  <button type="button" class="active" data-shift-tab="sales" onclick="switchShiftTab('sales')">📸 Продажи</button>
+  <button type="button" data-shift-tab="zones" onclick="switchShiftTab('zones')">🗺 Зоны</button>
+  <button type="button" data-shift-tab="chat" onclick="switchShiftTab('chat')">💬 Чат</button>
+  <button type="button" data-shift-tab="actions" onclick="switchShiftTab('actions')">⚡ Действия</button>
+  <button type="button" data-shift-tab="contest" onclick="switchShiftTab('contest')">📷 Конкурс</button>
+</div>
+
 <div id="shift-info" class="section">
   <div class="loading" style="color:var(--text3);font-size:13px">Загрузка смены...</div>
+</div>
+
+<div id="tab-zones" class="section" style="display:none">
+  <div class="section-title">🗺 Расстановка по зонам</div>
+  <div id="zone-timeline"></div>
+</div>
+
+<div id="tab-chat" class="section" style="display:none">
+  <div class="section-title">💬 Чат смены</div>
+  <div id="chat-messages" style="max-height:400px;overflow-y:auto;margin-bottom:10px;font-size:13px"></div>
+  <div id="chat-pinned" style="display:none;padding:8px;background:rgba(255,200,0,.1);border-radius:8px;margin-bottom:8px;font-size:12px"></div>
+  <div style="display:flex;gap:6px">
+    <input class="fin" id="chat-input" placeholder="Сообщение..." style="flex:1" onkeydown="if(event.key==='Enter')sendChatMsg()">
+    <button type="button" class="btn btn-primary" onclick="sendChatMsg()" style="font-size:12px">➤</button>
+  </div>
+</div>
+
+<div id="tab-actions" class="section" style="display:none">
+  <div class="section-title">⚡ Быстрые действия</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <button type="button" class="btn btn-ghost" onclick="requestAction('break_request')">☕ Перерыв</button>
+    <button type="button" class="btn btn-ghost" onclick="requestAction('help_request')">🆘 Помощь</button>
+    <button type="button" class="btn btn-ghost" onclick="requestAction('replace_request')">🔄 Замена</button>
+  </div>
+  <div id="actions-list"></div>
+</div>
+
+<div id="tab-contest" class="section" style="display:none">
+  <div class="section-title">📷 Фотоконкурс смены</div>
+  <div style="margin-bottom:10px">
+    <input class="fin" id="contest-url" placeholder="URL фото" style="width:100%;margin-bottom:6px">
+    <input class="fin" id="contest-caption" placeholder="Подпись (необязательно)" style="width:100%;margin-bottom:6px">
+    <button type="button" class="btn btn-primary" onclick="submitContestPhoto()" style="font-size:12px">📷 Подать на конкурс</button>
+  </div>
+  <div id="contest-entries"></div>
 </div>
 
 <div id="sales-section" class="section" style="display:none">
@@ -99,6 +145,11 @@ let currentUser = null;
 let currentShift = null;
 let venueProducts = [];
 let todaySales = [];
+let currentEvent = null;
+let shiftTab = 'sales';
+let chatPollTimer = null;
+let lastMsgTime = null;
+let chatInitialized = false;
 
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -160,6 +211,7 @@ async function loadShift() {
     }
 
     currentShift = todayShift;
+    currentEvent = todayShift.event_id ? { id: todayShift.event_id } : null;
 
     venueProducts = await api('GET', `/venues/${todayShift.venue_id}/products`).catch(() => []);
 
@@ -168,7 +220,10 @@ async function loadShift() {
 
     renderShiftInfo(todayShift);
     document.getElementById('sales-section').style.display = '';
+    const tabs = document.getElementById('shift-tabs');
+    if (tabs) tabs.style.display = currentEvent?.id ? 'flex' : 'none';
     await loadTodaySales();
+    if (currentEvent?.id) switchShiftTab(shiftTab, true);
   } catch (e) {
     document.getElementById('shift-info').innerHTML = `<div class="empty-state" style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
@@ -486,6 +541,213 @@ async function addSeriesToSale(saleId) {
     toast('✅ Серия добавлена');
     closeSaleModal();
     await loadTodaySales();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function stopChatPoll() {
+  if (chatPollTimer) {
+    clearInterval(chatPollTimer);
+    chatPollTimer = null;
+  }
+}
+
+function startChatPoll() {
+  stopChatPoll();
+  chatPollTimer = setInterval(() => { loadChat(false); }, 3000);
+}
+
+function switchShiftTab(name, force) {
+  if (!currentEvent?.id) return;
+  if (!force && shiftTab === name && name !== 'chat') return;
+  if (shiftTab === 'chat' && name !== 'chat') stopChatPoll();
+  shiftTab = name;
+  document.querySelectorAll('#shift-tabs button').forEach((b) => {
+    b.classList.toggle('active', b.getAttribute('data-shift-tab') === name);
+  });
+  const map = { sales: ['shift-info', 'sales-section'], zones: ['tab-zones'], chat: ['tab-chat'], actions: ['tab-actions'], contest: ['tab-contest'] };
+  ['shift-info', 'sales-section', 'tab-zones', 'tab-chat', 'tab-actions', 'tab-contest'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const show = (map[name] || []).includes(id);
+    el.style.display = show ? '' : 'none';
+  });
+  if (name === 'zones') loadZones();
+  if (name === 'chat') {
+    lastMsgTime = null;
+    chatInitialized = false;
+    loadChat(true).then(() => {
+      startChatPoll();
+    });
+  }
+  if (name === 'actions') loadActions();
+  if (name === 'contest') loadContest();
+}
+
+async function loadZones() {
+  if (!currentEvent?.id) return;
+  try {
+    const data = await api('GET', `/events/${currentEvent.id}/zone-assignments`);
+    const zones = {};
+    (data || []).forEach((za) => {
+      const key = za.zone_name || '—';
+      if (!zones[key]) zones[key] = [];
+      zones[key].push(za);
+    });
+    const myId = currentUser?.photographer_id;
+    let html = '';
+    for (const [zoneName, assigns] of Object.entries(zones)) {
+      const isMine = assigns.some((a) => a.photographer_id === myId);
+      html += `<div style="padding:10px;margin-bottom:8px;border-radius:8px;border:1px solid ${isMine ? 'var(--accent)' : 'var(--border)'};background:${isMine ? 'rgba(124,108,255,0.1)' : 'var(--bg3)'}">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(zoneName)}</div>
+        ${assigns.map((a) => `<div style="font-size:12px;color:${a.photographer_id === myId ? 'var(--accent)' : 'var(--text2)'}">${esc(a.photographer_name)} · ${String(a.time_from || '').slice(0, 5)}–${String(a.time_to || '').slice(0, 5)}</div>`).join('')}
+      </div>`;
+    }
+    const el = document.getElementById('zone-timeline');
+    if (el) el.innerHTML = html || '<div style="font-size:12px;color:var(--text2)">Расстановка ещё не создана</div>';
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function renderChatMessages(msgs, append) {
+  const el = document.getElementById('chat-messages');
+  if (!el) return;
+  const myId = currentUser?.id;
+  const html = msgs.map((m) => {
+    const isMine = m.sender_id === myId;
+    const isSystem = m.message_type === 'system';
+    if (isSystem) {
+      return `<div style="text-align:center;font-size:11px;color:var(--text3);margin:6px 0">— ${esc(m.content)} —</div>`;
+    }
+    return `<div style="display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:8px">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:2px">${esc(m.sender_name)} · ${new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+      <div style="padding:8px 12px;border-radius:12px;max-width:80%;font-size:13px;background:${isMine ? 'var(--accent)' : 'var(--bg3)'};color:${isMine ? '#fff' : 'var(--text1)'}">${esc(m.content)}</div>
+    </div>`;
+  }).join('');
+  if (append) el.innerHTML += html;
+  else el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function loadChat(reset) {
+  if (!currentEvent?.id) return;
+  const append = !reset && !!lastMsgTime;
+  const params = lastMsgTime && !reset ? `?after=${encodeURIComponent(lastMsgTime)}` : '?limit=50';
+  try {
+    const msgs = await api('GET', `/events/${currentEvent.id}/messages${params}`);
+    if (msgs && msgs.length) {
+      lastMsgTime = msgs[msgs.length - 1].created_at;
+      renderChatMessages(msgs, append);
+    } else if (reset || !append) {
+      if (!append) renderChatMessages([], false);
+    }
+  } catch (e) {
+    console.error('chat poll error', e);
+  }
+}
+
+async function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const content = (input && input.value) ? input.value.trim() : '';
+  if (!content || !currentEvent?.id) return;
+  input.value = '';
+  try {
+    await api('POST', `/events/${currentEvent.id}/messages`, { content });
+    await loadChat(true);
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function requestAction(type) {
+  if (!currentEvent?.id) return;
+  const labels = { break_request: 'перерыв', help_request: 'помощь', replace_request: 'замену' };
+  if (!confirm(`Запросить ${labels[type] || type}?`)) return;
+  try {
+    await api('POST', `/events/${currentEvent.id}/actions`, { action_type: type });
+    toast('Запрос отправлен');
+    loadActions();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function loadActions() {
+  if (!currentEvent?.id) return;
+  try {
+    const actions = await api('GET', `/events/${currentEvent.id}/actions`);
+    const statusIcon = { pending: '⏳', approved: '✅', rejected: '❌', completed: '✅', cancelled: '🚫' };
+    const typeLabel = {
+      break_request: '☕ Перерыв', help_request: '🆘 Помощь', replace_request: '🔄 Замена',
+      task: '📋 Задача', alert: '⚠️ Оповещение',
+    };
+    const el = document.getElementById('actions-list');
+    if (!el) return;
+    el.innerHTML = (actions || []).map((a) => `
+    <div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--bg3)">
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-weight:600;font-size:12px">${esc(typeLabel[a.action_type] || a.action_type)}</span>
+        <span style="font-size:11px">${statusIcon[a.status] || ''} ${esc(a.status)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2)">${esc(a.requested_by_name)} · ${new Date(a.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+    </div>
+  `).join('') || '<div style="font-size:12px;color:var(--text2)">Нет действий</div>';
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function loadContest() {
+  if (!currentEvent?.id) return;
+  try {
+    const entries = await api('GET', `/events/${currentEvent.id}/contest`);
+    const el = document.getElementById('contest-entries');
+    if (!el) return;
+    el.innerHTML = (entries || []).map((e) => {
+      const imgSrc = String(e.photo_url || '').replace(/[<>"']/g, '');
+      return `
+    <div style="padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg3)">
+      <img src="${imgSrc}" alt="" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover;margin-bottom:6px" onerror="this.style.display='none'">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;font-weight:600">${esc(e.photographer_name)}</span>
+        <span style="font-size:12px">${e.caption ? esc(e.caption) : ''}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <span style="font-size:13px">❤️ ${e.votes_count != null ? e.votes_count : 0}</span>
+        <button type="button" class="btn btn-ghost" style="font-size:11px" data-contest-entry="${esc(e.id)}" data-has-vote="${e.my_vote ? '1' : '0'}" onclick="toggleContestVote(this)">${e.my_vote ? '💔 Убрать' : '❤️ Голос'}</button>
+      </div>
+    </div>
+  `;
+    }).join('') || '<div style="font-size:12px;color:var(--text2)">Пока нет участников</div>';
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function toggleContestVote(btn) {
+  const id = btn.getAttribute('data-contest-entry');
+  const has = btn.getAttribute('data-has-vote') === '1';
+  try {
+    if (has) await api('DELETE', `/contest-entries/${id}/vote`);
+    else await api('POST', `/contest-entries/${id}/vote`);
+    loadContest();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function submitContestPhoto() {
+  const photo_url = document.getElementById('contest-url').value.trim();
+  const caption = document.getElementById('contest-caption').value.trim();
+  if (!photo_url || !currentEvent?.id) { toast('Введите URL фото', true); return; }
+  try {
+    await api('POST', `/events/${currentEvent.id}/contest`, { photo_url, caption: caption || null });
+    document.getElementById('contest-url').value = '';
+    document.getElementById('contest-caption').value = '';
+    toast('Фото подано на конкурс');
+    loadContest();
   } catch (e) {
     toast(e.message, true);
   }
