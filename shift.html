@@ -103,7 +103,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 <div id="tab-contest" class="section" style="display:none">
   <div class="section-title">📷 Фотоконкурс смены</div>
   <div id="contest-budget" style="font-size:12px;color:var(--text2);margin-bottom:10px">
-    Осталось лайков: <strong id="budget-count">9</strong> из 9 (на это мероприятие за сегодня)
+    Осталось лайков: <strong id="budget-count">9</strong> из <strong id="budget-total">9</strong> (за сегодня по всем площадкам)
   </div>
   <div id="contest-form" style="margin-bottom:10px">
     <div style="margin-bottom:10px">
@@ -775,10 +775,12 @@ function closeContestLightbox() {
   document.body.style.overflow = '';
 }
 
-function renderContestEntries(entries, budgetRemaining) {
+function renderContestEntries(entries, budgetRemaining, budgetTotal) {
   const myPhId = currentUser && currentUser.photographer_id;
   const bc = document.getElementById('budget-count');
   if (bc && budgetRemaining !== undefined) bc.textContent = String(budgetRemaining);
+  const bt = document.getElementById('budget-total');
+  if (bt && budgetTotal !== undefined) bt.textContent = String(budgetTotal);
 
   const el = document.getElementById('contest-entries');
   if (!el) return;
@@ -824,12 +826,13 @@ async function loadContest() {
     const data = await api('GET', `/events/${currentEvent.id}/contest`);
     const list = Array.isArray(data) ? data : (data.entries || []);
     const budgetRemaining = Array.isArray(data) ? 9 : (data.budget_remaining ?? 9);
+    const budgetTotal = Array.isArray(data) ? 9 : (data.budget_total ?? 9);
     const sorted = [...list].sort((a, b) => {
       const va = (parseInt(b.votes_count, 10) || 0) - (parseInt(a.votes_count, 10) || 0);
       if (va !== 0) return va;
       return new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0);
     });
-    renderContestEntries(sorted, budgetRemaining);
+    renderContestEntries(sorted, budgetRemaining, budgetTotal);
     const myPhId = currentUser && currentUser.photographer_id;
     const myEntries = list.filter((e) => String(e.photographer_id) === String(myPhId));
     const formEl = document.getElementById('contest-form');
@@ -845,6 +848,10 @@ async function voteContest(entryId, weight) {
     if (result && result.remaining !== undefined) {
       const bc = document.getElementById('budget-count');
       if (bc) bc.textContent = String(result.remaining);
+      if (result.budget_total !== undefined) {
+        const btt = document.getElementById('budget-total');
+        if (btt) btt.textContent = String(result.budget_total);
+      }
     }
     loadContest();
   } catch (e) {
@@ -858,6 +865,10 @@ async function removeVoteContest(entryId) {
     if (result && result.remaining !== undefined) {
       const bc = document.getElementById('budget-count');
       if (bc) bc.textContent = String(result.remaining);
+      if (result.budget_total !== undefined) {
+        const btt = document.getElementById('budget-total');
+        if (btt) btt.textContent = String(result.budget_total);
+      }
     }
     loadContest();
   } catch (e) {
