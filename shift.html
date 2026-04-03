@@ -102,7 +102,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 
 <div id="tab-contest" class="section" style="display:none">
   <div class="section-title">📷 Фотоконкурс смены</div>
-  <div style="margin-bottom:10px">
+  <div id="contest-form" style="margin-bottom:10px">
     <div style="margin-bottom:10px">
       <label style="display:inline-block;padding:10px 20px;background:var(--accent);color:#fff;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">
         📷 Выбрать фото
@@ -746,39 +746,83 @@ async function loadActions() {
   }
 }
 
+function contestImgError(img) {
+  const p = img && img.parentElement;
+  if (!p) return;
+  img.remove();
+  const d = document.createElement('div');
+  d.style.cssText = 'display:flex;align-items:center;justify-content:center;position:absolute;top:0;left:0;width:100%;height:100%;color:var(--text3);font-size:12px';
+  d.textContent = 'Фото недоступно';
+  p.appendChild(d);
+}
+
+function renderContestEntries(entries) {
+  const myPhId = currentUser && currentUser.photographer_id;
+  const el = document.getElementById('contest-entries');
+  if (!el) return;
+  if (!entries.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:20px;text-align:center">Пока нет участников</div>';
+    return;
+  }
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${entries.map((e, idx) => {
+    const isMine = String(e.photographer_id) === String(myPhId);
+    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+    const eid = String(e.id || '').replace(/'/g, "\\'");
+    return `<div style="border-radius:12px;overflow:hidden;border:1px solid ${isMine ? 'var(--accent)' : 'var(--border)'};background:var(--bg3);position:relative">
+      <div style="position:relative;width:100%;padding-top:75%;overflow:hidden;background:#111">
+        <img src="${esc(fullUrl(e.photo_url))}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="contestImgError(this)">
+        ${medal ? `<div style="position:absolute;top:8px;left:8px;font-size:24px">${medal}</div>` : ''}
+        ${isMine ? `<button type="button" onclick="deleteContestEntry('${eid}')" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center" title="Удалить">✕</button>` : ''}
+      </div>
+      <div style="padding:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:600">${esc(e.photographer_name)}</span>
+          <span style="font-size:11px;color:var(--text3)">${e.caption ? esc(e.caption) : ''}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:15px">❤️ ${e.votes_count != null ? e.votes_count : 0}</span>
+          ${isMine ? '<span style="font-size:11px;color:var(--text3)">Ваше фото</span>' : `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="toggleVote('${eid}', ${e.my_vote ? 'true' : 'false'})">${e.my_vote ? '💔 Убрать' : '❤️ Голос'}</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
 async function loadContest() {
   if (!currentEvent?.id) return;
   try {
     const entries = await api('GET', `/events/${currentEvent.id}/contest`);
-    const el = document.getElementById('contest-entries');
-    if (!el) return;
-    el.innerHTML = (entries || []).map((e) => {
-      const imgSrc = esc(fullUrl(e.photo_url));
-      return `
-    <div style="padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg3)">
-      <img src="${imgSrc}" alt="" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover;margin-bottom:6px" onerror="this.style.display='none'">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;font-weight:600">${esc(e.photographer_name)}</span>
-        <span style="font-size:12px">${e.caption ? esc(e.caption) : ''}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-        <span style="font-size:13px">❤️ ${e.votes_count != null ? e.votes_count : 0}</span>
-        <button type="button" class="btn btn-ghost" style="font-size:11px" data-contest-entry="${esc(e.id)}" data-has-vote="${e.my_vote ? '1' : '0'}" onclick="toggleContestVote(this)">${e.my_vote ? '💔 Убрать' : '❤️ Голос'}</button>
-      </div>
-    </div>
-  `;
-    }).join('') || '<div style="font-size:12px;color:var(--text2)">Пока нет участников</div>';
+    const list = Array.isArray(entries) ? entries : [];
+    const sorted = [...list].sort((a, b) => {
+      const va = (parseInt(b.votes_count, 10) || 0) - (parseInt(a.votes_count, 10) || 0);
+      if (va !== 0) return va;
+      return new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0);
+    });
+    renderContestEntries(sorted);
+    const myPhId = currentUser && currentUser.photographer_id;
+    const myEntries = list.filter((e) => String(e.photographer_id) === String(myPhId));
+    const formEl = document.getElementById('contest-form');
+    if (formEl) formEl.style.display = myEntries.length >= 3 ? 'none' : '';
   } catch (e) {
     toast(e.message, true);
   }
 }
 
-async function toggleContestVote(btn) {
-  const id = btn.getAttribute('data-contest-entry');
-  const has = btn.getAttribute('data-has-vote') === '1';
+async function toggleVote(entryId, hasVote) {
   try {
-    if (has) await api('DELETE', `/contest-entries/${id}/vote`);
-    else await api('POST', `/contest-entries/${id}/vote`);
+    if (hasVote) await api('DELETE', `/contest-entries/${entryId}/vote`);
+    else await api('POST', `/contest-entries/${entryId}/vote`);
+    loadContest();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function deleteContestEntry(entryId) {
+  if (!confirm('Удалить фото с конкурса?')) return;
+  try {
+    await api('DELETE', `/contest-entries/${entryId}`);
+    toast('Фото удалено');
     loadContest();
   } catch (e) {
     toast(e.message, true);
