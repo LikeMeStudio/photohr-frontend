@@ -24,7 +24,7 @@ a{color:inherit;text-decoration:none}
 .f-btn:hover{color:var(--text)}
 .f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .main{max-width:1200px;margin:0 auto;padding:20px 24px}
-.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.tabs{position:sticky;top:58px;z-index:20;background:var(--bg);padding-top:4px;padding-bottom:4px;display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)}
 .tab{padding:6px 14px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
 .tab.active{background:var(--accent);color:#fff}
 .section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
@@ -84,6 +84,14 @@ a{color:inherit;text-decoration:none}
   .header{padding-top:max(10px, env(safe-area-inset-top))}
   .toast{bottom:max(20px, env(safe-area-inset-bottom))}
   body{padding-bottom:env(safe-area-inset-bottom)}
+  .tabs button,.tabs .tab{font-size:11px;padding:6px 10px;min-height:36px}
+  .stat-num{font-size:16px}
+  .stat-lbl{font-size:10px}
+  .section-title{font-size:14px}
+  .tbl th,.tbl td{padding:6px 4px;font-size:11px}
+  .btn{font-size:12px;padding:6px 10px}
+  .fin{font-size:13px;padding:8px 10px}
+  .fselect{font-size:13px;padding:8px 10px}
 }
 
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:4px}
@@ -153,11 +161,6 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   </div>
 </div>
 <div class="main">
-  <div class="toolbar-unified" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:12px">
-    <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
-    <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
-    <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
-  </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab(0)" id="tab-forecast">📦 Остатки и прогноз</button>
     <button class="tab" onclick="switchTab(1)">🏢 Склады</button>
@@ -405,9 +408,6 @@ function openProfile(){window.location.href='photographers.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
-function openAchievementsPanel(){window.location.href='photographers.html#achievements';}
-function openBirthdaysPanel(){window.location.href='photographers.html#birthdays';}
-function openLikesPanel(){window.location.href='photographers.html#likes';}
 let warehouses=[],items=[],currentTabIdx=0;
 let venues=[],users=[];
 let equipmentListCache=[];
@@ -958,7 +958,7 @@ async function loadAlertsBadge() {
     const tabEl = document.getElementById('tab-alerts');
     if (!tabEl) return;
     if (total > 0) {
-      tabEl.innerHTML = `📈 Аналитика <span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:4px">${total}</span>`;
+      tabEl.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${total}</span></span>📈 Аналитика`;
     } else {
       tabEl.textContent = '📈 Аналитика';
     }
@@ -995,14 +995,14 @@ async function loadStockTabBadges() {
     const pend = Array.isArray(trList) ? trList.length : 0;
     if (tabFc) {
       if (fcN > 0) {
-        tabFc.innerHTML = `📦 Остатки и прогноз <span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:4px">${fcN}</span>`;
+        tabFc.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${fcN}</span></span>📦 Остатки и прогноз`;
       } else {
         tabFc.textContent = '📦 Остатки и прогноз';
       }
     }
     if (tabTr) {
       if (pend > 0) {
-        tabTr.innerHTML = `🔄 Перемещения <span style="background:var(--rank2);color:#0f0f13;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:4px">${pend}</span>`;
+        tabTr.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank2);color:#0f0f13;border-radius:10px;padding:1px 5px;font-size:9px">${pend}</span></span>🔄 Перемещения`;
       } else {
         tabTr.textContent = '🔄 Перемещения';
       }
@@ -1015,13 +1015,18 @@ async function loadSummary() {
     const s = await api('GET', '/stock/summary');
     const el = document.getElementById('hstats');
     if (!el) return;
-    const critColor = s.critical_count > 0 ? 'var(--rank3)' : 'var(--text3)';
+    let pendingActions = 0;
+    try {
+      const [trPending, invOpen] = await Promise.all([
+        api('GET', '/stock-transfers?status=pending&limit=500').catch(() => []),
+        api('GET', '/inventory-sessions?status=open').catch(() => []),
+      ]);
+      pendingActions = (Array.isArray(trPending) ? trPending.length : 0) + (Array.isArray(invOpen) ? invOpen.length : 0);
+    } catch (_) {}
+
     el.innerHTML = `
-      <div class="stat"><div class="stat-num">${s.warehouses_count}</div><div class="stat-lbl">складов</div></div>
-      <div class="stat"><div class="stat-num">${s.items_count}</div><div class="stat-lbl">позиций</div></div>
-      <div class="stat"><div class="stat-num" style="color:${critColor}">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>
-      <div class="stat"><div class="stat-num">${s.equipment_active}</div><div class="stat-lbl">оборудования</div></div>
-      ${s.total_stock_value > 0 ? `<div class="stat"><div class="stat-num" style="font-size:13px">${s.total_stock_value.toLocaleString('ru-RU')} ₽</div><div class="stat-lbl">стоимость</div></div>` : ''}
+      ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>` : ''}
+      ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
     `;
     loadAlertsBadge();
     loadStockTabBadges();
