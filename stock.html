@@ -857,7 +857,7 @@ function dndRowDragStart(ev){
   document.querySelectorAll('.wh-card-compact,.wh-mini').forEach(c=>{
     if(String(c.getAttribute('data-wh-id')||'')===String(whId||'')) c.classList.add('dnd-source');
   });
-  ev.dataTransfer.addEventListener('dragend',()=>{
+  el.addEventListener('dragend',()=>{
     el.classList.remove('dnd-dragging');
     document.querySelectorAll('.dnd-source').forEach(c=>c.classList.remove('dnd-source'));
     document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
@@ -883,7 +883,7 @@ function dndEquipmentRowDragStart(ev){
   document.querySelectorAll('.wh-card-compact,.wh-mini').forEach(c=>{
     if(String(c.getAttribute('data-wh-id')||'')===String(fromWh||'')) c.classList.add('dnd-source');
   });
-  ev.dataTransfer.addEventListener('dragend',()=>{
+  el.addEventListener('dragend',()=>{
     el.classList.remove('dnd-dragging');
     document.querySelectorAll('.dnd-source').forEach(c=>c.classList.remove('dnd-source'));
     document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
