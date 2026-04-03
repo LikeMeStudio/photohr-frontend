@@ -1393,22 +1393,60 @@ async function renderWhStockPanel(whId){
     let hasCrit=false;
     const canMin=can('tech_director')||can('exec_director')||can('admin');
     const canDnd=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
-    const buckets={consumable:[],equipment:[],other:[]};
-    for(const s of stock||[]){
-      buckets[whPanelItemBucketKey(s.item_type)].push(s);
+
+    const consumables=(stock||[]).filter(s=>whPanelItemBucketKey(s.item_type)==='consumable');
+    const consByCat=new Map();
+    for(const s of consumables){
+      const catVal=s.item_category||'other';
+      const catLabel=getCategoryLabel('consumable',catVal);
+      if(!consByCat.has(catVal))consByCat.set(catVal,{label:catLabel,items:[]});
+      consByCat.get(catVal).items.push(s);
       const q=parseFloat(s.quantity)||0,mn=s.min_quantity;
       if(mn>0&&q<=parseFloat(mn))hasCrit=true;
     }
-    const sec=(arr,title)=>whPanelStockTableSection(title,arr.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join(''));
-    const eqSection=eqHere.length?whPanelStockTableSection('🔧 Оборудование ('+eqHere.length+')',whPanelBuildEquipmentTableRows(eqHere,whId,canDnd)):'';
+    const consArr=[...consByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
+    const consSection=consumables.length?`
+      <div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">📦 Расходники (${consumables.length})</div>
+        ${consArr.map(([catVal,cat])=>
+          whPanelStockTableSection(cat.label+' ('+cat.items.length+')',cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join(''))
+        ).join('')}
+      </div>`:'';
+
+    const eqByModel=new Map();
+    const itemsForCat=items||[];
+    for(const e of eqHere){
+      const key=String(e.item_id||'_');
+      if(!eqByModel.has(key))eqByModel.set(key,{name:e.item_name,category:null,count:0});
+      eqByModel.get(key).count++;
+      const item=itemsForCat.find(i=>String(i.id)===key);
+      if(item)eqByModel.get(key).category=item.category;
+    }
+    const eqByCat=new Map();
+    for(const [,model] of eqByModel){
+      const catVal=model.category||'other';
+      const catLabel=getCategoryLabel('equipment',catVal);
+      if(!eqByCat.has(catVal))eqByCat.set(catVal,{label:catLabel,models:[]});
+      eqByCat.get(catVal).models.push(model);
+    }
+    const eqCatArr=[...eqByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
+    const eqSummaryRows=eqCatArr.map(([catVal,cat])=>{
+      const catRows=cat.models.map(m=>
+        `<tr><td>${esc(m.name)}</td><td style="font-weight:600;text-align:center">${m.count}</td><td style="text-align:center">шт</td><td style="text-align:center">—</td><td style="text-align:center">🟢</td><td style="text-align:center;color:var(--text3)">—</td><td style="text-align:center;color:var(--text3)">—</td></tr>`
+      ).join('');
+      return whPanelStockTableSection(cat.label+' ('+cat.models.reduce((s,m)=>s+m.count,0)+')',catRows);
+    }).join('');
+    const eqDetailSection=eqHere.length?whPanelStockTableSection('🔧 Единицы оборудования ('+eqHere.length+')',whPanelBuildEquipmentTableRows(eqHere,whId,canDnd)):'';
+    const eqSection=(eqByModel.size||eqHere.length)?`
+      <div style="margin-top:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">🔧 Оборудование (${eqHere.length})</div>
+        ${eqSummaryRows}
+        ${eqDetailSection}
+      </div>`:'';
+
     const canEdit=can('tech_director')||can('exec_director')||can('admin');
     const titleEmoji=hasCrit?' 🔴':' 🟢';
-    const stockBlocks=[
-      sec(buckets.consumable,'📦 Расходники ('+buckets.consumable.length+')'),
-      ...(buckets.equipment.length?[sec(buckets.equipment,'🔧 Оборудование — позиции ('+buckets.equipment.length+')')]:[]),
-      eqSection,
-      ...(buckets.other.length?[sec(buckets.other,'📎 Прочее ('+buckets.other.length+')')]:[]),
-    ].join('');
+    const stockBlocks=[consSection,eqSection].filter(Boolean).join('');
     host.innerHTML=`
       <div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
         <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Склад: ${esc(wh?.name||whId)}${titleEmoji}</div>
