@@ -60,6 +60,8 @@ a{color:inherit;text-decoration:none}
 .loading{text-align:center;padding:40px;color:var(--text3)}
 .admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
 .admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.wh-card-compact.dnd-over,.wh-mini.dnd-over{border-color:var(--accent)!important;box-shadow:0 0 12px rgba(124,108,255,.4)!important;background:rgba(124,108,255,.08)!important}
+tr.dnd-dragging{background:rgba(124,108,255,.15)!important;opacity:.7}
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px}
   .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
@@ -98,18 +100,18 @@ a{color:inherit;text-decoration:none}
   .wh-card-compact{padding:12px 40px 12px 12px}
   .wh-card-compact .wh-type{font-size:10px}
   /* Компактные sticky склады на мобильном */
-  .wh-mobile-bar{position:sticky;top:0;z-index:15;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  .wh-mobile-bar{background:var(--bg);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
   .wh-mobile-bar::-webkit-scrollbar{display:none}
   .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
   .wh-mini.active{border-width:2px}
 }
 
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:4px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:4px}
 .wh-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
 .wh-card:hover{border-color:var(--accent)}
-.wh-card-compact{padding:10px 40px 10px 10px;position:relative;cursor:pointer}
+.wh-card-compact{padding:8px 30px 8px 8px;position:relative;cursor:pointer}
 .wh-card-compact.wh-card-active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.wh-card-gear{position:absolute;top:8px;right:8px;z-index:2;width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+.wh-card-gear{position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px}
 .wh-card-gear:hover{color:var(--text);border-color:var(--accent2)}
 .fc-wh-btn{margin:2px}
 .wh-type{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
@@ -420,8 +422,8 @@ function updateStickyTop(){
   const h=document.querySelector('.header');
   const t=document.querySelector('.tabs');
   if(h&&t) t.style.top=h.offsetHeight+'px';
-  const mb=document.getElementById('wh-mobile-bar');
-  if(mb&&h) mb.style.top=(h.offsetHeight+(t?t.offsetHeight:0))+'px';
+  const cs=document.getElementById('wh-cards-sticky');
+  if(cs&&h&&t) cs.style.top=(h.offsetHeight+t.offsetHeight)+'px';
 }
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
@@ -610,7 +612,9 @@ function whVenueBadgeHtml(w) {
   return `<span title="${esc(v.name)}" style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:${color};margin-left:6px">${abbr}</span>`;
 }
 
-function dndAllowDrop(ev){ev.preventDefault();}
+function dndAllowDrop(ev){ev.preventDefault();const t=ev.currentTarget;if(t&&!t.classList.contains('dnd-over'))t.classList.add('dnd-over');}
+function dndDragLeave(ev){const t=ev.currentTarget;if(t)t.classList.remove('dnd-over');}
+function dndDrop(ev){const t=ev.currentTarget;if(t)t.classList.remove('dnd-over');}
 function dndFindStockGroup(fromId,toId){
   return dndTransferGroups.find(g=>(!g.kind||g.kind==='stock-item')&&String(g.from_id)===String(fromId)&&String(g.to_id)===String(toId));
 }
@@ -754,6 +758,8 @@ async function submitDndTransferFromCart(){
 }
 function dndRowDragStart(ev){
   ev.stopPropagation();
+  ev.currentTarget.classList.add('dnd-dragging');
+  ev.dataTransfer.addEventListener('dragend',()=>ev.currentTarget.classList.remove('dnd-dragging'),{once:true});
   const el=ev.currentTarget;
   const whId=el.getAttribute('data-from-wh');
   const itemId=el.getAttribute('data-item-id');
@@ -771,6 +777,8 @@ function dndRowDragStart(ev){
 }
 function dndEquipmentRowDragStart(ev){
   ev.stopPropagation();
+  ev.currentTarget.classList.add('dnd-dragging');
+  ev.dataTransfer.addEventListener('dragend',()=>ev.currentTarget.classList.remove('dnd-dragging'),{once:true});
   const el=ev.currentTarget;
   const id=el.getAttribute('data-equipment-id');
   const name=el.getAttribute('data-equipment-name')||'';
@@ -1230,7 +1238,7 @@ async function loadWarehouses() {
         return `<div class="wh-mini ${isActive?'active':''}" style="border-color:${color};${isActive?'background:'+color+'22':''};color:${isActive?color:'var(--text2)'}"
           data-wh-id="${w.id}"
           onclick="onWhCardClick('${w.id}',event)"
-          ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''}>
+          ${canDnd ? `ondragover="dndAllowDrop(event)" ondragleave="dndDragLeave(event)" ondrop="dndDrop(event);dndOnDropWh(event,'${w.id}')"` : ''}>
           <span style="width:18px;height:18px;border-radius:5px;background:${color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">${esc(String(abbr).slice(0,3))}</span>
           ${esc(w.name)}
         </div>`;
@@ -1243,22 +1251,24 @@ async function loadWarehouses() {
         <div class="section-title">🏢 Склады
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
-        ${!isMobile() ? (canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите <b>позицию</b> или <b>оборудование</b> на другой склад — строка попадёт в корзину; затем «Создать заявки» (расходники — заявка на перемещение, оборудование — подтверждение и смена склада).</p>` : '') : ''}
-        ${mobileBar}
-        ${!isMobile() ? (list.length ? `<div class="card-grid">
+        <div id="wh-cards-sticky" style="position:sticky;top:0;z-index:10;background:var(--bg2);padding:8px 0;border-radius:0 0 12px 12px">
+        ${!isMobile() && canDnd ? `<p style="font-size:10px;color:var(--text3);margin-bottom:6px;margin-top:0">Перетащите позицию или оборудование на другой склад для перемещения.</p>` : ''}
+        ${mobileBar || ''}
+        ${!isMobile() && list.length ? `<div class="card-grid">
           ${list.map(w => `
-            <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
+            <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondragleave="dndDragLeave(event)" ondrop="dndDrop(event);dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
               ${canEdit ? `<button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Редактировать">⚙</button>` : ''}
               <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
                 <span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span>
                 ${whVenueBadgeHtml(w)}
               </div>
-              <div style="font-weight:600;margin-top:6px;font-size:13px">${esc(w.name)}</div>
-              <div style="font-size:10px;color:var(--text3);margin-top:2px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '')}</div>
-              <div style="font-size:10px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || '—')}</div>
+              <div style="font-weight:600;margin-top:4px;font-size:12px">${esc(w.name)}</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '')}</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:2px">👤 ${esc(w.responsible_name || '—')}</div>
             </div>
           `).join('')}
-        </div>` : `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>`) : ''}
+        </div>` : (!isMobile() ? `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>` : '')}
+        </div>
         ${inactiveList.length ? `<details id="wh-inactive-details" style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:var(--text3);user-select:none;padding:8px 0">Деактивированные склады (${inactiveList.length})</summary>
         <div class="card-grid" style="margin-top:8px">
           ${inactiveList.map(w => `
