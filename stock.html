@@ -1172,7 +1172,7 @@ async function whPanelCommitMin(itemId,whId,qty,inp){
 async function loadWarehouses() {
   try {
     const [whs, vens, usrs] = await Promise.all([
-      api('GET', '/warehouses'),
+      api('GET', '/warehouses?include_inactive=true'),
       api('GET', '/venues').catch(() => []),
       api('GET', '/users').catch(() => []),
     ]);
@@ -1183,7 +1183,9 @@ async function loadWarehouses() {
     const canDnd = can('tech_director') || can('hr_manager') || can('exec_director') || can('admin');
     const TYPE_LABELS = { central: 'Центральный', venue: 'На площадке', mobile: 'Мобильный' };
     const TYPE_CLS = { central: 'wh-type-central', venue: 'wh-type-venue', mobile: 'wh-type-mobile' };
-    const list = whs.filter(w => w.is_active);
+    const activeList = whs.filter(w => w.is_active);
+    const inactiveList = whs.filter(w => !w.is_active);
+    const list = activeList;
     const sel=selectedWarehouseId;
     if(sel&&!list.find(w=>w.id===sel))selectedWarehouseId=null;
     c.innerHTML = `
@@ -1205,7 +1207,22 @@ async function loadWarehouses() {
               <div style="font-size:10px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || '—')}</div>
             </div>
           `).join('')}
-        </div>` : '<div style="color:var(--text3)">Нет складов. Создайте первый.</div>'}
+        </div>` : `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>`}
+        ${inactiveList.length ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:var(--text3);user-select:none;padding:8px 0">Деактивированные склады (${inactiveList.length})</summary>
+        <div class="card-grid" style="margin-top:8px">
+          ${inactiveList.map(w => `
+            <div class="wh-card wh-card-compact" style="opacity:0.5;border-style:dashed">
+              <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+                <span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span>
+                <span style="font-size:9px;color:var(--rank3);font-weight:600">НЕАКТИВЕН</span>
+                ${whVenueBadgeHtml(w)}
+              </div>
+              <div style="font-weight:600;margin-top:6px;font-size:13px">${esc(w.name)}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:2px">${w.city ? esc(w.city) : ''}</div>
+              ${canEdit ? `<button class="btn btn-ghost" style="font-size:11px;margin-top:8px;color:var(--rank1);border-color:var(--rank1)" onclick="event.stopPropagation();reactivateWarehouse('${w.id}')">▶ Активировать</button>` : ''}
+            </div>
+          `).join('')}
+        </div></details>` : ''}
         <div id="wh-stock-panel"></div>
         <div id="dnd-cart-host"></div>
       </div>`;
@@ -1263,11 +1280,20 @@ async function saveWarehouse() {
 }
 
 async function deactivateWarehouse(id) {
-  if (!confirm('Деактивировать склад? Это действие нельзя отменить из интерфейса.')) return;
+  if (!confirm('Деактивировать склад? Его можно будет активировать обратно.')) return;
   try {
     await api('DELETE', `/warehouses/${id}`);
     if (selectedWarehouseId === id) selectedWarehouseId = null;
     showToast('Склад деактивирован');
+    loadWarehouses(); loadSummary();
+  } catch(e) { showToast(e.message, true); }
+}
+
+async function reactivateWarehouse(id) {
+  if (!confirm('Активировать склад?')) return;
+  try {
+    await api('PATCH', `/warehouses/${id}`, { is_active: true });
+    showToast('Склад активирован');
     loadWarehouses(); loadSummary();
   } catch(e) { showToast(e.message, true); }
 }
@@ -1453,7 +1479,7 @@ function openPoModal() {
   document.getElementById('po-delivery').value = '';
   document.getElementById('po-total').textContent = '0 ₽';
   const whSel = document.getElementById('po-warehouse');
-  whSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  whSel.innerHTML = warehouses.filter(w => w.is_active).map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
   addPoLine();
   document.getElementById('po-modal').classList.add('open');
 }
@@ -1520,7 +1546,7 @@ function openTrModal() {
   trLineCount = 0;
   document.getElementById('tr-lines').innerHTML = '';
   document.getElementById('tr-notes').value = '';
-  const whOpts = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  const whOpts = warehouses.filter(w => w.is_active).map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('tr-from').innerHTML = whOpts;
   document.getElementById('tr-to').innerHTML = whOpts;
   addTrLine();
@@ -2012,7 +2038,7 @@ async function openPoFromForecast() {
   document.getElementById('po-delivery').value = '';
   document.getElementById('po-total').textContent = '0 ₽';
   const whSel = document.getElementById('po-warehouse');
-  whSel.innerHTML = warehouses.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  whSel.innerHTML = warehouses.filter(w => w.is_active).map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
   if (whId) whSel.value = whId;
 
   need.forEach(row => {
@@ -2630,7 +2656,7 @@ async function loadAnalytics() {
 function openMoveModal(){
   const itemSel=document.getElementById('mv-item');
   itemSel.innerHTML=items.filter(i=>i.is_active!==false).map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.unit||'шт')})</option>`).join('');
-  const whOpts='<option value="">—</option>'+warehouses.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  const whOpts='<option value="">—</option>'+warehouses.filter(w=>w.is_active).map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('mv-from').innerHTML=whOpts;
   document.getElementById('mv-to').innerHTML=whOpts;
   document.getElementById('mv-qty').value=1;
