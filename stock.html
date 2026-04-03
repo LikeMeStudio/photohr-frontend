@@ -84,14 +84,24 @@ a{color:inherit;text-decoration:none}
   .header{padding-top:max(10px, env(safe-area-inset-top))}
   .toast{bottom:max(20px, env(safe-area-inset-bottom))}
   body{padding-bottom:env(safe-area-inset-bottom)}
-  .tabs button,.tabs .tab{font-size:11px;padding:6px 10px;min-height:36px}
-  .stat-num{font-size:16px}
-  .stat-lbl{font-size:10px}
-  .section-title{font-size:14px}
-  .tbl th,.tbl td{padding:6px 4px;font-size:11px}
-  .btn{font-size:12px;padding:6px 10px}
-  .fin{font-size:13px;padding:8px 10px}
-  .fselect{font-size:13px;padding:8px 10px}
+  .tabs button,.tabs .tab{font-size:12px;padding:8px 12px;min-height:40px}
+  .stat-num{font-size:18px}
+  .stat-lbl{font-size:11px}
+  .section-title{font-size:15px}
+  .section{padding:14px}
+  .tbl th,.tbl td{padding:8px 6px;font-size:12px}
+  .btn{font-size:13px;padding:8px 12px}
+  .fin{font-size:14px;padding:10px 12px}
+  .fselect{font-size:14px;padding:10px 12px}
+  .fl{font-size:11px}
+  .card-grid{gap:8px}
+  .wh-card-compact{padding:12px 40px 12px 12px}
+  .wh-card-compact .wh-type{font-size:10px}
+  /* Компактные sticky склады на мобильном */
+  .wh-mobile-bar{position:sticky;top:0;z-index:15;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  .wh-mobile-bar::-webkit-scrollbar{display:none}
+  .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
+  .wh-mini.active{border-width:2px}
 }
 
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:4px}
@@ -406,7 +416,13 @@ const hasAnyRole=(roles)=>roles.includes(roleNow());
 function can(role){return roleNow()===role;}
 function openProfile(){window.location.href='photographers.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
-function updateStickyTop(){const h=document.querySelector('.header');const t=document.querySelector('.tabs');if(h&&t)t.style.top=h.offsetHeight+'px';}
+function updateStickyTop(){
+  const h=document.querySelector('.header');
+  const t=document.querySelector('.tabs');
+  if(h&&t) t.style.top=h.offsetHeight+'px';
+  const mb=document.getElementById('wh-mobile-bar');
+  if(mb&&h) mb.style.top=(h.offsetHeight+(t?t.offsetHeight:0))+'px';
+}
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 let warehouses=[],items=[],currentTabIdx=0;
@@ -1113,10 +1129,14 @@ function onWhCardClick(id,ev){
     const p=document.getElementById('wh-stock-panel');
     if(p)p.innerHTML='';
     document.querySelectorAll('.wh-card-compact').forEach(el=>el.classList.remove('wh-card-active'));
+    document.querySelectorAll('.wh-mini').forEach(el=>el.classList.remove('active'));
     return;
   }
   selectedWarehouseId=id;
   document.querySelectorAll('.wh-card-compact').forEach(el=>el.classList.toggle('wh-card-active',el.getAttribute('data-wh-id')===id));
+  document.querySelectorAll('.wh-mini[data-wh-id]').forEach(el=>{
+    el.classList.toggle('active',String(el.getAttribute('data-wh-id'))===String(id));
+  });
   renderWhStockPanel(id);
 }
 async function renderWhStockPanel(whId){
@@ -1179,6 +1199,8 @@ async function whPanelCommitMin(itemId,whId,qty,inp){
   }catch(e){showToast(e.message,true);renderWhStockPanel(whId);}
 }
 
+function isMobile(){return window.innerWidth<=768;}
+
 async function loadWarehouses() {
   try {
     const [whs, vens, usrs] = await Promise.all([
@@ -1198,13 +1220,32 @@ async function loadWarehouses() {
     const list = activeList;
     const sel=selectedWarehouseId;
     if(sel&&!list.find(w=>w.id===sel))selectedWarehouseId=null;
+
+    const mobileBar = isMobile() ? `<div class="wh-mobile-bar" id="wh-mobile-bar">
+      ${list.map(w => {
+        const v = venues.find(x => x.id === w.venue_id);
+        const color = v ? venuePickColor(v) : (w.warehouse_type === 'central' ? '#7c6cff' : 'var(--text3)');
+        const abbr = v ? venueShortLabel(v) : (w.name||'').slice(0,3);
+        const isActive = sel === w.id;
+        return `<div class="wh-mini ${isActive?'active':''}" style="border-color:${color};${isActive?'background:'+color+'22':''};color:${isActive?color:'var(--text2)'}"
+          data-wh-id="${w.id}"
+          onclick="onWhCardClick('${w.id}',event)"
+          ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''}>
+          <span style="width:18px;height:18px;border-radius:5px;background:${color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">${esc(String(abbr).slice(0,3))}</span>
+          ${esc(w.name)}
+        </div>`;
+      }).join('')}
+      ${inactiveList.length ? `<div class="wh-mini" style="opacity:.4;border-style:dashed" onclick="event.stopPropagation();document.getElementById('wh-inactive-details')?.toggleAttribute('open')">+${inactiveList.length}</div>` : ''}
+    </div>` : '';
+
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🏢 Склады
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
-        ${canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите <b>позицию</b> или <b>оборудование</b> на другой склад — строка попадёт в корзину; затем «Создать заявки» (расходники — заявка на перемещение, оборудование — подтверждение и смена склада).</p>` : ''}
-        ${list.length ? `<div class="card-grid">
+        ${!isMobile() ? (canDnd ? `<p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по карточке — остатки ниже. Перетащите <b>позицию</b> или <b>оборудование</b> на другой склад — строка попадёт в корзину; затем «Создать заявки» (расходники — заявка на перемещение, оборудование — подтверждение и смена склада).</p>` : '') : ''}
+        ${mobileBar}
+        ${!isMobile() ? (list.length ? `<div class="card-grid">
           ${list.map(w => `
             <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondrop="dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
               ${canEdit ? `<button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Редактировать">⚙</button>` : ''}
@@ -1217,8 +1258,8 @@ async function loadWarehouses() {
               <div style="font-size:10px;color:var(--text3);margin-top:4px">👤 ${esc(w.responsible_name || '—')}</div>
             </div>
           `).join('')}
-        </div>` : `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>`}
-        ${inactiveList.length ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:var(--text3);user-select:none;padding:8px 0">Деактивированные склады (${inactiveList.length})</summary>
+        </div>` : `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>`) : ''}
+        ${inactiveList.length ? `<details id="wh-inactive-details" style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:var(--text3);user-select:none;padding:8px 0">Деактивированные склады (${inactiveList.length})</summary>
         <div class="card-grid" style="margin-top:8px">
           ${inactiveList.map(w => `
             <div class="wh-card wh-card-compact" style="opacity:0.5;border-style:dashed">
@@ -1237,6 +1278,7 @@ async function loadWarehouses() {
         <div id="dnd-cart-host"></div>
       </div>`;
     updateDndCartUI();
+    updateStickyTop();
     if(selectedWarehouseId)renderWhStockPanel(selectedWarehouseId);
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
