@@ -103,7 +103,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 <div id="tab-contest" class="section" style="display:none">
   <div class="section-title">📷 Фотоконкурс смены</div>
   <div style="margin-bottom:10px">
-    <input class="fin" id="contest-url" placeholder="URL фото" style="width:100%;margin-bottom:6px">
+    <div style="margin-bottom:10px">
+      <label style="display:inline-block;padding:10px 20px;background:var(--accent);color:#fff;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">
+        📷 Выбрать фото
+        <input type="file" id="contest-file" accept="image/*" capture="environment" style="display:none" onchange="previewContestPhoto(this)">
+      </label>
+      <span id="contest-file-name" style="font-size:12px;color:var(--text2);margin-left:8px"></span>
+    </div>
+    <div id="contest-preview" style="display:none;margin-bottom:10px">
+      <img id="contest-preview-img" alt="" style="max-width:100%;max-height:200px;border-radius:8px;object-fit:cover">
+    </div>
     <input class="fin" id="contest-caption" placeholder="Подпись (необязательно)" style="width:100%;margin-bottom:6px">
     <button type="button" class="btn btn-primary" onclick="submitContestPhoto()" style="font-size:12px">📷 Подать на конкурс</button>
   </div>
@@ -213,7 +222,17 @@ async function loadShift() {
     currentShift = todayShift;
     currentEvent = todayShift.event_id ? { id: todayShift.event_id } : null;
 
-    venueProducts = await api('GET', `/venues/${todayShift.venue_id}/products`).catch(() => []);
+    const venueId = todayShift.venue_id;
+    let productsFromScheme = [];
+    try {
+      const schemeData = await api('GET', `/venues/${venueId}/active-scheme?date=${today}`);
+      if (schemeData.products && schemeData.products.length) productsFromScheme = schemeData.products;
+    } catch (_) { /* fallback ниже */ }
+    if (productsFromScheme.length) {
+      venueProducts = productsFromScheme;
+    } else {
+      venueProducts = await api('GET', `/venues/${venueId}/products`).catch(() => []);
+    }
 
     const phCard = await api('GET', `/photographers/${currentUser.photographer_id}`).catch(() => ({}));
     currentUser._cameraPrefix = phCard.camera_prefix || 'DSC_';
@@ -369,10 +388,9 @@ function renderSaleForm() {
   if (available.length) {
     html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`;
     available.forEach(vp => {
-      const pid = esc(vp.product_id);
-      const pnm = JSON.stringify(vp.name || 'Товар');
+      const pid = String(vp.product_id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const prc = parseFloat(vp.price) || 0;
-      html += `<button type="button" class="btn btn-ghost btn-sm" onclick="addToCart('${pid}', ${pnm}, ${prc})" style="font-size:11px">+ ${esc(vp.name || '')} ${Number(vp.price).toLocaleString('ru-RU')}₽</button>`;
+      html += `<button type="button" class="btn btn-ghost btn-sm" onclick="addToCartByProductId('${pid}')" style="font-size:11px">+ ${esc(vp.name || '')} ${Number(vp.price).toLocaleString('ru-RU')}₽</button>`;
     });
     html += `</div>`;
   }
@@ -405,8 +423,19 @@ function renderSaleForm() {
   document.getElementById('sale-modal-content').innerHTML = html;
 }
 
+function addToCartByProductId(productId) {
+  const vp = venueProducts.find((p) => String(p.product_id) === String(productId));
+  if (!vp) { toast('Товар не найден', true); return; }
+  addToCart(vp.product_id, vp.name || 'Товар', parseFloat(vp.price) || 0);
+}
+
 function addToCart(productId, name, price) {
-  newSaleState.items.push({ product_id: productId, name, unit_price: price, quantity: 1 });
+  const existing = newSaleState.items.find((i) => String(i.product_id) === String(productId));
+  if (existing) {
+    existing.quantity = (parseInt(existing.quantity, 10) || 1) + 1;
+  } else {
+    newSaleState.items.push({ product_id: productId, name, unit_price: price, quantity: 1 });
+  }
   renderSaleForm();
 }
 
@@ -749,13 +778,44 @@ async function toggleContestVote(btn) {
   }
 }
 
+function previewContestPhoto(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  document.getElementById('contest-file-name').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('contest-preview-img').src = e.target.result;
+    document.getElementById('contest-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
 async function submitContestPhoto() {
-  const photo_url = document.getElementById('contest-url').value.trim();
-  const caption = document.getElementById('contest-caption').value.trim();
-  if (!photo_url || !currentEvent?.id) { toast('Введите URL фото', true); return; }
+  const fileInput = document.getElementById('contest-file');
+  const file = fileInput && fileInput.files[0];
+  const caption = (document.getElementById('contest-caption').value || '').trim();
+  if (!file || !currentEvent?.id) { toast('Выберите фото', true); return; }
+
   try {
+    toast('Загружаем фото...');
+    const formData = new FormData();
+    formData.append('photo', file);
+    const uploadRes = await fetch(API + '/contest-photos/upload', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken },
+      body: formData,
+    });
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json().catch(() => ({ error: 'Ошибка загрузки' }));
+      throw new Error(err.error || 'Ошибка загрузки');
+    }
+    const { photo_url } = await uploadRes.json();
+
     await api('POST', `/events/${currentEvent.id}/contest`, { photo_url, caption: caption || null });
-    document.getElementById('contest-url').value = '';
+
+    fileInput.value = '';
+    document.getElementById('contest-file-name').textContent = '';
+    document.getElementById('contest-preview').style.display = 'none';
     document.getElementById('contest-caption').value = '';
     toast('Фото подано на конкурс');
     loadContest();
