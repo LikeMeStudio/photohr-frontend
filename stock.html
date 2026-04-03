@@ -130,6 +130,15 @@ details.eq-group{margin-bottom:12px}
 details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 .eq-group-chevron{transition:transform .2s;font-size:12px;color:var(--text3)}
 .inv-cancelled-details summary::-webkit-details-marker{display:none}
+.ss-wrap{position:relative}
+.ss-input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:11px;font-family:inherit;outline:none}
+.ss-input:focus{border-color:var(--accent)}
+.ss-dropdown{position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-top:2px;z-index:100;display:none}
+.ss-dropdown.open{display:block}
+.ss-option{padding:6px 10px;font-size:11px;cursor:pointer;color:var(--text)}
+.ss-option:hover,.ss-option.highlighted{background:var(--accent);color:#fff}
+.ss-option.selected{font-weight:600}
+.ss-empty{padding:6px 10px;font-size:11px;color:var(--text3);font-style:italic}
 </style>
 </head>
 <body>
@@ -175,7 +184,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
       <option value="adjustment">Корректировка</option>
     </select>
   </div>
-  <div class="field"><div class="fl">Товар *</div><select class="fselect" id="mv-item"></select></div>
+  <div class="field"><div class="fl">Товар *</div><div id="mv-item-host"></div></div>
   <div class="field" id="mv-from-wrap"><div class="fl">Со склада</div><select class="fselect" id="mv-from"></select></div>
   <div class="field" id="mv-to-wrap"><div class="fl">На склад</div><select class="fselect" id="mv-to"></select></div>
   <div class="field"><div class="fl">Количество *</div><input class="fin" type="number" id="mv-qty" min="1" value="1"/></div>
@@ -1490,14 +1499,21 @@ function addPoLine() {
   div.id = `po-line-${n}`;
   div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
-    <select class="fselect" id="po-item-${n}" style="font-size:11px">
-      ${items.filter(i=>i.is_active!==false).map(i=>`<option value="${i.id}" data-price="${i.last_purchase_price||0}">${esc(i.name)}</option>`).join('')}
-    </select>
+    <div id="po-item-host-${n}"></div>
     <input class="fin" type="number" id="po-qty-${n}" placeholder="Кол-во" min="1" oninput="updatePoTotal()" style="font-size:11px"/>
     <input class="fin" type="number" id="po-price-${n}" placeholder="Цена" min="0" oninput="updatePoTotal()" style="font-size:11px"/>
     <button class="dr-close" onclick="document.getElementById('po-line-${n}').remove();updatePoTotal()" title="Удалить">×</button>
   `;
   document.getElementById('po-lines').appendChild(div);
+  createSearchableSelect(document.getElementById(`po-item-host-${n}`), items.filter(i => i.is_active !== false), {
+    extraLabel: i => `(${i.category || i.item_type || ''})`,
+    placeholder: 'Поиск позиции...',
+    onSelect: (item) => {
+      const priceInput = document.getElementById(`po-price-${n}`);
+      if (priceInput && item.last_purchase_price) priceInput.value = item.last_purchase_price;
+      updatePoTotal();
+    },
+  });
 }
 
 function updatePoTotal() {
@@ -1517,7 +1533,7 @@ async function savePurchaseOrder() {
   const lines = [];
   document.querySelectorAll('[id^="po-line-"]').forEach(row => {
     const n = row.id.split('-')[2];
-    const item_id = document.getElementById(`po-item-${n}`)?.value;
+    const item_id = document.getElementById(`po-line-${n}`)?.querySelector('.ss-value')?.value;
     const qty = parseFloat(document.getElementById(`po-qty-${n}`)?.value);
     let price = parseFloat(document.getElementById(`po-price-${n}`)?.value);
     if (!Number.isFinite(price) || price <= 0) price = 1;
@@ -1542,6 +1558,102 @@ async function savePurchaseOrder() {
   } catch(e) { showToast(e.message, true); }
 }
 
+function createSearchableSelect(hostEl, itemsList, opts = {}) {
+  const valField = opts.valueField || 'id';
+  const labelField = opts.labelField || 'name';
+  const extraLabel = opts.extraLabel || null;
+  const placeholder = opts.placeholder || 'Поиск позиции...';
+  const onSelect = opts.onSelect || null;
+  const initialId = opts.initialId || null;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'ss-wrap';
+
+  const input = document.createElement('input');
+  input.className = 'ss-input';
+  input.placeholder = placeholder;
+  input.autocomplete = 'off';
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'ss-dropdown';
+
+  const hidden = document.createElement('input');
+  hidden.type = 'hidden';
+  hidden.className = 'ss-value';
+
+  wrap.appendChild(input);
+  wrap.appendChild(dropdown);
+  wrap.appendChild(hidden);
+
+  function renderOptions(filter) {
+    const q = (filter || '').toLowerCase().trim();
+    const filtered = q
+      ? itemsList.filter(i => {
+          const label = String(i[labelField] || '').toLowerCase();
+          const cat = String(i.category || '').toLowerCase();
+          return label.includes(q) || cat.includes(q);
+        })
+      : itemsList;
+    if (!filtered.length) {
+      dropdown.innerHTML = '<div class="ss-empty">Ничего не найдено</div>';
+    } else {
+      dropdown.innerHTML = filtered.map(i => {
+        const label = esc(i[labelField] || '');
+        const extra = extraLabel ? ' ' + esc(extraLabel(i)) : '';
+        const sel = String(hidden.value) === String(i[valField]) ? ' selected' : '';
+        return `<div class="ss-option${sel}" data-value="${i[valField]}">${label}${extra}</div>`;
+      }).join('');
+    }
+  }
+
+  input.addEventListener('focus', () => {
+    renderOptions(input.value);
+    dropdown.classList.add('open');
+  });
+
+  input.addEventListener('input', () => {
+    hidden.value = '';
+    renderOptions(input.value);
+    dropdown.classList.add('open');
+  });
+
+  dropdown.addEventListener('click', (e) => {
+    const opt = e.target.closest('.ss-option');
+    if (!opt) return;
+    const val = opt.dataset.value;
+    const item = itemsList.find(i => String(i[valField]) === String(val));
+    if (item) {
+      hidden.value = val;
+      input.value = item[labelField] || '';
+      dropdown.classList.remove('open');
+      if (onSelect) onSelect(item);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) dropdown.classList.remove('open');
+  });
+
+  if (initialId) {
+    const init = itemsList.find(i => String(i[valField]) === String(initialId));
+    if (init) {
+      hidden.value = initialId;
+      input.value = init[labelField] || '';
+    }
+  }
+
+  wrap.getValue = () => hidden.value;
+  wrap.setValue = (id) => {
+    const item = itemsList.find(i => String(i[valField]) === String(id));
+    hidden.value = id || '';
+    input.value = item ? (item[labelField] || '') : '';
+  };
+
+  hostEl.innerHTML = '';
+  hostEl.appendChild(wrap);
+  return wrap;
+}
+
 function openTrModal() {
   trLineCount = 0;
   document.getElementById('tr-lines').innerHTML = '';
@@ -1559,13 +1671,15 @@ function addTrLine() {
   div.id = `tr-line-${n}`;
   div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
-    <select class="fselect" id="tr-item-${n}" style="font-size:11px">
-      ${items.map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join('')}
-    </select>
+    <div id="tr-item-host-${n}"></div>
     <input class="fin" type="number" id="tr-qty-${n}" placeholder="Кол-во" min="1" style="font-size:11px"/>
     <button class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить">×</button>
   `;
   document.getElementById('tr-lines').appendChild(div);
+  createSearchableSelect(document.getElementById(`tr-item-host-${n}`), items.filter(i => i.is_active !== false), {
+    extraLabel: i => `(${i.category || i.item_type || ''})`,
+    placeholder: 'Поиск позиции...',
+  });
 }
 
 async function saveTransfer() {
@@ -1576,7 +1690,7 @@ async function saveTransfer() {
   const lines = [];
   document.querySelectorAll('[id^="tr-line-"]').forEach(row => {
     const n = row.id.split('-')[2];
-    const item_id = document.getElementById(`tr-item-${n}`)?.value;
+    const item_id = document.getElementById(`tr-line-${n}`)?.querySelector('.ss-value')?.value;
     const qty = parseFloat(document.getElementById(`tr-qty-${n}`)?.value);
     if (item_id && qty > 0) lines.push({ item_id, quantity: qty });
   });
@@ -2047,8 +2161,9 @@ async function openPoFromForecast() {
     const lastRow = nodes[nodes.length - 1];
     if (!lastRow) return;
     const n = lastRow.id.split('-')[2];
-    const sel = document.getElementById('po-item-' + n);
-    if (sel) sel.value = row.item_id;
+    const poHost = document.getElementById('po-item-host-' + n);
+    const poWrap = poHost?.firstElementChild;
+    if (poWrap && typeof poWrap.setValue === 'function') poWrap.setValue(row.item_id);
     let qty = parseFloat(row.need_to_order);
     if (!Number.isFinite(qty) || qty <= 0) {
       const rem = parseFloat(row.remaining_after);
@@ -2654,8 +2769,10 @@ async function loadAnalytics() {
 }
 
 function openMoveModal(){
-  const itemSel=document.getElementById('mv-item');
-  itemSel.innerHTML=items.filter(i=>i.is_active!==false).map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.unit||'шт')})</option>`).join('');
+  createSearchableSelect(document.getElementById('mv-item-host'), items.filter(i => i.is_active !== false), {
+    extraLabel: i => `(${i.unit || 'шт'})`,
+    placeholder: 'Поиск позиции...',
+  });
   const whOpts='<option value="">—</option>'+warehouses.filter(w=>w.is_active).map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('mv-from').innerHTML=whOpts;
   document.getElementById('mv-to').innerHTML=whOpts;
@@ -2673,7 +2790,7 @@ function updateMoveFields(){
 
 async function createMovement(){
   const type=document.getElementById('mv-type').value;
-  const item_id=document.getElementById('mv-item').value;
+  const item_id=document.getElementById('mv-item-host')?.querySelector('.ss-value')?.value;
   const qty=parseInt(document.getElementById('mv-qty').value);
   if(!item_id||!qty){showToast('Заполните поля',true);return;}
   try{
