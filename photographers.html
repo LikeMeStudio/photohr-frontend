@@ -293,7 +293,6 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   .nav-links::-webkit-scrollbar{display:none}
   .header-stats{display:none}
   .logo{font-size:16px}
-  #toolbar-sticky{top:0!important}
   .search-in{font-size:14px!important;padding:10px!important}
   .f-btn{font-size:11px;padding:4px 8px}
   .main{padding:10px 12px}
@@ -347,7 +346,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     </div>
   </div>
   <!-- ── TOOLBAR ── -->
-  <div id="toolbar-sticky" style="border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:58px;z-index:20">
+  <div id="toolbar-sticky" style="border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:20">
     <!-- Строка 1: поиск + добавить + управление -->
     <div style="padding:10px 28px;display:flex;align-items:center;gap:8px">
       <input class="search-in" id="search" placeholder="🔍 Поиск по имени..." oninput="render()" style="flex:1;max-width:320px"/>
@@ -355,14 +354,12 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <div style="flex:1"></div>
       <div id="toolbar-actions" style="display:flex;gap:8px"></div>
     </div>
-    <!-- Подменю категорий -->
-    <div class="sub-nav" style="padding:0 28px 8px;display:flex;gap:6px;align-items:center;border-bottom:none">
-      <a href="photographers.html" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Golos Text',sans-serif;background:#7c6cff;color:#fff;border:1px solid #7c6cff">📷 Фотографы</a>
-      <a href="team.html" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border)">👔 Управленцы</a>
-      <a href="aquagrim.html" style="text-decoration:none;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border)">🎨 Аквагрим</a>
-    </div>
-    <!-- Строка 2: фильтры -->
-    <div style="padding:0 28px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <!-- Подменю + фильтры в одну строку -->
+    <div class="sub-nav" style="padding:4px 28px 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <a href="photographers.html" style="text-decoration:none;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'Golos Text',sans-serif;background:#7c6cff;color:#fff;border:1px solid #7c6cff">📷 Фотографы</a>
+      <a href="team.html" style="text-decoration:none;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border)">👔 Управленцы</a>
+      <a href="aquagrim.html" style="text-decoration:none;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;font-family:'Golos Text',sans-serif;background:transparent;color:var(--text2);border:1px solid var(--border)">🎨 Аквагрим</a>
+      <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
       <!-- Ранг — цифры цветные, звёзды серые → цветные при hover/active -->
       <div style="display:flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 8px">
         <span style="font-size:10px;color:var(--text3);margin-right:3px">РАНГ</span>
@@ -404,11 +401,11 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <div style="display:flex;align-items:center;gap:1px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px"
            onmouseleave="updatePhotoStars(filters.photo ? Number(filters.photo) : 0)">
         <span style="font-size:10px;color:var(--text3);margin-right:4px">ФОТО</span>
-        <span id="fps-1" onclick="setPhotoFilter(1)" onmouseover="hoverPhotoStars(1)" style="font-size:16px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1;padding:0 1px">★</span>
-        <span id="fps-2" onclick="setPhotoFilter(2)" onmouseover="hoverPhotoStars(2)" style="font-size:16px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1;padding:0 1px">★</span>
-        <span id="fps-3" onclick="setPhotoFilter(3)" onmouseover="hoverPhotoStars(3)" style="font-size:16px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1;padding:0 1px">★</span>
-        <span id="fps-4" onclick="setPhotoFilter(4)" onmouseover="hoverPhotoStars(4)" style="font-size:16px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1;padding:0 1px">★</span>
-        <span id="fps-5" onclick="setPhotoFilter(5)" onmouseover="hoverPhotoStars(5)" style="font-size:16px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1;padding:0 1px">★</span>
+        <span id="fps-1" onclick="setPhotoFilter(1)" onmouseover="hoverPhotoStars(1)" style="font-size:14px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1">★</span>
+        <span id="fps-2" onclick="setPhotoFilter(2)" onmouseover="hoverPhotoStars(2)" style="font-size:14px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1">★</span>
+        <span id="fps-3" onclick="setPhotoFilter(3)" onmouseover="hoverPhotoStars(3)" style="font-size:14px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1">★</span>
+        <span id="fps-4" onclick="setPhotoFilter(4)" onmouseover="hoverPhotoStars(4)" style="font-size:14px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1">★</span>
+        <span id="fps-5" onclick="setPhotoFilter(5)" onmouseover="hoverPhotoStars(5)" style="font-size:14px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1">★</span>
         <span id="photo-filter-hint" style="font-size:10px;color:#f5a623;font-weight:600;margin-left:4px;min-width:24px"></span>
       </div>
       <!-- Площадка -->
@@ -732,11 +729,18 @@ function doLogout() {
 }
 
 // ── INIT ──
+function updateStickyTop() {
+  const h = document.querySelector('.header');
+  const t = document.getElementById('toolbar-sticky');
+  if (h && t) t.style.top = h.offsetHeight + 'px';
+}
+
 async function startApp() {
   setupUserPill();
   setupToolbarActions();
   await Promise.all([loadPhotographers(), loadVenues()]);
   render();
+  updateStickyTop();
   const _sp = new URLSearchParams(window.location.search);
   if (_sp.get('profile') === '1') {
     window.history.replaceState({}, '', window.location.pathname);
@@ -3998,6 +4002,8 @@ async function submitAssignGrade(phId) {
 }
 
 // ── BOOT ──
+updateStickyTop();
+window.addEventListener('resize', updateStickyTop);
 (async()=>{
   if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
   try {
