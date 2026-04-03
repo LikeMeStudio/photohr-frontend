@@ -242,22 +242,38 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 
 <!-- Item modal -->
 <div class="overlay" id="item-modal" onclick="if(event.target===this)safeCloseModal('item-modal')">
-<div class="modal" style="max-width:480px">
+<div class="modal" style="max-width:520px">
   <div class="modal-title"><span id="item-modal-title">Новая позиция</span><button class="dr-close" onclick="safeCloseModal('item-modal')">×</button></div>
   <input type="hidden" id="item-id"/>
-  <div class="field"><div class="fl">Название *</div><input class="fin" id="item-name" placeholder="Бумага DNP 10x15"/></div>
-  <div class="field"><div class="fl">Тип *</div>
-    <select class="fselect" id="item-type">
-      <option value="consumable">📦 Расходник</option>
-      <option value="equipment">🔧 Оборудование</option>
-    </select>
+  <div class="field"><div class="fl">Название *</div><input class="fin" id="item-name" placeholder="DNP DS 40, Бумага 10x15..."/></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="field"><div class="fl">Тип *</div>
+      <select class="fselect" id="item-type" onchange="updateCategorySelect()">
+        <option value="consumable">📦 Расходник</option>
+        <option value="equipment">🔧 Оборудование</option>
+      </select>
+    </div>
+    <div class="field"><div class="fl">Категория *</div>
+      <select class="fselect" id="item-category"></select>
+    </div>
   </div>
   <div class="field"><div class="fl">Единица измерения</div><input class="fin" id="item-unit" placeholder="шт, рулон, пачка..."/></div>
-  <div class="field"><div class="fl">Категория</div><input class="fin" id="item-category" placeholder="бумага, краска, принтер..."/></div>
   <div class="field"><div class="fl">Описание</div><textarea class="fin" id="item-desc" rows="2" placeholder="Описание позиции..."></textarea></div>
-  <div class="field"><div class="fl">Поставщик</div><input class="fin" id="item-supplier" placeholder="DNP, Fuji..."/></div>
-  <div class="field"><div class="fl">Порог пополнения (предупреждение)</div><input class="fin" type="number" id="item-reorder" placeholder="0" min="0"/></div>
-  <div class="field"><div class="fl">Последняя цена закупки (₽)</div><input class="fin" type="number" id="item-price" placeholder="0" min="0"/></div>
+  <div class="field"><div class="fl">Поставщик</div>
+    <div style="position:relative">
+      <input class="fin" id="item-supplier" placeholder="Начните вводить..." autocomplete="off" oninput="filterSupplierDropdown()" onfocus="filterSupplierDropdown()"/>
+      <div id="supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:150px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-top:2px;z-index:100"></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="field"><div class="fl">Порог пополнения</div><input class="fin" type="number" id="item-reorder" placeholder="0" min="0"/></div>
+    <div class="field"><div class="fl">Цена закупки (₽)</div><input class="fin" type="number" id="item-price" placeholder="0" min="0"/></div>
+  </div>
+  <div class="field">
+    <div class="fl">Фотография</div>
+    <div id="item-photo-preview" style="margin-bottom:6px"></div>
+    <input type="file" id="item-photo-file" accept="image/jpeg,image/png,image/webp" style="font-size:12px"/>
+  </div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="safeCloseModal('item-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="saveItem()">Сохранить</button>
@@ -412,6 +428,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 <div class="toast" id="toast"></div>
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+const API_ROOT=API.replace(/\/api$/,'');
 let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
@@ -431,6 +448,37 @@ function updateStickyTop(){
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 let warehouses=[],items=[],currentTabIdx=0;
+let suppliersList=[];
+
+const EQUIPMENT_CATEGORIES=[
+  {value:'printers',label:'🖨 Принтеры',prefix:'P'},
+  {value:'computers',label:'💻 Компьютеры/Электроника',prefix:'PC'},
+  {value:'cashregisters',label:'🏷 Кассы',prefix:'KA'},
+  {value:'acquiring',label:'💳 Эквайринг',prefix:'EQ'},
+  {value:'photoinventory',label:'📷 Фотоинвентарь',prefix:'FI'},
+  {value:'furniture',label:'🪑 Мебель/Оборудование',prefix:'MO'},
+  {value:'decorations',label:'🎨 Декорации',prefix:'DK'},
+  {value:'wiring',label:'🔌 Коммутация',prefix:'KM'},
+  {value:'cash',label:'💰 Деньги/размен',prefix:'DN'},
+  {value:'aquagrim_eq',label:'🎭 Аквагрим',prefix:'AQ'},
+];
+const CONSUMABLE_CATEGORIES=[
+  {value:'photopaper',label:'📄 Фотобумага/краска',prefix:'FB'},
+  {value:'accessories',label:'🎁 Сопутствующие товары',prefix:'ST'},
+  {value:'uniform',label:'👕 Форма',prefix:'FM'},
+  {value:'food',label:'🍽 Питание',prefix:'PT'},
+  {value:'stationery',label:'📎 Канцелярия',prefix:'KN'},
+  {value:'medical',label:'🏥 Аптечка/гигиена',prefix:'AP'},
+  {value:'aq_paints',label:'🎨 Краски/Блестки АГ',prefix:'KR'},
+  {value:'aq_brushes',label:'🖌 Кисти АГ',prefix:'KI'},
+  {value:'aq_extras',label:'👑 Допы АГ',prefix:'DA'},
+];
+function getCategoriesForType(type){return type==='equipment'?EQUIPMENT_CATEGORIES:CONSUMABLE_CATEGORIES;}
+function getCategoryLabel(type,value){
+  const all=[...EQUIPMENT_CATEGORIES,...CONSUMABLE_CATEGORIES];
+  const found=all.find(c=>c.value===value);
+  return found?found.label:(value||'—');
+}
 let venues=[],users=[];
 let equipmentListCache=[];
 let refreshLock=null;
@@ -1480,15 +1528,15 @@ async function loadItems() {
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
         </div>
         ${items_all.length ? `<div class="table-wrap"><table class="tbl">
-          <thead><tr><th>Название</th><th>Тип</th><th>Ед.</th><th>Категория</th><th>Поставщик</th><th>Мин.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
+          <thead><tr><th style="width:36px"></th><th>Название</th><th>Тип</th><th>Категория</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
           <tbody>
           ${items_all.map(it => `<tr style="${it.is_active ? '' : 'opacity:.4'}">
+            <td style="width:36px;padding:4px">${it.photo_url ? `<img src="${API_ROOT}${it.photo_url}" style="width:32px;height:32px;border-radius:6px;object-fit:cover"/>` : `<span style="display:inline-block;width:32px;height:32px;border-radius:6px;background:var(--bg3)"></span>`}</td>
             <td>${esc(it.name)}</td>
             <td style="font-size:11px">${TYPE_LABELS[it.item_type] || it.item_type}</td>
-            <td style="color:var(--text3)">${esc(it.unit || 'шт')}</td>
-            <td style="color:var(--text3);font-size:11px">${esc(it.category || '—')}</td>
+            <td style="font-size:11px">${getCategoryLabel(it.item_type, it.category)}</td>
             <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
-            <td>${it.min_quantity ?? '—'}</td>
+            <td style="color:var(--text3)">${esc(it.unit || 'шт')}</td>
             <td>${it.reorder_point > 0 ? it.reorder_point : '—'}</td>
             <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
             <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it)})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}</td>
@@ -1504,14 +1552,88 @@ function openItemModal(it) {
   document.getElementById('item-id').value = it?.id || '';
   document.getElementById('item-name').value = it?.name || '';
   document.getElementById('item-type').value = it?.item_type || 'consumable';
+  updateCategorySelect();
+  const catVal = it?.category || '';
+  setTimeout(() => {
+    const sel = document.getElementById('item-category');
+    if (catVal && !Array.from(sel.options).some(o => o.value === catVal)) {
+      const opt = document.createElement('option');
+      opt.value = catVal;
+      opt.textContent = getCategoryLabel(it?.item_type || 'consumable', catVal);
+      const customOpt = sel.querySelector('option[value="__custom__"]');
+      if (customOpt) sel.insertBefore(opt, customOpt);
+      else sel.appendChild(opt);
+    }
+    sel.value = catVal;
+  }, 0);
   document.getElementById('item-unit').value = it?.unit || '';
-  document.getElementById('item-category').value = it?.category || '';
   document.getElementById('item-desc').value = it?.description || '';
   document.getElementById('item-supplier').value = it?.supplier || '';
   document.getElementById('item-reorder').value = it?.reorder_point || 0;
   document.getElementById('item-price').value = it?.last_purchase_price || '';
+  document.getElementById('item-photo-file').value = '';
+  const preview = document.getElementById('item-photo-preview');
+  if (it?.photo_url) {
+    preview.innerHTML = `<img src="${API_ROOT}${it.photo_url}" style="max-width:100px;max-height:80px;border-radius:8px;border:1px solid var(--border)"/>`;
+  } else {
+    preview.innerHTML = '<span style="font-size:11px;color:var(--text3)">Нет фото</span>';
+  }
   document.getElementById('item-modal').classList.add('open');
+  loadSuppliersList();
 }
+
+function updateCategorySelect() {
+  const type = document.getElementById('item-type').value;
+  const sel = document.getElementById('item-category');
+  const cats = getCategoriesForType(type);
+  sel.innerHTML = '<option value="">— выберите категорию —</option>' +
+    cats.map(c => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('') +
+    '<option value="__custom__">+ Добавить свою...</option>';
+  sel.onchange = function () {
+    if (this.value === '__custom__') {
+      const name = prompt('Введите название новой категории.\n\nРекомендуем использовать существующие категории, чтобы не раздувать список.');
+      if (name && name.trim()) {
+        const val = name.trim().toLowerCase().replace(/[^a-zа-яё0-9]/gi, '_');
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = name.trim();
+        const endOpt = sel.querySelector('option[value="__custom__"]');
+        if (endOpt) sel.insertBefore(opt, endOpt);
+        else sel.appendChild(opt);
+        sel.value = val;
+      } else {
+        sel.value = '';
+      }
+    }
+  };
+}
+
+async function loadSuppliersList() {
+  try { suppliersList = await api('GET', '/inventory-items/suppliers'); } catch (_) { suppliersList = []; }
+}
+
+function selectSupplier(name) {
+  document.getElementById('item-supplier').value = name;
+  const dd = document.getElementById('supplier-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function filterSupplierDropdown() {
+  const input = document.getElementById('item-supplier');
+  const dd = document.getElementById('supplier-dropdown');
+  const q = (input.value || '').toLowerCase().trim();
+  const filtered = q ? suppliersList.filter(s => s.toLowerCase().includes(q)) : suppliersList;
+  if (!filtered.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = filtered.map(s =>
+    `<div class="ss-option" onclick="selectSupplier(${JSON.stringify(s)})">${esc(s)}</div>`
+  ).join('');
+}
+
+document.addEventListener('click', (e) => {
+  const dd = document.getElementById('supplier-dropdown');
+  if (dd && !dd.contains(e.target) && e.target.id !== 'item-supplier') dd.style.display = 'none';
+});
 
 async function saveItem() {
   const id = document.getElementById('item-id').value;
@@ -1519,20 +1641,41 @@ async function saveItem() {
     name: document.getElementById('item-name').value.trim(),
     item_type: document.getElementById('item-type').value,
     unit: document.getElementById('item-unit').value.trim() || 'шт',
-    category: document.getElementById('item-category').value.trim() || null,
+    category: document.getElementById('item-category').value || null,
     description: document.getElementById('item-desc').value.trim() || null,
     supplier: document.getElementById('item-supplier').value.trim() || null,
     reorder_point: parseFloat(document.getElementById('item-reorder').value) || 0,
     last_purchase_price: parseFloat(document.getElementById('item-price').value) || null,
   };
   if (!body.name) { showToast('Введите название', true); return; }
+  if (!body.category || body.category === '__custom__') { showToast('Выберите категорию', true); return; }
   try {
-    if (id) await api('PATCH', `/inventory-items/${id}`, body);
-    else await api('POST', '/inventory-items', body);
+    let item;
+    if (id) {
+      item = await api('PATCH', `/inventory-items/${id}`, body);
+    } else {
+      item = await api('POST', '/inventory-items', body);
+    }
+    const fileInput = document.getElementById('item-photo-file');
+    if (fileInput.files.length > 0) {
+      const formData = new FormData();
+      formData.append('photo', fileInput.files[0]);
+      try {
+        const r = await fetch(`${API}/inventory-items/${item.id}/photo`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + localStorage.getItem('fhr_access') },
+          body: formData,
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || r.statusText);
+        }
+      } catch (photoErr) { showToast('Позиция сохранена, но фото не загрузилось', true); }
+    }
     document.getElementById('item-modal').classList.remove('open');
     showToast(id ? 'Позиция обновлена' : 'Позиция создана');
     loadItems(); loadSummary();
-  } catch(e) { showToast(e.message, true); }
+  } catch (e) { showToast(e.message, true); }
 }
 
 async function deleteItem(itemId, itemName) {
