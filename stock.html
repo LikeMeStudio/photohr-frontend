@@ -1089,8 +1089,8 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
 function whPanelStockTableSection(title, rowsHtml) {
   return `<div style="margin-top:12px">
     <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${title}</div>
-    <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
-    ${rowsHtml || '<tr><td colspan="8" style="color:var(--text3)">Нет позиций</td></tr>'}
+    <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+    ${rowsHtml || '<tr><td colspan="7" style="color:var(--text3)">Нет позиций</td></tr>'}
     </tbody></table></div>
   </div>`;
 }
