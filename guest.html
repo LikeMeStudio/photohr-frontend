@@ -95,9 +95,11 @@ function renderGuestPage(data) {
     html += `<div style="margin-bottom:10px">`;
     for (const item of data.items) {
       const total = parseFloat(item.total) || 0;
-      html += `<div class="item-row">
+      const frames = item.frame_numbers && item.frame_numbers.length ? item.frame_numbers.join(', ') : '';
+      html += `<div class="item-row" style="flex-wrap:wrap">
         <span>${esc(item.product_name)} × ${item.quantity}</span>
         <span style="font-weight:600">${total.toLocaleString('ru-RU')}₽</span>
+        ${frames ? `<div style="width:100%;font-size:11px;color:var(--text3);margin-top:2px">📷 кадры: ${esc(frames)}</div>` : ''}
       </div>`;
     }
     html += `</div>`;

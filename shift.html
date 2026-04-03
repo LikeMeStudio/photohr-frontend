@@ -53,6 +53,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 .shift-tabs button{flex:0 0 auto;padding:8px 10px;font-size:11px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:inherit;cursor:pointer;white-space:nowrap}
 .shift-tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -384,12 +385,15 @@ function renderSaleForm() {
     html += `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Добавьте товары из списка ниже</div>`;
   }
   s.items.forEach((item, ii) => {
-    html += `<div class="cart-item">
+    html += `<div class="cart-item" style="flex-wrap:wrap">
       <div class="cart-item-name">${esc(item.name)}<br><span style="font-size:11px;color:var(--text3)">${Number(item.unit_price).toLocaleString('ru-RU')}₽</span></div>
       <button type="button" class="btn btn-ghost btn-sm" onclick="changeCartQty(${ii},-1)" style="padding:4px 8px">−</button>
       <input class="cart-qty" type="number" value="${item.quantity}" min="1" oninput="newSaleState.items[${ii}].quantity=Math.max(1,parseInt(this.value,10)||1);renderSaleForm()" inputmode="numeric">
       <button type="button" class="btn btn-ghost btn-sm" onclick="changeCartQty(${ii},1)" style="padding:4px 8px">+</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.items.splice(${ii},1);renderSaleForm()" style="color:var(--rank3);padding:4px">✕</button>
+      <div style="width:100%;margin-top:4px">
+        <input class="fin" style="font-size:12px;padding:6px 8px" placeholder="Кадры: 103, 105, 107" value="${esc(item.frames || '')}" oninput="newSaleState.items[${ii}].frames=this.value" inputmode="numeric">
+      </div>
     </div>`;
   });
 
@@ -444,7 +448,7 @@ function addToCart(productId, name, price) {
   if (existing) {
     existing.quantity = (parseInt(existing.quantity, 10) || 1) + 1;
   } else {
-    newSaleState.items.push({ product_id: productId, name, unit_price: price, quantity: 1 });
+    newSaleState.items.push({ product_id: productId, name, unit_price: price, quantity: 1, frames: '' });
   }
   renderSaleForm();
 }
@@ -469,7 +473,13 @@ async function submitSale() {
   const totalAmount = s.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
 
   const multi = validSeries.length > 1;
-  const itemPayload = s.items.map((it) => ({ product_id: it.product_id, quantity: parseInt(it.quantity, 10) || 1, unit_price: parseFloat(it.unit_price) || 0 }));
+  const itemPayload = s.items.map((it) => {
+    const obj = { product_id: it.product_id, quantity: parseInt(it.quantity, 10) || 1, unit_price: parseFloat(it.unit_price) || 0 };
+    if (it.frames && it.frames.trim()) {
+      obj.frame_numbers = it.frames.split(/[,;\s]+/).map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+    }
+    return obj;
+  });
   const itemsForApi = multi
     ? validSeries.flatMap((_, si) => itemPayload.map((it) => ({ ...it, series_index: si })))
     : itemPayload;
@@ -500,12 +510,11 @@ async function submitSale() {
 function showQrCode(sale) {
   const qrUrl = sale.qr_url || `${FRONTEND_URL}/guest.html?t=${sale.qr_token}`;
   const amt = parseFloat(sale.total_amount) || 0;
-  const qrImg = `https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
 
   document.getElementById('qr-modal-content').innerHTML = `
     <div class="qr-display">
       <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:12px">${sale.sale_type === 'pre_sale' ? '👁 Пред-продажа' : '✅ Продажа оформлена'}</div>
-      <img src="${qrImg}" alt="QR" style="width:200px;height:200px;border-radius:8px;background:#fff;padding:8px">
+      <div id="qr-canvas-wrap" style="display:inline-block;border-radius:8px;overflow:hidden;background:#fff;padding:8px"></div>
       <div style="margin-top:12px;font-size:20px;font-weight:700;color:var(--rank1)">${amt > 0 ? amt.toLocaleString('ru-RU') + '₽' : ''}</div>
       <div style="margin-top:8px;font-size:12px;color:var(--text3)">Покажите QR-код гостю или оператору печати</div>
       <div style="margin-top:12px;font-size:10px;color:var(--text3);word-break:break-all">${esc(qrUrl)}</div>
@@ -514,6 +523,12 @@ function showQrCode(sale) {
       <button type="button" class="btn btn-ghost" onclick="closeQrModal()" style="flex:1">Закрыть</button>
     </div>
   `;
+  const wrap = document.getElementById('qr-canvas-wrap');
+  if (wrap && typeof QRCode !== 'undefined') {
+    new QRCode(wrap, { text: qrUrl, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  } else if (wrap) {
+    wrap.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="QR" style="width:200px;height:200px">`;
+  }
   document.getElementById('qr-modal').classList.add('open');
 }
 function closeQrModal() { document.getElementById('qr-modal').classList.remove('open'); }
@@ -524,14 +539,13 @@ async function openSaleDetail(saleId) {
     detailSaleForQr = { qr_token: sale.qr_token, total_amount: parseFloat(sale.total_amount) || 0, sale_type: sale.sale_type || 'sale' };
     detailSaleIdForSeries = saleId;
     const qrUrl = `${FRONTEND_URL}/guest.html?t=${sale.qr_token}`;
-    const qrImg = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
     const amt = parseFloat(sale.total_amount) || 0;
     const STATUS = { paid: '✅ Оплачено', pending: '⏳ Не оплачено', partially_paid: '⚠️ Частично' };
 
     let html = `<div class="section-title">${sale.sale_type === 'pre_sale' ? '👁 Пред-продажа' : '📋 Продажа'} #${String(saleId).slice(0, 8)}</div>`;
 
     html += `<div style="text-align:center;margin-bottom:14px">
-      <img src="${qrImg}" alt="" style="width:160px;height:160px;border-radius:8px;background:#fff;padding:6px">
+      <div id="detail-qr-wrap" style="display:inline-block;border-radius:8px;overflow:hidden;background:#fff;padding:6px"></div>
       <div style="margin-top:8px;font-size:18px;font-weight:700;color:var(--rank1)">${amt.toLocaleString('ru-RU')}₽</div>
       <div style="margin-top:4px">${STATUS[sale.payment_status] || esc(sale.payment_status)}</div>
     </div>`;
@@ -548,9 +562,13 @@ async function openSaleDetail(saleId) {
     if (sale.items && sale.items.length) {
       html += `<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;margin-bottom:4px">🛍 Товары:</div>`;
       sale.items.forEach(it => {
-        html += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
-          <span>${esc(it.product_name)} × ${it.quantity}</span>
-          <span style="color:var(--rank1)">${Number(it.total || 0).toLocaleString('ru-RU')}₽</span>
+        const frames = it.frame_numbers && it.frame_numbers.length ? it.frame_numbers.join(', ') : '';
+        html += `<div style="font-size:12px;padding:2px 0">
+          <div style="display:flex;justify-content:space-between">
+            <span>${esc(it.product_name)} × ${it.quantity}</span>
+            <span style="color:var(--rank1)">${Number(it.total || 0).toLocaleString('ru-RU')}₽</span>
+          </div>
+          ${frames ? `<div style="font-size:11px;color:var(--text3);margin-top:1px">📷 кадры: ${esc(frames)}</div>` : ''}
         </div>`;
       });
       html += `</div>`;
@@ -568,6 +586,12 @@ async function openSaleDetail(saleId) {
 
     document.getElementById('sale-modal-content').innerHTML = html;
     document.getElementById('sale-modal').classList.add('open');
+    const dqWrap = document.getElementById('detail-qr-wrap');
+    if (dqWrap && typeof QRCode !== 'undefined') {
+      new QRCode(dqWrap, { text: qrUrl, width: 160, height: 160, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } else if (dqWrap) {
+      dqWrap.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrUrl)}" alt="QR" style="width:160px;height:160px">`;
+    }
   } catch (e) {
     toast(e.message, true);
   }
