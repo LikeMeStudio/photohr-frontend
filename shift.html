@@ -185,6 +185,13 @@ async function api(method, path, body) {
 function doLogout() { localStorage.removeItem('fhr_access'); localStorage.removeItem('fhr_refresh'); location.href = 'index.html'; }
 
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fullUrl(path) {
+  if (path == null || path === '') return '';
+  const p = String(path).trim();
+  if (/^https?:\/\//i.test(p)) return p;
+  const base = API.replace(/\/api\/?$/, '');
+  return base + (p.startsWith('/') ? p : '/' + p);
+}
 function toast(msg, err) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' error' : ''); setTimeout(() => t.className = 'toast', 3000); }
 
 (async () => {
@@ -746,7 +753,7 @@ async function loadContest() {
     const el = document.getElementById('contest-entries');
     if (!el) return;
     el.innerHTML = (entries || []).map((e) => {
-      const imgSrc = String(e.photo_url || '').replace(/[<>"']/g, '');
+      const imgSrc = esc(fullUrl(e.photo_url));
       return `
     <div style="padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg3)">
       <img src="${imgSrc}" alt="" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover;margin-bottom:6px" onerror="this.style.display='none'">
