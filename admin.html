@@ -151,8 +151,6 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 #archived-user-modal .ev-acc summary{cursor:pointer;font-weight:600;font-size:13px;list-style:none}
 #archived-user-modal .ev-acc summary::-webkit-details-marker{display:none}
 #archived-user-modal .ev-acc-body{margin-top:10px}
-#archived-user-modal .ev-json-ta{width:100%;min-height:52px;font-family:ui-monospace,monospace;font-size:10px;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);resize:vertical}
-#archived-user-modal .ev-ds-pre{font-size:9px;max-height:100px;overflow:auto;padding:6px;background:var(--bg2);border-radius:6px;border:1px solid var(--border);white-space:pre-wrap;word-break:break-all;color:var(--text3)}
 #ph-bs-modal .modal{max-width:min(900px,96vw);max-height:90vh;overflow-y:auto}
 #ph-bs-modal table:has(tbody#bs-products){table-layout:fixed;width:100%;font-size:12px}
 #ph-bs-modal #bs-products .fin,#ph-bs-modal #bs-products .fselect{font-size:12px}
@@ -1635,23 +1633,6 @@ async function openEditVenue(vid){
                 <option value="hard" ${diff==='hard'?'selected':''}>Сложная</option>
               </select>
             </div>
-            <div style="margin-top:12px">
-              <button type="button" class="btn btn-ghost" style="font-size:11px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.textContent=this.nextElementSibling.style.display==='none'?'Показать JSON смен ▼':'Скрыть JSON смен ▲'">Показать JSON смен ▼</button>
-              <div style="display:none">
-                <div style="margin-top:10px;font-size:11px;font-weight:600">Снимок default_shifts (только просмотр)</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
-                  <div><div class="fl">Будни</div><pre class="ev-ds-pre" id="ev-ds-ro-wd"></pre></div>
-                  <div><div class="fl">Выходные</div><pre class="ev-ds-pre" id="ev-ds-ro-we"></pre></div>
-                  <div><div class="fl">Праздники</div><pre class="ev-ds-pre" id="ev-ds-ro-h"></pre></div>
-                </div>
-                <div style="margin-top:10px;font-size:10px;color:var(--text3)">Необязательно: JSON переопределяет сетку смен для сохранения (оставьте пустым — берётся сетка выше).</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
-                  <textarea class="ev-json-ta" id="ev-json-wd" placeholder="default_shifts_weekday JSON"></textarea>
-                  <textarea class="ev-json-ta" id="ev-json-we" placeholder="default_shifts_weekend JSON"></textarea>
-                  <textarea class="ev-json-ta" id="ev-json-h" placeholder="default_shifts_holiday JSON"></textarea>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </details>
@@ -2108,7 +2089,7 @@ function bsProductRowHtml(pid,name,price,salary,pf){
 const pfs=String(pf||'');
 const pv=price===''||price==null?'':price;
 const sv=salary===''||salary==null?'':salary;
-return`<tr data-product-id="${String(pid)}"><td style="text-align:left;padding:4px 6px"><span class="bsp-name">${esc(name)}</span></td><td><input type="number" class="fin bsp-price" value="${pv}" style="width:64px" step="0.01"/></td><td><input type="number" class="fin bsp-salary" value="${sv}" style="width:64px" step="0.01"/></td><td><select class="fselect bsp-format" style="width:72px;font-size:11px"><option value="" ${!pfs?'selected':''}>—</option><option value="10x15" ${pfs==='10x15'?'selected':''}>10×15</option><option value="15x20" ${pfs==='15x20'?'selected':''}>15×20</option><option value="A4" ${pfs==='A4'?'selected':''}>А4</option></select></td><td><button type="button" class="btn btn-ghost" onclick="removeBsProductRow(this)" style="color:var(--rank3);font-size:11px;padding:2px 6px">✕</button></td></tr>`;
+return`<tr data-product-id="${String(pid)}"><td style="text-align:left;padding:4px 6px"><span class="bsp-name">${esc(name)}</span></td><td><input type="number" class="fin bsp-price" value="${pv}" style="width:80px" step="0.01"/></td><td><input type="number" class="fin bsp-salary" value="${sv}" style="width:80px" step="0.01"/></td><td><select class="fselect bsp-format" style="width:72px;font-size:11px"><option value="" ${!pfs?'selected':''}>—</option><option value="10x15" ${pfs==='10x15'?'selected':''}>10×15</option><option value="15x20" ${pfs==='15x20'?'selected':''}>15×20</option><option value="A4" ${pfs==='A4'?'selected':''}>А4</option></select></td><td><button type="button" class="btn btn-ghost" onclick="removeBsProductRow(this)" style="color:var(--rank3);font-size:11px;padding:2px 6px">✕</button></td></tr>`;
 }
 
 function removeBsProductRow(btn){
@@ -2175,17 +2156,17 @@ showToast('Товар создан и добавлен');
 }
 
 function bsRenderThRows(arr){
-return(arr||[]).map(t=>`<div class="bs-th-row"><span style="font-size:10px;color:var(--text3);flex-shrink:0">от</span><input type="number" class="fin bs-th-from" value="${t.from||0}" style="width:80px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">→</span><input type="number" class="fin bs-th-bonus" value="${t.bonus||0}" style="width:72px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3);flex-shrink:0" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+return(arr||[]).map(t=>`<div class="bs-th-row"><span style="font-size:10px;color:var(--text3);flex-shrink:0">от</span><input type="number" class="fin bs-th-from" value="${t.from||0}" style="width:68px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">→</span><input type="number" class="fin bs-th-bonus" value="${t.bonus||0}" style="width:68px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3);flex-shrink:0" onclick="this.parentElement.remove()">✕</button></div>`).join('');
 }
 
 function bsRenderPrRows(arr){
-return(arr||[]).map(p=>`<div class="bs-pr-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px"><span>сверх</span><input type="number" class="fin bs-pr-a" value="${p.above||0}" style="width:70px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="${p.every||1}" style="width:50px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="${p.add||0}" style="width:60px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+return(arr||[]).map(p=>`<div class="bs-pr-row" style="display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px"><span>сверх</span><input type="number" class="fin bs-pr-a" value="${p.above||0}" style="width:56px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="${p.every||1}" style="width:56px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="${p.add||0}" style="width:56px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button></div>`).join('');
 }
 
 function bsAddThV2(scope){
 const d=document.createElement('div');
 d.className='bs-th-row';
-d.innerHTML='<span style="font-size:10px;color:var(--text3);flex-shrink:0">от</span><input type="number" class="fin bs-th-from" value="0" style="width:80px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">→</span><input type="number" class="fin bs-th-bonus" value="0" style="width:72px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3);flex-shrink:0" onclick="this.parentElement.remove()">✕</button>';
+d.innerHTML='<span style="font-size:10px;color:var(--text3);flex-shrink:0">от</span><input type="number" class="fin bs-th-from" value="0" style="width:68px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">→</span><input type="number" class="fin bs-th-bonus" value="0" style="width:68px;flex-shrink:0"/><span style="font-size:10px;color:var(--text3);flex-shrink:0">₽</span><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3);flex-shrink:0" onclick="this.parentElement.remove()">✕</button>';
 document.getElementById('bs-'+scope+'-th').appendChild(d);
 }
 
@@ -2193,7 +2174,7 @@ function bsAddPrV2(scope){
 const d=document.createElement('div');
 d.className='bs-pr-row';
 d.style.cssText='display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap;font-size:10px';
-d.innerHTML='<span>сверх</span><input type="number" class="fin bs-pr-a" value="0" style="width:70px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="1" style="width:50px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="0" style="width:60px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
+d.innerHTML='<span>сверх</span><input type="number" class="fin bs-pr-a" value="0" style="width:56px"/><span>каждые</span><input type="number" class="fin bs-pr-e" value="1" style="width:56px"/><span>+</span><input type="number" class="fin bs-pr-ad" value="0" style="width:56px"/><button type="button" class="btn btn-ghost" style="font-size:9px;padding:2px 4px;color:var(--rank3)" onclick="this.parentElement.remove()">✕</button>';
 document.getElementById('bs-'+scope+'-pr').appendChild(d);
 }
 
@@ -2271,7 +2252,7 @@ return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghos
 <div style="font-size:13px;font-weight:600">📸 Товары и ЗП</div>
 <div style="font-size:10px;color:var(--text3);margin:-6px 0 0">Цены и ставки задаются в схеме; в отчёте используются эти данные.</div>
 <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
-<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px;width:72px">Цена</th><th style="padding:6px;width:72px">ЗП/шт</th><th style="padding:6px;width:80px">Принтер</th><th style="width:40px"></th></tr></thead>
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px">Товар</th><th style="padding:6px;width:88px">Цена</th><th style="padding:6px;width:88px">ЗП/шт</th><th style="padding:6px;width:80px">Принтер</th><th style="width:40px"></th></tr></thead>
 <tbody id="bs-products">${prodRowsHtml||'<tr><td colspan="5" style="padding:8px;color:var(--text3)">Добавьте товары из справочника или создайте новый</td></tr>'}</tbody></table></div>
 <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
 <select id="bs-add-product" class="fselect" style="flex:1;min-width:140px;font-size:11px">${addOptions}</select>
@@ -2288,17 +2269,28 @@ return`<div style="margin-bottom:10px"><button type="button" class="btn btn-ghos
 </select>
 <button type="button" class="btn btn-primary" onclick="createAndAddBsProduct()" style="font-size:11px">Создать</button>
 </div></div>
-<div style="font-size:11px;font-weight:600">📷 Бонусы фотографа (от личной выручки, из кассы)</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">
+<div style="display:grid;gap:8px">
+<div style="font-size:11px;font-weight:600">📷 Фотограф</div>
+<div style="font-size:9px;color:var(--text3);margin-top:-4px">От личной выручки, из кассы</div>
 <div><div class="fl">Пороги</div><div id="bs-ph-th">${bsRenderThRows(ph.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('ph')">+ Порог</button></div>
 <div><div class="fl">Прогрессивные</div><div id="bs-ph-pr">${bsRenderPrRows(ph.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('ph')">+ Правило</button></div>
-<div style="font-size:11px;font-weight:600">🖨 Оператор (от общей выручки, начисление)</div>
-<div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-admin-base" value="${adm.base_salary||0}" step="0.01" style="width:120px"/></div>
+</div>
+<div style="display:grid;gap:8px">
+<div style="font-size:11px;font-weight:600">🖨 Оператор</div>
+<div style="font-size:9px;color:var(--text3);margin-top:-4px">От общей выручки, начисление</div>
+<div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-admin-base" value="${adm.base_salary||0}" step="0.01" style="width:100%"/></div>
 <div><div class="fl">Пороги</div><div id="bs-admin-th">${bsRenderThRows(adm.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('admin')">+ Порог</button></div>
 <div><div class="fl">Прогрессивные</div><div id="bs-admin-pr">${bsRenderPrRows(adm.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('admin')">+ Правило</button></div>
-<div style="font-size:11px;font-weight:600">📋 Менеджер (от общей выручки, начисление)</div>
-<div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-mgr-base" value="${mgr.base_salary||0}" step="0.01" style="width:120px"/></div>
+</div>
+<div style="display:grid;gap:8px">
+<div style="font-size:11px;font-weight:600">📋 Менеджер</div>
+<div style="font-size:9px;color:var(--text3);margin-top:-4px">От общей выручки, начисление</div>
+<div><div class="fl">Фикс за смену</div><input class="fin" type="number" id="bs-mgr-base" value="${mgr.base_salary||0}" step="0.01" style="width:100%"/></div>
 <div><div class="fl">Пороги</div><div id="bs-mgr-th">${bsRenderThRows(mgr.thresholds)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddThV2('mgr')">+ Порог</button></div>
 <div><div class="fl">Прогрессивные</div><div id="bs-mgr-pr">${bsRenderPrRows(mgr.progressive)}</div><button type="button" class="btn btn-ghost" style="font-size:10px" onclick="bsAddPrV2('mgr')">+ Правило</button></div>
+</div>
+</div>
 <div style="font-size:11px;font-weight:600">🧪 Предпросмотр</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
 <div><div class="fl">Выручка фотографа</div><input class="fin" type="number" id="bs-preview-personal" value="15000" step="0.01" style="width:120px"/></div>
