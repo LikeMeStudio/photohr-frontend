@@ -292,7 +292,12 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="modal-title"><span>Новая закупка</span><button class="dr-close" onclick="safeCloseModal('po-modal')">×</button></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="field"><div class="fl">Склад *</div><select class="fselect" id="po-warehouse"></select></div>
-    <div class="field"><div class="fl">Поставщик</div><input class="fin" id="po-supplier" placeholder="DNP, Fuji..."/></div>
+    <div class="field"><div class="fl">Поставщик</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select class="fselect" id="po-supplier" style="flex:1"></select>
+        <button type="button" class="btn btn-ghost" style="font-size:11px;padding:4px 8px;white-space:nowrap" onclick="addNewPoSupplier()">+ Новый</button>
+      </div>
+    </div>
     <div class="field"><div class="fl">Дата заказа</div><input class="fin" type="date" id="po-date"/></div>
     <div class="field"><div class="fl">Ожидаемая доставка</div><input class="fin" type="date" id="po-delivery"/></div>
   </div>
@@ -1722,6 +1727,27 @@ function addNewSupplier() {
   sel.value = val;
 }
 
+async function fillPoSupplierSelect() {
+  if (!suppliersList.length) {
+    try { suppliersList = await api('GET', '/inventory-items/suppliers'); } catch (_) { suppliersList = []; }
+  }
+  const poSupSel = document.getElementById('po-supplier');
+  if (!poSupSel) return;
+  poSupSel.innerHTML = '<option value="">— не указан —</option>' +
+    suppliersList.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+}
+
+function addNewPoSupplier() {
+  const name = prompt('Название нового поставщика:');
+  if (!name || !name.trim()) return;
+  const sel = document.getElementById('po-supplier');
+  const val = name.trim();
+  if ([...sel.options].some(o => o.value === val)) { sel.value = val; return; }
+  const opt = document.createElement('option'); opt.value = val; opt.textContent = val;
+  sel.appendChild(opt); sel.value = val;
+  if (!suppliersList.includes(val)) suppliersList.push(val);
+}
+
 async function saveItem() {
   const id = document.getElementById('item-id').value;
   const body = {
@@ -1870,10 +1896,10 @@ async function executeMerge(sourceId) {
 // ── БЛОК 2: Закупки и перемещения ──
 let poLineCount = 0, trLineCount = 0;
 
-function openPoModal() {
+async function openPoModal() {
   poLineCount = 0;
   document.getElementById('po-lines').innerHTML = '';
-  document.getElementById('po-supplier').value = '';
+  await fillPoSupplierSelect();
   document.getElementById('po-notes').value = '';
   document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('po-delivery').value = '';
@@ -2537,7 +2563,7 @@ async function openPoFromForecast() {
 
   poLineCount = 0;
   document.getElementById('po-lines').innerHTML = '';
-  document.getElementById('po-supplier').value = '';
+  await fillPoSupplierSelect();
   document.getElementById('po-notes').value = 'Из прогноза дефицита';
   document.getElementById('po-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('po-delivery').value = '';
