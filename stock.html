@@ -1337,9 +1337,10 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const q = parseFloat(s.quantity) || 0;
   const mn = s.min_quantity;
   const st = whStockStatusEmoji(q, mn);
+  const minVal = mn != null && parseFloat(mn) > 0 ? mn : '—';
   const minCell = canMin
-    ? `<span id="whmin-${s.item_id}-${whId}" style="cursor:pointer;border-bottom:1px dashed var(--text3)" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин.">${mn != null && parseFloat(mn) > 0 ? mn : '—'} <span style="font-size:10px">✏</span></span>`
-    : `<span>${mn != null && parseFloat(mn) > 0 ? mn : '—'}</span>`;
+    ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:11px">${minVal} <span style="font-size:9px;color:var(--accent2)">✏️</span></span>`
+    : `<span>${minVal}</span>`;
   const qMax = parseFloat(s.quantity) || 0;
   const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
   const un = esc(s.unit || '').replace(/"/g, '&quot;');
@@ -1406,12 +1407,17 @@ async function renderWhStockPanel(whId){
     }
     const consArr=[...consByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
     const consSection=consumables.length?`
-      <div style="margin-top:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">📦 Расходники (${consumables.length})</div>
-        ${consArr.map(([catVal,cat])=>
-          whPanelStockTableSection(cat.label+' ('+cat.items.length+')',cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join(''))
-        ).join('')}
-      </div>`:'';
+      <details open style="margin-top:12px">
+        <summary style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--text3)">▸</span> 📦 Расходники (${consumables.length})</summary>
+        ${consArr.map(([catVal,cat])=>`
+          <details open style="margin-top:6px">
+            <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})</summary>
+            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+            ${cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join('')}
+            </tbody></table></div>
+          </details>
+        `).join('')}
+      </details>`:'';
 
     const eqByModel=new Map();
     const itemsForCat=items||[];
@@ -1431,18 +1437,31 @@ async function renderWhStockPanel(whId){
     }
     const eqCatArr=[...eqByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
     const eqSummaryRows=eqCatArr.map(([catVal,cat])=>{
+      const totalInCat=cat.models.reduce((s,m)=>s+m.count,0);
       const catRows=cat.models.map(m=>
         `<tr><td>${esc(m.name)}</td><td style="font-weight:600;text-align:center">${m.count}</td><td style="text-align:center">шт</td><td style="text-align:center">—</td><td style="text-align:center">🟢</td><td style="text-align:center;color:var(--text3)">—</td><td style="text-align:center;color:var(--text3)">—</td></tr>`
       ).join('');
-      return whPanelStockTableSection(cat.label+' ('+cat.models.reduce((s,m)=>s+m.count,0)+')',catRows);
+      return `
+          <details open style="margin-top:6px">
+            <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${totalInCat})</summary>
+            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+            ${catRows || '<tr><td colspan="7" style="color:var(--text3)">Нет позиций</td></tr>'}
+            </tbody></table></div>
+          </details>`;
     }).join('');
-    const eqDetailSection=eqHere.length?whPanelStockTableSection('🔧 Единицы оборудования ('+eqHere.length+')',whPanelBuildEquipmentTableRows(eqHere,whId,canDnd)):'';
+    const eqDetailSection=eqHere.length?`
+          <details open style="margin-top:6px">
+            <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">🔧 Единицы оборудования (${eqHere.length})</summary>
+            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+            ${whPanelBuildEquipmentTableRows(eqHere,whId,canDnd)}
+            </tbody></table></div>
+          </details>`:'';
     const eqSection=(eqByModel.size||eqHere.length)?`
-      <div style="margin-top:12px">
-        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">🔧 Оборудование (${eqHere.length})</div>
+      <details open style="margin-top:12px">
+        <summary style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--text3)">▸</span> 🔧 Оборудование (${eqHere.length})</summary>
         ${eqSummaryRows}
         ${eqDetailSection}
-      </div>`:'';
+      </details>`:'';
 
     const canEdit=can('tech_director')||can('exec_director')||can('admin');
     const titleEmoji=hasCrit?' 🔴':' 🟢';
