@@ -168,6 +168,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
     <button class="tab" onclick="switchTab(6)">📋 Инвентаризация</button>
     <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
     <button class="tab" onclick="switchTab(8)" id="tab-alerts">📈 Аналитика</button>
+    <button class="tab" onclick="switchTab(9)" id="tab-schedule">📅 Расписание</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -231,9 +232,6 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
     <select class="fselect" id="item-type">
       <option value="consumable">📦 Расходник</option>
       <option value="equipment">🔧 Оборудование</option>
-      <option value="decoration">🎨 Декорация</option>
-      <option value="accessory">🎁 Аксессуар</option>
-      <option value="material">📐 Материал</option>
     </select>
   </div>
   <div class="field"><div class="fl">Единица измерения</div><input class="fin" id="item-unit" placeholder="шт, рулон, пачка..."/></div>
@@ -576,7 +574,7 @@ function setupMgmtButton() {
 function switchTab(idx){
   currentTabIdx=idx;
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  const fns=[loadStockForecast,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadInventory,loadEquipment,loadAnalytics];
+  const fns=[loadStockForecast,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadInventory,loadEquipment,loadAnalytics,loadTechSchedule];
   if(fns[idx]) fns[idx]();
 }
 
@@ -1037,13 +1035,9 @@ function whStockStatusEmoji(qty,minQ){
   return'🟢';
 }
 function whPanelItemBucketKey(t) {
-  const x = String(t || 'consumable').toLowerCase();
-  if (x === 'consumable' || !t) return 'consumable';
-  if (x === 'decoration') return 'decoration';
-  if (x === 'accessory') return 'accessory';
-  if (x === 'material') return 'material';
-  if (x === 'equipment') return 'other';
-  return 'other';
+  const x = String(t || '').toLowerCase();
+  if (x === 'equipment') return 'equipment';
+  return 'consumable';
 }
 function formatEqSnCell(e) {
   const sn = String(e.serial_number || '').trim();
@@ -1130,7 +1124,7 @@ async function renderWhStockPanel(whId){
     let hasCrit=false;
     const canMin=can('tech_director')||can('exec_director')||can('admin');
     const canDnd=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
-    const buckets={consumable:[],decoration:[],accessory:[],material:[],other:[]};
+    const buckets={consumable:[],equipment:[],other:[]};
     for(const s of stock||[]){
       buckets[whPanelItemBucketKey(s.item_type)].push(s);
       const q=parseFloat(s.quantity)||0,mn=s.min_quantity;
@@ -1142,10 +1136,8 @@ async function renderWhStockPanel(whId){
     const titleEmoji=hasCrit?' 🔴':' 🟢';
     const stockBlocks=[
       sec(buckets.consumable,'📦 Расходники ('+buckets.consumable.length+')'),
+      ...(buckets.equipment.length?[sec(buckets.equipment,'🔧 Оборудование — позиции ('+buckets.equipment.length+')')]:[]),
       eqSection,
-      ...(buckets.decoration.length?[sec(buckets.decoration,'🎨 Декорации ('+buckets.decoration.length+')')]:[]),
-      ...(buckets.accessory.length?[sec(buckets.accessory,'🎁 Аксессуары ('+buckets.accessory.length+')')]:[]),
-      ...(buckets.material.length?[sec(buckets.material,'📐 Материалы ('+buckets.material.length+')')]:[]),
       ...(buckets.other.length?[sec(buckets.other,'📎 Прочее ('+buckets.other.length+')')]:[]),
     ].join('');
     host.innerHTML=`
@@ -1313,7 +1305,7 @@ async function loadItems() {
     const items_all = items;
     const c = document.getElementById('content');
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
-    const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование', decoration: '🎨 Декорация', accessory: '🎁 Аксессуар', material: '📐 Материал' };
+    const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование' };
     c.innerHTML = `
       <div class="section">
         <div class="section-title">📋 Справочник позиций
@@ -2766,6 +2758,249 @@ async function loadAnalytics() {
       </div>
     `;
   } catch(e) { c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+// ═══════ TECH SCHEDULE (TAB 9) ═══════
+let techMonth = null;
+let techTasks = [];
+
+function getTechMonth() {
+  if (techMonth) return techMonth;
+  return new Date().toISOString().slice(0, 7);
+}
+
+async function loadTechSchedule() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="loading">Загрузка расписания...</div>';
+  const m = getTechMonth();
+  const [y, mo] = m.split('-').map(Number);
+  const from = `${y}-${String(mo).padStart(2, '0')}-01`;
+  const lastDay = new Date(y, mo, 0).getDate();
+  const to = `${y}-${String(mo).padStart(2, '0')}-${lastDay}`;
+  try {
+    if (!venues.length || !users.length) {
+      const [vens, usrs] = await Promise.all([
+        api('GET', '/venues').catch(() => []),
+        api('GET', '/users').catch(() => []),
+      ]);
+      venues = vens || [];
+      users = usrs || [];
+    }
+    techTasks = await api('GET', `/tech-tasks?from=${from}&to=${to}`);
+    renderTechSchedule();
+  } catch (e) {
+    c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
+  }
+}
+
+function techPrevMonth() {
+  const [y, mo] = getTechMonth().split('-').map(Number);
+  const d = new Date(y, mo - 2, 1);
+  techMonth = d.toISOString().slice(0, 7);
+  loadTechSchedule();
+}
+
+function techNextMonth() {
+  const [y, mo] = getTechMonth().split('-').map(Number);
+  const d = new Date(y, mo, 1);
+  techMonth = d.toISOString().slice(0, 7);
+  loadTechSchedule();
+}
+
+function renderTechSchedule() {
+  const c = document.getElementById('content');
+  const m = getTechMonth();
+  const [y, mo] = m.split('-').map(Number);
+  const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  const firstDow = (new Date(y, mo - 1, 1).getDay() + 6) % 7;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const canEdit = can('tech_director') || can('exec_director') || can('admin');
+
+  const TASK_ICONS = { delivery: '🚚', setup: '🔧', maintenance: '🛠', repair: '⚡', pickup: '📦' };
+  const TASK_LABELS = { delivery: 'Завоз', setup: 'Монтаж', maintenance: 'ТО', repair: 'Ремонт', pickup: 'Вывоз' };
+
+  const byDate = {};
+  for (const t of techTasks) {
+    const d = String(t.task_date || '').slice(0, 10);
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(t);
+  }
+
+  const planned = techTasks.filter(t => t.status === 'planned').length;
+  const inProgress = techTasks.filter(t => t.status === 'in_progress').length;
+  const completed = techTasks.filter(t => t.status === 'completed').length;
+
+  let html = `<div class="section">
+    <div class="section-title">📅 Расписание техотдела
+      ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openTechTaskModal()">+ Задача</button>` : ''}
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="stat"><div class="stat-num">${planned}</div><div class="stat-lbl">Запланировано</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--accent)">${inProgress}</div><div class="stat-lbl">В работе</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--rank1)">${completed}</div><div class="stat-lbl">Выполнено</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button class="btn btn-ghost" onclick="techPrevMonth()">◀</button>
+      <span style="font-weight:600;font-size:14px">${monthNames[mo - 1]} ${y}</span>
+      <button class="btn btn-ghost" onclick="techNextMonth()">▶</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">`;
+
+  dayNames.forEach(d => { html += `<div style="text-align:center;font-size:10px;color:var(--text3);padding:4px">${d}</div>`; });
+
+  for (let i = 0; i < firstDow; i++) html += '<div></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const isToday = ds === todayStr;
+    const dayTasks = byDate[ds] || [];
+    const bg = isToday ? 'background:rgba(124,108,255,.15);border-color:var(--accent)' : '';
+    const badges = dayTasks.slice(0, 4).map(t => {
+      const icon = TASK_ICONS[t.task_type] || '📋';
+      const vn = esc((t.venue_short || t.venue_name || '').slice(0, 6));
+      const stColor = t.status === 'completed' ? 'var(--rank1)' : t.status === 'in_progress' ? 'var(--accent)' : t.status === 'cancelled' ? 'var(--text3)' : 'var(--text2)';
+      return `<div style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${stColor};cursor:pointer" onclick="event.stopPropagation();openTechTaskDetail('${t.id}')" title="${esc(TASK_LABELS[t.task_type] || t.task_type)}: ${esc(t.title || t.venue_name || '')}">${icon} ${vn}</div>`;
+    }).join('');
+    const extra = dayTasks.length > 4 ? `<div style="font-size:9px;color:var(--text3)">+${dayTasks.length - 4}</div>` : '';
+
+    html += `<div style="min-height:70px;padding:4px;border:1px solid var(--border);border-radius:6px;${bg};cursor:pointer" onclick="openTechTaskModal('${ds}')">
+      <div style="font-size:11px;font-weight:${isToday ? '700' : '400'};margin-bottom:2px;color:${isToday ? 'var(--accent)' : 'var(--text2)'}">${d}</div>
+      ${badges}${extra}
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  c.innerHTML = html;
+}
+
+function openTechTaskModal(dateStr) {
+  const canEdit = can('tech_director') || can('exec_director') || can('admin');
+  if (!canEdit) return;
+  const old = document.getElementById('tech-task-modal');
+  if (old) old.remove();
+
+  const today = dateStr || new Date().toISOString().split('T')[0];
+  const techUsers = users.filter(u => u.is_active && ['tech_director', 'exec_director', 'admin'].includes(u.role));
+  const venueOpts = '<option value="">— без площадки —</option>' + venues.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  const userOpts = '<option value="">— не назначен —</option>' + techUsers.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'tech-task-modal';
+  modal.className = 'overlay open';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <div class="modal-title"><span>Новая задача</span><button class="dr-close" onclick="document.getElementById('tech-task-modal').remove()">×</button></div>
+      <div style="display:grid;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div class="fl">Дата *</div><input class="fin" type="date" id="tt-date" value="${today}"/></div>
+          <div><div class="fl">Тип</div><select class="fselect" id="tt-type">
+            <option value="delivery">🚚 Завоз</option>
+            <option value="setup">🔧 Монтаж</option>
+            <option value="maintenance">🛠 ТО</option>
+            <option value="repair">⚡ Ремонт</option>
+            <option value="pickup">📦 Вывоз</option>
+          </select></div>
+        </div>
+        <div><div class="fl">Площадка</div><select class="fselect" id="tt-venue">${venueOpts}</select></div>
+        <div><div class="fl">Название</div><input class="fin" id="tt-title" placeholder="Краткое описание задачи..."/></div>
+        <div><div class="fl">Описание</div><textarea class="fin" id="tt-desc" rows="2" placeholder="Подробности..."></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div class="fl">Приоритет</div><select class="fselect" id="tt-priority">
+            <option value="1">1 — Высокий</option>
+            <option value="2" selected>2 — Стандартный</option>
+            <option value="3">3 — Низкий</option>
+          </select></div>
+          <div><div class="fl">Часы (оценка)</div><input class="fin" type="number" id="tt-hours" placeholder="2" min="0.5" step="0.5"/></div>
+        </div>
+        <div><div class="fl">Ответственный</div><select class="fselect" id="tt-assigned">${userOpts}</select></div>
+        <div><div class="fl">Заметки</div><textarea class="fin" id="tt-notes" rows="2" placeholder="Заметки..."></textarea></div>
+        <button class="btn btn-primary" onclick="saveTechTask()">Создать задачу</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function saveTechTask() {
+  const body = {
+    task_date: document.getElementById('tt-date').value,
+    task_type: document.getElementById('tt-type').value,
+    venue_id: document.getElementById('tt-venue').value || null,
+    title: document.getElementById('tt-title').value.trim() || null,
+    description: document.getElementById('tt-desc').value.trim() || null,
+    priority: parseInt(document.getElementById('tt-priority').value) || 2,
+    estimated_hours: parseFloat(document.getElementById('tt-hours').value) || null,
+    assigned_to: document.getElementById('tt-assigned').value || null,
+    notes: document.getElementById('tt-notes').value.trim() || null,
+  };
+  if (!body.task_date) { showToast('Укажите дату', true); return; }
+  try {
+    await api('POST', '/tech-tasks', body);
+    document.getElementById('tech-task-modal')?.remove();
+    showToast('Задача создана');
+    loadTechSchedule();
+  } catch (e) { showToast(e.message, true); }
+}
+
+function openTechTaskDetail(taskId) {
+  const t = techTasks.find(x => x.id === taskId);
+  if (!t) return;
+  const canEdit = can('tech_director') || can('exec_director') || can('admin');
+  const TASK_LABELS = { delivery: '🚚 Завоз', setup: '🔧 Монтаж', maintenance: '🛠 ТО', repair: '⚡ Ремонт', pickup: '📦 Вывоз' };
+  const STATUS_LABELS = { planned: 'Запланировано', in_progress: 'В работе', completed: 'Выполнено', cancelled: 'Отменено' };
+  const STATUS_COLORS = { planned: 'var(--text2)', in_progress: 'var(--accent)', completed: 'var(--rank1)', cancelled: 'var(--text3)' };
+  const assignments = Array.isArray(t.assignments) ? t.assignments.filter(Boolean) : [];
+
+  const old = document.getElementById('tech-detail-modal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'tech-detail-modal';
+  modal.className = 'overlay open';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <div class="modal-title"><span>${TASK_LABELS[t.task_type] || t.task_type}</span><button class="dr-close" onclick="document.getElementById('tech-detail-modal').remove()">×</button></div>
+      <div style="display:grid;gap:8px;font-size:12px">
+        <div style="font-weight:600;font-size:14px">${esc(t.title || t.venue_name || 'Задача')}</div>
+        <div>📅 ${new Date(t.task_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        ${t.venue_name ? `<div>📍 ${esc(t.venue_name)}</div>` : ''}
+        <div>Статус: <span style="font-weight:600;color:${STATUS_COLORS[t.status]}">${STATUS_LABELS[t.status] || t.status}</span></div>
+        ${t.assigned_to_name ? `<div>👤 ${esc(t.assigned_to_name)}</div>` : ''}
+        ${t.estimated_hours ? `<div>⏱ Оценка: ${t.estimated_hours}ч</div>` : ''}
+        ${t.description ? `<div style="color:var(--text2)">${esc(t.description)}</div>` : ''}
+        ${t.notes ? `<div style="color:var(--text3);font-style:italic">${esc(t.notes)}</div>` : ''}
+        ${assignments.length ? `<div><div class="fl" style="margin-bottom:4px">Назначенные</div>${assignments.map(a => `<div style="padding:4px 0">${esc(a.user_name || '—')} <span style="color:var(--text3)">(${a.role})</span></div>`).join('')}</div>` : ''}
+        ${canEdit ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          ${t.status === 'planned' ? `<button class="btn btn-ghost" style="font-size:11px" onclick="updateTechTaskStatus('${t.id}','in_progress')">▶ В работу</button>` : ''}
+          ${t.status === 'in_progress' ? `<button class="btn btn-primary" style="font-size:11px" onclick="updateTechTaskStatus('${t.id}','completed')">✅ Выполнено</button>` : ''}
+          ${t.status !== 'cancelled' && t.status !== 'completed' ? `<button class="btn btn-ghost" style="font-size:11px;color:var(--rank3)" onclick="updateTechTaskStatus('${t.id}','cancelled')">✕ Отменить</button>` : ''}
+          <button class="btn btn-ghost" style="font-size:11px;color:var(--rank3)" onclick="deleteTechTask('${t.id}')">🗑 Удалить</button>
+        </div>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function updateTechTaskStatus(id, status) {
+  try {
+    await api('PATCH', `/tech-tasks/${id}`, { status });
+    document.getElementById('tech-detail-modal')?.remove();
+    showToast(status === 'completed' ? 'Задача выполнена' : status === 'cancelled' ? 'Задача отменена' : 'Статус обновлён');
+    loadTechSchedule();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function deleteTechTask(id) {
+  if (!confirm('Удалить задачу?')) return;
+  try {
+    await api('DELETE', `/tech-tasks/${id}`);
+    document.getElementById('tech-detail-modal')?.remove();
+    showToast('Задача удалена');
+    loadTechSchedule();
+  } catch (e) { showToast(e.message, true); }
 }
 
 function openMoveModal(){
