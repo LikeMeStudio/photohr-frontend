@@ -519,6 +519,7 @@ const EQ_CATEGORY_FIELDS={
     {key:'litebox_login',label:'Litebox логин',type:'text'},
     {key:'service_paid_until',label:'Обслуживание оплачено до',type:'date'},
     {key:'sim_card',label:'SIM-карта',type:'text'},
+    {key:'sim_owner',label:'Владелец SIM',type:'text'},
     {key:'receipt_address',label:'Адрес на чеке',type:'text'},
     {key:'ownership',label:'Аренда/собственность',type:'select',options:['Собственность','Аренда']},
   ],
@@ -1599,13 +1600,14 @@ async function loadItems() {
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
         </div>
         ${items_all.length ? `<div class="table-wrap"><table class="tbl">
-          <thead><tr><th style="width:36px"></th><th>Название</th><th>Тип</th><th>Категория</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
+          <thead><tr><th style="width:36px"></th><th>Название</th><th>Тип</th><th>Категория</th><th style="width:50px">Сокр.</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
           <tbody>
           ${items_all.map(it => `<tr style="${it.is_active ? '' : 'opacity:.4'}">
-            <td style="width:36px;padding:4px">${it.photo_url ? `<img src="${API_ROOT}${it.photo_url}" onclick="event.stopPropagation();openLightbox(${JSON.stringify(API_ROOT + it.photo_url)})" style="cursor:zoom-in;width:32px;height:32px;border-radius:6px;object-fit:cover"/>` : `<span style="display:inline-block;width:32px;height:32px;border-radius:6px;background:var(--bg3)"></span>`}</td>
+            <td style="width:36px;padding:4px">${it.photo_url ? `<img src="${API_ROOT}${it.photo_url}" data-lightbox="${esc(API_ROOT + it.photo_url)}" onclick="event.stopPropagation();openLightbox(this.getAttribute('data-lightbox'))" style="cursor:zoom-in;width:32px;height:32px;border-radius:6px;object-fit:cover"/>` : `<span style="display:inline-block;width:32px;height:32px;border-radius:6px;background:var(--bg3)"></span>`}</td>
             <td>${esc(it.name)}</td>
             <td style="font-size:11px">${TYPE_LABELS[it.item_type] || it.item_type}</td>
             <td style="font-size:11px">${getCategoryLabel(it.item_type, it.category)}</td>
+            <td style="text-align:center;font-size:11px;font-weight:600;color:var(--accent2)">${esc(it.category_prefix || '')}</td>
             <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
             <td style="color:var(--text3)">${esc(it.unit || 'шт')}</td>
             <td>${it.reorder_point > 0 ? it.reorder_point : '—'}</td>
@@ -1648,7 +1650,7 @@ function openItemModal(it) {
   const preview = document.getElementById('item-photo-preview');
   if (it?.photo_url) {
     const purl = API_ROOT + it.photo_url;
-    preview.innerHTML = `<img src="${purl}" onclick="openLightbox(${JSON.stringify(purl)})" style="cursor:zoom-in;max-width:100px;max-height:80px;border-radius:8px;border:1px solid var(--border)"/>`;
+    preview.innerHTML = `<img src="${purl}" data-lightbox="${esc(purl)}" onclick="openLightbox(this.getAttribute('data-lightbox'))" style="cursor:zoom-in;max-width:100px;max-height:80px;border-radius:8px;border:1px solid var(--border)"/>`;
   } else {
     preview.innerHTML = '<span style="font-size:11px;color:var(--text3)">Нет фото</span>';
   }
@@ -2590,8 +2592,8 @@ async function loadEquipment() {
       const catLabel = getCategoryLabel('equipment', catValue);
       if (!catGroups.has(catValue)) catGroups.set(catValue, { label: catLabel, models: new Map() });
       const cat = catGroups.get(catValue);
-      if (!cat.models.has(item.id)) {
-        cat.models.set(item.id, { name: item.name, photo: item.photo_url || null, units: [] });
+      if (!cat.models.has(String(item.id))) {
+        cat.models.set(String(item.id), { name: item.name, photo: item.photo_url || null, units: [] });
       }
     }
     for (const e of equip) {
@@ -2600,7 +2602,7 @@ async function loadEquipment() {
       const catLabel = getCategoryLabel('equipment', catValue);
       if (!catGroups.has(catValue)) catGroups.set(catValue, { label: catLabel, models: new Map() });
       const cat = catGroups.get(catValue);
-      const modelKey = e.item_id || '_';
+      const modelKey = String(e.item_id || '_');
       const modelName = e.item_name || item?.name || 'Без названия';
       const modelPhoto = item?.photo_url || null;
       if (!cat.models.has(modelKey)) cat.models.set(modelKey, { name: modelName, photo: modelPhoto, units: [] });
@@ -2609,7 +2611,8 @@ async function loadEquipment() {
 
     const catArr = [...catGroups.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
 
-    const miniCard = (e) => {
+    const miniCard = (e, catValue) => {
+      const showCounters = catValue === 'printers' || catValue === 'photoinventory';
       const st = STATUS[e.status] || { label: e.status, color: 'var(--text2)', icon: '⚪' };
       const resourcePct = e.resource_limit && e.total_printed != null ? Math.min(100, Math.round((parseFloat(e.total_printed) || 0) / parseFloat(e.resource_limit) * 100)) : null;
       const resourceColor = resourcePct == null ? '' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
@@ -2620,11 +2623,11 @@ async function loadEquipment() {
         </div>
         <div style="font-size:10px;color:var(--text3);margin-bottom:2px">SN: ${esc(e.serial_number || '—')}</div>
         <div style="font-size:10px;color:var(--text3)">📍 ${esc(e.warehouse_name || '—')}</div>
-        ${resourcePct != null ? `<div style="margin-top:4px">
+        ${showCounters && resourcePct != null ? `<div style="margin-top:4px">
           <div style="font-size:9px;color:var(--text3)">${(parseFloat(e.total_printed) || 0).toLocaleString('ru-RU')} / ${parseFloat(e.resource_limit).toLocaleString('ru-RU')}</div>
           <div style="height:3px;background:var(--border);border-radius:2px;margin-top:1px"><div style="height:100%;width:${resourcePct}%;background:${resourceColor};border-radius:2px"></div></div>
         </div>` : ''}
-        <button type="button" class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:10px;padding:3px 6px" onclick="event.stopPropagation();openEqHistoryModal('${e.id}')">📊 Счётчики</button>
+        ${showCounters ? `<button type="button" class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:10px;padding:3px 6px" onclick="event.stopPropagation();openEqHistoryModal('${e.id}')">📊 Счётчики</button>` : ''}
       </div>`;
     };
 
@@ -2636,7 +2639,7 @@ async function loadEquipment() {
     if (!catArr.length) {
       html += '<div style="color:var(--text3)">Нет оборудования. Добавьте через справочник и закупку.</div>';
     } else {
-      for (const [, cat] of catArr) {
+      for (const [catVal, cat] of catArr) {
         const totalUnits = [...cat.models.values()].reduce((s, m) => s + m.units.length, 0);
         html += `<details class="eq-group" open style="margin-bottom:12px">
           <summary class="eq-group-summary" style="font-size:13px;font-weight:600;padding:10px 0;cursor:pointer;border-bottom:1px solid var(--border)">
@@ -2650,14 +2653,14 @@ async function loadEquipment() {
         for (const model of modelArr) {
           const photoUrlFull = model.photo ? API_ROOT + model.photo : '';
           const photoHtml = model.photo
-            ? `<img src="${photoUrlFull}" onclick="event.stopPropagation();openLightbox(${JSON.stringify(photoUrlFull)})" style="width:28px;height:28px;border-radius:6px;object-fit:cover;cursor:zoom-in;margin-right:6px"/>`
+            ? `<img src="${photoUrlFull}" data-lightbox="${esc(photoUrlFull)}" onclick="event.stopPropagation();openLightbox(this.getAttribute('data-lightbox'))" style="width:28px;height:28px;border-radius:6px;object-fit:cover;cursor:zoom-in;margin-right:6px"/>`
             : '';
           html += `<div style="margin-bottom:10px">
             <div style="display:flex;align-items:center;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">
               ${photoHtml}${esc(model.name)} <span style="color:var(--text3);font-weight:400;margin-left:4px">(${model.units.length})</span>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px">
-              ${model.units.map(miniCard).join('')}
+              ${model.units.map(u => miniCard(u, catVal)).join('')}
               ${model.units.length === 0 ? '<div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px">Нет экземпляров. Добавьте через закупку или + Добавить.</div>' : ''}
             </div>
           </div>`;
@@ -2854,6 +2857,8 @@ async function openEqDrawer(id) {
     const eq = equip_list.find(e => e.id === id);
     if (!eq) return;
     document.getElementById('eq-drawer-name').textContent = eq.item_name;
+    const drawerItem = items.find(i => String(i.id) === String(eq.item_id));
+    const showCounters = drawerItem?.category === 'printers' || drawerItem?.category === 'photoinventory';
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
     const STATUS = { active: '🟢 Активно', repair: '🟡 В ремонте', written_off: '⚫ Списано', lost: '🔴 Утеряно' };
     const totalP = history.total_printed != null ? parseFloat(history.total_printed) : 0;
@@ -2891,7 +2896,7 @@ async function openEqDrawer(id) {
       ${eq.purchase_price ? `<div class="info-row"><span class="info-label">Цена покупки</span><span>${parseFloat(eq.purchase_price).toLocaleString('ru-RU')} ₽</span></div>` : ''}
       ${eq.last_service_date ? `<div class="info-row"><span class="info-label">Последнее ТО</span><span>${new Date(eq.last_service_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
       ${eq.planned_replacement_date ? `<div class="info-row"><span class="info-label">Плановая замена</span><span>${new Date(eq.planned_replacement_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
-      ${resourcePct != null ? `
+      ${showCounters && resourcePct != null ? `
         <div style="margin-top:12px">
           <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ресурс принтера</div>
           <div style="font-size:14px;font-weight:600;margin-bottom:6px">${totalP.toLocaleString('ru-RU')} / ${parseFloat(eq.resource_limit).toLocaleString('ru-RU')} отпечатков</div>
@@ -2901,11 +2906,11 @@ async function openEqDrawer(id) {
           <div style="font-size:11px;color:var(--text3);margin-top:4px">${resourcePct}% использовано</div>
           ${history.forecast ? `<div style="font-size:11px;color:var(--text2);margin-top:8px">Прогноз: ~${history.forecast.avg_daily} отпеч./день · ${history.forecast.days_until_replacement != null ? '≈ ' + history.forecast.days_until_replacement + ' дн. до исчерпания' : '—'}</div>` : ''}
         </div>` : ''}
-      <div style="margin-top:10px"><button type="button" class="btn btn-ghost" style="width:100%;font-size:12px" onclick="event.stopPropagation();openEqHistoryModal('${eq.id}')">📊 История счётчиков</button></div>
+      ${showCounters ? `<div style="margin-top:10px"><button type="button" class="btn btn-ghost" style="width:100%;font-size:12px" onclick="event.stopPropagation();openEqHistoryModal('${eq.id}')">📊 История счётчиков</button></div>` : ''}
       ${eq.service_notes ? `<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2)">${esc(eq.service_notes)}</div>` : ''}
-      <div style="margin-top:16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">История счётчиков</div>
+      ${showCounters ? `<div style="margin-top:16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">История счётчиков</div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Формат</th><th>Счётчики</th><th>Напечатано</th><th>Площадка</th></tr></thead>
-      <tbody>${counterRows}</tbody></table></div>
+      <tbody>${counterRows}</tbody></table></div>` : ''}
       ${canEdit ? `<div style="margin-top:16px">
         <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="openEqModalFromDrawer()">✏️ Редактировать</button>
       </div>` : ''}
