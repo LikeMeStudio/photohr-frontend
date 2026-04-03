@@ -374,8 +374,12 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
     <div class="field"><div class="fl">Последнее ТО</div><input class="fin" type="date" id="eq-service-date"/></div>
   </div>
   <div class="field"><div class="fl">Заметки по обслуживанию</div><textarea class="fin" id="eq-service-notes" rows="2" placeholder="История ТО, замены..."></textarea></div>
-  <div class="field"><div class="fl">Плановая замена</div><input class="fin" type="date" id="eq-replacement-date"/></div>
   <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="eq-notes" rows="2" placeholder="Произвольные заметки..."></textarea></div>
+  <div class="field"><div class="fl">Состояние</div>
+    <input type="hidden" id="eq-condition" value=""/>
+    <div id="eq-condition-host" style="display:flex;gap:2px"></div>
+  </div>
+  <div id="eq-custom-fields"></div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="safeCloseModal('eq-modal')">Отмена</button>
     <button class="btn btn-primary" onclick="saveEquipment()">Сохранить</button>
@@ -445,9 +449,11 @@ function openLightbox(url) {
   if (!lb || !img) return;
   img.src = url;
   lb.style.display = 'flex';
+  lb.classList.add('open');
 }
 document.getElementById('lightbox')?.addEventListener('click', function () {
   this.style.display = 'none';
+  this.classList.remove('open');
 });
 let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
 const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
@@ -493,6 +499,46 @@ const CONSUMABLE_CATEGORIES=[
   {value:'aq_brushes',label:'🖌 Кисти АГ',prefix:'KI'},
   {value:'aq_extras',label:'👑 Допы АГ',prefix:'DA'},
 ];
+const EQ_CATEGORY_FIELDS={
+  printers:[
+    {key:'counter_start',label:'Стартовый счётчик',type:'number'},
+    {key:'resource_limit',label:'Ресурс (отпечатков)',type:'number'},
+  ],
+  computers:[
+    {key:'cpu',label:'Процессор',type:'text'},
+    {key:'ram',label:'Оперативная память',type:'text'},
+    {key:'screen',label:'Экран',type:'text'},
+  ],
+  cashregisters:[
+    {key:'factory_number',label:'Заводской номер',type:'text'},
+    {key:'id_number',label:'Номер ID',type:'text'},
+    {key:'tech_number',label:'Тех. номер',type:'text'},
+    {key:'legal_entity',label:'Юр. лицо',type:'text'},
+    {key:'ofd_tariff_until',label:'Тариф ОФД до',type:'date'},
+    {key:'fiscal_end',label:'Окончание фискальника',type:'date'},
+    {key:'litebox_login',label:'Litebox логин',type:'text'},
+    {key:'service_paid_until',label:'Обслуживание оплачено до',type:'date'},
+    {key:'sim_card',label:'SIM-карта',type:'text'},
+    {key:'receipt_address',label:'Адрес на чеке',type:'text'},
+    {key:'ownership',label:'Аренда/собственность',type:'select',options:['Собственность','Аренда']},
+  ],
+  acquiring:[
+    {key:'legal_entity',label:'Юр. лицо',type:'text'},
+    {key:'sim_card',label:'SIM-карта',type:'text'},
+    {key:'sim_owner',label:'Собственник SIM',type:'text'},
+    {key:'sim_paid_until',label:'Оплата SIM до',type:'date'},
+    {key:'receipt_address',label:'Адрес на чеке',type:'text'},
+    {key:'bank',label:'Банк',type:'text'},
+    {key:'cash_binding',label:'Привязка к кассе',type:'text'},
+    {key:'ownership',label:'Аренда/собственность',type:'select',options:['Собственность','Аренда']},
+    {key:'free_rent_threshold',label:'Пороги бесплатной аренды',type:'text'},
+  ],
+  photoinventory:[
+    {key:'shutter_count',label:'Пробег (кадров)',type:'number'},
+    {key:'resource_limit',label:'Ресурс (кадров)',type:'number'},
+  ],
+};
+function getExtraFieldsForCategory(catValue){return EQ_CATEGORY_FIELDS[catValue]||[];}
 function getCategoriesForType(type){return type==='equipment'?EQUIPMENT_CATEGORIES:CONSUMABLE_CATEGORIES;}
 function getCategoryLabel(type,value){
   const all=[...EQUIPMENT_CATEGORIES,...CONSUMABLE_CATEGORIES];
@@ -1635,7 +1681,7 @@ function updateCategorySelect() {
     }
     if (this.value && this.value !== '__custom__' && this.value !== '') {
       const cat = getCategoriesForType(document.getElementById('item-type').value).find(c => c.value === this.value);
-      if (cat) document.getElementById('item-prefix').value = cat.prefix;
+      if (cat && !document.getElementById('item-prefix').value) document.getElementById('item-prefix').value = cat.prefix;
     }
   };
 }
@@ -1644,7 +1690,7 @@ async function loadSuppliersList() {
   try { suppliersList = await api('GET', '/inventory-items/suppliers'); } catch (_) { suppliersList = []; }
   const sel = document.getElementById('item-supplier');
   if (!sel) return;
-  const current = sel.value || sel.getAttribute('data-current') || '';
+  const current = sel.getAttribute('data-current') || '';
   sel.innerHTML = '<option value="">— не указан —</option>' +
     suppliersList.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   if (current) {
@@ -2675,6 +2721,33 @@ async function openEqHistoryModal(unitId) {
 
 // ── БЛОК 4: Оборудование ──
 
+function renderEqCustomFields(eq) {
+  const host = document.getElementById('eq-custom-fields');
+  if (!host) return;
+  const itemId = document.getElementById('eq-item').value;
+  const item = items.find(i => String(i.id) === String(itemId));
+  const catValue = item?.category || '';
+  const extraFields = getExtraFieldsForCategory(catValue);
+  let cf = eq?.custom_fields || {};
+  if (typeof cf === 'string') { try { cf = JSON.parse(cf); } catch (_) { cf = {}; } }
+
+  if (!extraFields.length) {
+    host.innerHTML = '';
+    return;
+  }
+
+  host.innerHTML = `<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 6px">Дополнительные поля (${getCategoryLabel('equipment', catValue)})</div>` +
+    extraFields.map(f => {
+      const val = cf[f.key] != null && cf[f.key] !== '' ? cf[f.key] : (eq?.[f.key] != null && eq?.[f.key] !== '' ? eq[f.key] : '');
+      if (f.type === 'select') {
+        return `<div class="field"><div class="fl">${esc(f.label)}</div><select class="fselect" data-cf-key="${esc(f.key)}">
+          <option value="">—</option>${(f.options || []).map(o => `<option value="${esc(o)}" ${String(val) === String(o) ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+        </select></div>`;
+      }
+      return `<div class="field"><div class="fl">${esc(f.label)}</div><input class="fin" type="${f.type === 'number' ? 'number' : (f.type === 'date' ? 'date' : 'text')}" data-cf-key="${esc(f.key)}" value="${esc(String(val ?? ''))}"/></div>`;
+    }).join('');
+}
+
 function openEqModal(eq) {
   document.getElementById('eq-modal-title').textContent = eq ? 'Редактировать оборудование' : 'Новое оборудование';
   document.getElementById('eq-id').value = eq?.id || '';
@@ -2693,8 +2766,28 @@ function openEqModal(eq) {
   document.getElementById('eq-resource').value = eq?.resource_limit ?? '';
   document.getElementById('eq-service-date').value = eq?.last_service_date?.split('T')[0] || '';
   document.getElementById('eq-service-notes').value = eq?.service_notes || '';
-  document.getElementById('eq-replacement-date').value = eq?.planned_replacement_date?.split('T')[0] || '';
   document.getElementById('eq-notes').value = eq?.notes || '';
+
+  const condHost = document.getElementById('eq-condition-host');
+  if (condHost) {
+    const rating = parseInt(eq?.condition_rating, 10) || 0;
+    condHost.innerHTML = [1, 2, 3, 4, 5].map(n =>
+      `<span class="eq-star" data-star="${n}" style="font-size:20px;cursor:pointer;color:${n <= rating ? '#f5a623' : 'var(--border2)'}">★</span>`
+    ).join('');
+    condHost.onclick = (ev) => {
+      const span = ev.target.closest('.eq-star');
+      if (!span) return;
+      const n = parseInt(span.getAttribute('data-star'), 10);
+      document.getElementById('eq-condition').value = String(n);
+      condHost.querySelectorAll('.eq-star').forEach((s, i) => { s.style.color = i < n ? '#f5a623' : 'var(--border2)'; });
+    };
+  }
+  const condInput = document.getElementById('eq-condition');
+  if (condInput) condInput.value = eq?.condition_rating != null ? String(eq.condition_rating) : '';
+
+  renderEqCustomFields(eq);
+  itemSel.onchange = () => renderEqCustomFields(null);
+
   document.getElementById('eq-modal').classList.add('open');
 }
 
@@ -2711,9 +2804,23 @@ async function saveEquipment() {
     resource_limit: parseFloat(document.getElementById('eq-resource').value) || null,
     last_service_date: document.getElementById('eq-service-date').value || null,
     service_notes: document.getElementById('eq-service-notes').value.trim() || null,
-    planned_replacement_date: document.getElementById('eq-replacement-date').value || null,
     notes: document.getElementById('eq-notes').value.trim() || null,
+    condition_rating: parseInt(document.getElementById('eq-condition')?.value, 10) || null,
+    counter_start: null,
+    custom_fields: {},
   };
+  const cfInputs = document.querySelectorAll('#eq-custom-fields [data-cf-key]');
+  const custom_fields = {};
+  cfInputs.forEach(el => {
+    const key = el.getAttribute('data-cf-key');
+    if (!key) return;
+    const raw = el.value != null ? String(el.value).trim() : '';
+    const val = raw || null;
+    if (val) custom_fields[key] = val;
+    if (key === 'resource_limit' && val) body.resource_limit = parseFloat(val) || null;
+    if (key === 'counter_start' && val) body.counter_start = parseFloat(val) || null;
+  });
+  body.custom_fields = custom_fields;
   if (!body.item_id) { showToast('Выберите тип оборудования', true); return; }
   try {
     if (id) await api('PATCH', `/equipment/${id}`, body);
@@ -2765,7 +2872,21 @@ async function openEqDrawer(id) {
       <div class="info-row"><span class="info-label">Серийный</span><span style="font-family:monospace;font-size:12px">${esc(eq.serial_number || '—')}</span></div>
       <div class="info-row"><span class="info-label">Инвентарный</span><span>${esc(eq.inventory_number || '—')}</span></div>
       <div class="info-row"><span class="info-label">Статус</span><span>${STATUS[eq.status] || eq.status}</span></div>
+      ${eq.condition_rating ? `<div class="info-row"><span class="info-label">Состояние</span><span>${'★'.repeat(eq.condition_rating)}${'☆'.repeat(5 - eq.condition_rating)}</span></div>` : ''}
       <div class="info-row"><span class="info-label">Место</span><span>${esc(eq.warehouse_name || '—')}${eq.venue_name ? ' · ' + esc(eq.venue_name) : ''}</span></div>
+      ${(() => {
+        const item = items.find(i => String(i.id) === String(eq.item_id));
+        const catVal = item?.category || '';
+        const extra = getExtraFieldsForCategory(catVal);
+        let cf = eq.custom_fields || {};
+        if (typeof cf === 'string') { try { cf = JSON.parse(cf); } catch (_) { cf = {}; } }
+        if (!extra.length) return '';
+        return extra.map(f => {
+          const val = cf[f.key] ?? eq[f.key] ?? '';
+          if (val === '' || val == null) return '';
+          return `<div class="info-row"><span class="info-label">${esc(f.label)}</span><span>${esc(String(val))}</span></div>`;
+        }).filter(Boolean).join('');
+      })()}
       ${eq.purchase_date ? `<div class="info-row"><span class="info-label">Дата покупки</span><span>${new Date(eq.purchase_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
       ${eq.purchase_price ? `<div class="info-row"><span class="info-label">Цена покупки</span><span>${parseFloat(eq.purchase_price).toLocaleString('ru-RU')} ₽</span></div>` : ''}
       ${eq.last_service_date ? `<div class="info-row"><span class="info-label">Последнее ТО</span><span>${new Date(eq.last_service_date).toLocaleDateString('ru-RU')}</span></div>` : ''}
