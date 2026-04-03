@@ -196,9 +196,11 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <button type="button" class="tab" onclick="switchAdminTab(3)">История</button>
       <button type="button" class="tab" id="adm-tab-analytics" onclick="switchAdminTab(4)">📊 Аналитика</button>
       <button type="button" class="btn btn-ghost" data-admin-tab="reports" onclick="switchAdminTab('reports')" style="font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--border)">📋 Отчёты</button>
+      <button type="button" class="btn btn-ghost" data-admin-tab="grades" onclick="switchAdminTab('grades')" style="font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--border)">📊 Грейды</button>
     </div>
     <div id="tab-content"></div>
     <div id="admin-tab-reports" style="display:none"></div>
+    <div id="admin-tab-grades" style="display:none"></div>
   </div>
 </div>
 <!-- ── NEW USER MODAL ── -->
@@ -551,19 +553,22 @@ async function createVenue(){
 }
 
 function switchAdminTab(i){
-  const idx = i === 'reports' ? 5 : i;
+  const idx = i === 'reports' ? 5 : i === 'grades' ? 6 : i;
   const tc = document.getElementById('tab-content');
   const tr = document.getElementById('admin-tab-reports');
+  const tg = document.getElementById('admin-tab-grades');
   document.querySelectorAll('#admin-tabs .tab').forEach((t,j)=>t.classList.toggle('active',j===idx));
   const repBtn = document.querySelector('[data-admin-tab="reports"]');
   if(repBtn) repBtn.classList.toggle('active', idx===5);
-  if(idx===5){
-    if(tc) tc.style.display='none';
-    if(tr){ tr.style.display='block'; loadAdminReports(); }
-    return;
-  }
-  if(tc) tc.style.display='block';
-  if(tr) tr.style.display='none';
+  const grBtn = document.querySelector('[data-admin-tab="grades"]');
+  if(grBtn) grBtn.classList.toggle('active', idx===6);
+
+  if(tc) tc.style.display = (idx < 5) ? 'block' : 'none';
+  if(tr) tr.style.display = (idx === 5) ? 'block' : 'none';
+  if(tg) tg.style.display = (idx === 6) ? 'block' : 'none';
+
+  if(idx===5){ loadAdminReports(); return; }
+  if(idx===6){ loadAdminGrades(); return; }
   if(idx===0) renderAdminUsers();
   else if(idx===1) renderAdminVenues();
   else if(idx===2) renderAdminArchive();
@@ -2618,11 +2623,277 @@ function openPhotographerCardFromAdmin(pid) {
     venues = await api('GET', '/venues');
     await loadPhotographers();
     await loadUsers();
+    const grTabBtn = document.querySelector('[data-admin-tab="grades"]');
+    if (grTabBtn) grTabBtn.style.display = hasAnyRole(['hr_director', 'exec_director', 'admin']) ? '' : 'none';
     switchAdminTab(0);
   } catch (e) {
     window.location.href = 'index.html';
   }
 })();
+
+// ═══════════════════════════════════════════════════
+// ADMIN: GRADES TAB
+// ═══════════════════════════════════════════════════
+
+let _adminGradesSubTab = 0;
+let _adminGradeDefs = [];
+let _adminGradesSummary = { no_grade_count: 0 };
+let _adminKpiResults = null;
+let _adminBonusPreview = null;
+
+async function loadAdminGrades() {
+  const el = document.getElementById('admin-tab-grades');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const sum = await api('GET', '/grades/summary');
+    _adminGradeDefs = sum.grades || [];
+    _adminGradesSummary = { no_grade_count: sum.no_grade_count || 0 };
+    renderAdminGradesTabs();
+  } catch(e) { el.innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function renderAdminGradesTabs() {
+  const el = document.getElementById('admin-tab-grades');
+  if (!el) return;
+  const tabs = [
+    { label: '📊 Справочник', key: 0 },
+    { label: '🔍 KPI-проверка', key: 1 },
+    { label: '💰 Месячные премии', key: 2 },
+  ];
+  el.innerHTML = `
+    <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+      ${tabs.map(t => `<button class="f-btn ${_adminGradesSubTab === t.key ? 'active' : ''}"
+        onclick="_adminGradesSubTab=${t.key};renderAdminGradesTabs()">${t.label}</button>`).join('')}
+    </div>
+    <div id="admin-grades-content"></div>
+  `;
+  const content = document.getElementById('admin-grades-content');
+  if (_adminGradesSubTab === 0) renderAdminGradesDefs(content);
+  else if (_adminGradesSubTab === 1) renderAdminKpiCheck(content);
+  else renderAdminMonthlyBonus(content);
+}
+
+function renderAdminGradesDefs(el) {
+  const ROLE_LABELS = { photographer: '📷 Фотографы', print_operator: '🖨 Операторы печати', manager: '👔 Менеджеры' };
+  const groups = {};
+  (_adminGradeDefs || []).forEach(g => {
+    if (!groups[g.role_type]) groups[g.role_type] = [];
+    groups[g.role_type].push(g);
+  });
+  Object.values(groups).forEach(arr => arr.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)));
+
+  const ng = _adminGradesSummary?.no_grade_count || 0;
+  let html = `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Просмотр справочника грейдов (активные). Редактирование — на странице «Команда» → кнопка «📊 Грейды».</div>`;
+  if (ng > 0) {
+    html += `<div style="padding:10px 12px;margin-bottom:12px;border-radius:8px;background:rgba(242,85,85,.08);border:1px solid rgba(242,85,85,.25);font-size:12px;color:var(--text2)">
+      Без грейда: <strong>${ng}</strong> активных сотрудников
+    </div>`;
+  }
+  for (const [rt, label] of Object.entries(ROLE_LABELS)) {
+    const items = groups[rt] || [];
+    html += `<div style="margin-bottom:16px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">${label}</div>
+      ${items.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="color:var(--text3)"><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Код</th>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Название</th>
+        <th style="text-align:center;padding:6px 8px;border-bottom:1px solid var(--border)">На грейде</th>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Надбавка</th>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Мин. смен (б/о)</th>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Пунктуальность</th>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Статус</th></tr>
+        ${items.map(g => `<tr${g.is_active === false ? ' style="opacity:.4"' : ''}>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border)"><code>${esc(g.grade_code)}</code></td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${esc(g.grade_name)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;font-weight:600;color:var(--accent2)">${g.staff_count != null ? g.staff_count : '—'}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--rank1);font-weight:600">+${g.pay_bonus_pct || 0}%</td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${g.min_big_shifts != null ? g.min_big_shifts : '—'}/${g.min_total_shifts != null ? g.min_total_shifts : '—'}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${g.min_punctuality_pct != null ? g.min_punctuality_pct + '%' : '—'}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border)">${g.is_active !== false ? '✅' : '⏸'}</td>
+        </tr>`).join('')}
+      </table>` : '<div style="color:var(--text3);font-size:12px;padding:8px">Нет грейдов</div>'}
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderAdminKpiCheck(el) {
+  const now = new Date();
+  const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+      <div class="fl" style="margin-bottom:0">Месяц</div>
+      <select class="fselect" id="kpi-month" style="width:auto;font-size:12px">
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m =>
+          `<option value="${m}" ${m === prevMonth ? 'selected' : ''}>${['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][m-1]}</option>`
+        ).join('')}
+      </select>
+      <input class="fin" type="number" id="kpi-year" value="${prevYear}" style="width:80px;font-size:12px"/>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="runAdminKpiCheck()">🔍 Проверить KPI</button>
+    </div>
+    <div id="kpi-results">${_adminKpiResults ? renderKpiResults(_adminKpiResults) : '<div style="color:var(--text3);font-size:12px">Нажмите «Проверить KPI» для анализа</div>'}</div>
+  `;
+}
+
+async function runAdminKpiCheck() {
+  const month = parseInt(document.getElementById('kpi-month').value, 10);
+  const year = parseInt(document.getElementById('kpi-year').value, 10);
+  const el = document.getElementById('kpi-results');
+  el.innerHTML = '<div class="loading">Анализ KPI...</div>';
+  try {
+    _adminKpiResults = await api('POST', '/grades/kpi-check', { month, year });
+    el.innerHTML = renderKpiResults(_adminKpiResults);
+  } catch(e) { el.innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function renderKpiResults(data) {
+  if (!data || !data.suggestions?.length) {
+    return `<div style="padding:12px;background:var(--bg3);border-radius:10px;color:var(--text2);font-size:12px">
+      Проверено ${data?.total_checked || 0} сотрудников за ${esc(data?.period || '—')}. Изменений не требуется.
+    </div>`;
+  }
+  const ACTION_EMOJI = { promote: '↑', demote: '↓', assign: '●' };
+  const ACTION_COLOR = { promote: 'var(--rank1)', demote: 'var(--rank3)', assign: 'var(--accent2)' };
+
+  let html = `<div style="display:flex;gap:12px;margin-bottom:12px">
+    <div style="padding:8px 14px;background:rgba(62,207,142,.1);border-radius:8px;font-size:12px">↑ Повышение: <strong>${data.promote_count}</strong></div>
+    <div style="padding:8px 14px;background:rgba(242,85,85,.1);border-radius:8px;font-size:12px">↓ Понижение: <strong>${data.demote_count}</strong></div>
+    <div style="padding:8px 14px;background:rgba(124,108,255,.1);border-radius:8px;font-size:12px">● Назначить: <strong>${data.assign_count}</strong></div>
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" id="kpi-select-all" onchange="toggleAllKpi(this.checked)" checked/> Выбрать все
+    </label>
+  </div>
+  <div style="max-height:400px;overflow-y:auto">`;
+
+  data.suggestions.forEach((s, i) => {
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:12px">
+      <input type="checkbox" class="kpi-cb" data-idx="${i}" checked/>
+      <span style="color:${ACTION_COLOR[s.action]};font-weight:600;width:20px;text-align:center;font-size:16px">${ACTION_EMOJI[s.action]}</span>
+      <span style="flex:1;font-weight:500">${esc(s.photographer_name)}</span>
+      <span style="color:var(--text3)">${s.current_grade ? esc(s.current_grade) : '—'}</span>
+      <span style="color:var(--text3)">→</span>
+      <span style="font-weight:600;color:${ACTION_COLOR[s.action]}">${esc(s.suggested_grade_name)} (+${s.suggested_bonus_pct ?? 0}%)</span>
+      <span style="color:var(--text3);font-size:10px" title="Смены: ${s.kpi.total_shifts}, Б: ${s.kpi.big_shifts}, Пункт: ${s.kpi.punctuality_pct}%">
+        📊 ${s.kpi.total_shifts}с ${s.kpi.big_shifts}б ${s.kpi.punctuality_pct}%
+      </span>
+    </div>`;
+  });
+
+  html += `</div>
+    <div style="display:flex;gap:8px;margin-top:14px;align-items:center">
+      <input type="date" class="fin" id="kpi-eff-date" value="${new Date().toISOString().split('T')[0]}" style="width:140px;font-size:12px"/>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="applyKpiChanges()">✅ Применить выбранные</button>
+    </div>`;
+  return html;
+}
+
+function toggleAllKpi(checked) {
+  document.querySelectorAll('.kpi-cb').forEach(cb => { cb.checked = checked; });
+}
+
+async function applyKpiChanges() {
+  if (!_adminKpiResults?.suggestions?.length) return;
+  const effectiveFrom = document.getElementById('kpi-eff-date')?.value || new Date().toISOString().split('T')[0];
+  const items = [];
+  document.querySelectorAll('.kpi-cb:checked').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx, 10);
+    const s = _adminKpiResults.suggestions[idx];
+    if (s) items.push({ photographer_id: s.photographer_id, suggested_grade_id: s.suggested_grade_id, action: s.action });
+  });
+  if (!items.length) { showToast('Ничего не выбрано', true); return; }
+  if (!confirm(`Применить изменения грейдов для ${items.length} сотрудников?`)) return;
+  try {
+    const res = await api('POST', '/grades/kpi-check/apply', { items, effective_from: effectiveFrom });
+    showToast(`Применено: ${res.applied} изменений`);
+    _adminKpiResults = null;
+    renderAdminGradesTabs();
+  } catch(e) { showToast(e.message, true); }
+}
+
+function renderAdminMonthlyBonus(el) {
+  const now = new Date();
+  const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+      <div class="fl" style="margin-bottom:0">Месяц</div>
+      <select class="fselect" id="mb-calc-month" style="width:auto;font-size:12px">
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m =>
+          `<option value="${m}" ${m === prevMonth ? 'selected' : ''}>${['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][m-1]}</option>`
+        ).join('')}
+      </select>
+      <input class="fin" type="number" id="mb-calc-year" value="${prevYear}" style="width:80px;font-size:12px"/>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="calcAdminMonthlyBonus()">💰 Рассчитать</button>
+    </div>
+    <div id="mb-preview">${_adminBonusPreview ? renderBonusPreview(_adminBonusPreview) : '<div style="color:var(--text3);font-size:12px">Нажмите «Рассчитать» для предварительного расчёта</div>'}</div>
+  `;
+}
+
+async function calcAdminMonthlyBonus() {
+  const month = parseInt(document.getElementById('mb-calc-month').value, 10);
+  const year = parseInt(document.getElementById('mb-calc-year').value, 10);
+  const el = document.getElementById('mb-preview');
+  el.innerHTML = '<div class="loading">Расчёт...</div>';
+  try {
+    _adminBonusPreview = await api('POST', '/monthly-bonus/calculate', { month, year });
+    el.innerHTML = renderBonusPreview(_adminBonusPreview);
+  } catch(e) { el.innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function renderBonusPreview(data) {
+  if (!data?.results?.length) {
+    return `<div style="padding:12px;background:var(--bg3);border-radius:10px;color:var(--text2);font-size:12px">
+      За ${esc(data?.period || '—')}: никто не прошёл пороги для премий.
+    </div>`;
+  }
+  let html = `<div style="padding:10px 14px;background:rgba(62,207,142,.1);border-radius:8px;margin-bottom:12px;font-size:13px">
+    Период: <strong>${esc(data.period)}</strong> · Итого к начислению: <strong style="color:var(--rank1)">${Number(data.total).toLocaleString('ru-RU')}₽</strong> · Сотрудников: ${data.results.length}
+  </div>
+  <div style="max-height:350px;overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="color:var(--text3)"><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)">Сотрудник</th>
+      <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Смен</th>
+      <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Выручка</th>
+      <th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--rank1)">Премия</th>
+      <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Правила</th></tr>
+      ${data.results.map(r => `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500">${esc(r.name)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center">${r.shifts}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right">${Number(r.revenue).toLocaleString('ru-RU')}₽</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:var(--rank1)">${Number(r.bonus).toLocaleString('ru-RU')}₽</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3)">${(r.rules||[]).join(', ')}</td>
+      </tr>`).join('')}
+    </table>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="applyMonthlyBonus()">✅ Начислить премии в payroll</button>
+  </div>`;
+  return html;
+}
+
+async function applyMonthlyBonus() {
+  if (!_adminBonusPreview?.results?.length) return;
+  const [yearStr, monthStr] = (_adminBonusPreview.period || '').split('-');
+  if (!confirm(`Начислить ${_adminBonusPreview.results.length} премий на сумму ${Number(_adminBonusPreview.total).toLocaleString('ru-RU')}₽?`)) return;
+  try {
+    const items = _adminBonusPreview.results.map(r => ({
+      photographer_id: r.photographer_id,
+      bonus: r.bonus,
+      rules: r.rules,
+    }));
+    const res = await api('POST', '/monthly-bonus/apply', {
+      month: parseInt(monthStr, 10), year: parseInt(yearStr, 10), items
+    });
+    showToast(`Начислено: ${res.created}, пропущено (дубликаты): ${res.skipped}`);
+    _adminBonusPreview = null;
+    renderAdminGradesTabs();
+  } catch(e) { showToast(e.message, true); }
+}
 
 </script>
 </body>

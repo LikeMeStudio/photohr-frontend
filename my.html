@@ -1001,13 +1001,7 @@ async function loadProfile(){
     </svg>`;
   }
 
-  let gradeHtml='';
-  if(currentGrade){
-    gradeHtml=`<div class="section">
-      <div class="section-title">📊 Мой грейд — ${esc(currentGrade.grade_code)} «${esc(currentGrade.grade_name)}» (+${currentGrade.pay_bonus_pct||0}%)</div>
-      <div style="font-size:12px;color:var(--text2)">С ${new Date(currentGrade.effective_from).toLocaleDateString('ru-RU')}</div>
-    </div>`;
-  }
+  const gradeHtml='<div id="my-grade-section"></div>';
 
   const ROLE_ABBR={photographer:'ф',print_operator:'о',manager:'м',helper:'п',night:'н'};
   const upcomingHtml=(upcomingShifts||[]).length?(upcomingShifts||[]).map(s=>{
@@ -1124,6 +1118,7 @@ async function loadProfile(){
   `;
   if(myTab===1) loadSchedulePanel(phId);
   if(myTab===2) loadFinancePanel(phId);
+  loadMyGradeDetails();
 }
 
 async function loadTeamProfile() {
@@ -1219,6 +1214,117 @@ async function loadTeamProfile() {
       ${tm.summary ? `<div class="section"><div class="section-title">📝 О себе</div><div style="font-size:13px;color:var(--text2);line-height:1.6">${esc(tm.summary)}</div></div>` : ''}
     </div>
   `;
+}
+
+async function loadMyGradeDetails() {
+  const el = document.getElementById('my-grade-section');
+  if (!el) return;
+  try {
+    const data = await api('GET', '/my/grade-details');
+    if (!data) { el.innerHTML = ''; return; }
+
+    const { current, history, checklist, nextGrade, kpi } = data;
+
+    let html = '<div class="section"><div class="section-title">📊 Мой грейд</div>';
+
+    if (current) {
+      html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="padding:4px 12px;border-radius:8px;font-size:14px;font-weight:600;background:rgba(124,108,255,.15);color:var(--accent2);border:1px solid rgba(124,108,255,.3)">
+          ${esc(current.grade_code)} ${esc(current.grade_name)}
+        </span>
+        <span style="font-size:13px;color:var(--rank1);font-weight:600">+${current.pay_bonus_pct || 0}%</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+        С ${new Date(current.effective_from).toLocaleDateString('ru-RU')}${current.approved_by_name ? ' · присвоил: ' + esc(current.approved_by_name) : ''}
+      </div>`;
+
+      if (checklist && checklist.items.length > 0) {
+        const pct = checklist.total > 0 ? Math.round(checklist.passed / checklist.total * 100) : 0;
+        html += `<div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">Чеклист: ${checklist.passed}/${checklist.total} (${pct}%)</div>
+          <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin-bottom:8px">
+            <div style="height:100%;width:${pct}%;border-radius:3px;background:${pct >= 80 ? 'var(--rank1)' : pct >= 50 ? 'var(--rank2)' : 'var(--rank3)'};transition:width .3s"></div>
+          </div>`;
+        checklist.items.forEach((item, i) => {
+          const r = checklist.results.find(x => x.check_item_index === i);
+          const ok = r?.passed === true;
+          const label = typeof item === 'string' ? item : item.label || item.text || '';
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;font-size:11px;margin-bottom:3px;background:${ok ? 'rgba(62,207,142,.08)' : 'rgba(242,85,85,.05)'}">
+            <span style="font-size:14px">${ok ? '✅' : '⬜'}</span>
+            <span style="color:${ok ? 'var(--rank1)' : 'var(--text2)'}">${esc(label)}</span>
+          </div>`;
+        });
+        html += '</div>';
+      }
+
+      if (kpi) {
+        html += `<div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px">📈 KPI этого месяца</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px">`;
+
+        const metrics = [];
+        if (current.min_total_shifts != null) {
+          const pctS = Math.min(100, Math.round((parseInt(kpi.total_shifts, 10) || 0) / current.min_total_shifts * 100));
+          metrics.push({ label: 'Смены', value: `${kpi.total_shifts || 0}/${current.min_total_shifts}`, pct: pctS });
+        }
+        if (current.min_big_shifts != null) {
+          const pctB = Math.min(100, Math.round((parseInt(kpi.big_shifts, 10) || 0) / current.min_big_shifts * 100));
+          metrics.push({ label: 'Большие', value: `${kpi.big_shifts || 0}/${current.min_big_shifts}`, pct: pctB });
+        }
+        if (current.min_punctuality_pct != null) {
+          const pctP = Math.min(100, Math.round((parseFloat(kpi.punctuality_pct) || 0) / parseFloat(current.min_punctuality_pct) * 100));
+          metrics.push({ label: 'Пунктуальность', value: `${kpi.punctuality_pct || 0}%/${current.min_punctuality_pct}%`, pct: pctP });
+        }
+
+        metrics.forEach(m => {
+          const col = m.pct >= 100 ? 'var(--rank1)' : m.pct >= 70 ? 'var(--rank2)' : 'var(--rank3)';
+          html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">${m.label}</div>
+            <div style="font-size:14px;font-weight:600;color:${col}">${m.value}</div>
+            <div style="height:4px;border-radius:2px;background:var(--bg);overflow:hidden;margin-top:4px">
+              <div style="height:100%;width:${m.pct}%;border-radius:2px;background:${col}"></div>
+            </div>
+          </div>`;
+        });
+
+        html += '</div></div>';
+      }
+
+      if (nextGrade) {
+        html += `<div style="padding:10px;background:rgba(124,108,255,.08);border:1px solid rgba(124,108,255,.2);border-radius:8px;margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Следующий грейд</div>
+          <div style="font-size:13px;font-weight:600;color:var(--accent2)">${esc(nextGrade.grade_code)} ${esc(nextGrade.grade_name)} (+${nextGrade.pay_bonus_pct || 0}%)</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">
+            ${nextGrade.min_total_shifts != null ? 'Смен: ' + nextGrade.min_total_shifts : ''}
+            ${nextGrade.min_big_shifts != null ? ' · Больших: ' + nextGrade.min_big_shifts : ''}
+            ${nextGrade.min_punctuality_pct != null ? ' · Пункт: ' + nextGrade.min_punctuality_pct + '%' : ''}
+          </div>
+        </div>`;
+      }
+    } else {
+      html += '<div style="color:var(--text3);font-size:12px;margin-bottom:12px">Грейд пока не назначен</div>';
+    }
+
+    if (history && history.length > 0) {
+      const AL = { promoted: '↑ Повышение', demoted: '↓ Понижение', assigned: '● Назначен', forced_confirm: '⚡ Подтверждён' };
+      const AC = { promoted: 'var(--rank1)', demoted: 'var(--rank3)', assigned: 'var(--accent2)', forced_confirm: 'var(--rank2)' };
+      html += '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;margin-bottom:6px">История грейдов</div>';
+      history.forEach(h => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">
+          <span style="color:${AC[h.action] || 'var(--text3)'};font-weight:600">${AL[h.action] || h.action}</span>
+          <span>${esc(h.grade_name || h.grade_code)}</span>
+          <span style="color:var(--text3);margin-left:auto">${new Date(h.effective_from).toLocaleDateString('ru-RU')}</span>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    console.error('loadMyGradeDetails', e);
+    el.innerHTML = '';
+  }
 }
 </script>
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
