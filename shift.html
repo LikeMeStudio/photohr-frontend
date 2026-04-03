@@ -126,7 +126,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 <div id="sales-section" class="section" style="display:none">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section-title" style="margin-bottom:0">🛒 Продажи сегодня</div>
-    <button class="btn btn-primary btn-sm" onclick="openNewSale()">+ Новая продажа</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-sm" onclick="openDeliverScanner()" style="font-size:11px">📦 Выдача</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewSale()">+ Продажа</button>
+    </div>
   </div>
   <div id="sales-stats" class="stat-row"></div>
   <div id="sales-list"></div>
@@ -143,6 +146,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div id="qr-modal-content"></div>
+  </div>
+</div>
+
+<div id="deliver-modal" class="modal-bg" onclick="if(event.target===this)closeDeliverScanner()">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="deliver-modal-content"></div>
   </div>
 </div>
 
@@ -578,7 +588,16 @@ async function openSaleDetail(saleId) {
       html += `<div style="margin-bottom:12px;font-size:12px;color:var(--text3)">👤 ${[sale.guest_name, sale.guest_email, sale.guest_phone].filter(Boolean).map(esc).join(' · ')}</div>`;
     }
 
-    html += `<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+    if (!sale.is_delivered) {
+      const isPaid = sale.payment_status === 'paid';
+      html += `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        ${!isPaid ? `<button type="button" class="btn btn-sm" onclick="payAndDeliverSale('${esc(sale.id)}')" style="background:var(--rank2);border-color:var(--rank2);color:#fff;flex:1;min-width:110px">💰 Оплата + Выдача</button>` : ''}
+        <button type="button" class="btn btn-primary btn-sm" onclick="deliverSale('${esc(sale.id)}')" style="flex:1;min-width:110px">📦 Выдать фото</button>
+      </div>`;
+    } else {
+      html += `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;text-align:center;color:var(--rank1);font-size:13px;font-weight:600">✅ Фото выданы</div>`;
+    }
+    html += `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <button type="button" class="btn btn-ghost" onclick="closeSaleModal()" style="flex:1">Закрыть</button>
       <button type="button" class="btn btn-primary btn-sm" onclick="showQrCode(detailSaleForQr)">📱 QR</button>
       ${!sale.is_delivered && sale.series && sale.series.length ? `<button type="button" class="btn btn-sm" onclick="addSeriesToSale(detailSaleIdForSeries)">+ Серия</button>` : ''}
@@ -618,6 +637,150 @@ async function addSeriesToSale(saleId) {
   } catch (e) {
     toast(e.message, true);
   }
+}
+
+let deliverScanToken = '';
+
+function openDeliverScanner() {
+  deliverScanToken = '';
+  document.getElementById('deliver-modal-content').innerHTML = `
+    <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;margin-bottom:14px">📦 Выдача фотографий</div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">QR-токен или ссылка гостя</label>
+      <div style="display:flex;gap:8px">
+        <input id="deliver-scan-input" class="fin" placeholder="Вставьте ссылку или токен" style="flex:1;font-size:13px;padding:8px">
+        <button type="button" class="btn btn-primary" onclick="lookupDeliverScan()" style="width:auto;padding:8px 14px">🔍</button>
+      </div>
+    </div>
+    <div id="deliver-scan-result"></div>
+  `;
+  document.getElementById('deliver-modal').classList.add('open');
+  setTimeout(() => document.getElementById('deliver-scan-input')?.focus(), 200);
+}
+
+function closeDeliverScanner() { document.getElementById('deliver-modal').classList.remove('open'); }
+
+async function lookupDeliverScan() {
+  let token = (document.getElementById('deliver-scan-input')?.value || '').trim();
+  if (!token) { toast('Введите токен или ссылку', true); return; }
+  if (/guest\.html|[?&]t=/.test(token)) {
+    try {
+      const u = token.startsWith('http') ? new URL(token) : new URL('https://x.invalid/' + token);
+      const t = u.searchParams.get('t');
+      if (t) token = t;
+    } catch (_) {
+      const m = token.match(/[?&]t=([^&]+)/);
+      if (m) token = decodeURIComponent(m[1]);
+    }
+  }
+
+  const el = document.getElementById('deliver-scan-result');
+  el.innerHTML = '<div style="color:var(--text3);padding:10px;font-size:12px">Поиск...</div>';
+
+  try {
+    const data = await api('GET', `/photo-sales/by-token/${encodeURIComponent(token)}`);
+    deliverScanToken = token;
+    renderDeliverScanCard(data);
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--rank3);padding:10px;font-size:13px">${esc(e.message)}</div>`;
+  }
+}
+
+function renderDeliverScanCard(data) {
+  const amt = parseFloat(data.total_amount) || 0;
+  const paid = parseFloat(data.paid_amount) || 0;
+  const isPaid = data.payment_status === 'paid';
+  const isDelivered = data.is_delivered;
+
+  let html = `<div style="background:var(--bg2);border-radius:10px;padding:12px;border-left:3px solid ${isDelivered ? 'var(--rank1)' : isPaid ? 'var(--accent)' : 'var(--rank2)'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-weight:600;font-size:13px">📍 ${esc(data.venue_name)}</span>
+      ${isDelivered ? '<span style="color:var(--rank1);font-size:11px">✅ Выдано</span>' : isPaid ? '<span style="color:var(--rank1);font-size:11px">💰 Оплачено</span>' : `<span style="color:var(--rank2);font-size:11px">⚠️ К оплате: ${(amt - paid).toLocaleString('ru-RU')}₽</span>`}
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+      📸 ${esc(data.photographer_name)} · ${new Date(data.created_at).toLocaleDateString('ru-RU')}
+      ${data.guest_name ? ' · 👤 ' + esc(data.guest_name) : ''}
+    </div>`;
+
+  if (data.items && data.items.length) {
+    html += `<div style="margin-bottom:6px">`;
+    for (const item of data.items) {
+      const frames = item.frame_numbers && item.frame_numbers.length ? item.frame_numbers.join(', ') : '';
+      html += `<div style="font-size:12px;padding:2px 0">
+        <div style="display:flex;justify-content:space-between">
+          <span>${esc(item.product_name)} × ${item.quantity}</span>
+          <span>${Number(item.total || 0).toLocaleString('ru-RU')}₽</span>
+        </div>
+        ${frames ? `<div style="font-size:10px;color:var(--text3)">📷 кадры: ${esc(frames)}</div>` : ''}
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (data.series && data.series.length) {
+    html += `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">📷 ${data.series.map(s => esc(s.camera_prefix) + s.frame_start + '–' + s.frame_end).join(', ')}</div>`;
+  }
+
+  html += `<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--rank1)">Итого: ${amt.toLocaleString('ru-RU')}₽</div>`;
+
+  if (!isDelivered) {
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${!isPaid ? `<button type="button" class="btn btn-sm" onclick="deliverScanPayAndDeliver()" style="background:var(--rank2);border-color:var(--rank2);color:#fff;flex:1;min-width:100px">💰 Оплата + Выдача</button>` : ''}
+      <button type="button" class="btn btn-primary btn-sm" onclick="deliverScanMarkDelivered()" style="flex:1;min-width:100px">📦 Выдать фото</button>
+    </div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('deliver-scan-result').innerHTML = html;
+}
+
+async function deliverScanMarkDelivered() {
+  if (!deliverScanToken) { toast('Сначала найдите заказ', true); return; }
+  try {
+    await api('POST', `/photo-sales/by-token/${encodeURIComponent(deliverScanToken)}/deliver`);
+    toast('✅ Фото выданы');
+    closeDeliverScanner();
+    await loadTodaySales();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deliverScanPayAndDeliver() {
+  if (!deliverScanToken) { toast('Сначала найдите заказ', true); return; }
+  try {
+    const data = await api('GET', `/photo-sales/by-token/${encodeURIComponent(deliverScanToken)}`);
+    if (data.id) {
+      await api('PATCH', `/photo-sales/${data.id}/pay`, { payment_method: 'cash', paid_amount: parseFloat(data.total_amount) || 0 });
+    }
+    await api('POST', `/photo-sales/by-token/${encodeURIComponent(deliverScanToken)}/deliver`);
+    toast('✅ Оплачено и выдано');
+    closeDeliverScanner();
+    await loadTodaySales();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deliverSale(saleId) {
+  if (!confirm('Подтвердите выдачу фотографий гостю')) return;
+  try {
+    const sale = await api('GET', `/photo-sales/${saleId}`);
+    if (!sale.qr_token) { toast('Нет QR-токена', true); return; }
+    await api('POST', `/photo-sales/by-token/${encodeURIComponent(sale.qr_token)}/deliver`);
+    toast('✅ Фото выданы');
+    closeSaleModal();
+    await loadTodaySales();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function payAndDeliverSale(saleId) {
+  if (!confirm('Отметить оплату наличными и выдать фото?')) return;
+  try {
+    const sale = await api('GET', `/photo-sales/${saleId}`);
+    if (!sale.qr_token) { toast('Нет QR-токена', true); return; }
+    await api('PATCH', `/photo-sales/${saleId}/pay`, { payment_method: 'cash', paid_amount: parseFloat(sale.total_amount) || 0 });
+    await api('POST', `/photo-sales/by-token/${encodeURIComponent(sale.qr_token)}/deliver`);
+    toast('✅ Оплачено и выдано');
+    closeSaleModal();
+    await loadTodaySales();
+  } catch (e) { toast(e.message, true); }
 }
 
 function stopChatPoll() {
