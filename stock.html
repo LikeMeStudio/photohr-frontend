@@ -60,8 +60,11 @@ a{color:inherit;text-decoration:none}
 .loading{text-align:center;padding:40px;color:var(--text3)}
 .admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
 .admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.wh-card-compact.dnd-over,.wh-mini.dnd-over{border-color:var(--accent)!important;box-shadow:0 0 12px rgba(124,108,255,.4)!important;background:rgba(124,108,255,.08)!important}
+.wh-card-compact.dnd-over,.wh-mini.dnd-over{border-color:var(--rank1)!important;box-shadow:0 0 12px rgba(62,207,142,.4)!important;background:rgba(62,207,142,.08)!important}
+.wh-card-compact.dnd-source,.wh-mini.dnd-source{border-color:var(--rank2)!important;box-shadow:0 0 8px rgba(245,166,35,.3)!important;background:rgba(245,166,35,.06)!important}
 tr.dnd-dragging{background:rgba(124,108,255,.15)!important;opacity:.7}
+tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
+.touch-ghost{position:fixed;pointer-events:none;z-index:9999;background:rgba(124,108,255,.9);color:#fff;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;transform:translate(-50%,-50%);white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4)}
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px}
   .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
@@ -612,6 +615,96 @@ function whVenueBadgeHtml(w) {
   return `<span title="${esc(v.name)}" style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:${color};margin-left:6px">${abbr}</span>`;
 }
 
+// ═══════ TOUCH DND (mobile) ═══════
+let touchDndData=null;
+let touchGhostEl=null;
+let touchStartTimer=null;
+
+function touchDndStart(ev){
+  if(ev.touches.length!==1)return;
+  const el=ev.currentTarget;
+  const touch=ev.touches[0];
+  touchStartTimer=setTimeout(()=>{
+    ev.preventDefault();
+    const whId=el.getAttribute('data-from-wh');
+    const itemId=el.getAttribute('data-item-id');
+    const eqId=el.getAttribute('data-equipment-id');
+    const name=el.getAttribute('data-item-name')||el.getAttribute('data-equipment-name')||'';
+
+    if(itemId){
+      touchDndData={kind:'stock-item',item_id:itemId,item_name:name,unit:el.getAttribute('data-item-unit')||'',from_warehouse_id:whId,max_qty:parseFloat(el.getAttribute('data-max-qty'))||0};
+    }else if(eqId){
+      touchDndData={kind:'equipment',unit_id:eqId,from_warehouse_id:whId,equipment_name:name,serial_number:el.getAttribute('data-equipment-serial')||''};
+    }else return;
+
+    el.classList.add('dnd-dragging');
+    document.querySelectorAll('.wh-card-compact,.wh-mini').forEach(c=>{
+      if(String(c.getAttribute('data-wh-id')||'')===String(whId||'')) c.classList.add('dnd-source');
+    });
+    touchGhostEl=document.createElement('div');
+    touchGhostEl.className='touch-ghost';
+    touchGhostEl.textContent=name.slice(0,30)||(touchDndData.kind==='equipment'?'Оборудование':'Позиция');
+    document.body.appendChild(touchGhostEl);
+    touchGhostEl.style.left=touch.clientX+'px';
+    touchGhostEl.style.top=touch.clientY+'px';
+    navigator.vibrate&&navigator.vibrate(30);
+  },400);
+}
+
+function touchDndMove(ev){
+  if(!touchDndData){
+    if(touchStartTimer){clearTimeout(touchStartTimer);touchStartTimer=null;}
+    return;
+  }
+  ev.preventDefault();
+  const touch=ev.touches[0];
+  if(touchGhostEl){
+    touchGhostEl.style.left=touch.clientX+'px';
+    touchGhostEl.style.top=touch.clientY+'px';
+  }
+  if(touchGhostEl)touchGhostEl.style.display='none';
+  const target=document.elementFromPoint(touch.clientX,touch.clientY);
+  if(touchGhostEl)touchGhostEl.style.display='';
+  document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
+  const whEl=target?.closest('.wh-card-compact,.wh-mini');
+  if(whEl){
+    const whId=whEl.getAttribute('data-wh-id');
+    if(whId&&String(whId)!==String(touchDndData.from_warehouse_id||'')){
+      whEl.classList.add('dnd-over');
+    }
+  }
+}
+
+function touchDndEnd(ev){
+  clearTimeout(touchStartTimer);
+  touchStartTimer=null;
+  if(!touchDndData){return;}
+  const touch=ev.changedTouches[0];
+  if(touchGhostEl)touchGhostEl.style.display='none';
+  const target=document.elementFromPoint(touch.clientX,touch.clientY);
+  if(touchGhostEl){touchGhostEl.remove();touchGhostEl=null;}
+  document.querySelectorAll('.dnd-dragging').forEach(c=>c.classList.remove('dnd-dragging'));
+  document.querySelectorAll('.dnd-source,.dnd-over').forEach(c=>{c.classList.remove('dnd-source');c.classList.remove('dnd-over');});
+
+  const whEl=target?.closest('.wh-card-compact,.wh-mini');
+  if(whEl){
+    const toWhId=whEl.getAttribute('data-wh-id');
+    if(toWhId&&String(toWhId)!==String(touchDndData.from_warehouse_id||'')){
+      const fakeEv={preventDefault:()=>{},dataTransfer:{getData:()=>JSON.stringify(touchDndData)}};
+      dndOnDropWh(fakeEv,toWhId);
+    }
+  }
+  touchDndData=null;
+}
+
+function touchDndCancel(){
+  clearTimeout(touchStartTimer);
+  touchStartTimer=null;
+  if(touchGhostEl){touchGhostEl.remove();touchGhostEl=null;}
+  document.querySelectorAll('.dnd-dragging,.dnd-source,.dnd-over').forEach(c=>{c.classList.remove('dnd-dragging');c.classList.remove('dnd-source');c.classList.remove('dnd-over');});
+  touchDndData=null;
+}
+
 function dndAllowDrop(ev){ev.preventDefault();const t=ev.currentTarget;if(t&&!t.classList.contains('dnd-over'))t.classList.add('dnd-over');}
 function dndDragLeave(ev){const t=ev.currentTarget;if(t)t.classList.remove('dnd-over');}
 function dndDrop(ev){const t=ev.currentTarget;if(t)t.classList.remove('dnd-over');}
@@ -759,9 +852,16 @@ async function submitDndTransferFromCart(){
 function dndRowDragStart(ev){
   ev.stopPropagation();
   ev.currentTarget.classList.add('dnd-dragging');
-  ev.dataTransfer.addEventListener('dragend',()=>ev.currentTarget.classList.remove('dnd-dragging'),{once:true});
   const el=ev.currentTarget;
   const whId=el.getAttribute('data-from-wh');
+  document.querySelectorAll('.wh-card-compact,.wh-mini').forEach(c=>{
+    if(String(c.getAttribute('data-wh-id')||'')===String(whId||'')) c.classList.add('dnd-source');
+  });
+  ev.dataTransfer.addEventListener('dragend',()=>{
+    el.classList.remove('dnd-dragging');
+    document.querySelectorAll('.dnd-source').forEach(c=>c.classList.remove('dnd-source'));
+    document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
+  },{once:true});
   const itemId=el.getAttribute('data-item-id');
   const qMax=parseFloat(el.getAttribute('data-max-qty'))||0;
   const name=el.getAttribute('data-item-name')||'';
@@ -778,11 +878,18 @@ function dndRowDragStart(ev){
 function dndEquipmentRowDragStart(ev){
   ev.stopPropagation();
   ev.currentTarget.classList.add('dnd-dragging');
-  ev.dataTransfer.addEventListener('dragend',()=>ev.currentTarget.classList.remove('dnd-dragging'),{once:true});
   const el=ev.currentTarget;
+  const fromWh=el.getAttribute('data-from-wh')||'';
+  document.querySelectorAll('.wh-card-compact,.wh-mini').forEach(c=>{
+    if(String(c.getAttribute('data-wh-id')||'')===String(fromWh||'')) c.classList.add('dnd-source');
+  });
+  ev.dataTransfer.addEventListener('dragend',()=>{
+    el.classList.remove('dnd-dragging');
+    document.querySelectorAll('.dnd-source').forEach(c=>c.classList.remove('dnd-source'));
+    document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
+  },{once:true});
   const id=el.getAttribute('data-equipment-id');
   const name=el.getAttribute('data-equipment-name')||'';
-  const fromWh=el.getAttribute('data-from-wh')||'';
   const serial=el.getAttribute('data-equipment-serial')||'';
   ev.dataTransfer.setData('application/json',JSON.stringify({
     kind:'equipment',
@@ -1089,7 +1196,7 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     const st = eqUnitStatusEmoji(e.status);
     const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
-    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" style="cursor:grab"` : '';
+    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none"` : '';
     return `<tr${drag}>
       <td>${esc(e.item_name)}</td>
       <td style="font-weight:600;text-align:center">1</td>
@@ -1111,7 +1218,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const qMax = parseFloat(s.quantity) || 0;
   const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
   const un = esc(s.unit || '').replace(/"/g, '&quot;');
-  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" style="cursor:grab"` : '';
+  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none"` : '';
   return `<tr${drag}>
     <td>${esc(s.item_name)}</td>
     <td style="font-weight:600;text-align:center">${q.toLocaleString('ru-RU')}</td>
