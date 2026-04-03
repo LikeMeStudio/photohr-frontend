@@ -102,6 +102,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 
 <div id="tab-contest" class="section" style="display:none">
   <div class="section-title">📷 Фотоконкурс смены</div>
+  <div id="contest-budget" style="font-size:12px;color:var(--text2);margin-bottom:10px">
+    Осталось лайков: <strong id="budget-count">9</strong> из 9 (на это мероприятие за сегодня)
+  </div>
   <div id="contest-form" style="margin-bottom:10px">
     <div style="margin-bottom:10px">
       <label style="display:inline-block;padding:10px 20px;background:var(--accent);color:#fff;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600">
@@ -756,8 +759,27 @@ function contestImgError(img) {
   p.appendChild(d);
 }
 
-function renderContestEntries(entries) {
+function openContestLightbox(url) {
+  if (!url) return;
+  const lb = document.getElementById('contest-lightbox');
+  const im = document.getElementById('contest-lightbox-img');
+  if (!lb || !im) return;
+  im.src = url;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeContestLightbox() {
+  const lb = document.getElementById('contest-lightbox');
+  if (lb) lb.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function renderContestEntries(entries, budgetRemaining) {
   const myPhId = currentUser && currentUser.photographer_id;
+  const bc = document.getElementById('budget-count');
+  if (bc && budgetRemaining !== undefined) bc.textContent = String(budgetRemaining);
+
   const el = document.getElementById('contest-entries');
   if (!el) return;
   if (!entries.length) {
@@ -768,20 +790,28 @@ function renderContestEntries(entries) {
     const isMine = String(e.photographer_id) === String(myPhId);
     const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
     const eid = String(e.id || '').replace(/'/g, "\\'");
+    const fullPhoto = fullUrl(e.photo_url);
+    const myWeight = Number(e.my_vote_weight) || 0;
+    const voteBlock = isMine
+      ? '<span style="font-size:11px;color:var(--text3)">Ваше фото</span>'
+      : `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+    ${[1, 2, 3].map((w) => `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:3px 8px;${myWeight === w ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : ''}" onclick="event.stopPropagation(); voteContest('${eid}', ${w})">${'❤️'.repeat(w)}</button>`).join('')}
+    ${myWeight > 0 ? `<button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 6px;color:var(--rank3)" onclick="event.stopPropagation(); removeVoteContest('${eid}')">✕</button>` : ''}
+  </div>`;
     return `<div style="border-radius:12px;overflow:hidden;border:1px solid ${isMine ? 'var(--accent)' : 'var(--border)'};background:var(--bg3);position:relative">
       <div style="position:relative;width:100%;padding-top:75%;overflow:hidden;background:#111">
-        <img src="${esc(fullUrl(e.photo_url))}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="contestImgError(this)">
-        ${medal ? `<div style="position:absolute;top:8px;left:8px;font-size:24px">${medal}</div>` : ''}
-        ${isMine ? `<button type="button" onclick="deleteContestEntry('${eid}')" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center" title="Удалить">✕</button>` : ''}
+        <img src="${esc(fullPhoto)}" alt="" data-full-url="${esc(fullPhoto)}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;cursor:zoom-in" onerror="contestImgError(this)" onclick="event.stopPropagation(); openContestLightbox(this.getAttribute('data-full-url'))">
+        ${medal ? `<div style="position:absolute;top:8px;left:8px;font-size:24px;pointer-events:none">${medal}</div>` : ''}
+        ${isMine ? `<button type="button" onclick="event.stopPropagation(); deleteContestEntry('${eid}')" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;z-index:2" title="Удалить">✕</button>` : ''}
       </div>
       <div style="padding:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-size:13px;font-weight:600">${esc(e.photographer_name)}</span>
           <span style="font-size:11px;color:var(--text3)">${e.caption ? esc(e.caption) : ''}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:15px">❤️ ${e.votes_count != null ? e.votes_count : 0}</span>
-          ${isMine ? '<span style="font-size:11px;color:var(--text3)">Ваше фото</span>' : `<button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="toggleVote('${eid}', ${e.my_vote ? 'true' : 'false'})">${e.my_vote ? '💔 Убрать' : '❤️ Голос'}</button>`}
+          ${voteBlock}
         </div>
       </div>
     </div>`;
@@ -791,14 +821,15 @@ function renderContestEntries(entries) {
 async function loadContest() {
   if (!currentEvent?.id) return;
   try {
-    const entries = await api('GET', `/events/${currentEvent.id}/contest`);
-    const list = Array.isArray(entries) ? entries : [];
+    const data = await api('GET', `/events/${currentEvent.id}/contest`);
+    const list = Array.isArray(data) ? data : (data.entries || []);
+    const budgetRemaining = Array.isArray(data) ? 9 : (data.budget_remaining ?? 9);
     const sorted = [...list].sort((a, b) => {
       const va = (parseInt(b.votes_count, 10) || 0) - (parseInt(a.votes_count, 10) || 0);
       if (va !== 0) return va;
       return new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0);
     });
-    renderContestEntries(sorted);
+    renderContestEntries(sorted, budgetRemaining);
     const myPhId = currentUser && currentUser.photographer_id;
     const myEntries = list.filter((e) => String(e.photographer_id) === String(myPhId));
     const formEl = document.getElementById('contest-form');
@@ -808,10 +839,26 @@ async function loadContest() {
   }
 }
 
-async function toggleVote(entryId, hasVote) {
+async function voteContest(entryId, weight) {
   try {
-    if (hasVote) await api('DELETE', `/contest-entries/${entryId}/vote`);
-    else await api('POST', `/contest-entries/${entryId}/vote`);
+    const result = await api('POST', `/contest-entries/${entryId}/vote`, { weight });
+    if (result && result.remaining !== undefined) {
+      const bc = document.getElementById('budget-count');
+      if (bc) bc.textContent = String(result.remaining);
+    }
+    loadContest();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function removeVoteContest(entryId) {
+  try {
+    const result = await api('DELETE', `/contest-entries/${entryId}/vote`);
+    if (result && result.remaining !== undefined) {
+      const bc = document.getElementById('budget-count');
+      if (bc) bc.textContent = String(result.remaining);
+    }
     loadContest();
   } catch (e) {
     toast(e.message, true);
@@ -875,5 +922,10 @@ async function submitContestPhoto() {
   }
 }
 </script>
+
+<div id="contest-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center" onclick="closeContestLightbox()">
+  <img id="contest-lightbox-img" alt="" style="max-width:95%;max-height:90vh;object-fit:contain;border-radius:8px;cursor:default" onclick="event.stopPropagation()">
+  <button type="button" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:24px;width:40px;height:40px;border-radius:50%;cursor:pointer" onclick="event.stopPropagation(); closeContestLightbox()">✕</button>
+</div>
 </body>
 </html>
