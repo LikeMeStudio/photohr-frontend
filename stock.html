@@ -1690,6 +1690,32 @@ function openWhModal(wh) {
     users.filter(u => u.is_active).map(u => `<option value="${u.id}" ${wh?.responsible_user_id === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
 
   document.getElementById('wh-modal').classList.add('open');
+
+  // Блокировка полей для складов привязанных к площадке
+  const isVenueWh = wh && wh.warehouse_type === 'venue' && wh.venue_id;
+  ['wh-name', 'wh-city', 'wh-address', 'wh-type'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = !!isVenueWh;
+      el.style.opacity = isVenueWh ? '0.5' : '1';
+    }
+  });
+  const venueSelect = document.getElementById('wh-venue');
+  if (venueSelect) {
+    venueSelect.disabled = !!isVenueWh;
+    venueSelect.style.opacity = isVenueWh ? '0.5' : '1';
+  }
+  // Подсказка
+  let venueHint = document.getElementById('wh-venue-hint');
+  if (!venueHint) {
+    venueHint = document.createElement('div');
+    venueHint.id = 'wh-venue-hint';
+    venueHint.style.cssText = 'font-size:11px;color:var(--rank2);margin-bottom:12px;padding:8px 12px;background:rgba(245,166,35,.08);border-radius:8px;border:1px solid rgba(245,166,35,.15)';
+    const nameField = document.getElementById('wh-name');
+    if (nameField && nameField.parentNode) nameField.parentNode.insertBefore(venueHint, nameField);
+  }
+  venueHint.style.display = isVenueWh ? 'block' : 'none';
+  venueHint.textContent = '📌 Название, город и адрес синхронизируются из настроек площадки (Управление → Площадки)';
 }
 
 async function saveWarehouse() {

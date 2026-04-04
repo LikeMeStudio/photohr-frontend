@@ -1301,25 +1301,56 @@ function venueHashHue(id){let h=0;const s=String(id||'0');for(let i=0;i<s.length
 function venuePickColor(v){return normalizeVenueDisplayColor(v?.display_color)||VENUE_COLORS[venueHashHue(v?.id)%VENUE_COLORS.length];}
 function venueShortLabel(v){return(v?.short_name!=null&&String(v.short_name).trim()!=='')?String(v.short_name).trim():String(v?.name||'').slice(0,3)||'?';}
 
+let venueSearchQuery = '';
 function renderAdminVenues(){
   const content = document.getElementById('tab-content');
+  const q = venueSearchQuery.toLowerCase();
+
+  // Разделить на активные и неактивные
+  const activeVenues = venues.filter(v => v.is_active !== false);
+  const inactiveVenues = venues.filter(v => v.is_active === false);
+
+  // Фильтр по поиску
+  const filterFn = v => !q || v.name.toLowerCase().includes(q) || (v.city||'').toLowerCase().includes(q) || (v.category||'').toLowerCase().includes(q);
+  const filteredActive = activeVenues.filter(filterFn);
+  const filteredInactive = inactiveVenues.filter(filterFn);
+
+  let html = '';
+
+  // Поиск
+  html += `<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+    <input class="search-in" style="flex:1" placeholder="🔍 Поиск площадки..." value="${esc(venueSearchQuery)}" oninput="venueSearchQuery=this.value;renderAdminVenues()" />
+    ${can('hr_director') ? '<button class="btn btn-primary" style="white-space:nowrap" onclick="openNewVenueModal()">+ Площадка</button>' : ''}
+  </div>`;
+
+  // Активные — по городам и категориям
   const byCity = {};
-  venues.forEach(v => {
+  filteredActive.forEach(v => {
     const cty = (v.city || '').trim() || 'Без города';
     if (!byCity[cty]) byCity[cty] = [];
     byCity[cty].push(v);
   });
   const cityOrder = Object.keys(byCity).sort((a, b) => a.localeCompare(b, 'ru'));
-  let html = '';
-  if (can('hr_director')) {
-    html += '<button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="openNewVenueModal()">+ Добавить площадку</button>';
+
+  if (!filteredActive.length && !filteredInactive.length && q) {
+    html += '<div style="text-align:center;padding:24px;color:var(--text3)">Ничего не найдено</div>';
   }
+
   cityOrder.forEach(cty => {
-    html += `<div class="venue-city-heading">${esc(cty)}</div>`;
+    const cityId = 'vc-' + cty.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+    html += `<details open id="${cityId}">
+      <summary class="venue-city-heading" style="cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;transition:transform .15s" class="vc-arrow">▼</span> ${esc(cty.toUpperCase())}
+      </summary>`;
+
     const grp = {};
     byCity[cty].forEach(v => { const cat = v.category || '—'; if (!grp[cat]) grp[cat] = []; grp[cat].push(v); });
     Object.keys(grp).sort((a, b) => a.localeCompare(b, 'ru')).forEach(cat => {
-      html += `<div class="venue-cat-sub">${esc(cat)} (${grp[cat].length})</div>`;
+      const catId = cityId + '-' + cat.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+      html += `<details open id="${catId}">
+        <summary class="venue-cat-sub" style="cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px">
+          <span style="font-size:9px" class="vc-arrow">▼</span> ${esc(cat)} (${grp[cat].length})
+        </summary>`;
       grp[cat].forEach(v => {
         const color = venuePickColor(v);
         const shortName = esc(venueShortLabel(v));
@@ -1327,13 +1358,38 @@ function renderAdminVenues(){
           <span class="venue-sq" style="background:${color}">${shortName}</span>
           <div style="flex:1">
             <div style="font-size:12px;font-weight:500">${esc(v.name)}</div>
-            <div style="font-size:10px;color:var(--text3)">${esc(v.city || '')}${!v.is_active ? ' · <span style="color:var(--rank3)">скрыта</span>' : ''}</div>
+            <div style="font-size:10px;color:var(--text3)">${esc(v.city || '')}</div>
           </div>
           <span style="font-size:18px;color:var(--text3)">›</span>
         </div>`;
       });
+      html += '</details>';
     });
+    html += '</details>';
   });
+
+  // Неактивные внизу
+  if (filteredInactive.length) {
+    html += `<details style="margin-top:20px">
+      <summary style="cursor:pointer;user-select:none;font-size:12px;color:var(--text3);padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px" class="vc-arrow">▶</span> Деактивированные площадки (${filteredInactive.length})
+      </summary>`;
+    filteredInactive.forEach(v => {
+      const color = venuePickColor(v);
+      const shortName = esc(venueShortLabel(v));
+      html += `<div class="venue-admin-row" style="opacity:0.45;border-style:dashed" onclick="openEditVenue('${v.id}')">
+        <span class="venue-sq" style="background:${color};filter:grayscale(70%)">${shortName}</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:500">${esc(v.name)}</div>
+          <div style="font-size:10px;color:var(--text3)">${esc(v.city || '')} · <span style="color:var(--rank3)">деактивирована</span></div>
+        </div>
+        ${can('hr_director') ? `<button class="btn btn-ghost" style="font-size:10px;padding:4px 8px;color:var(--rank1);border-color:var(--rank1)" onclick="event.stopPropagation();toggleVenue('${v.id}',true)">▶ Вкл</button>` : ''}
+        <span style="font-size:18px;color:var(--text3)">›</span>
+      </div>`;
+    });
+    html += '</details>';
+  }
+
   content.innerHTML = html;
 }
 
@@ -1679,7 +1735,10 @@ async function openEditVenue(vid){
         <div class="ev-acc-body" id="ev-bonus-section">${bonusInner}</div>
       </details>
       <div class="modal-footer" style="justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
-        <button type="button" class="btn btn-danger" style="font-size:12px" onclick="deleteVenue('${String(v.id).replace(/'/g,"\\'")}','${String(v.name||'').replace(/'/g,"\\'")}')">Удалить площадку</button>
+        ${v.is_active !== false
+          ? `<button type="button" class="btn btn-danger" style="font-size:12px" onclick="deactivateVenue('${String(v.id).replace(/'/g,"\\'")}','${String(v.name||'').replace(/'/g,"\\'")}')">⏸ Деактивировать</button>`
+          : `<button type="button" class="btn" style="font-size:12px;color:var(--rank1);border-color:var(--rank1)" onclick="reactivateVenue('${String(v.id).replace(/'/g,"\\'")}')">▶ Активировать</button>`
+        }
         <div style="display:flex;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="document.getElementById('archived-user-modal').classList.remove('open')">Отмена</button>
           <button type="button" class="btn btn-primary" onclick="saveEditVenue('${String(v.id).replace(/'/g,"\\'")}')">Сохранить</button>
@@ -1794,14 +1853,24 @@ async function saveEditVenue(vid){
   }catch(e){ showToast(e.message, true); }
 }
 
-async function deleteVenue(vid, name){
-  if(!confirm(`Удалить площадку «${name}»?\n\nЕсли площадка привязана к фотографам — удаление невозможно. Сначала скройте её.`)) return;
+async function deactivateVenue(vid, name){
+  if(!confirm(`Деактивировать площадку «${name}»?\n\nПлощадка станет серой и опустится вниз. Привязанный склад тоже будет скрыт.\nМожно активировать обратно в любой момент.`)) return;
   try {
-    await api('DELETE', `/venues/${vid}`);
+    await api('PATCH', `/venues/${vid}`, { is_active: false });
     document.getElementById('archived-user-modal').classList.remove('open');
     await loadVenues();
     renderAdminVenues();
-    showToast('Площадка удалена');
+    showToast('Площадка деактивирована');
+  } catch(e){ showToast(e.message, true); }
+}
+
+async function reactivateVenue(vid){
+  try {
+    await api('PATCH', `/venues/${vid}`, { is_active: true });
+    document.getElementById('archived-user-modal').classList.remove('open');
+    await loadVenues();
+    renderAdminVenues();
+    showToast('Площадка активирована');
   } catch(e){ showToast(e.message, true); }
 }
 
