@@ -354,7 +354,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div id="inv-session-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
   <div class="table-wrap">
     <table class="tbl" id="inv-lines-table">
-      <thead><tr><th>Позиция</th><th>Ед.</th><th>По системе</th><th>Фактически</th><th>Расхождение</th><th>Заметка</th></tr></thead>
+      <thead><tr><th>Позиция</th><th>Ед.</th><th>По системе</th><th>Фактически</th><th style="width:70px">Ввод в</th><th>Расхождение</th><th>Заметка</th></tr></thead>
       <tbody id="inv-lines-body"></tbody>
     </table>
   </div>
@@ -3295,14 +3295,29 @@ async function openInvSession(id, readOnly = false) {
       const actual = l.actual_qty != null ? parseFloat(l.actual_qty) : null;
       const delta = actual != null ? actual - expected : null;
       const deltaColor = delta == null ? '' : delta > 0 ? 'var(--rank1)' : delta < 0 ? 'var(--rank3)' : 'var(--text3)';
+      const upp = parseFloat(l.units_per_pack) || 0;
+      const hasPack = upp > 0 && l.pack_unit;
+      const cuLabel = l.consumption_unit || l.unit || 'шт';
+      const puLabel = l.pack_unit || '';
+      const puShort = puLabel.length > 5 ? puLabel.slice(0, 4) + '.' : puLabel;
+      const cuShort = cuLabel.length > 5 ? cuLabel.slice(0, 3) + '.' : cuLabel;
+      const initVal = actual != null ? (hasPack ? Math.round(actual / upp * 100) / 100 : actual) : '';
+      const initMode = hasPack ? 'packs' : 'units';
+      const modeToggle = (readOnly || sess.status !== 'open' || !hasPack)
+        ? `<td></td>`
+        : `<td><select class="fselect" id="inv-mode-${l.id}" style="font-size:10px;padding:2px 4px;width:68px" data-upp="${upp}" data-expected="${expected}" onchange="invModeChange('${l.id}',${expected})">
+            <option value="packs">${esc(puShort)}</option>
+            <option value="units">${esc(cuShort)}</option>
+          </select></td>`;
       return `<tr id="inv-row-${l.id}">
         <td>${esc(l.item_name)}</td>
-        <td style="color:var(--text3)">${esc(l.unit || 'шт')}</td>
-        <td style="color:var(--text3)">${expected}</td>
+        <td style="color:var(--text3)">${esc(cuLabel)}${hasPack ? '<div style="font-size:9px;color:var(--accent2)">' + upp + '/' + esc(puLabel) + '</div>' : ''}</td>
+        <td style="color:var(--text3)">${hasPack ? fmtPackQty(expected, l) : expected}</td>
         <td>${readOnly || sess.status !== 'open'
-          ? `<span style="font-weight:600">${actual != null ? actual : '—'}</span>`
-          : `<input class="fin" type="number" id="inv-actual-${l.id}" value="${actual != null ? actual : ''}" placeholder="Введите..." min="0" oninput="updateInvDelta('${l.id}', ${expected})" style="width:80px;font-size:12px"/>`
+          ? `<span style="font-weight:600">${actual != null ? (hasPack ? fmtPackQty(actual, l) : actual) : '—'}</span>`
+          : `<input class="fin" type="number" id="inv-actual-${l.id}" value="${initVal}" placeholder="${hasPack ? esc(puShort) : '...'}" min="0" step="0.01" oninput="updateInvDelta('${l.id}',${expected})" style="width:80px;font-size:12px" data-upp="${upp}" data-mode="${initMode}"/>`
         }</td>
+        ${modeToggle}
         <td id="inv-delta-${l.id}" style="font-weight:600;color:${deltaColor}">${delta != null ? (delta > 0 ? '+' + delta : delta) : '—'}</td>
         <td>${readOnly || sess.status !== 'open'
           ? `<span style="color:var(--text3);font-size:11px">${esc(l.notes || '')}</span>`
@@ -3327,11 +3342,33 @@ function updateInvDelta(lineId, expected) {
   const actualEl = document.getElementById(`inv-actual-${lineId}`);
   const deltaEl = document.getElementById(`inv-delta-${lineId}`);
   if (!actualEl || !deltaEl) return;
-  const actual = parseFloat(actualEl.value);
+  let actual = parseFloat(actualEl.value);
   if (isNaN(actual)) { deltaEl.textContent = '—'; deltaEl.style.color = ''; return; }
-  const delta = actual - expected;
+  const upp = parseFloat(actualEl.dataset.upp) || 0;
+  if (actualEl.dataset.mode === 'packs' && upp > 0) actual = actual * upp;
+  const delta = Math.round((actual - expected) * 100) / 100;
   deltaEl.textContent = delta > 0 ? '+' + delta : delta;
   deltaEl.style.color = delta > 0 ? 'var(--rank1)' : delta < 0 ? 'var(--rank3)' : 'var(--text3)';
+}
+
+function invModeChange(lineId, expected) {
+  const modeEl = document.getElementById('inv-mode-' + lineId);
+  const inputEl = document.getElementById('inv-actual-' + lineId);
+  if (!modeEl || !inputEl) return;
+  const upp = parseFloat(modeEl.dataset.upp) || 1;
+  const oldMode = inputEl.dataset.mode;
+  const newMode = modeEl.value;
+  const oldVal = parseFloat(inputEl.value);
+  if (Number.isFinite(oldVal) && oldVal > 0) {
+    if (oldMode === 'packs' && newMode === 'units') {
+      inputEl.value = Math.round(oldVal * upp);
+    } else if (oldMode === 'units' && newMode === 'packs') {
+      inputEl.value = Math.round(oldVal / upp * 100) / 100;
+    }
+  }
+  inputEl.dataset.mode = newMode;
+  inputEl.placeholder = newMode === 'packs' ? modeEl.options[0].text : modeEl.options[1].text;
+  updateInvDelta(lineId, expected);
 }
 
 async function saveInvDraft() {
@@ -3366,7 +3403,11 @@ function collectInvLines() {
   const lines = [];
   document.querySelectorAll('[id^="inv-actual-"]').forEach(el => {
     const lineId = el.id.replace('inv-actual-', '');
-    const actual = el.value !== '' ? parseFloat(el.value) : null;
+    let actual = el.value !== '' ? parseFloat(el.value) : null;
+    if (actual !== null) {
+      const upp = parseFloat(el.dataset.upp) || 0;
+      if (el.dataset.mode === 'packs' && upp > 0) actual = Math.round(actual * upp * 100) / 100;
+    }
     const notes = document.getElementById(`inv-note-${lineId}`)?.value || null;
     if (actual !== null) lines.push({ line_id: lineId, actual_qty: actual, notes });
   });
