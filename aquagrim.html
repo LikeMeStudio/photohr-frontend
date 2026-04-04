@@ -382,6 +382,7 @@ const API = window.location.hostname==='localhost'
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
+let mgmtNavHasAccess = false;
 let refreshLock = null;
 
 let aquagrimers = [];
@@ -480,6 +481,7 @@ function setupNav(activeKey){
   if(hasAnyRoleNav(['recruiter','hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));
   if(hasAnyRoleNav(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Отчёты'));
   if(hasAnyRoleNav(['tech_director','hr_director','exec_director','admin'])) navBtns.push(a('stock','stock.html','Склад'));
+  if(mgmtNavHasAccess) navBtns.push(a('accounting','accounting.html','💰 Учёт'));
   if(hasAnyRoleNav(['hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('schedule','schedule.html','Расписание'));
   document.getElementById('nav-links').innerHTML=navBtns.join('');
 }
@@ -1346,7 +1348,7 @@ function exportAquagrimers(){
   if(!accessToken && !refreshToken){ window.location.href='index.html'; return; }
   try{
     currentUser = await api('GET','/auth/me');
-    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
+    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
     if(!canSeePage()){
       window.location.href='index.html';
       return;

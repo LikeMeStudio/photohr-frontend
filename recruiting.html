@@ -350,6 +350,7 @@ const API = window.location.hostname === 'localhost'
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
+let mgmtNavHasAccess = false;
 let kanbanData = [];
 let currentFilter = 'all';
 let draggedCard = null;
@@ -447,6 +448,9 @@ function setupNav(activeKey) {
   if (hasAnyRole(['tech_director', 'hr_director', 'exec_director', 'admin'])) {
     navBtns.push(a('stock', 'stock.html', 'Склад'));
   }
+  if (mgmtNavHasAccess) {
+    navBtns.push(a('accounting', 'accounting.html', '💰 Учёт'));
+  }
   if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin'])) {
     navBtns.push(a('schedule', 'schedule.html', 'Расписание'));
   }
@@ -501,7 +505,7 @@ function esc(s) {
   try {
     // Пробуем с текущим accessToken
     currentUser = await api('GET', '/auth/me');
-    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
+    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
     setupUserPill();
     setupNav('recruiting');
     setupMgmtButton();

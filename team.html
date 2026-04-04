@@ -460,6 +460,7 @@ const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/ap
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
+let mgmtNavHasAccess = false;
 let teamList = [];
 let teamFilters = { rank: null, department: null, gender: null };
 let departments = (() => {
@@ -654,6 +655,9 @@ function setupTeamNav() {
   }
   if (hasAnyRole(['tech_director','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="stock.html" style="' + ns + '">Склад</a>');
+  }
+  if (mgmtNavHasAccess) {
+    navBtns.push('<a class="f-btn" href="accounting.html" style="' + ns + '">💰 Учёт</a>');
   }
   if (hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="schedule.html" style="' + ns + '">Расписание</a>');
@@ -2218,7 +2222,7 @@ function openGrantAch() {
   if (!accessToken && !refreshToken) { location.href = 'index.html'; return; }
   try {
     currentUser = await api('GET', '/auth/me');
-    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
+    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
     if (currentUser.role === 'photographer_user' || currentUser.role === 'aq_user') { location.href = 'index.html'; return; }
     setupUserPill();
     setupTeamNav();

@@ -510,7 +510,7 @@ document.getElementById('lightbox')?.addEventListener('click', function () {
   this.style.display = 'none';
   this.classList.remove('open');
 });
-let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
+let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null,mgmtNavHasAccess=false;
 const ROLE_LABELS={admin:'Администратор',super_admin:'Суперадмин',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',super_admin:'#c084fc',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
 const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4,super_admin:5};
@@ -527,7 +527,7 @@ function updateStickyTop(){
   if(cs&&h&&t) cs.style.top=(h.offsetHeight+t.offsetHeight)+'px';
 }
 function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';document.getElementById('user-pill').innerHTML=`<div class="role-dot" style="background:${c}"></div><span>${esc(currentUser.name)}</span><span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;}
-function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
+function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(mgmtNavHasAccess)navBtns.push(a('accounting','accounting.html','💰 Учёт'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 let warehouses=[],items=[],currentTabIdx=0;
 let suppliersList=[];
 
@@ -735,7 +735,7 @@ function safeCloseInvModal() {
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
-    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
+    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
     setupUserPill();
     setupNav('stock');
     setupMgmtButton();

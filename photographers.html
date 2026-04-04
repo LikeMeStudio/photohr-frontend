@@ -598,6 +598,7 @@ const API = window.location.hostname === 'localhost'
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
+let mgmtNavHasAccess = false;
 let photographers = [];
 let venues = [];
 let filters = { rank: null, sales: null, photo: null, venue: null, venueCategory: null, gender: null };
@@ -774,9 +775,6 @@ function setupToolbarActions() {
   const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
   const navBtns = [];
   navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  if (hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','exec_director','admin'])) {
-    navBtns.push('<a class="f-btn" href="shift.html" style="' + ns + '">📸 Смена</a>');
-  }
   navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + '">Команда</a>');
   if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
@@ -786,6 +784,9 @@ function setupToolbarActions() {
   }
   if (hasAnyRole(['tech_director','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="stock.html" style="' + ns + '">Склад</a>');
+  }
+  if (mgmtNavHasAccess) {
+    navBtns.push('<a class="f-btn" href="accounting.html" style="' + ns + '">💰 Учёт</a>');
   }
   if (hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="schedule.html" style="' + ns + '">Расписание</a>');
@@ -4020,7 +4021,7 @@ window.addEventListener('resize', updateStickyTop);
   if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
   try {
     currentUser = await api('GET', '/auth/me');
-    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
+    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
     startApp();
   } catch(e) {
     window.location.href = 'index.html';
