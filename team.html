@@ -2210,6 +2210,7 @@ function openGrantAch() {
   if (!accessToken && !refreshToken) { location.href = 'index.html'; return; }
   try {
     currentUser = await api('GET', '/auth/me');
+    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
     if (currentUser.role === 'photographer_user' || currentUser.role === 'aq_user') { location.href = 'index.html'; return; }
     setupUserPill();
     setupTeamNav();

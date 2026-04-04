@@ -917,6 +917,7 @@ async function loadSchedulePanel(phId){
   if(!accessToken&&!refreshToken){window.location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
+    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
     setupUserPill();
     setupNav('my');
     setupMgmtButton();

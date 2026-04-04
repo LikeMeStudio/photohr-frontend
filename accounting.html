@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>PhotoHR — Управленческий учёт</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--border:#2e2e3d;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;--bank:#6aa6e8;--cash:#3ecf8e;--pers:#f5a623}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:inherit;text-decoration:none}
+.header{padding:18px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:50;background:var(--bg)}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}.logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:6px;margin-left:12px;flex-wrap:wrap}
+.nav-link{padding:5px 12px;border-radius:20px;font-size:12px;color:var(--text2);border:1px solid var(--border)}
+.nav-link:hover{color:var(--text)}
+.header-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2)}
+.btn{padding:7px 14px;border-radius:10px;border:none;font-family:inherit;font-size:12px;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.main{max-width:1280px;margin:0 auto;padding:16px 24px 40px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px}
+.tab{padding:8px 14px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer}
+.tab.active{background:var(--accent);color:#fff}
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.section-title{font-family:'Unbounded',sans-serif;font-size:13px;margin-bottom:12px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px}
+.stat-box-num{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600}
+.stat-box-lbl{font-size:10px;color:var(--text3);text-transform:uppercase}
+.le-group{margin-bottom:20px}
+.le-title{font-size:11px;color:var(--accent2);text-transform:uppercase;margin-bottom:8px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.acc-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
+.acc-card:hover{border-color:var(--accent)}
+.acc-card.bank{border-left:4px solid var(--bank)}
+.acc-card.cash{border-left:4px solid var(--cash)}
+.acc-card.personal{border-left:4px solid var(--pers)}
+.acc-type{font-size:11px;color:var(--text3)}
+.acc-bal{font-family:'Unbounded',sans-serif;font-size:18px;margin-top:6px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th,.tbl td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+.tbl th{color:var(--text3);font-size:10px;text-transform:uppercase}
+.fin,.fselect{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:12px}
+.fl{font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase}
+.field{margin-bottom:10px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-wide{max-width:720px}
+.modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px}
+.dr-close{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;color:var(--text2)}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.badge-exp{background:rgba(242,85,85,.2);color:var(--rank3);padding:2px 8px;border-radius:6px;font-size:11px}
+.badge-inc{background:rgba(62,207,142,.2);color:var(--rank1);padding:2px 8px;border-radius:6px;font-size:11px}
+.badge-tr{background:rgba(106,166,232,.2);color:var(--bank);padding:2px 8px;border-radius:6px;font-size:11px}
+.row-void{opacity:.45;text-decoration:line-through}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.dropzone{border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;color:var(--text3);cursor:pointer}
+.dropzone:hover{border-color:var(--accent)}
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:12px}
+.bar{flex:1;background:var(--accent);border-radius:4px 4px 0 0;min-height:4px;position:relative}
+.bar.exp{background:var(--rank3)}
+.pie-legend{font-size:11px;margin-top:8px}
+.hbar{margin:6px 0;display:flex;align-items:center;gap:8px}
+.hbar-fill{height:8px;border-radius:4px;background:var(--accent);min-width:4px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:10px 20px;border-radius:8px;font-size:12px;z-index:400;display:none}
+.toast.show{display:block}
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="index.html" class="logo">Photo<span>HR</span></a>
+  <div class="nav-links" id="nav-links"></div>
+  <div class="header-right">
+    <div class="user-pill" id="user-pill"></div>
+    <button class="btn btn-ghost" onclick="doLogout()">Выйти</button>
+  </div>
+</div>
+<div class="main">
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
+</div>
+
+<div class="overlay" id="modal-account" onclick="if(event.target===this)closeModal('modal-account')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="ma-title">Счёт</span><button class="dr-close" onclick="closeModal('modal-account')">×</button></div>
+    <input type="hidden" id="ma-id"/>
+    <div class="field"><div class="fl">Название</div><input class="fin" id="ma-name"/></div>
+    <div class="field"><div class="fl">Тип</div><select class="fselect" id="ma-type"><option value="bank">🏦 Банк</option><option value="cash">💵 Касса</option><option value="personal">👤 Личный</option></select></div>
+    <div class="field"><div class="fl">Юрлицо</div><select class="fselect" id="ma-le"><option value="">—</option></select></div>
+    <div class="field"><div class="fl">Банк</div><input class="fin" id="ma-bank"/></div>
+    <div class="field"><div class="fl">Расчётный счёт</div><input class="fin" id="ma-num"/></div>
+    <div class="field"><div class="fl">Начальный баланс</div><input class="fin" id="ma-init" type="number" step="0.01"/></div>
+    <div class="field"><div class="fl">% комиссии карта</div><input class="fin" id="ma-cc" type="number" step="0.01"/></div>
+    <div class="field"><div class="fl">% комиссии QR</div><input class="fin" id="ma-cq" type="number" step="0.01"/></div>
+    <div class="field"><div class="fl">Владелец (пользователь)</div><select class="fselect" id="ma-owner"><option value="">—</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-account')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveAccount()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-bal" onclick="if(event.target===this)closeModal('modal-bal')">
+  <div class="modal modal-wide" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="mb-title">Баланс</span><button class="dr-close" onclick="closeModal('modal-bal')">×</button></div>
+    <p id="mb-bal" style="font-size:20px;font-family:Unbounded,sans-serif;margin-bottom:12px"></p>
+    <div id="mb-rec" style="margin-top:12px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="openReconFromCard()" id="btn-recon-card" style="display:none">Сверка</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-bal')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-tx" onclick="if(event.target===this)closeModal('modal-tx')">
+  <div class="modal modal-wide" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="mtx-title">Операция</span><button class="dr-close" onclick="closeModal('modal-tx')">×</button></div>
+    <input type="hidden" id="mtx-id"/>
+    <div class="field"><div class="fl">Дата</div><input class="fin" id="mtx-date" type="date"/></div>
+    <div class="field"><div class="fl">Тип</div>
+      <label><input type="radio" name="mtx-tt" value="expense"/> Расход</label>
+      <label><input type="radio" name="mtx-tt" value="income"/> Доход</label>
+      <label><input type="radio" name="mtx-tt" value="transfer"/> Трансфер</label>
+    </div>
+    <div class="field"><div class="fl">Счёт</div><select class="fselect" id="mtx-acc"></select></div>
+    <div class="field" id="mtx-to-wrap" style="display:none"><div class="fl">Счёт назначения</div><select class="fselect" id="mtx-to"></select></div>
+    <div class="field"><div class="fl">Сумма</div><input class="fin" id="mtx-amt" type="number" step="0.01"/></div>
+    <div class="field"><div class="fl">Проект</div><select class="fselect" id="mtx-proj"><option value="">—</option></select></div>
+    <div class="field"><div class="fl">Статья</div><select class="fselect" id="mtx-cat"><option value="">—</option></select></div>
+    <div class="field"><div class="fl">Контрагент</div><input class="fin" id="mtx-cp" list="cp-list"/><datalist id="cp-list"></datalist></div>
+    <div class="field"><div class="fl">Описание</div><input class="fin" id="mtx-desc"/></div>
+    <div class="field"><div class="fl">Комментарий</div><textarea class="fin" id="mtx-notes" rows="2"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tx')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveTx()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-access" onclick="if(event.target===this)closeModal('modal-access')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Доступ<button class="dr-close" onclick="closeModal('modal-access')">×</button></div>
+    <div class="field"><div class="fl">Пользователь</div><select class="fselect" id="acc-user"></select></div>
+    <div class="field"><div class="fl">Уровень</div>
+      <select class="fselect" id="acc-lvl">
+        <option value="account_owner">Владелец счёта</option>
+        <option value="accountant">Бухгалтер</option>
+        <option value="finance_admin">Финансы (админ)</option>
+      </select>
+    </div>
+    <div class="field"><label><input type="checkbox" id="acc-all"/> Все счета</label></div>
+    <div class="field"><div class="fl">Разрешённые счета (если не «все»)</div><select class="fselect" id="acc-accs" multiple size="6"></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-access')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveAccess()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-recon" onclick="if(event.target===this)closeModal('modal-recon')">
+  <div class="modal modal-wide" onclick="event.stopPropagation()">
+    <div class="modal-title">Сверка<button class="dr-close" onclick="closeModal('modal-recon')">×</button></div>
+    <input type="hidden" id="recon-acc"/>
+    <div class="toolbar">
+      <div class="field" style="margin:0"><div class="fl">С</div><input class="fin" id="recon-from" type="date"/></div>
+      <div class="field" style="margin:0"><div class="fl">По</div><input class="fin" id="recon-to" type="date"/></div>
+      <button class="btn btn-primary" onclick="runRecon()">Запустить</button>
+    </div>
+    <div id="recon-out"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-recon')">Закрыть</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : 'https://fotohr-server-production.up.railway.app/api';
+let accessToken = localStorage.getItem('fhr_access') || null;
+let refreshToken = localStorage.getItem('fhr_refresh') || null;
+let currentUser = null;
+let window__mgmtAccess = null;
+let accounts = [], legalEntities = [], projects = [], categories = [], usersPick = [];
+let currentTab = 0;
+let journalOffset = 0;
+let selectedImportId = null;
+let balAccountId = null;
+let balAccountType = '';
+
+async function api(m, p, b) {
+  const o = { method: m, headers: {} };
+  if (b !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(b); }
+  if (accessToken) o.headers['Authorization'] = 'Bearer ' + accessToken;
+  let r = await fetch(API + p, o);
+  if (r.status === 401 && refreshToken) {
+    const rr = await fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+    if (rr.ok) { const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_access', accessToken); localStorage.setItem('fhr_refresh', refreshToken); o.headers['Authorization'] = 'Bearer ' + accessToken; r = await fetch(API + p, o); }
+    else { doLogout(); return null; }
+  }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'Ошибка'); }
+  if (r.status === 204) return null;
+  return r.json();
+}
+
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function doLogout() { localStorage.removeItem('fhr_access'); localStorage.removeItem('fhr_refresh'); location.href = 'index.html'; }
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+function setupNav() {
+  const nl = document.getElementById('nav-links');
+  [['photographers.html','Фотографы'],['stock.html','Склад'],['accounting.html','💰 Учёт']].forEach(([h, l]) => {
+    const a = document.createElement('a'); a.href = h; a.textContent = l; a.className = 'nav-link'; if (h === 'accounting.html') a.style.borderColor = 'var(--accent)'; nl.appendChild(a);
+  });
+}
+
+function buildTabs() {
+  const isSuper = currentUser && currentUser.role === 'super_admin';
+  const tabs = ['Счета', 'Журнал', 'Импорт', 'Справочники', 'Аналитика'];
+  if (isSuper) tabs.push('Доступ');
+  document.getElementById('tabs').innerHTML = tabs.map((t, i) =>
+    `<button class="tab${i === 0 ? ' active' : ''}" onclick="switchTab(${i})">${esc(t)}</button>`
+  ).join('');
+}
+
+function switchTab(i) {
+  currentTab = i;
+  document.querySelectorAll('.tab').forEach((el, j) => el.classList.toggle('active', j === i));
+  const fns = [renderAccountsTab, renderJournalTab, renderImportTab, renderRefTab, renderAnalyticsTab];
+  if (currentUser && currentUser.role === 'super_admin') fns.push(renderAccessTab);
+  if (fns[i]) fns[i]();
+}
+
+async function init() {
+  if (!accessToken && !refreshToken) { location.href = 'index.html'; return; }
+  currentUser = await api('GET', '/auth/me');
+  const mgmtAccess = await api('GET', '/mgmt/my-access');
+  if (!mgmtAccess || !mgmtAccess.has_access) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center">Нет доступа к управленческому учёту</div>';
+    return;
+  }
+  window__mgmtAccess = mgmtAccess;
+  document.getElementById('user-pill').textContent = (currentUser.name || '') + ' · ' + (mgmtAccess.access_level || '');
+  setupNav();
+  buildTabs();
+  await Promise.all([loadAccountsData(), loadRefData()]);
+  switchTab(0);
+}
+
+async function loadAccountsData() {
+  [accounts, legalEntities] = await Promise.all([
+    api('GET', '/mgmt/accounts'),
+    api('GET', '/mgmt/legal-entities'),
+  ]);
+  if (canFinanceAdmin()) {
+    try { usersPick = await api('GET', '/mgmt/user-picker'); } catch { usersPick = []; }
+  }
+}
+
+async function loadRefData() {
+  [projects, categories] = await Promise.all([
+    api('GET', '/mgmt/projects'),
+    api('GET', '/mgmt/categories'),
+  ]);
+}
+
+function canFinanceAdmin() {
+  return window__mgmtAccess && (window__mgmtAccess.access_level === 'finance_admin' || currentUser.role === 'super_admin');
+}
+
+function renderAccountsTab() {
+  const sum = { bank_total: 0, cash_total: 0, personal_total: 0, grand_total: 0 };
+  api('GET', '/mgmt/accounts/summary').then(s => Object.assign(sum, s)).catch(() => {});
+  const byLe = {};
+  for (const a of accounts) {
+    const k = a.legal_entity_id || '_none';
+    if (!byLe[k]) byLe[k] = { name: a.legal_entity_name || 'Без юрлица', rows: [] };
+    byLe[k].rows.push(a);
+  }
+  let html = `<div class="summary-grid">
+    <div class="stat-box"><div class="stat-box-num" id="sg-bank">…</div><div class="stat-box-lbl">Банк</div></div>
+    <div class="stat-box"><div class="stat-box-num" id="sg-cash">…</div><div class="stat-box-lbl">Касса</div></div>
+    <div class="stat-box"><div class="stat-box-num" id="sg-per">…</div><div class="stat-box-lbl">Личные</div></div>
+    <div class="stat-box"><div class="stat-box-num" id="sg-all">…</div><div class="stat-box-lbl">Итого</div></div>
+  </div>`;
+  if (canFinanceAdmin()) html += `<button class="btn btn-primary" onclick="openAccountModal()">+ Новый счёт</button>`;
+  html += '<div style="margin-top:16px">';
+  for (const k of Object.keys(byLe)) {
+    const g = byLe[k];
+    html += `<div class="le-group"><div class="le-title">${esc(g.name)}</div><div class="card-grid">`;
+    for (const a of g.rows) {
+      const cls = a.account_type === 'bank' ? 'bank' : a.account_type === 'cash' ? 'cash' : 'personal';
+      const icon = a.account_type === 'bank' ? '🏦' : a.account_type === 'cash' ? '💵' : '👤';
+      html += `<div class="acc-card ${cls}" onclick="openBalModal('${a.id}')">
+        <div>${icon} <strong>${esc(a.name)}</strong></div>
+        <div class="acc-type">${esc(a.account_type)}</div>
+        <div class="acc-bal">${fmt(a.current_balance)} ₽</div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
+  api('GET', '/mgmt/accounts/summary').then(s => {
+    document.getElementById('sg-bank').textContent = fmt(s.bank_total);
+    document.getElementById('sg-cash').textContent = fmt(s.cash_total);
+    document.getElementById('sg-per').textContent = fmt(s.personal_total);
+    document.getElementById('sg-all').textContent = fmt(s.grand_total);
+  }).catch(() => {});
+}
+
+function fmt(n) { return (parseFloat(n) || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function openAccountModal(row) {
+  document.getElementById('ma-id').value = row?.id || '';
+  document.getElementById('ma-title').textContent = row ? 'Редактировать счёт' : 'Новый счёт';
+  document.getElementById('ma-name').value = row?.name || '';
+  document.getElementById('ma-type').value = row?.account_type || 'bank';
+  const le = document.getElementById('ma-le'); le.innerHTML = '<option value="">—</option>' + legalEntities.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  if (row?.legal_entity_id) le.value = row.legal_entity_id;
+  document.getElementById('ma-bank').value = row?.bank_name || '';
+  document.getElementById('ma-num').value = row?.account_number || '';
+  document.getElementById('ma-init').value = row?.initial_balance ?? 0;
+  document.getElementById('ma-cc').value = row?.commission_card_pct ?? 0;
+  document.getElementById('ma-cq').value = row?.commission_qr_pct ?? 0;
+  const ow = document.getElementById('ma-owner'); ow.innerHTML = '<option value="">—</option>' + usersPick.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+  if (row?.owner_user_id) ow.value = row.owner_user_id;
+  openModal('modal-account');
+}
+
+async function saveAccount() {
+  const id = document.getElementById('ma-id').value;
+  const body = {
+    name: document.getElementById('ma-name').value,
+    account_type: document.getElementById('ma-type').value,
+    legal_entity_id: document.getElementById('ma-le').value || null,
+    bank_name: document.getElementById('ma-bank').value || null,
+    account_number: document.getElementById('ma-num').value || null,
+    initial_balance: parseFloat(document.getElementById('ma-init').value) || 0,
+    commission_card_pct: parseFloat(document.getElementById('ma-cc').value) || 0,
+    commission_qr_pct: parseFloat(document.getElementById('ma-cq').value) || 0,
+    owner_user_id: document.getElementById('ma-owner').value || null,
+  };
+  try {
+    if (id) await api('PATCH', '/mgmt/accounts/' + id, body);
+    else await api('POST', '/mgmt/accounts', body);
+    closeModal('modal-account');
+    await loadAccountsData();
+    renderAccountsTab();
+    toast('Сохранено');
+  } catch (e) { toast(e.message); }
+}
+
+async function openBalModal(id) {
+  const a = accounts.find(x => x.id === id);
+  balAccountId = id;
+  balAccountType = a ? a.account_type : '';
+  document.getElementById('mb-title').textContent = a ? a.name : '';
+  document.getElementById('btn-recon-card').style.display = atype === 'bank' ? 'inline-block' : 'none';
+  const d = await api('GET', '/mgmt/accounts/' + id + '/balance');
+  document.getElementById('mb-bal').textContent = 'Баланс: ' + fmt(d.balance) + ' ₽';
+  document.getElementById('mb-rec').innerHTML = '<table class="tbl"><tr><th>Дата</th><th>Тип</th><th>Сумма</th><th>Описание</th></tr>' +
+    (d.transactions || []).slice(0, 10).map(t => `<tr><td>${esc(t.transaction_date)}</td><td>${esc(t.transaction_type)}</td><td>${fmt(t.amount)}</td><td>${esc(t.description)}</td></tr>`).join('') + '</table>';
+  openModal('modal-bal');
+}
+
+function openReconFromCard() {
+  closeModal('modal-bal');
+  document.getElementById('recon-acc').value = balAccountId;
+  const t = new Date();
+  document.getElementById('recon-to').value = t.toISOString().slice(0, 10);
+  t.setDate(1);
+  document.getElementById('recon-from').value = t.toISOString().slice(0, 10);
+  document.getElementById('recon-out').innerHTML = '';
+  openModal('modal-recon');
+}
+
+async function runRecon() {
+  const account_id = document.getElementById('recon-acc').value;
+  const period_from = document.getElementById('recon-from').value;
+  const period_to = document.getElementById('recon-to').value;
+  try {
+    const r = await api('POST', '/mgmt/reconciliation/run', { account_id, period_from, period_to });
+    const col = Math.abs(parseFloat(r.difference) || 0) < 1 ? 'var(--rank1)' : 'var(--rank3)';
+    document.getElementById('recon-out').innerHTML = `
+      <p>Ожидали поступлений: ${fmt(r.expected_income)} ₽</p>
+      <p>Факт поступлений: ${fmt(r.actual_income)} ₽</p>
+      <p>Ожидали комиссий: ${fmt(r.expected_commission)} ₽</p>
+      <p>Факт комиссий: ${fmt(r.actual_commission)} ₽</p>
+      <p style="color:${col};font-weight:600">Расхождение: ${fmt(r.difference)} ₽</p>`;
+    const det = await api('GET', '/mgmt/reconciliation/' + r.id + '/details');
+    let h = '<h4 style="margin:16px 0 8px">Несверенные</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h += '<div><b>Ожидаемые</b><table class="tbl">' + det.expected.map(x => `<tr><td>${fmt(x.amount)}</td><td>${esc(x.description)}</td></tr>`).join('') + '</table></div>';
+    h += '<div><b>Фактические</b><table class="tbl">' + det.actual.map(x => `<tr><td>${fmt(x.amount)}</td><td>${esc(x.description)}</td></tr>`).join('') + '</table></div></div>';
+    document.getElementById('recon-out').innerHTML += h;
+  } catch (e) { toast(e.message); }
+}
+
+function renderJournalTab() {
+  const t = new Date();
+  const to = t.toISOString().slice(0, 10);
+  t.setDate(1);
+  const from = t.toISOString().slice(0, 10);
+  document.getElementById('content').innerHTML = `
+    <div class="section">
+      <div class="toolbar">
+        <div class="field" style="margin:0;width:140px"><div class="fl">С</div><input class="fin" id="jf-from" type="date" value="${from}"/></div>
+        <div class="field" style="margin:0;width:140px"><div class="fl">По</div><input class="fin" id="jf-to" type="date" value="${to}"/></div>
+        <div class="field" style="margin:0;width:160px"><div class="fl">Счёт</div><select class="fselect" id="jf-acc"><option value="">Все</option></select></div>
+        <div class="field" style="margin:0;width:160px"><div class="fl">Проект</div><select class="fselect" id="jf-proj"><option value="">Все</option></select></div>
+        <div class="field" style="margin:0;width:160px"><div class="fl">Тип</div><select class="fselect" id="jf-tt"><option value="">Все</option><option value="income">Доход</option><option value="expense">Расход</option><option value="transfer">Трансфер</option></select></div>
+        <button class="btn btn-primary" onclick="loadJournal(0)">Фильтр</button>
+        <button class="btn btn-ghost" onclick="journalReset()">Сбросить</button>
+        <button class="btn btn-primary" onclick="openTxModal()" style="margin-left:auto">+ Операция</button>
+      </div>
+      <div id="jl-tot" style="font-size:13px;color:var(--text2);margin-bottom:8px"></div>
+      <div class="table-wrap"><table class="tbl" id="jl-tbl"><thead><tr><th>Дата</th><th>Счёт</th><th>Тип</th><th>Сумма</th><th>Проект</th><th>Статья</th><th>Контрагент</th><th>Статус</th></tr></thead><tbody></tbody></table></div>
+      <button class="btn btn-ghost" id="jl-more" onclick="loadJournal(journalOffset)" style="margin-top:8px;display:none">Ещё</button>
+    </div>`;
+  const sa = document.getElementById('jf-acc'); sa.innerHTML = '<option value="">Все</option>' + accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  const sp = document.getElementById('jf-proj'); sp.innerHTML = '<option value="">Все</option>' + projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  loadJournal(0);
+  loadCpHints();
+}
+
+async function loadCpHints() {
+  try {
+    const h = await api('GET', '/mgmt/transactions/counterparty-hints');
+    document.getElementById('cp-list').innerHTML = (h || []).map(x => `<option value="${esc(x)}"/>`).join('');
+  } catch {}
+}
+
+async function loadJournal(off) {
+  journalOffset = off;
+  const q = new URLSearchParams();
+  const from = document.getElementById('jf-from')?.value;
+  const to = document.getElementById('jf-to')?.value;
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
+  const acc = document.getElementById('jf-acc')?.value;
+  if (acc) q.set('account_id', acc);
+  const pr = document.getElementById('jf-proj')?.value;
+  if (pr) q.set('project_id', pr);
+  const tt = document.getElementById('jf-tt')?.value;
+  if (tt) q.set('transaction_type', tt);
+  q.set('limit', '50');
+  q.set('offset', String(off));
+  try {
+    const tot = await api('GET', '/mgmt/transactions/totals?' + q.toString());
+    document.getElementById('jl-tot').textContent = `Приход: ${fmt(tot.total_income)} ₽ · Расход: ${fmt(tot.total_expense)} ₽ · Сальдо: ${fmt(tot.net)} ₽`;
+    const d = await api('GET', '/mgmt/transactions?' + q.toString());
+    const tb = document.querySelector('#jl-tbl tbody');
+    const rows = (off === 0 ? '' : tb.innerHTML) + (d.transactions || []).map(t => {
+      const voided = t.status === 'void';
+      const badge = t.transaction_type === 'income' ? 'badge-inc' : t.transaction_type === 'expense' ? 'badge-exp' : 'badge-tr';
+      const lbl = t.transaction_type === 'income' ? '🟢 доход' : t.transaction_type === 'expense' ? '🔴 расход' : '🔵 трансфер';
+      return `<tr class="${voided ? 'row-void' : ''}" style="cursor:pointer" onclick="openTxModal('${t.id}')"><td>${esc(t.transaction_date)}</td><td>${esc(t.account_name)}</td><td><span class="${badge}">${lbl}</span></td><td>${fmt(t.amount)}</td><td>${esc(t.project_name)}</td><td>${esc(t.category_name)}</td><td>${esc(t.counterparty)}</td><td>${esc(t.status)}</td></tr>`;
+    }).join('');
+    if (off === 0) tb.innerHTML = rows; else tb.innerHTML += rows;
+    document.getElementById('jl-more').style.display = d.transactions && d.transactions.length >= 50 ? 'inline-block' : 'none';
+    document.getElementById('jl-more').onclick = () => loadJournal(off + 50);
+  } catch (e) { toast(e.message); }
+}
+
+function journalReset() {
+  const t = new Date();
+  document.getElementById('jf-to').value = t.toISOString().slice(0, 10);
+  t.setDate(1);
+  document.getElementById('jf-from').value = t.toISOString().slice(0, 10);
+  document.getElementById('jf-acc').value = '';
+  document.getElementById('jf-proj').value = '';
+  document.getElementById('jf-tt').value = '';
+  loadJournal(0);
+}
+
+function fillTxSelects() {
+  const a = document.getElementById('mtx-acc'); a.innerHTML = accounts.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  const t = document.getElementById('mtx-to'); t.innerHTML = accounts.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  const p = document.getElementById('mtx-proj'); p.innerHTML = '<option value="">—</option>' + projects.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+}
+
+function filterCatsForTxType(tt) {
+  const ct = tt === 'transfer' ? 'transfer' : tt === 'income' ? 'income' : 'expense';
+  const s = document.getElementById('mtx-cat');
+  s.innerHTML = '<option value="">—</option>' + categories.filter(c => c.category_type === ct).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+
+async function openTxModal(id) {
+  fillTxSelects();
+  document.querySelectorAll('input[name="mtx-tt"]').forEach(r => r.onchange = () => {
+    const tt = document.querySelector('input[name="mtx-tt"]:checked')?.value;
+    document.getElementById('mtx-to-wrap').style.display = tt === 'transfer' ? 'block' : 'none';
+    filterCatsForTxType(tt || 'expense');
+  });
+  if (id) {
+    const t = await api('GET', '/mgmt/transactions/' + id);
+    if (!t || !t.id) return;
+    document.getElementById('mtx-id').value = t.id;
+    document.getElementById('mtx-title').textContent = 'Редактировать';
+    document.getElementById('mtx-date').value = String(t.transaction_date).slice(0, 10);
+    document.querySelector(`input[name="mtx-tt"][value="${t.transaction_type}"]`).checked = true;
+    document.getElementById('mtx-acc').value = t.account_id;
+    document.getElementById('mtx-to').value = t.to_account_id || '';
+    document.getElementById('mtx-amt').value = t.amount;
+    document.getElementById('mtx-proj').value = t.project_id || '';
+    filterCatsForTxType(t.transaction_type);
+    document.getElementById('mtx-cat').value = t.category_id || '';
+    document.getElementById('mtx-cp').value = t.counterparty || '';
+    document.getElementById('mtx-desc').value = t.description || '';
+    document.getElementById('mtx-notes').value = t.notes || '';
+    document.getElementById('mtx-to-wrap').style.display = t.transaction_type === 'transfer' ? 'block' : 'none';
+  } else {
+    document.getElementById('mtx-id').value = '';
+    document.getElementById('mtx-title').textContent = 'Новая операция';
+    document.getElementById('mtx-date').value = new Date().toISOString().slice(0, 10);
+    document.querySelector('input[name="mtx-tt"][value="expense"]').checked = true;
+    filterCatsForTxType('expense');
+    document.getElementById('mtx-to-wrap').style.display = 'none';
+    document.getElementById('mtx-amt').value = '';
+    document.getElementById('mtx-cp').value = '';
+    document.getElementById('mtx-desc').value = '';
+    document.getElementById('mtx-notes').value = '';
+  }
+  openModal('modal-tx');
+}
+
+async function saveTx() {
+  const id = document.getElementById('mtx-id').value;
+  const tt = document.querySelector('input[name="mtx-tt"]:checked')?.value;
+  const body = {
+    transaction_date: document.getElementById('mtx-date').value,
+    transaction_type: tt,
+    account_id: document.getElementById('mtx-acc').value,
+    to_account_id: tt === 'transfer' ? document.getElementById('mtx-to').value : null,
+    amount: parseFloat(document.getElementById('mtx-amt').value),
+    project_id: document.getElementById('mtx-proj').value || null,
+    category_id: document.getElementById('mtx-cat').value || null,
+    counterparty: document.getElementById('mtx-cp').value || null,
+    description: document.getElementById('mtx-desc').value || null,
+    notes: document.getElementById('mtx-notes').value || null,
+  };
+  try {
+    if (id) await api('PATCH', '/mgmt/transactions/' + id, body);
+    else await api('POST', '/mgmt/transactions', body);
+    closeModal('modal-tx');
+    toast('Сохранено');
+    if (currentTab === 1) loadJournal(0);
+    loadAccountsData();
+  } catch (e) { toast(e.message); }
+}
+
+function renderImportTab() {
+  document.getElementById('content').innerHTML = `
+    <div class="section">
+      <div class="field"><div class="fl">Счёт для импорта</div><select class="fselect" id="im-acc"></select></div>
+      <div class="dropzone" id="im-drop" onclick="document.getElementById('im-file').click()">Перетащите файл или нажмите (CSV / XLSX)</div>
+      <input type="file" id="im-file" style="display:none" accept=".csv,.xlsx,.xls"/>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="doImport()">Загрузить и распознать</button>
+    </div>
+    <div class="section" id="im-detail" style="display:none"><div class="section-title">Строки импорта</div><div id="im-rows"></div>
+      <button class="btn btn-primary" onclick="confirmImport()">Подтвердить и создать операции</button>
+    </div>
+    <div class="section"><div class="section-title">Правила автораспознавания</div><div id="im-rules"></div></div>`;
+  document.getElementById('im-acc').innerHTML = accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  const f = document.getElementById('im-file');
+  f.onchange = () => { if (f.files[0]) document.getElementById('im-drop').textContent = f.files[0].name; };
+  loadRules();
+}
+
+async function loadRules() {
+  try {
+    const r = await api('GET', '/mgmt/auto-rules');
+    document.getElementById('im-rules').innerHTML = '<table class="tbl"><tr><th>Поле</th><th>Паттерн</th><th>Срабатываний</th></tr>' +
+      r.map(x => `<tr><td>${esc(x.match_field)}</td><td>${esc(x.match_pattern)}</td><td>${x.hit_count}</td></tr>`).join('') + '</table>';
+  } catch {}
+}
+
+async function doImport() {
+  const acc = document.getElementById('im-acc').value;
+  const file = document.getElementById('im-file').files[0];
+  if (!file) { toast('Выберите файл'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('account_id', acc);
+  const o = { method: 'POST', headers: {} };
+  if (accessToken) o.headers['Authorization'] = 'Bearer ' + accessToken;
+  o.body = fd;
+  try {
+    let r = await fetch(API + '/mgmt/bank-imports', o);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Ошибка');
+    const d = await r.json();
+    selectedImportId = d.import_id;
+    toast('Импорт: ' + d.total_rows + ' строк, авто: ' + d.auto_matched);
+    await showImportDetail(selectedImportId);
+  } catch (e) { toast(e.message); }
+}
+
+async function showImportDetail(id) {
+  const d = await api('GET', '/mgmt/bank-imports/' + id);
+  document.getElementById('im-detail').style.display = 'block';
+  document.getElementById('im-rows').innerHTML = '<table class="tbl"><tr><th>#</th><th>Дата</th><th>Сумма</th><th>Напр.</th><th>Статья</th><th>Проект</th><th>Статус</th><th></th></tr>' +
+    d.rows.map(row => `<tr>
+      <td>${row.row_number}</td><td>${esc(row.operation_date)}</td><td>${fmt(row.amount)}</td><td>${esc(row.direction)}</td>
+      <td><select class="fselect" id="cat-${row.id}" onchange="saveRowMatch('${id}','${row.id}')">${catOptions(row.suggested_category_id)}</select></td>
+      <td><select class="fselect" id="proj-${row.id}" onchange="saveRowMatch('${id}','${row.id}')">${projOptions(row.suggested_project_id)}</select></td>
+      <td>${esc(row.match_status)} ${row.confidence != null ? '(' + row.confidence + ')' : ''}</td>
+      <td><button class="btn btn-ghost" onclick="skipRow('${id}','${row.id}')">Пропуск</button></td>
+    </tr>`).join('') + '</table>';
+}
+
+function catOptions(sel) {
+  return '<option value="">—</option>' + categories.map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+function projOptions(sel) {
+  return '<option value="">—</option>' + projects.map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+
+async function saveRowMatch(impId, rowId) {
+  const catEl = document.getElementById('cat-' + rowId);
+  const projEl = document.getElementById('proj-' + rowId);
+  await api('POST', '/mgmt/bank-imports/' + impId + '/rows/' + rowId + '/match', {
+    category_id: catEl?.value || null,
+    project_id: projEl?.value || null,
+  });
+}
+async function skipRow(impId, rowId) {
+  await api('POST', '/mgmt/bank-imports/' + impId + '/rows/' + rowId + '/skip', {});
+  showImportDetail(impId);
+}
+
+async function confirmImport() {
+  if (!selectedImportId) return;
+  try {
+    const r = await api('POST', '/mgmt/bank-imports/' + selectedImportId + '/confirm', {});
+    toast('Создано операций: ' + r.created);
+  } catch (e) { toast(e.message); }
+}
+
+function renderRefTab() {
+  document.getElementById('content').innerHTML = `
+    <div class="section"><div class="section-title">Юрлица</div>
+      ${canFinanceAdmin() ? '<button class="btn btn-primary" onclick="addLe()">+ Добавить</button>' : ''}
+      <table class="tbl" id="tbl-le"><thead><tr><th>Название</th><th>ИНН</th><th>Форма</th><th>Статус</th></tr></thead><tbody></tbody></table></div>
+    <div class="section"><div class="section-title">Проекты</div>
+      ${canFinanceAdmin() ? '<button class="btn btn-ghost" onclick="syncProj()">Синхронизировать из площадок</button> <button class="btn btn-primary" onclick="seedCat()">Seed категорий</button>' : ''}
+      <table class="tbl"><thead><tr><th>Название</th><th>Тип</th><th>Площадка</th></tr></thead><tbody id="tb-pr"></tbody></table></div>
+    <div class="section"><div class="section-title">Категории</div><div id="cat-groups"></div></div>`;
+  document.querySelector('#tbl-le tbody').innerHTML = legalEntities.map(e => `<tr><td>${esc(e.name)}</td><td>${esc(e.inn)}</td><td>${esc(e.legal_form)}</td><td>${e.is_active ? 'активен' : 'нет'}</td></tr>`).join('');
+  document.getElementById('tb-pr').innerHTML = projects.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.project_type)}</td><td>${esc(p.venue_name || '')}</td></tr>`).join('');
+  const types = ['expense', 'income', 'transfer'];
+  const labels = { expense: 'Расходы', income: 'Доходы', transfer: 'Трансферы' };
+  document.getElementById('cat-groups').innerHTML = types.map(tp => `<h4 style="margin:12px 0 6px">${labels[tp]}</h4><ul style="font-size:12px;color:var(--text2)">` +
+    categories.filter(c => c.category_type === tp).map(c => `<li>${esc(c.name)} ${c.icon || ''}</li>`).join('') + '</ul>').join('');
+}
+
+async function addLe() {
+  const name = prompt('Название юрлица');
+  if (!name) return;
+  try { await api('POST', '/mgmt/legal-entities', { name }); legalEntities = await api('GET', '/mgmt/legal-entities'); renderRefTab(); } catch (e) { toast(e.message); }
+}
+async function syncProj() {
+  try { await api('POST', '/mgmt/projects/sync-venues', {}); await loadRefData(); renderRefTab(); toast('OK'); } catch (e) { toast(e.message); }
+}
+async function seedCat() {
+  try { await api('POST', '/mgmt/categories/seed', {}); await loadRefData(); renderRefTab(); toast('OK'); } catch (e) { toast(e.message); }
+}
+
+async function renderAnalyticsTab() {
+  const t = new Date();
+  const to = t.toISOString().slice(0, 10);
+  t.setDate(1);
+  const from = t.toISOString().slice(0, 10);
+  document.getElementById('content').innerHTML = `
+    <div class="toolbar">
+      <div class="field" style="margin:0;width:140px"><div class="fl">С</div><input class="fin" id="an-from" type="date" value="${from}"/></div>
+      <div class="field" style="margin:0;width:140px"><div class="fl">По</div><input class="fin" id="an-to" type="date" value="${to}"/></div>
+      <button class="btn btn-primary" onclick="loadAnalytics()">Обновить</button>
+    </div>
+    <div class="summary-grid" id="an-sum"></div>
+    <div class="section"><div class="section-title">Тренд (месяцы)</div><div class="bar-chart" id="an-bars"></div></div>
+    <div class="section"><div class="section-title">Рентабельность площадок</div><table class="tbl" id="an-proj"></table></div>
+    <div class="section"><div class="section-title">Топ контрагенты</div><div id="an-top"></div></div>`;
+  loadAnalytics();
+}
+
+async function loadAnalytics() {
+  const from = document.getElementById('an-from').value;
+  const to = document.getElementById('an-to').value;
+  try {
+    const pnl = await api('GET', '/mgmt/analytics/pnl?from=' + from + '&to=' + to + '&group_by=month');
+    const margin = pnl.total_income > 0 ? ((pnl.net_profit / pnl.total_income) * 100).toFixed(1) : '0';
+    document.getElementById('an-sum').innerHTML = `
+      <div class="stat-box"><div class="stat-box-num">${fmt(pnl.total_income)}</div><div class="stat-box-lbl">Доход</div></div>
+      <div class="stat-box"><div class="stat-box-num">${fmt(pnl.total_expense)}</div><div class="stat-box-lbl">Расход</div></div>
+      <div class="stat-box"><div class="stat-box-num" style="color:${pnl.net_profit >= 0 ? 'var(--rank1)' : 'var(--rank3)'}">${fmt(pnl.net_profit)}</div><div class="stat-box-lbl">Прибыль</div></div>
+      <div class="stat-box"><div class="stat-box-num">${margin}%</div><div class="stat-box-lbl">Маржа</div></div>`;
+    const tr = await api('GET', '/mgmt/analytics/trends?months=12');
+    const max = Math.max(1, ...tr.map(x => Math.max(parseFloat(x.income) || 0, parseFloat(x.expense) || 0)));
+    document.getElementById('an-bars').innerHTML = tr.map(x =>
+      `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="display:flex;gap:2px;align-items:flex-end;height:100px">
+        <div class="bar" style="height:${(x.income / max) * 100}%"></div>
+        <div class="bar exp" style="height:${(x.expense / max) * 100}%"></div>
+      </div><span style="font-size:9px;color:var(--text3)">${esc(x.month)}</span></div>`
+    ).join('');
+    const bp = await api('GET', '/mgmt/analytics/by-project?from=' + from + '&to=' + to);
+    document.getElementById('an-proj').innerHTML = '<tr><th>Проект</th><th>Доход</th><th>Расход</th><th>Прибыль</th><th>Маржа %</th></tr>' +
+      bp.map(r => `<tr><td>${esc(r.project_name)}</td><td>${fmt(r.income)}</td><td>${fmt(r.total_expense)}</td><td style="color:${r.profit >= 0 ? 'var(--rank1)' : 'var(--rank3)'}">${fmt(r.profit)}</td><td>${r.margin_pct.toFixed(1)}</td></tr>`).join('');
+    const top = await api('GET', '/mgmt/analytics/top-counterparties?from=' + from + '&to=' + to);
+    document.getElementById('an-top').innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><b>Расходы</b><table class="tbl">' +
+      top.expenses.map(x => `<tr><td>${esc(x.counterparty)}</td><td>${fmt(x.total)}</td></tr>`).join('') + '</table></div><div><b>Доходы</b><table class="tbl">' +
+      top.income.map(x => `<tr><td>${esc(x.counterparty)}</td><td>${fmt(x.total)}</td></tr>`).join('') + '</table></div></div>';
+  } catch (e) { toast(e.message); }
+}
+
+async function renderAccessTab() {
+  if (currentUser.role !== 'super_admin') { document.getElementById('content').innerHTML = '<p>Только super_admin</p>'; return; }
+  const rows = await api('GET', '/mgmt/access');
+  const allUsers = await api('GET', '/users').catch(() => []);
+  document.getElementById('content').innerHTML = `
+    <button class="btn btn-primary" onclick="openAccessModal()">+ Добавить доступ</button>
+    <table class="tbl" style="margin-top:12px"><thead><tr><th>Пользователь</th><th>Email</th><th>Роль</th><th>Уровень</th><th>Все счета</th><th></th></tr></thead><tbody id="acc-tb"></tbody></table>`;
+  document.getElementById('acc-tb').innerHTML = rows.map(r => `<tr>
+    <td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.system_role)}</td><td>${esc(r.access_level)}</td><td>${r.can_see_all_accounts ? 'да' : 'нет'}</td>
+    <td><button class="btn btn-ghost" onclick="delAccess('${r.user_id}')">Удалить</button></td></tr>`).join('');
+}
+
+async function openAccessModal() {
+  const allUsers = await api('GET', '/users').catch(() => []);
+  document.getElementById('acc-user').innerHTML = allUsers.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
+  document.getElementById('acc-accs').innerHTML = accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  openModal('modal-access');
+}
+
+async function saveAccess() {
+  const user_id = document.getElementById('acc-user').value;
+  const access_level = document.getElementById('acc-lvl').value;
+  const can_see_all_accounts = document.getElementById('acc-all').checked;
+  const sel = Array.from(document.getElementById('acc-accs').selectedOptions).map(o => o.value);
+  try {
+    await api('POST', '/mgmt/access', { user_id, access_level, can_see_all_accounts, allowed_account_ids: can_see_all_accounts ? null : sel });
+    closeModal('modal-access');
+    renderAccessTab();
+    toast('Сохранено');
+  } catch (e) { toast(e.message); }
+}
+
+async function delAccess(uid) {
+  if (!confirm('Отозвать доступ?')) return;
+  try { await api('DELETE', '/mgmt/access/' + uid); renderAccessTab(); } catch (e) { toast(e.message); }
+}
+
+init().catch(e => { document.getElementById('content').innerHTML = '<div class="section">' + esc(e.message) + '</div>'; });
+</script>
+</body>
+</html>

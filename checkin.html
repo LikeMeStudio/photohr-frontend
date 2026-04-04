@@ -131,6 +131,7 @@ function esc(s) {
   try{
     U=await api('GET','/auth/me');
     currentUser=U;
+    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
     setupUserPill();
     setupNav('checkin');
     setupMgmtButton();

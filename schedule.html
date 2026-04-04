@@ -3051,6 +3051,7 @@ async function saveVenueSettings(){
   if(!accessToken&&!refreshToken){location.href='index.html';return;}
   try{
     currentUser=await api('GET','/auth/me');
+    try { const ma = await api('GET', '/mgmt/my-access'); if (ma && ma.has_access) { const nl = document.getElementById('nav-links'); if (nl) { const a = document.createElement('a'); a.href = 'accounting.html'; a.textContent = '💰 Учёт'; a.className = 'nav-link'; nl.appendChild(a); } } } catch (e) {}
     if(!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])){showToast('Нет доступа к разделу',true);setTimeout(()=>location.href='photographers.html',1200);return;}
     setupUserPill();setupNav('schedule');setupMgmtButton();
     venuesList=await api('GET','/venues');

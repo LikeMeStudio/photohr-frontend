@@ -286,7 +286,7 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;setupUserPill();setupNav('venue');setupMgmtButton();fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');loadDashboard();}catch{doLogout();}})();
+(async()=>{if(!AT&&!RT){location.href='index.html';return;}try{U=await api('GET','/auth/me');currentUser=U;try{const ma=await api('GET','/mgmt/my-access');if(ma&&ma.has_access){const nl=document.getElementById('nav-links');if(nl){const a=document.createElement('a');a.href='accounting.html';a.textContent='💰 Учёт';a.className='nav-link';nl.appendChild(a);}}}catch(e){}setupUserPill();setupNav('venue');setupMgmtButton();fillPlaceholderStats();document.getElementById('sd').value=new Date().toISOString().split('T')[0];venues=await api('GET','/venues');document.getElementById('vs').innerHTML='<option value="">Площадка...</option>'+venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');loadDashboard();}catch{doLogout();}})();
 
 function onDateChange(){
 if(viewMode==='report')load();
