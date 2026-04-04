@@ -264,7 +264,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   </div>
   <div class="field"><div class="fl">Единица измерения</div>
     <select class="fselect" id="item-unit" onchange="onItemUnitChange()">
-      <option value="Штука">📦 Штука</option>
+      <option value="Штука">🔹 Штука</option>
       <option value="Упаковка">📦 Упаковка</option>
     </select>
   </div>
@@ -486,14 +486,12 @@ function fmtStockQty(quantity, item) {
     const match = FRACS.find(([v]) => Math.abs(frac - v) < 0.08);
     fracStr = match ? match[1] : frac.toFixed(1).replace('0.', ',');
   }
-  const puShort = pu.length > 5 ? pu.slice(0, 4) + '.' : pu;
-  const cuShort = cu.length > 6 ? cu.slice(0, 5) + '.' : cu;
   let packsPart;
-  if (whole === 0 && fracStr) packsPart = `${fracStr} ${puShort}`;
-  else if (fracStr) packsPart = `${whole}${fracStr} ${puShort}`;
-  else packsPart = `${whole} ${puShort}`;
+  if (whole === 0 && fracStr) packsPart = `${fracStr} уп.`;
+  else if (fracStr) packsPart = `${whole}${fracStr} уп.`;
+  else packsPart = `${whole} уп.`;
   const consumptionQty = Math.round(q * upp);
-  return `${packsPart} (${consumptionQty.toLocaleString('ru-RU')} ${cuShort})`;
+  return `${packsPart} (${consumptionQty.toLocaleString('ru-RU')} ${cu})`;
 }
 
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -1393,7 +1391,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const mn = s.min_quantity;
   const mnNum = parseFloat(mn || 0);
   const st = whStockStatusEmoji(q, mnNum > 0 ? mnNum : mn);
-  const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? mn + ' ' + (s.pack_unit.length > 4 ? s.pack_unit.slice(0, 3) + '.' : s.pack_unit) : mn) : '—';
+  const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? mn + ' уп.' : mn) : '—';
   const minCell = canMin
     ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:11px">${minVal} <span style="font-size:9px;color:var(--accent2)">✏️</span></span>`
     : `<span>${minVal}</span>`;
@@ -2622,7 +2620,7 @@ async function loadStockForecast() {
         const st = forecastRowUiStatus(r);
         const badge = st === 'critical' ? '<span class="status-crit">🔴 Критично</span>' : st === 'warning' ? '<span class="status-warn">⚠ Внимание</span>' : '<span class="status-ok">✅ Норма</span>';
         const minV = r.min_quantity != null && parseFloat(r.min_quantity) > 0
-          ? (r.pack_unit ? `${r.min_quantity} ${r.pack_unit.length > 6 ? r.pack_unit.slice(0, 5) + '.' : r.pack_unit}` : r.min_quantity)
+          ? (r.pack_unit ? `${r.min_quantity} уп.` : r.min_quantity)
           : '—';
         const daysL = forecastRowDaysLeft(r);
         const daysCell = daysL !== null ? `${daysL} д` : '∞';
@@ -3267,9 +3265,8 @@ async function openInvSession(id, readOnly = false) {
       const hasPack = upp > 0 && l.pack_unit;
       const cuLabel = l.consumption_unit || l.unit || 'шт';
       const puLabel = l.pack_unit || '';
-      const puShort = puLabel.length > 5 ? puLabel.slice(0, 4) + '.' : puLabel;
       const initVal = actual != null ? actual : '';
-      const ph = hasPack ? esc(puShort) : '...';
+      const ph = hasPack ? 'уп.' : '...';
       return `<tr id="inv-row-${l.id}">
         <td>${esc(l.item_name)}</td>
         <td style="color:var(--text3)">${esc(cuLabel)}${hasPack ? '<div style="font-size:9px;color:var(--accent2)">' + upp + '/' + esc(puLabel) + '</div>' : ''}</td>
@@ -3389,7 +3386,7 @@ async function loadAnalytics() {
           ${alerts.critical_stock.map(a => `
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
               <span><b>${esc(a.item_name)}</b> · ${esc(a.warehouse_name)}</span>
-              <span style="color:var(--rank3);font-weight:600">${fmtStockQty(parseFloat(a.quantity), a)} / мин ${a.min_quantity}${a.pack_unit ? ' ' + esc(a.pack_unit.length > 8 ? a.pack_unit.slice(0, 7) + '.' : a.pack_unit) : ''}</span>
+              <span style="color:var(--rank3);font-weight:600">${fmtStockQty(parseFloat(a.quantity), a)} / мин ${a.min_quantity}${a.pack_unit ? ' уп.' : ''}</span>
             </div>`).join('')}` : ''}
         ${alerts.warning_stock?.length ? `
           <div style="margin-top:10px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">Предупреждение по остаткам</div>
