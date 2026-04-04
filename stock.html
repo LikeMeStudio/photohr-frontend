@@ -189,6 +189,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
     <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
     <button class="tab" onclick="switchTab(8)" id="tab-alerts">📈 Аналитика</button>
     <button class="tab" onclick="switchTab(9)" id="tab-schedule">📅 Расписание</button>
+    <button class="tab" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--accent2)" onclick="exportStockExcel()">📥 Excel</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
 </div>
@@ -1346,6 +1347,31 @@ async function loadSummary() {
     loadStockTabBadges();
   } catch(e) { /* не критично */ }
 }
+
+async function exportStockExcel() {
+  try {
+    showToast('Генерация файла...');
+    const token = accessToken || localStorage.getItem('fhr_access');
+    const resp = await fetch(`${API}/stock/export`, {
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || 'Ошибка экспорта');
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PhotoHR_Stock_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Файл скачан');
+  } catch (e) { showToast(e.message, true); }
+}
+
 function whStockStatusEmoji(qty,minQ){
   const q=parseFloat(qty)||0,m=parseFloat(minQ)||0;
   if(m<=0)return'🟢';
