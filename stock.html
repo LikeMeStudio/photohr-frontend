@@ -1128,7 +1128,7 @@ async function openPoDetail(id) {
         : '';
       return `<tr>
         <td>${esc(l.item_name)}</td>
-        <td>${l.quantity} ${esc(l.unit || '')}</td>
+        <td>${fmtNum(l.quantity)} ${esc(l.unit || '')}</td>
         <td style="color:var(--text3)">${(parseFloat(l.unit_price) || 0).toLocaleString('ru-RU')} ₽</td>
         ${recvCell}
       </tr>`;
@@ -1192,7 +1192,7 @@ async function toggleTransferExpand(id) {
     const html = `<div style="padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)" onclick="event.stopPropagation()">
       <div style="font-weight:600;margin-bottom:8px;font-size:12px">Позиции</div>
       <ul style="font-size:12px;color:var(--text2);margin-left:18px;line-height:1.55;list-style:disc">
-        ${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${l.quantity} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}
+        ${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}
       </ul>
       ${pending ? actions : '<div style="font-size:11px;color:var(--text3);margin-top:8px">Только просмотр</div>'}
     </div>`;
@@ -1391,7 +1391,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const mn = s.min_quantity;
   const mnNum = parseFloat(mn || 0);
   const st = whStockStatusEmoji(q, mnNum > 0 ? mnNum : mn);
-  const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? mn + ' уп.' : mn) : '—';
+  const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? fmtNum(mn) + ' уп.' : fmtNum(mn)) : '—';
   const minCell = canMin
     ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:11px">${minVal} <span style="font-size:9px;color:var(--accent2)">✏️</span></span>`
     : `<span>${minVal}</span>`;
@@ -1727,7 +1727,7 @@ async function loadItems() {
             <td style="text-align:center;font-size:11px;font-weight:600;color:var(--accent2)">${esc(it.category_prefix || '')}</td>
             <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
             <td style="color:var(--text3)">${esc(it.unit || 'шт')}${it.units_per_pack ? `<div style="font-size:9px;color:var(--accent2)">${it.units_per_pack}/${esc(it.pack_unit||'упак.')}</div>` : ''}</td>
-            <td>${it.reorder_point > 0 ? it.reorder_point : '—'}</td>
+            <td>${it.reorder_point > 0 ? fmtNum(it.reorder_point) : '—'}</td>
             <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
             <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it)})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}</td>
           </tr>`).join('')}
@@ -2086,7 +2086,7 @@ function updatePoQtyHint(n) {
   const pu = hint.dataset.pu || '';
   const cu = hint.dataset.cu || '';
   if (qty > 0 && upp > 0) {
-    hint.textContent = `${qty} ${pu} = ${(qty * upp).toLocaleString('ru-RU')} ${cu}`;
+    hint.textContent = `${fmtNum(qty)} ${pu} = ${(qty * upp).toLocaleString('ru-RU')} ${cu}`;
   } else if (upp > 0 && pu) {
     hint.textContent = `1 ${pu} = ${upp} ${cu}`;
   }
@@ -2372,7 +2372,7 @@ async function openTransferPeekByPrefix(prefRaw) {
     document.getElementById('tr-peek-title').textContent = 'Перемещение';
     document.getElementById('tr-peek-meta').innerHTML = `${esc(TR_STATUS_RU[d.status] || d.status)} · ${esc(d.from_warehouse_name || '')} → ${esc(d.to_warehouse_name || '')}${d.created_at ? ' · ' + new Date(d.created_at).toLocaleDateString('ru-RU') : ''}`;
     const lines = d.lines || [];
-    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${l.quantity} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
+    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
     document.getElementById('tr-peek-modal').classList.add('open');
   } catch (e) { showToast(e.message, true); }
 }
@@ -2463,7 +2463,7 @@ function fcMatrixTooltip(fcMap, itemId, whId) {
   const r = fcMap.get(`${itemId}_${whId}`);
   if (!r) return '';
   const d = forecastRowDaysLeft(r);
-  return `Расход/день: ${r.avg_daily} · Прогноз: ${r.projected_consumption} · Останется: ${r.remaining_after} · Дней: ${d != null ? d : '—'}`;
+  return `Расход/день: ${fmtNum(r.avg_daily)} · Прогноз: ${fmtNum(r.projected_consumption)} · Останется: ${fmtNum(r.remaining_after)} · Дней: ${d != null ? d : '—'}`;
 }
 function matrixCellStyle(qty, minQ) {
   const q = parseFloat(qty) || 0;
@@ -2569,7 +2569,7 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
     const rp = parseFloat(it.reorder_point) || 0;
     const rs = matrixRowSigmaReorderStyles(total, rp);
     const rpCu = it.consumption_unit ? (it.consumption_unit.length > 4 ? it.consumption_unit.slice(0, 3) + '.' : it.consumption_unit) : '';
-    const rpCell = `<td style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? rp + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
+    const rpCell = `<td style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? fmtNum(rp) + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
     return `<tr>
       <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
       <td style="text-align:center;font-weight:600;${rs.sum}">${fmtStockQty(total, it)}</td>
@@ -2620,7 +2620,7 @@ async function loadStockForecast() {
         const st = forecastRowUiStatus(r);
         const badge = st === 'critical' ? '<span class="status-crit">🔴 Критично</span>' : st === 'warning' ? '<span class="status-warn">⚠ Внимание</span>' : '<span class="status-ok">✅ Норма</span>';
         const minV = r.min_quantity != null && parseFloat(r.min_quantity) > 0
-          ? (r.pack_unit ? `${r.min_quantity} уп.` : r.min_quantity)
+          ? (r.pack_unit ? `${fmtNum(r.min_quantity)} уп.` : fmtNum(r.min_quantity))
           : '—';
         const daysL = forecastRowDaysLeft(r);
         const daysCell = daysL !== null ? `${daysL} д` : '∞';
@@ -3275,7 +3275,7 @@ async function openInvSession(id, readOnly = false) {
           ? `<span style="font-weight:600">${actual != null ? fmtStockQty(actual, l) : '—'}</span>`
           : `<input class="fin" type="number" id="inv-actual-${l.id}" value="${initVal !== '' ? initVal : ''}" placeholder="${ph}" min="0" step="0.01" oninput="updateInvDelta('${l.id}',${expected})" style="width:80px;font-size:12px"/>`
         }</td>
-        <td id="inv-delta-${l.id}" style="font-weight:600;color:${deltaColor}">${delta != null ? (delta > 0 ? '+' + delta : delta) : '—'}</td>
+        <td id="inv-delta-${l.id}" style="font-weight:600;color:${deltaColor}">${delta != null ? (delta > 0 ? '+' + fmtNum(delta) : fmtNum(delta)) : '—'}</td>
         <td>${readOnly || sess.status !== 'open'
           ? `<span style="color:var(--text3);font-size:11px">${esc(l.notes || '')}</span>`
           : `<input class="fin" id="inv-note-${l.id}" value="${esc(l.notes || '')}" placeholder="Заметка..." style="font-size:11px"/>`
@@ -3302,7 +3302,7 @@ function updateInvDelta(lineId, expected) {
   const actual = parseFloat(actualEl.value);
   if (isNaN(actual)) { deltaEl.textContent = '—'; deltaEl.style.color = ''; return; }
   const delta = Math.round((actual - expected) * 100) / 100;
-  deltaEl.textContent = delta > 0 ? '+' + delta : delta;
+  deltaEl.textContent = delta > 0 ? '+' + fmtNum(delta) : fmtNum(delta);
   deltaEl.style.color = delta > 0 ? 'var(--rank1)' : delta < 0 ? 'var(--rank3)' : 'var(--text3)';
 }
 
@@ -3386,14 +3386,14 @@ async function loadAnalytics() {
           ${alerts.critical_stock.map(a => `
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
               <span><b>${esc(a.item_name)}</b> · ${esc(a.warehouse_name)}</span>
-              <span style="color:var(--rank3);font-weight:600">${fmtStockQty(parseFloat(a.quantity), a)} / мин ${a.min_quantity}${a.pack_unit ? ' уп.' : ''}</span>
+              <span style="color:var(--rank3);font-weight:600">${fmtStockQty(parseFloat(a.quantity), a)} / мин ${fmtNum(a.min_quantity)}${a.pack_unit ? ' уп.' : ''}</span>
             </div>`).join('')}` : ''}
         ${alerts.warning_stock?.length ? `
           <div style="margin-top:10px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">Предупреждение по остаткам</div>
           ${alerts.warning_stock.map(a => `
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
               <span><b>${esc(a.item_name)}</b> · ${esc(a.warehouse_name)}</span>
-              <span style="color:var(--rank2);font-weight:600">${a.quantity}${a.consumption_unit ? ' ' + esc(a.consumption_unit) : ''} ≤ порог ${a.threshold}</span>
+              <span style="color:var(--rank2);font-weight:600">${fmtNum(a.quantity)}${a.consumption_unit ? ' ' + esc(a.consumption_unit) : ''} ≤ порог ${fmtNum(a.threshold)}</span>
             </div>`).join('')}` : ''}
         ${alerts.equipment_repair?.length ? `
           <div style="margin-top:10px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">Оборудование в ремонте</div>
