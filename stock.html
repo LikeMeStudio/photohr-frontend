@@ -1314,7 +1314,7 @@ async function loadStockTabBadges() {
     }
     if (tabTr) {
       if (pend > 0) {
-        tabTr.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank2);color:#0f0f13;border-radius:10px;padding:1px 5px;font-size:9px">${pend}</span></span>🔄 Перемещения`;
+        tabTr.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${pend}</span></span>🔄 Перемещения`;
       } else {
         tabTr.textContent = '🔄 Перемещения';
       }
@@ -1338,7 +1338,8 @@ async function loadSummary() {
 
     el.innerHTML = `
       ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>` : ''}
-      ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
+      ${(s.warning_count || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.warning_count}</div><div class="stat-lbl">внимание</div></div>` : ''}
+      ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
     `;
     updateStickyTop();
     loadAlertsBadge();
