@@ -320,6 +320,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <option value="admin">Администратор</option>
       <option value="aq_user">Аквагримёр</option>
       <option value="aq_manager">Менеджер аквагрима</option>
+      <option value="super_admin" id="eu-role-opt-super-admin" hidden>Суперадмин</option>
     </select>
   </div>
   <div class="field" style="margin-bottom:12px">
@@ -1051,9 +1052,26 @@ function renderAdminUsers(){
   `;
 }
 
+function syncEuRoleSuperAdminOption(editUserRole) {
+  const opt = document.getElementById('eu-role-opt-super-admin');
+  if (!opt) return;
+  const editorIsSuper = currentUser?.role === 'super_admin';
+  const editingSuper = editUserRole === 'super_admin';
+  opt.disabled = false;
+  if (editorIsSuper) {
+    opt.removeAttribute('hidden');
+  } else if (editingSuper) {
+    opt.removeAttribute('hidden');
+    opt.disabled = true;
+  } else {
+    opt.setAttribute('hidden', '');
+  }
+}
+
 function openEditUser(uid){
   const u = allUsers.find(x=>x.id===uid);
   if(!u) return;
+  syncEuRoleSuperAdminOption(u.role);
   document.getElementById('eu-id').value = u.id;
   document.getElementById('eu-name').value = u.name;
   document.getElementById('eu-email').value = u.email;
@@ -2627,6 +2645,7 @@ function openPhotographerCardFromAdmin(pid) {
   if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
   try {
     currentUser = await api('GET', '/auth/me');
+    syncEuRoleSuperAdminOption();
     if (!hasAnyRole(['hr_manager','hr_director','exec_director','admin'])) {
       document.body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Нет доступа к разделу управления</div>';
       return;
