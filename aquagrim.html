@@ -396,6 +396,7 @@ const AQ_ROLE_LABELS = {
 
 const ROLE_LABELS = {
   admin: 'Администратор',
+  super_admin: 'Суперадмин',
   exec_director: 'Исп. директор',
   hr_director: 'HR-директор',
   hr_manager: 'HR-менеджер',
@@ -410,6 +411,7 @@ const ROLE_LABELS = {
 };
 const ROLE_COLORS = {
   admin: '#ffd700',
+  super_admin: '#c084fc',
   exec_director: '#f5a623',
   hr_director: '#3ecf8e',
   hr_manager: '#4ecb8a',
@@ -423,15 +425,18 @@ const ROLE_COLORS = {
   archived: '#5a5a72'
 };
 const navRoleNow = () => currentUser?.role || 'photographer_user';
-const hasAnyRoleNav = (roles) => roles.includes(navRoleNow());
+const hasAnyRoleNav = (roles) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return roles.includes(navRoleNow());
+};
 
 const AQ_PAGE_ROLES = ['aq_manager','hr_director','exec_director','admin','cashier'];
 const AQ_EDIT_ROLES = ['aq_manager','hr_director','exec_director','admin'];
 
 const roleNow = () => currentUser?.role || '';
-const canSeePage = () => AQ_PAGE_ROLES.includes(roleNow());
-const canEdit = () => AQ_EDIT_ROLES.includes(roleNow());
-const canDeleteComments = (c) => roleNow()==='admin' || String(c.author_id)===String(currentUser?.id);
+const canSeePage = () => currentUser?.role === 'super_admin' || AQ_PAGE_ROLES.includes(roleNow());
+const canEdit = () => currentUser?.role === 'super_admin' || AQ_EDIT_ROLES.includes(roleNow());
+const canDeleteComments = (c) => roleNow() === 'super_admin' || roleNow() === 'admin' || String(c.author_id) === String(currentUser?.id);
 
 function esc(s){
   if (s == null) return '';

@@ -66,6 +66,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 .rb-manager{background:rgba(245,166,35,.1);color:var(--rank2);border:1px solid rgba(245,166,35,.2)}
 .rb-editor{background:rgba(124,108,255,.1);color:var(--accent2);border:1px solid rgba(124,108,255,.2)}
 .rb-admin{background:rgba(62,207,142,.1);color:var(--rank1);border:1px solid rgba(62,207,142,.2)}
+.rb-super_admin{background:rgba(192,132,252,.12);color:#c084fc;border:1px solid rgba(192,132,252,.35)}
 .inactive-row{opacity:.5}
 
 /* modals */
@@ -394,6 +395,7 @@ let allUsers = [];
 
 const ROLE_LABELS = {
   admin: 'Администратор',
+  super_admin: 'Суперадмин',
   exec_director: 'Исполнительный директор',
   hr_director: 'HR-директор',
   hr_manager: 'HR-менеджер',
@@ -408,6 +410,7 @@ const ROLE_LABELS = {
 };
 const ROLE_COLORS = {
   admin: '#ffd700',
+  super_admin: '#c084fc',
   exec_director: '#f5a623',
   hr_director: '#3ecf8e',
   hr_manager: '#4ecb8a',
@@ -436,11 +439,18 @@ const ROLES = {
   cashier: 2,
   hr_director: 2,
   exec_director: 3,
-  admin: 4
+  admin: 4,
+  super_admin: 5
 };
 const roleNow = () => currentUser?.role || 'photographer_user';
-const hasAnyRole = (roles) => roles.includes(roleNow());
-const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+const hasAnyRole = (roles) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return roles.includes(roleNow());
+};
+const can = (r) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+};
 
 async function api(method, path, body) {
   const opts = {
@@ -995,6 +1005,7 @@ function renderAdminUsers(){
             <option value="hr_director" ${(!isPhReg && u.role==='hr_director') ? 'selected' : ''}>HR-директор</option>
             <option value="exec_director" ${(!isPhReg && u.role==='exec_director') ? 'selected' : ''}>Исп. директор</option>
             <option value="admin" ${(!isPhReg && u.role==='admin') ? 'selected' : ''}>Администратор</option>
+            <option value="super_admin" ${(!isPhReg && u.role==='super_admin') ? 'selected' : ''}>Суперадмин</option>
             <option value="aq_user">Аквагримёр</option>
             <option value="aq_manager">Менеджер аквагрима</option>
           </select>
@@ -1016,7 +1027,7 @@ function renderAdminUsers(){
     ${(() => {
       const search = (document.getElementById('admin-user-search')?.value || '').toLowerCase();
       const filter = window._adminUserFilter;
-      const staffRoles = ['admin','exec_director','hr_director','hr_manager','recruiter','tech_director','site_specialist','cashier','aq_user','aq_manager'];
+      const staffRoles = ['super_admin','admin','exec_director','hr_director','hr_manager','recruiter','tech_director','site_specialist','cashier','aq_user','aq_manager'];
       let filtered = active;
       if (search) filtered = filtered.filter(u => u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
       if (filter === 'staff') filtered = filtered.filter(u => staffRoles.includes(u.role) && u.role !== 'photographer_user');

@@ -493,9 +493,12 @@ function calcAge(birthDate) {
 }
 let _monthlyData = [];
 const LIKES_MAX_PER_TRANSACTION = 5;
-const ROLES = { photographer_user:0, aq_user:0, recruiter:1, hr_manager:1, tech_director:1, site_specialist:1, aq_manager:1, cashier:2, hr_director:2, exec_director:3, admin:4 };
+const ROLES = { photographer_user:0, aq_user:0, recruiter:1, hr_manager:1, tech_director:1, site_specialist:1, aq_manager:1, cashier:2, hr_director:2, exec_director:3, admin:4, super_admin:5 };
 const roleNow = () => currentUser?.role || 'photographer_user';
-const hasAnyRole = (a) => a.includes(roleNow());
+const hasAnyRole = (a) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return a.includes(roleNow());
+};
 const canManageComments = () => hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']);
 
 function rankHover(btn, r) {
@@ -591,10 +594,14 @@ function toggleTeamFilter(category, value, btn) {
   updateTeamAllBtn();
   render();
 }
-const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+const can = (r) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+};
 
 const ROLE_LABELS = {
   admin: 'Администратор',
+  super_admin: 'Суперадмин',
   exec_director: 'Исполнительный директор',
   hr_director: 'HR-директор',
   hr_manager: 'HR-менеджер',
@@ -609,6 +616,7 @@ const ROLE_LABELS = {
 };
 const ROLE_COLORS = {
   admin: '#ffd700',
+  super_admin: '#c084fc',
   exec_director: '#f5a623',
   hr_director: '#3ecf8e',
   hr_manager: '#4ecb8a',
@@ -2215,7 +2223,7 @@ function openGrantAch() {
     setupUserPill();
     setupTeamNav();
     setupTeamToolbarActions();
-    if (currentUser.role === 'admin') document.getElementById('nm-sync-footer').style.display = 'block';
+    if (currentUser.role === 'admin' || currentUser.role === 'super_admin') document.getElementById('nm-sync-footer').style.display = 'block';
 
     await loadTeam();
     const params = new URLSearchParams(location.search);

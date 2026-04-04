@@ -357,6 +357,7 @@ let refreshLock = null;
 
 const ROLE_LABELS = {
   admin: 'Администратор',
+  super_admin: 'Суперадмин',
   exec_director: 'Исполнительный директор',
   hr_director: 'HR-директор',
   hr_manager: 'HR-менеджер',
@@ -371,6 +372,7 @@ const ROLE_LABELS = {
 };
 const ROLE_COLORS = {
   admin: '#ffd700',
+  super_admin: '#c084fc',
   exec_director: '#f5a623',
   hr_director: '#3ecf8e',
   hr_manager: '#4ecb8a',
@@ -394,10 +396,14 @@ const ROLES = {
   cashier: 2,
   hr_director: 2,
   exec_director: 3,
-  admin: 4
+  admin: 4,
+  super_admin: 5
 };
 const roleNow = () => currentUser?.role || 'photographer_user';
-const hasAnyRole = (roles) => roles.includes(roleNow());
+const hasAnyRole = (roles) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return roles.includes(roleNow());
+};
 
 function openProfile() { window.location.href = 'photographers.html?profile=1'; }
 

@@ -511,12 +511,12 @@ document.getElementById('lightbox')?.addEventListener('click', function () {
   this.classList.remove('open');
 });
 let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStorage.getItem('fhr_refresh')||null,currentUser=null;
-const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
-const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
-const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4};
+const ROLE_LABELS={admin:'Администратор',super_admin:'Суперадмин',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
+const ROLE_COLORS={admin:'#ffd700',super_admin:'#c084fc',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
+const ROLES={photographer_user:0,aq_user:0,recruiter:1,hr_manager:1,tech_director:1,site_specialist:1,aq_manager:1,cashier:2,hr_director:2,exec_director:3,admin:4,super_admin:5};
 const roleNow=()=>currentUser?.role||'photographer_user';
-const hasAnyRole=(roles)=>roles.includes(roleNow());
-function can(role){return roleNow()===role;}
+const hasAnyRole=(roles)=>{if(currentUser?.role==='super_admin')return true;return roles.includes(roleNow());};
+function can(role){if(currentUser?.role==='super_admin')return true;return roleNow()===role;}
 function openProfile(){window.location.href='photographers.html?profile=1';}
 function fillPlaceholderStats(){const hs=document.getElementById('hstats');if(!hs)return;hs.innerHTML='<div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div><div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div><div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>';}
 function updateStickyTop(){

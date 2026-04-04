@@ -199,6 +199,10 @@ async function api(method, path, body) {
 function doLogout() { localStorage.removeItem('fhr_access'); localStorage.removeItem('fhr_refresh'); location.href = 'index.html'; }
 
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function hasAnyRole(roles) {
+  if (currentUser?.role === 'super_admin') return true;
+  return roles.includes(currentUser?.role || '');
+}
 function fullUrl(path) {
   if (path == null || path === '') return '';
   const p = String(path).trim();

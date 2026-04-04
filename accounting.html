@@ -206,6 +206,10 @@ async function api(m, p, b) {
 }
 
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function hasAnyRole(roles) {
+  if (currentUser?.role === 'super_admin') return true;
+  return roles.includes(currentUser?.role || '');
+}
 function doLogout() { localStorage.removeItem('fhr_access'); localStorage.removeItem('fhr_refresh'); location.href = 'index.html'; }
 function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }

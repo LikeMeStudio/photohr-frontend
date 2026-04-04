@@ -605,6 +605,7 @@ let refreshLock = null;
 
 const ROLE_LABELS = {
   admin: 'Администратор',
+  super_admin: 'Суперадмин',
   exec_director: 'Исполнительный директор',
   hr_director: 'HR-директор',
   hr_manager: 'HR-менеджер',
@@ -619,6 +620,7 @@ const ROLE_LABELS = {
 };
 const ROLE_COLORS = {
   admin: '#ffd700',
+  super_admin: '#c084fc',
   exec_director: '#f5a623',
   hr_director: '#3ecf8e',
   hr_manager: '#4ecb8a',
@@ -652,14 +654,24 @@ const ROLES = {
   cashier: 2,
   hr_director: 2,
   exec_director: 3,
-  admin: 4
+  admin: 4,
+  super_admin: 5
 };
 const roleNow = () => currentUser?.role || 'photographer_user';
-const hasAnyRole = (roles) => roles.includes(roleNow());
-const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+const hasAnyRole = (roles) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return roles.includes(roleNow());
+};
+const can = (r) => {
+  if (currentUser?.role === 'super_admin') return true;
+  return (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+};
 const canEditCard = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin','site_specialist']);
 const canManageComments = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
-const canPassport = () => currentUser?.role === 'admin' || currentUser?.role === 'hr_director';
+const canPassport = () =>
+  currentUser?.role === 'super_admin' ||
+  currentUser?.role === 'admin' ||
+  currentUser?.role === 'hr_director';
 const canMentorshipHR = () => hasAnyRole(['hr_director', 'exec_director', 'admin']);
 function getDrawerTabIndices() {
   const idx = { info: 0, comments: 1 };

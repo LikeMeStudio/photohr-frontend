@@ -651,9 +651,9 @@ let draggingPoolPhotographerCity='';
 let tetrisPeriods=[];
 let forceAssignResolver=null;
 let scmState=null;
-const ROLE_LABELS={admin:'Администратор',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
-const ROLE_COLORS={admin:'#ffd700',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
-const hasAnyRole=(r)=>r.includes(currentUser?.role||'');
+const ROLE_LABELS={admin:'Администратор',super_admin:'Суперадмин',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
+const ROLE_COLORS={admin:'#ffd700',super_admin:'#c084fc',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
+const hasAnyRole=(r)=>{if(currentUser?.role==='super_admin')return true;return r.includes(currentUser?.role||'');};
 const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
@@ -1455,7 +1455,7 @@ async function subCalApplyStatus(phId,ds,newStatus){
   const oldSt=byD[String(ds).slice(0,10)]??null;
   if(String(oldSt||'')===String(newStatus)){showToast('Уже выбрано');return;}
   const isOwn=currentUser?.photographer_id&&String(currentUser.photographer_id)===String(phId);
-  const isHr=['hr_manager','hr_director','exec_director','admin'].includes(currentUser?.role||'');
+  const isHr=hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
   if(isOwn){
     try{
       await api('POST','/availability/correct',{photographer_id:phId,dates:[{date:ds,status:newStatus}]});
