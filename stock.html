@@ -2599,14 +2599,16 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
       const tip = fcMatrixTooltip(fcMap, it.id, wid);
       const st = matrixCellStyle(q, minThr);
       const show = q > 0 || b;
-      return `<td title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums">${show ? q.toLocaleString('ru-RU') : '—'}</td>`;
+      const cellDisp = show ? (uppRow > 0 && it.pack_unit ? `<span title="${q.toLocaleString('ru-RU')} ${esc(it.consumption_unit || 'ед.')}">${fmtPackQty(q, it)}</span>` : q.toLocaleString('ru-RU')) : '—';
+      return `<td title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums;font-size:11px">${cellDisp}</td>`;
     }).join('');
     const rp = parseFloat(it.reorder_point) || 0;
     const rs = matrixRowSigmaReorderStyles(total, rp);
-    const rpCell = `<td style="text-align:center;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? rp : '—'}</td>`;
+    const rpCu = it.consumption_unit ? (it.consumption_unit.length > 4 ? it.consumption_unit.slice(0, 3) + '.' : it.consumption_unit) : '';
+    const rpCell = `<td style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? rp + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
     return `<tr>
       <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
-      <td style="text-align:center;font-weight:600;${rs.sum}">${total.toLocaleString('ru-RU')}</td>
+      <td style="text-align:center;font-weight:600;${rs.sum}">${uppRow > 0 && it.pack_unit ? fmtPackQty(total, it) : total.toLocaleString('ru-RU')}</td>
       ${rpCell}
       ${cells}
     </tr>`;
@@ -2659,14 +2661,14 @@ async function loadStockForecast() {
         const daysL = forecastRowDaysLeft(r);
         const daysCell = daysL !== null ? `${daysL} д` : '∞';
         return `<tr>
-          <td>${esc(r.item_name)} <span style="color:var(--text3);font-size:10px">${esc(r.unit || 'шт')}</span></td>
+          <td>${esc(r.item_name)} <span style="color:var(--text3);font-size:10px">${esc(r.consumption_unit || r.unit || 'шт')}</span></td>
           <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name)}</td>
-          <td style="font-weight:600">${r.current_qty}</td>
+          <td style="font-weight:600">${r.pack_unit && parseFloat(r.units_per_pack) > 0 ? fmtPackQty(parseFloat(r.current_qty), r) : r.current_qty}</td>
           <td style="color:var(--text3)">${minV}</td>
           <td>${r.avg_daily}</td>
           <td style="color:var(--text3)">${r.upcoming_events}</td>
-          <td>${r.projected_consumption}</td>
-          <td style="font-weight:600;color:${parseFloat(r.remaining_after) <= 0 ? 'var(--rank3)' : st === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${r.remaining_after}</td>
+          <td>${r.pack_unit && parseFloat(r.units_per_pack) > 0 ? fmtPackQty(parseFloat(r.projected_consumption), r) : r.projected_consumption}</td>
+          <td style="font-weight:600;color:${parseFloat(r.remaining_after) <= 0 ? 'var(--rank3)' : st === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${r.pack_unit && parseFloat(r.units_per_pack) > 0 ? fmtPackQty(parseFloat(r.remaining_after), r) : r.remaining_after}</td>
           <td style="font-weight:600;color:${daysL !== null && daysL <= 3 ? 'var(--rank3)' : daysL !== null && daysL <= 7 ? 'var(--rank2)' : 'var(--text)'}">${daysCell}</td>
           <td>${badge}</td>
         </tr>`;
