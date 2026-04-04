@@ -262,7 +262,12 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
       <input class="fin" id="item-prefix" placeholder="P" maxlength="4" style="text-transform:uppercase;text-align:center"/>
     </div>
   </div>
-  <div class="field"><div class="fl">Единица измерения</div><input class="fin" id="item-unit" placeholder="шт, рулон, пачка..."/></div>
+  <div class="field"><div class="fl">Единица измерения</div>
+    <select class="fselect" id="item-unit" onchange="onItemUnitChange()">
+      <option value="Штука">📦 Штука</option>
+      <option value="Упаковка">📦 Упаковка</option>
+    </select>
+  </div>
   <div id="item-pack-fields" style="display:none;margin-top:2px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
     <div style="font-size:10px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">📦 Дробный учёт</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -270,7 +275,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
       <div class="field"><div class="fl">Ед. расхода</div><input class="fin" id="item-consumption-unit" placeholder="отпечаток"/></div>
       <div class="field"><div class="fl">Кол-во в упак.</div><input class="fin" type="number" id="item-units-per-pack" placeholder="800" min="1"/></div>
     </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:4px">Пример: 1 коробка = 800 отпечатков. Склад считает в отпечатках, закупки — в коробках.</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px">Пример: 1 коробка = 800 отпечатков. Склад считает в упаковках. Отпечатки списываются автоматически при проведении отчёта.</div>
   </div>
   <div class="field"><div class="fl">Описание</div><textarea class="fin" id="item-desc" rows="2" placeholder="Описание позиции..."></textarea></div>
   <div class="field"><div class="fl">Поставщик</div>
@@ -354,7 +359,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div id="inv-session-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
   <div class="table-wrap">
     <table class="tbl" id="inv-lines-table">
-      <thead><tr><th>Позиция</th><th>Ед.</th><th>По системе</th><th>Фактически</th><th style="width:70px">Ввод в</th><th>Расхождение</th><th>Заметка</th></tr></thead>
+      <thead><tr><th>Позиция</th><th>Ед.</th><th>По системе</th><th>Фактически</th><th>Расхождение</th><th>Заметка</th></tr></thead>
       <tbody id="inv-lines-body"></tbody>
     </table>
   </div>
@@ -454,40 +459,41 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 
 <div class="toast" id="toast"></div>
 <script>
-// === Дробный учёт: форматирование количества ===
-function fmtPackQty(quantity, item) {
+// Форматирование числа: убрать .00, показать дробь если есть
+function fmtNum(val) {
+  const n = parseFloat(val);
+  if (!Number.isFinite(n)) return '—';
+  if (n === Math.floor(n)) return n.toLocaleString('ru-RU');
+  return n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+}
+
+// quantity хранится в единицах хранения (упаковках или штуках).
+// Для unit='Упаковка' — «1½ уп. (1200 отпечатков)»; для 'Штука' — число.
+function fmtStockQty(quantity, item) {
+  const q = parseFloat(quantity) || 0;
   const upp = parseFloat(item?.units_per_pack) || 0;
   const pu = item?.pack_unit;
   const cu = item?.consumption_unit;
-  const q = parseFloat(quantity) || 0;
-  if (!upp || upp <= 0 || !pu) return q.toLocaleString('ru-RU') + (cu ? ' ' + cu : '');
-  const packs = q / upp;
-  const whole = Math.floor(packs);
-  const frac = packs - whole;
+  const unit = item?.unit;
+  if (!pu || !cu || upp <= 0 || unit !== 'Упаковка') return q.toLocaleString('ru-RU') + ' шт';
+  const whole = Math.floor(q);
+  const frac = q - whole;
   const FRACS = [
-    [1/6, '⅙'], [1/5, '⅕'], [1/4, '¼'], [1/3, '⅓'], [3/8, '⅜'],
-    [2/5, '⅖'], [1/2, '½'], [3/5, '⅗'], [5/8, '⅝'], [2/3, '⅔'],
-    [3/4, '¾'], [4/5, '⅘'], [5/6, '⅚'],
+    [1/4, '¼'], [1/3, '⅓'], [1/2, '½'], [2/3, '⅔'], [3/4, '¾'],
   ];
   let fracStr = '';
-  if (frac > 0.02) {
-    const match = FRACS.find(([v]) => Math.abs(frac - v) < 0.06);
+  if (frac >= 0.12) {
+    const match = FRACS.find(([v]) => Math.abs(frac - v) < 0.08);
     fracStr = match ? match[1] : frac.toFixed(1).replace('0.', ',');
   }
-  const abbr = pu.length > 5 ? pu.slice(0, 4) + '.' : pu;
+  const puShort = pu.length > 5 ? pu.slice(0, 4) + '.' : pu;
+  const cuShort = cu.length > 6 ? cu.slice(0, 5) + '.' : cu;
   let packsPart;
-  if (whole === 0 && fracStr) packsPart = `${fracStr} ${abbr}`;
-  else if (fracStr) packsPart = `${whole}${fracStr} ${abbr}`;
-  else packsPart = `${whole} ${abbr}`;
-  const cuAbbr = cu ? (cu.length > 5 ? cu.slice(0, 3) + '.' : cu) : '';
-  return `${q.toLocaleString('ru-RU')}${cuAbbr ? ' ' + cuAbbr : ''} (${packsPart})`;
-}
-function packsToUnits(packs, unitsPerPack) {
-  return parseFloat(packs) * (parseFloat(unitsPerPack) || 1);
-}
-function unitsToPacks(units, unitsPerPack) {
-  if (!unitsPerPack || parseFloat(unitsPerPack) <= 0) return parseFloat(units);
-  return parseFloat(units) / parseFloat(unitsPerPack);
+  if (whole === 0 && fracStr) packsPart = `${fracStr} ${puShort}`;
+  else if (fracStr) packsPart = `${whole}${fracStr} ${puShort}`;
+  else packsPart = `${whole} ${puShort}`;
+  const consumptionQty = Math.round(q * upp);
+  return `${packsPart} (${consumptionQty.toLocaleString('ru-RU')} ${cuShort})`;
 }
 
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -918,22 +924,12 @@ function dndOnDropWh(ev,toWhId){
   const maxQ=parseFloat(data.max_qty)||0;
   if(maxQ<=0){showToast('Нет остатка для перемещения',true);return;}
   const _dndItem = items.find(it => String(it.id) === String(data.item_id));
-  const _dndUpp = parseFloat(_dndItem?.units_per_pack) || 0;
   const _dndPu = _dndItem?.pack_unit;
-  const _dndCu = _dndItem?.consumption_unit || data.unit || 'шт';
-  let _dndPrompt, defQ;
-  if (_dndUpp > 0 && _dndPu) {
-    const maxPacks = Math.floor(maxQ / _dndUpp * 100) / 100;
-    defQ = Math.min(1, maxPacks);
-    _dndPrompt = `Кол-во «${data.item_name}» в ${_dndPu} (1 ${_dndPu} = ${_dndUpp} ${_dndCu}, макс ${maxPacks} ${_dndPu} / ${maxQ} ${_dndCu}):`;
-  } else {
-    defQ = Math.min(1, maxQ);
-    _dndPrompt = `Кол-во «${data.item_name}» на склад (макс ${maxQ}):`;
-  }
-  const qtyStr = prompt(_dndPrompt, String(defQ));
-  let qty = parseFloat(qtyStr);
+  const _dndUnit = _dndPu || data.unit || 'шт';
+  const defQ = Math.min(1, maxQ);
+  const qtyStr = prompt(`Кол-во «${data.item_name}» в ${_dndUnit} (макс ${maxQ}):`, String(defQ));
+  const qty = parseFloat(qtyStr);
   if (!Number.isFinite(qty) || qty <= 0) return;
-  if (_dndUpp > 0 && _dndPu) qty = qty * _dndUpp;
   if(qty>maxQ){showToast('Больше доступного остатка',true);return;}
   const fromName=warehouses.find(w=>w.id===data.from_warehouse_id)?.name||data.from_warehouse_id;
   const toName=warehouses.find(w=>w.id===toWhId)?.name||toWhId;
@@ -1228,18 +1224,19 @@ async function loadStockTransfers() {
           ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openTrModal()">+ Новое</button>` : ''}
         </div>
         <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по строке — состав заявки. Для «Ожидает» — подтверждение и отмена в раскрытии.</p>
-        ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>№</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th></tr></thead><tbody>
+        ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>№</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Кол-во</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th></tr></thead><tbody>
         ${list.map(tr => `<tr id="tr-st-main-${tr.id}" class="${tr.status === 'pending' ? 'tr-transfer-pending' : ''}" style="cursor:pointer" onclick="toggleTransferExpand('${tr.id}')">
           <td style="font-size:11px">${tr.created_at ? new Date(tr.created_at).toLocaleDateString('ru-RU') : '—'}</td>
           <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(transferIdShort8(tr.id))}</td>
           <td>${esc(tr.from_warehouse_name)}</td>
           <td>${esc(tr.to_warehouse_name)}</td>
           <td style="color:var(--text3)">${tr.lines_count ?? '—'}</td>
+          <td style="font-weight:600">${fmtNum(tr.total_qty)}</td>
           <td>${esc(TR_STATUS_RU[tr.status] || tr.status)}</td>
           <td style="font-size:11px;color:var(--text3)">${esc(tr.requested_by_name || '—')}</td>
           <td style="font-size:11px;color:var(--text3)">${esc(tr.confirmed_by_name || '—')}</td>
         </tr>
-        <tr id="tr-st-exp-${tr.id}" style="display:none"><td colspan="8" id="tr-st-exp-cell-${tr.id}" style="background:var(--bg);padding:0"></td></tr>`).join('')}
+        <tr id="tr-st-exp-${tr.id}" style="display:none"><td colspan="9" id="tr-st-exp-cell-${tr.id}" style="background:var(--bg);padding:0"></td></tr>`).join('')}
         </tbody></table></div>` : '<div style="color:var(--text3)">Нет заявок на перемещение</div>'}
       </div>`;
     if (highlightId) {
@@ -1394,9 +1391,8 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
 function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const q = parseFloat(s.quantity) || 0;
   const mn = s.min_quantity;
-  const upp = parseFloat(s.units_per_pack) || 0;
-  const mnThreshold = parseFloat(mn || 0) * (upp || 1);
-  const st = whStockStatusEmoji(q, mnThreshold > 0 ? mnThreshold : mn);
+  const mnNum = parseFloat(mn || 0);
+  const st = whStockStatusEmoji(q, mnNum > 0 ? mnNum : mn);
   const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? mn + ' ' + (s.pack_unit.length > 4 ? s.pack_unit.slice(0, 3) + '.' : s.pack_unit) : mn) : '—';
   const minCell = canMin
     ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:11px">${minVal} <span style="font-size:9px;color:var(--accent2)">✏️</span></span>`
@@ -1407,7 +1403,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none"` : '';
   return `<tr${drag}>
     <td>${esc(s.item_name)}</td>
-    <td style="font-weight:600;text-align:center" title="${s.pack_unit && upp > 0 ? fmtPackQty(q, s) : ''}">${s.pack_unit && upp > 0 ? fmtPackQty(q, s) : q.toLocaleString('ru-RU')}</td>
+    <td style="font-weight:600;text-align:center" title="${esc(fmtStockQty(q, s))}">${fmtStockQty(q, s)}</td>
     <td style="text-align:center;color:var(--text3)">${esc(s.consumption_unit || s.unit || '')}</td>
     <td style="text-align:center">${minCell}</td>
     <td style="text-align:center">${st}</td>
@@ -1463,8 +1459,7 @@ async function renderWhStockPanel(whId){
       if(!consByCat.has(catVal))consByCat.set(catVal,{label:catLabel,items:[]});
       consByCat.get(catVal).items.push(s);
       const q=parseFloat(s.quantity)||0,mn=s.min_quantity;
-      const upp=parseFloat(s.units_per_pack)||0;
-      const thr=parseFloat(mn||0)*(upp>0?upp:1);
+      const thr=parseFloat(mn||0);
       if(mn>0&&q<=thr)hasCrit=true;
     }
     const consArr=[...consByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
@@ -1749,6 +1744,7 @@ function openItemModal(it) {
   document.getElementById('item-id').value = it?.id || '';
   document.getElementById('item-name').value = it?.name || '';
   document.getElementById('item-type').value = it?.item_type || 'consumable';
+  document.getElementById('item-unit').value = (it?.unit === 'Упаковка') ? 'Упаковка' : 'Штука';
   document.getElementById('item-prefix').value = '';
   updateCategorySelect();
   const catVal = it?.category || '';
@@ -1766,12 +1762,10 @@ function openItemModal(it) {
     sel.value = catVal;
     document.getElementById('item-prefix').value = it?.category_prefix || getCategoryPrefix(it?.item_type || 'consumable', catVal) || '';
   }, 0);
-  document.getElementById('item-unit').value = it?.unit || '';
   document.getElementById('item-pack-unit').value = it?.pack_unit || '';
   document.getElementById('item-consumption-unit').value = it?.consumption_unit || '';
   document.getElementById('item-units-per-pack').value = it?.units_per_pack != null && it?.units_per_pack !== '' ? it.units_per_pack : '';
-  const packFields = document.getElementById('item-pack-fields');
-  if (packFields) packFields.style.display = (it?.item_type || 'consumable') === 'consumable' ? 'block' : 'none';
+  onItemUnitChange();
   document.getElementById('item-desc').value = it?.description || '';
   document.getElementById('item-reorder').value = it?.reorder_point || 0;
   document.getElementById('item-price').value = it?.last_purchase_price || '';
@@ -1787,10 +1781,20 @@ function openItemModal(it) {
   loadSuppliersList();
 }
 
+function onItemUnitChange() {
+  const type = document.getElementById('item-type').value;
+  const unitVal = document.getElementById('item-unit').value;
+  const packFields = document.getElementById('item-pack-fields');
+  if (packFields) packFields.style.display = (type === 'consumable' && unitVal === 'Упаковка') ? 'block' : 'none';
+}
+
 function updateCategorySelect() {
   const type = document.getElementById('item-type').value;
   const packFields = document.getElementById('item-pack-fields');
-  if (packFields) packFields.style.display = type === 'consumable' ? 'block' : 'none';
+  if (packFields) {
+    const unitVal = document.getElementById('item-unit')?.value;
+    packFields.style.display = (type === 'consumable' && unitVal === 'Упаковка') ? 'block' : 'none';
+  }
   const sel = document.getElementById('item-category');
   const cats = getCategoriesForType(type);
   sel.innerHTML = '<option value="">— выберите категорию —</option>' +
@@ -1879,7 +1883,7 @@ async function saveItem() {
   const body = {
     name: document.getElementById('item-name').value.trim(),
     item_type: document.getElementById('item-type').value,
-    unit: document.getElementById('item-unit').value.trim() || 'шт',
+    unit: document.getElementById('item-unit').value || 'Штука',
     category: document.getElementById('item-category').value || null,
     category_prefix: document.getElementById('item-prefix').value.trim().toUpperCase() || null,
     description: document.getElementById('item-desc').value.trim() || null,
@@ -2243,53 +2247,19 @@ function addTrLine() {
   const n = trLineCount++;
   const div = document.createElement('div');
   div.id = `tr-line-${n}`;
-  div.style.cssText = 'display:grid;grid-template-columns:2fr 160px 24px;gap:6px;align-items:center;margin-bottom:6px';
+  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
     <div id="tr-item-host-${n}"></div>
-    <div style="display:flex;gap:4px;align-items:center">
-      <input class="fin" type="number" id="tr-qty-${n}" placeholder="Кол-во" min="0.01" step="0.01" style="font-size:11px;width:72px"/>
-      <select class="fselect" id="tr-unit-mode-${n}" style="font-size:10px;width:80px;padding:4px" onchange="updateTrQtyPlaceholder(${n})">
-        <option value="packs">упак.</option>
-        <option value="units">ед.</option>
-      </select>
-    </div>
+    <input class="fin" type="number" id="tr-qty-${n}" placeholder="Кол-во" min="0.01" step="0.01" style="font-size:11px;width:80px"/>
     <button class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить">×</button>
-    <div id="tr-hint-${n}" style="display:none;grid-column:1/-1;font-size:10px;color:var(--text3);padding:0 2px"></div>
   `;
   document.getElementById('tr-lines').appendChild(div);
   createSearchableSelect(document.getElementById(`tr-item-host-${n}`), items.filter(i => i.is_active !== false), {
     extraLabel: i => `(${i.category || i.item_type || ''})`,
     placeholder: 'Поиск позиции...',
-    onSelect: (item) => {
-      const modeEl = document.getElementById(`tr-unit-mode-${n}`);
-      const hintEl = document.getElementById(`tr-hint-${n}`);
-      if (item.units_per_pack && item.pack_unit) {
-        if (modeEl) {
-          const puShort = item.pack_unit.length > 5 ? item.pack_unit.slice(0, 4) + '.' : item.pack_unit;
-          const cuShort = item.consumption_unit || 'ед.';
-          modeEl.innerHTML = `<option value="packs">${esc(puShort)}</option><option value="units">${esc(cuShort.length > 8 ? cuShort.slice(0, 7) + '.' : cuShort)}</option>`;
-          modeEl.value = 'packs';
-          modeEl.dataset.upp = item.units_per_pack;
-          modeEl.dataset.cu = item.consumption_unit || '';
-          modeEl.dataset.pu = item.pack_unit;
-        }
-        if (hintEl) {
-          hintEl.textContent = `1 ${item.pack_unit} = ${item.units_per_pack} ${item.consumption_unit || 'ед.'}`;
-          hintEl.style.display = 'block';
-        }
-      } else {
-        if (modeEl) {
-          modeEl.innerHTML = '<option value="units">шт</option>';
-          modeEl.dataset.upp = '';
-          modeEl.value = 'units';
-        }
-        if (hintEl) hintEl.style.display = 'none';
-      }
-    },
+    onSelect: () => {},
   });
 }
-
-function updateTrQtyPlaceholder(_n) {}
 
 async function saveTransfer() {
   const from_warehouse_id = document.getElementById('tr-from').value;
@@ -2300,11 +2270,7 @@ async function saveTransfer() {
   document.querySelectorAll('[id^="tr-line-"]').forEach(row => {
     const n = row.id.split('-')[2];
     const item_id = document.getElementById(`tr-line-${n}`)?.querySelector('.ss-value')?.value;
-    let qty = parseFloat(document.getElementById(`tr-qty-${n}`)?.value);
-    const modeEl = document.getElementById(`tr-unit-mode-${n}`);
-    if (modeEl && modeEl.value === 'packs' && modeEl.dataset.upp) {
-      qty = qty * (parseFloat(modeEl.dataset.upp) || 1);
-    }
+    const qty = parseFloat(document.getElementById(`tr-qty-${n}`)?.value);
     if (item_id && qty > 0) lines.push({ item_id, quantity: qty });
   });
   if (!lines.length) { showToast('Добавьте позиции', true); return; }
@@ -2435,7 +2401,7 @@ async function loadMovements() {
           <td style="font-size:11px;color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
           <td>${movementTypeDisplay(m)}</td>
           <td>${esc(m.item_name)}</td>
-          <td style="font-weight:600">${m.quantity} ${esc(m.unit||'')}</td>
+          <td style="font-weight:600">${fmtNum(m.quantity)} ${esc(m.unit||'')}</td>
           <td style="color:var(--text3);font-size:11px">${esc(wh.from)}</td>
           <td style="color:var(--text3);font-size:11px">${esc(wh.to)}</td>
           <td style="color:var(--text3);font-size:11px">${m.unit_price ? m.unit_price.toLocaleString('ru-RU')+'₽' : '—'}</td>
@@ -2479,8 +2445,7 @@ function toggleDetailFcWhId(id) {
 function forecastRowUiStatus(r) {
   const qty = parseFloat(r.current_qty) || 0;
   const rem = parseFloat(r.remaining_after);
-  const upp = parseFloat(r.units_per_pack) || 0;
-  const minQ = parseFloat(r.min_quantity ?? 0) * (upp || 1);
+  const minQ = parseFloat(r.min_quantity ?? 0);
   if (rem <= 0 || (minQ > 0 && qty <= minQ)) return 'critical';
   if (minQ > 0 && rem <= minQ) return 'warning';
   return 'ok';
@@ -2489,7 +2454,10 @@ function forecastRowUiStatus(r) {
 function forecastRowDaysLeft(r) {
   const avg = parseFloat(r.avg_daily) || 0;
   const qty = parseFloat(r.current_qty) || 0;
-  if (avg > 0) return Math.floor(qty / avg);
+  const upp = parseFloat(r.units_per_pack) || 1;
+  const unit = String(r.unit || '').trim();
+  const avgStorage = (unit === 'Упаковка' && upp > 0) ? avg / upp : avg;
+  if (avgStorage > 0) return Math.floor(qty / avgStorage);
   return null;
 }
 
@@ -2562,13 +2530,12 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
     const rp = parseFloat(it.reorder_point) || 0;
     let total = 0;
     let worst = 2;
-    const uppIt = parseFloat(it.units_per_pack) || 0;
     for (const wid of whIds) {
       const b = balMap.get(`${it.id}_${wid}`);
       const q = parseFloat(b?.quantity) || 0;
       total += q;
       const minRaw = parseFloat(b?.min_quantity) || 0;
-      const minThr = minRaw * (uppIt || 1);
+      const minThr = minRaw;
       worst = Math.min(worst, matrixCellSeverity(q, minThr));
     }
     if (rp > 0 && total < rp) worst = Math.min(worst, 0);
@@ -2589,17 +2556,16 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
   }).join('')}`;
   const tbody = itemRows.map(it => {
     let total = 0;
-    const uppRow = parseFloat(it.units_per_pack) || 0;
     const cells = whIds.map(wid => {
       const b = balMap.get(`${it.id}_${wid}`);
       const q = parseFloat(b?.quantity) || 0;
       total += q;
       const minRaw = parseFloat(b?.min_quantity) || 0;
-      const minThr = minRaw * (uppRow || 1);
+      const minThr = minRaw;
       const tip = fcMatrixTooltip(fcMap, it.id, wid);
       const st = matrixCellStyle(q, minThr);
       const show = q > 0 || b;
-      const cellDisp = show ? (uppRow > 0 && it.pack_unit ? `<span title="${q.toLocaleString('ru-RU')} ${esc(it.consumption_unit || 'ед.')}">${fmtPackQty(q, it)}</span>` : q.toLocaleString('ru-RU')) : '—';
+      const cellDisp = show ? fmtStockQty(q, it) : '—';
       return `<td title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums;font-size:11px">${cellDisp}</td>`;
     }).join('');
     const rp = parseFloat(it.reorder_point) || 0;
@@ -2608,7 +2574,7 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
     const rpCell = `<td style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? rp + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
     return `<tr>
       <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
-      <td style="text-align:center;font-weight:600;${rs.sum}">${uppRow > 0 && it.pack_unit ? fmtPackQty(total, it) : total.toLocaleString('ru-RU')}</td>
+      <td style="text-align:center;font-weight:600;${rs.sum}">${fmtStockQty(total, it)}</td>
       ${rpCell}
       ${cells}
     </tr>`;
@@ -2663,12 +2629,12 @@ async function loadStockForecast() {
         return `<tr>
           <td>${esc(r.item_name)} <span style="color:var(--text3);font-size:10px">${esc(r.consumption_unit || r.unit || 'шт')}</span></td>
           <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name)}</td>
-          <td style="font-weight:600">${r.pack_unit && parseFloat(r.units_per_pack) > 0 ? fmtPackQty(parseFloat(r.current_qty), r) : r.current_qty}</td>
+          <td style="font-weight:600">${fmtNum(r.current_qty)}</td>
           <td style="color:var(--text3)">${minV}</td>
-          <td>${r.avg_daily}</td>
+          <td>${fmtNum(r.avg_daily)}</td>
           <td style="color:var(--text3)">${r.upcoming_events}</td>
-          <td>${r.pack_unit && parseFloat(r.units_per_pack) > 0 ? fmtPackQty(parseFloat(r.projected_consumption), r) : r.projected_consumption}</td>
-          <td style="font-weight:600;color:${parseFloat(r.remaining_after) <= 0 ? 'var(--rank3)' : st === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${r.pack_unit && parseFloat(r.units_per_pack) > 0 ? fmtPackQty(parseFloat(r.remaining_after), r) : r.remaining_after}</td>
+          <td>${fmtNum(r.projected_consumption)}</td>
+          <td style="font-weight:600;color:${parseFloat(r.remaining_after) <= 0 ? 'var(--rank3)' : st === 'warning' ? 'var(--rank2)' : 'var(--text)'}">${fmtNum(r.remaining_after)}</td>
           <td style="font-weight:600;color:${daysL !== null && daysL <= 3 ? 'var(--rank3)' : daysL !== null && daysL <= 7 ? 'var(--rank2)' : 'var(--text)'}">${daysCell}</td>
           <td>${badge}</td>
         </tr>`;
@@ -3302,24 +3268,16 @@ async function openInvSession(id, readOnly = false) {
       const cuLabel = l.consumption_unit || l.unit || 'шт';
       const puLabel = l.pack_unit || '';
       const puShort = puLabel.length > 5 ? puLabel.slice(0, 4) + '.' : puLabel;
-      const cuShort = cuLabel.length > 5 ? cuLabel.slice(0, 3) + '.' : cuLabel;
-      const initVal = actual != null ? (hasPack ? Math.round(actual / upp * 100) / 100 : actual) : '';
-      const initMode = hasPack ? 'packs' : 'units';
-      const modeToggle = (readOnly || sess.status !== 'open' || !hasPack)
-        ? `<td></td>`
-        : `<td><select class="fselect" id="inv-mode-${l.id}" style="font-size:10px;padding:2px 4px;width:68px" data-upp="${upp}" data-expected="${expected}" onchange="invModeChange('${l.id}',${expected})">
-            <option value="packs">${esc(puShort)}</option>
-            <option value="units">${esc(cuShort)}</option>
-          </select></td>`;
+      const initVal = actual != null ? actual : '';
+      const ph = hasPack ? esc(puShort) : '...';
       return `<tr id="inv-row-${l.id}">
         <td>${esc(l.item_name)}</td>
         <td style="color:var(--text3)">${esc(cuLabel)}${hasPack ? '<div style="font-size:9px;color:var(--accent2)">' + upp + '/' + esc(puLabel) + '</div>' : ''}</td>
-        <td style="color:var(--text3)">${hasPack ? fmtPackQty(expected, l) : expected}</td>
+        <td style="color:var(--text3)">${fmtStockQty(expected, l)}</td>
         <td>${readOnly || sess.status !== 'open'
-          ? `<span style="font-weight:600">${actual != null ? (hasPack ? fmtPackQty(actual, l) : actual) : '—'}</span>`
-          : `<input class="fin" type="number" id="inv-actual-${l.id}" value="${initVal}" placeholder="${hasPack ? esc(puShort) : '...'}" min="0" step="0.01" oninput="updateInvDelta('${l.id}',${expected})" style="width:80px;font-size:12px" data-upp="${upp}" data-mode="${initMode}"/>`
+          ? `<span style="font-weight:600">${actual != null ? fmtStockQty(actual, l) : '—'}</span>`
+          : `<input class="fin" type="number" id="inv-actual-${l.id}" value="${initVal !== '' ? initVal : ''}" placeholder="${ph}" min="0" step="0.01" oninput="updateInvDelta('${l.id}',${expected})" style="width:80px;font-size:12px"/>`
         }</td>
-        ${modeToggle}
         <td id="inv-delta-${l.id}" style="font-weight:600;color:${deltaColor}">${delta != null ? (delta > 0 ? '+' + delta : delta) : '—'}</td>
         <td>${readOnly || sess.status !== 'open'
           ? `<span style="color:var(--text3);font-size:11px">${esc(l.notes || '')}</span>`
@@ -3344,33 +3302,11 @@ function updateInvDelta(lineId, expected) {
   const actualEl = document.getElementById(`inv-actual-${lineId}`);
   const deltaEl = document.getElementById(`inv-delta-${lineId}`);
   if (!actualEl || !deltaEl) return;
-  let actual = parseFloat(actualEl.value);
+  const actual = parseFloat(actualEl.value);
   if (isNaN(actual)) { deltaEl.textContent = '—'; deltaEl.style.color = ''; return; }
-  const upp = parseFloat(actualEl.dataset.upp) || 0;
-  if (actualEl.dataset.mode === 'packs' && upp > 0) actual = actual * upp;
   const delta = Math.round((actual - expected) * 100) / 100;
   deltaEl.textContent = delta > 0 ? '+' + delta : delta;
   deltaEl.style.color = delta > 0 ? 'var(--rank1)' : delta < 0 ? 'var(--rank3)' : 'var(--text3)';
-}
-
-function invModeChange(lineId, expected) {
-  const modeEl = document.getElementById('inv-mode-' + lineId);
-  const inputEl = document.getElementById('inv-actual-' + lineId);
-  if (!modeEl || !inputEl) return;
-  const upp = parseFloat(modeEl.dataset.upp) || 1;
-  const oldMode = inputEl.dataset.mode;
-  const newMode = modeEl.value;
-  const oldVal = parseFloat(inputEl.value);
-  if (Number.isFinite(oldVal) && oldVal > 0) {
-    if (oldMode === 'packs' && newMode === 'units') {
-      inputEl.value = Math.round(oldVal * upp);
-    } else if (oldMode === 'units' && newMode === 'packs') {
-      inputEl.value = Math.round(oldVal / upp * 100) / 100;
-    }
-  }
-  inputEl.dataset.mode = newMode;
-  inputEl.placeholder = newMode === 'packs' ? modeEl.options[0].text : modeEl.options[1].text;
-  updateInvDelta(lineId, expected);
 }
 
 async function saveInvDraft() {
@@ -3405,11 +3341,7 @@ function collectInvLines() {
   const lines = [];
   document.querySelectorAll('[id^="inv-actual-"]').forEach(el => {
     const lineId = el.id.replace('inv-actual-', '');
-    let actual = el.value !== '' ? parseFloat(el.value) : null;
-    if (actual !== null) {
-      const upp = parseFloat(el.dataset.upp) || 0;
-      if (el.dataset.mode === 'packs' && upp > 0) actual = Math.round(actual * upp * 100) / 100;
-    }
+    const actual = el.value !== '' ? parseFloat(el.value) : null;
     const notes = document.getElementById(`inv-note-${lineId}`)?.value || null;
     if (actual !== null) lines.push({ line_id: lineId, actual_qty: actual, notes });
   });
@@ -3457,7 +3389,7 @@ async function loadAnalytics() {
           ${alerts.critical_stock.map(a => `
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
               <span><b>${esc(a.item_name)}</b> · ${esc(a.warehouse_name)}</span>
-              <span style="color:var(--rank3);font-weight:600">${a.pack_unit && parseFloat(a.units_per_pack) > 0 ? fmtPackQty(parseFloat(a.quantity), a) : a.quantity}${a.consumption_unit && !(a.pack_unit && parseFloat(a.units_per_pack) > 0) ? ' ' + esc(a.consumption_unit) : ''} / мин ${a.min_quantity}${a.pack_unit ? ' ' + esc(a.pack_unit.length > 8 ? a.pack_unit.slice(0, 7) + '.' : a.pack_unit) : ''}</span>
+              <span style="color:var(--rank3);font-weight:600">${fmtStockQty(parseFloat(a.quantity), a)} / мин ${a.min_quantity}${a.pack_unit ? ' ' + esc(a.pack_unit.length > 8 ? a.pack_unit.slice(0, 7) + '.' : a.pack_unit) : ''}</span>
             </div>`).join('')}` : ''}
         ${alerts.warning_stock?.length ? `
           <div style="margin-top:10px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">Предупреждение по остаткам</div>
