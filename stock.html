@@ -3412,7 +3412,11 @@ async function openEqDrawer(id) {
           <td style="color:var(--text3);font-size:10px">${esc(l.venue_name || '')}</td>
         </tr>`).join('')
       : '<tr><td colspan="5" style="color:var(--text3);padding:8px">Нет истории счётчиков</td></tr>';
+    const eqPhotoUrl = drawerItem?.photo_url ? API_ROOT + drawerItem.photo_url : null;
     document.getElementById('eq-drawer-body').innerHTML = `
+      ${eqPhotoUrl ? `<div style="text-align:center;margin-bottom:12px">
+        <img src="${eqPhotoUrl}" data-lightbox="${esc(eqPhotoUrl)}" onclick="openLightbox(this.getAttribute('data-lightbox'))" style="max-width:100%;max-height:160px;border-radius:10px;border:1px solid var(--border);object-fit:contain;cursor:zoom-in"/>
+      </div>` : ''}
       <div class="info-row"><span class="info-label">Серийный</span><span style="font-family:monospace;font-size:12px">${esc(eq.serial_number || '—')}</span></div>
       <div class="info-row"><span class="info-label">Инвентарный</span><span>${esc(eq.inventory_number || '—')}</span></div>
       <div class="info-row"><span class="info-label">Статус</span><span>${STATUS[eq.status] || eq.status}</span></div>
