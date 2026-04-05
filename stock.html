@@ -2008,6 +2008,8 @@ async function saveItem() {
     { id: 'item-unit', label: 'Единица измерения', value: body.unit },
     { id: 'item-desc', label: 'Описание', value: body.description },
     { id: 'item-supplier', label: 'Поставщик', value: body.supplier },
+    { id: 'item-reorder', label: 'Порог пополнения', value: parseFloat(document.getElementById('item-reorder').value) > 0 ? 'ok' : '' },
+    { id: 'item-price', label: 'Цена закупки', value: parseFloat(document.getElementById('item-price').value) > 0 ? 'ok' : '' },
   ];
 
   // Дробный учёт — обязателен если выбрана Упаковка
