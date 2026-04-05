@@ -66,8 +66,24 @@ a{color:inherit;text-decoration:none}
 .pie-legend{font-size:11px;margin-top:8px}
 .hbar{margin:6px 0;display:flex;align-items:center;gap:8px}
 .hbar-fill{height:8px;border-radius:4px;background:var(--accent);min-width:4px}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:10px 20px;border-radius:8px;font-size:12px;z-index:400;display:none}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);padding:10px 20px;border-radius:8px;font-size:12px;z-index:400;display:none;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .toast.show{display:block}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%}
+.acc-card .acc-bank{font-size:11px;color:var(--text3);margin-top:4px}
+.acc-card .acc-bal-lg{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;margin-top:8px}
+.ref-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.ref-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;text-align:left;font:inherit;color:inherit;transition:border-color .15s;position:relative}
+.ref-card:hover{border-color:var(--accent)}
+.ref-card-stripe{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:12px 0 0 12px}
+.collapsible-h{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;font-weight:600}
+.im-row-pending{border-left:4px solid var(--rank3)}
+.im-row-auto-hi{border-left:4px solid var(--rank1)}
+.im-row-auto-mid{border-left:4px solid var(--rank2)}
+.im-row-manual{border-left:4px solid var(--rank1)}
+.im-row-skipped{border-left:4px solid var(--text3);opacity:.65}
+@media(max-width:640px){
+  #quick-entry .fin,#quick-entry .fselect{min-width:100%!important;flex:1 1 100%}
+}
 </style>
 </head>
 <body>
@@ -88,11 +104,11 @@ a{color:inherit;text-decoration:none}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title"><span id="ma-title">Счёт</span><button class="dr-close" onclick="closeModal('modal-account')">×</button></div>
     <input type="hidden" id="ma-id"/>
-    <div class="field"><div class="fl">Название</div><input class="fin" id="ma-name"/></div>
     <div class="field"><div class="fl">Тип</div><select class="fselect" id="ma-type"><option value="bank">🏦 Банк</option><option value="cash">💵 Касса</option><option value="personal">👤 Личный</option></select></div>
+    <div class="field"><div class="fl">Название</div><input class="fin" id="ma-name"/></div>
     <div class="field"><div class="fl">Юрлицо</div><select class="fselect" id="ma-le"><option value="">—</option></select></div>
     <div class="field"><div class="fl">Банк</div><input class="fin" id="ma-bank"/></div>
-    <div class="field"><div class="fl">Расчётный счёт</div><input class="fin" id="ma-num"/></div>
+    <div class="field"><div class="fl">Номер счёта (показываем как ****XXXX)</div><input class="fin" id="ma-num" placeholder="40817…"/></div>
     <div class="field"><div class="fl">Начальный баланс</div><input class="fin" id="ma-init" type="number" step="0.01"/></div>
     <div class="field"><div class="fl">% комиссии карта</div><input class="fin" id="ma-cc" type="number" step="0.01"/></div>
     <div class="field"><div class="fl">% комиссии QR</div><input class="fin" id="ma-cq" type="number" step="0.01"/></div>
@@ -161,6 +177,83 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
+<div class="overlay" id="modal-le" onclick="if(event.target===this)closeModal('modal-le')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="mle-title">Юрлицо</span><button class="dr-close" onclick="closeModal('modal-le')">×</button></div>
+    <input type="hidden" id="mle-id"/>
+    <div class="field"><div class="fl">Название</div><input class="fin" id="mle-name"/></div>
+    <div class="field"><div class="fl">ИНН</div><input class="fin" id="mle-inn"/></div>
+    <div class="field"><div class="fl">Форма</div><select class="fselect" id="mle-form"><option value="">—</option><option value="ИП">ИП</option><option value="ООО">ООО</option><option value="Самозанятый">Самозанятый</option></select></div>
+    <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="mle-notes" rows="2"></textarea></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" id="mle-del" style="display:none;margin-right:auto;color:var(--rank3)" onclick="deleteLegalEntity()">🗑 Удалить</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-le')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveLegalEntity()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-cat" onclick="if(event.target===this)closeModal('modal-cat')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="mcat-title">Статья</span><button class="dr-close" onclick="closeModal('modal-cat')">×</button></div>
+    <input type="hidden" id="mcat-id"/>
+    <div class="field"><div class="fl">Название</div><input class="fin" id="mcat-name"/></div>
+    <div class="field"><div class="fl">Тип</div><select class="fselect" id="mcat-type"><option value="expense">Расход</option><option value="income">Доход</option><option value="transfer">Трансфер</option></select></div>
+    <div class="field"><div class="fl">Родительская категория</div><select class="fselect" id="mcat-parent"><option value="">—</option></select></div>
+    <div class="field"><div class="fl">Иконка (emoji)</div><input class="fin" id="mcat-icon" placeholder="📁"/></div>
+    <div class="field"><div class="fl">Порядок</div><input class="fin" id="mcat-sort" type="number"/></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" id="mcat-merge-btn" style="display:none;margin-right:auto" onclick="openMergeCat()">🔀 Объединить</button>
+      <button type="button" class="btn btn-ghost" id="mcat-del" style="display:none;color:var(--rank3)" onclick="deleteCategory()">🗑 Удалить</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-cat')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-merge-cat" onclick="if(event.target===this)closeModal('modal-merge-cat')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Объединить статью<button class="dr-close" onclick="closeModal('modal-merge-cat')">×</button></div>
+    <input type="hidden" id="mmc-from"/>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:8px">Все операции будут перенесены в выбранную статью.</p>
+    <div class="field"><div class="fl">Целевая статья</div><select class="fselect" id="mmc-target"></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-merge-cat')">Отмена</button>
+      <button class="btn btn-primary" onclick="doMergeCategory()">Объединить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-proj" onclick="if(event.target===this)closeModal('modal-proj')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="mproj-title">Проект</span><button class="dr-close" onclick="closeModal('modal-proj')">×</button></div>
+    <input type="hidden" id="mproj-id"/>
+    <div class="field"><div class="fl">Название</div><input class="fin" id="mproj-name"/></div>
+    <div class="field"><div class="fl">Тип</div><select class="fselect" id="mproj-type"><option value="venue">Площадка</option><option value="office">Офис</option><option value="transfer">Передача</option><option value="commercial">Коммерция</option><option value="other">Прочее</option></select></div>
+    <div class="field"><div class="fl">Цвет</div><input class="fin" id="mproj-color" placeholder="#7c6cff"/></div>
+    <div class="field"><div class="fl">Площадка (если тип «Площадка»)</div><select class="fselect" id="mproj-venue"><option value="">—</option></select></div>
+    <div class="field"><div class="fl">Порядок</div><input class="fin" id="mproj-sort" type="number"/></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" id="mproj-merge-btn" style="display:none;margin-right:auto" onclick="openMergeProj()">🔀 Объединить</button>
+      <button type="button" class="btn btn-ghost" id="mproj-del" style="display:none;color:var(--rank3)" onclick="deleteProject()">🗑 Удалить</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-proj')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveProject()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-merge-proj" onclick="if(event.target===this)closeModal('modal-merge-proj')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Объединить проект<button class="dr-close" onclick="closeModal('modal-merge-proj')">×</button></div>
+    <input type="hidden" id="mmp-from"/>
+    <div class="field"><div class="fl">Целевой проект</div><select class="fselect" id="mmp-target"></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-merge-proj')">Отмена</button>
+      <button class="btn btn-primary" onclick="doMergeProject()">Объединить</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-recon" onclick="if(event.target===this)closeModal('modal-recon')">
   <div class="modal modal-wide" onclick="event.stopPropagation()">
     <div class="modal-title">Сверка<button class="dr-close" onclick="closeModal('modal-recon')">×</button></div>
@@ -184,7 +277,7 @@ let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
 let mgmtNavHasAccess = false;
 let window__mgmtAccess = null;
-let accounts = [], legalEntities = [], projects = [], categories = [], usersPick = [];
+let accounts = [], legalEntities = [], projects = [], categories = [], usersPick = [], venuesPick = [];
 let currentTab = 0;
 let journalOffset = 0;
 let selectedImportId = null;
@@ -231,20 +324,28 @@ function setupNav() {
   });
 }
 
+function showAccessTab() {
+  return currentUser && (currentUser.role === 'super_admin' || window__mgmtAccess?.access_level === 'finance_admin');
+}
+
+function tabRenderers() {
+  const a = [renderAccountsTab, renderJournalTab, renderImportTab, renderRefTab, renderAnalyticsTab];
+  if (showAccessTab()) a.push(renderAccessTab);
+  return a;
+}
+
 function buildTabs() {
-  const isSuper = currentUser && currentUser.role === 'super_admin';
-  const tabs = ['Счета', 'Журнал', 'Импорт', 'Справочники', 'Аналитика'];
-  if (isSuper) tabs.push('Доступ');
+  const tabs = ['💳 Счета', '📒 Журнал', '📥 Импорт', '📚 Справочники', '📊 Аналитика', '🔐 Доступ'];
+  if (!showAccessTab()) tabs.pop();
   document.getElementById('tabs').innerHTML = tabs.map((t, i) =>
-    `<button class="tab${i === 0 ? ' active' : ''}" onclick="switchTab(${i})">${esc(t)}</button>`
+    `<button class="tab${i === 0 ? ' active' : ''}" onclick="switchTab(${i})">${t}</button>`
   ).join('');
 }
 
 function switchTab(i) {
   currentTab = i;
   document.querySelectorAll('.tab').forEach((el, j) => el.classList.toggle('active', j === i));
-  const fns = [renderAccountsTab, renderJournalTab, renderImportTab, renderRefTab, renderAnalyticsTab];
-  if (currentUser && currentUser.role === 'super_admin') fns.push(renderAccessTab);
+  const fns = tabRenderers();
   if (fns[i]) fns[i]();
 }
 
@@ -261,8 +362,11 @@ async function init() {
   document.getElementById('user-pill').textContent = (currentUser.name || '') + ' · ' + (mgmtAccess.access_level || '');
   setupNav();
   buildTabs();
-  await Promise.all([loadAccountsData(), loadRefData()]);
+  await Promise.all([loadAccountsData(), loadRefData(), loadVenuesPick()]);
   switchTab(0);
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); if (currentTab === 1) document.getElementById('qe-amount')?.focus(); }
+  });
 }
 
 async function loadAccountsData() {
@@ -280,6 +384,10 @@ async function loadRefData() {
     api('GET', '/mgmt/projects'),
     api('GET', '/mgmt/categories'),
   ]);
+}
+
+async function loadVenuesPick() {
+  try { venuesPick = await api('GET', '/venues'); } catch { venuesPick = []; }
 }
 
 function canFinanceAdmin() {
@@ -301,18 +409,18 @@ function renderAccountsTab() {
     <div class="stat-box"><div class="stat-box-num" id="sg-per">…</div><div class="stat-box-lbl">Личные</div></div>
     <div class="stat-box"><div class="stat-box-num" id="sg-all">…</div><div class="stat-box-lbl">Итого</div></div>
   </div>`;
-  if (canFinanceAdmin()) html += `<button class="btn btn-primary" onclick="openAccountModal()">+ Новый счёт</button>`;
+  if (canFinanceAdmin()) html += `<button class="btn btn-primary" onclick="openAccountModal()">🏦 Новый счёт</button>`;
   html += '<div style="margin-top:16px">';
   for (const k of Object.keys(byLe)) {
     const g = byLe[k];
-    html += `<div class="le-group"><div class="le-title">${esc(g.name)}</div><div class="card-grid">`;
+    html += `<div class="le-group"><div class="le-title">📋 ${esc(g.name)}</div><div class="card-grid">`;
     for (const a of g.rows) {
       const cls = a.account_type === 'bank' ? 'bank' : a.account_type === 'cash' ? 'cash' : 'personal';
-      const icon = a.account_type === 'bank' ? '🏦' : a.account_type === 'cash' ? '💵' : '👤';
+      const icon = a.account_type === 'bank' ? '🏦 Банк' : a.account_type === 'cash' ? '💵 Касса' : '👤 Личный';
       html += `<div class="acc-card ${cls}" onclick="openBalModal('${a.id}')">
-        <div>${icon} <strong>${esc(a.name)}</strong></div>
-        <div class="acc-type">${esc(a.account_type)}</div>
-        <div class="acc-bal">${fmt(a.current_balance)} ₽</div>
+        <div><strong>${icon}</strong> · ${esc(a.name)}</div>
+        ${a.bank_name ? `<div class="acc-bank">${esc(a.bank_name)}</div>` : ''}
+        <div class="acc-bal-lg">${fmt(a.current_balance)} ₽</div>
       </div>`;
     }
     html += '</div></div>';
@@ -328,6 +436,25 @@ function renderAccountsTab() {
 }
 
 function fmt(n) { return (parseFloat(n) || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtDateRu(v) {
+  if (v == null || v === '') return '—';
+  const s = String(v).trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) return `${iso[3]}.${iso[2]}.${iso[1]}`;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? esc(s.slice(0, 10)) : d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function fmtTxStatus(s) {
+  if (s === 'confirmed') return '✅';
+  if (s === 'draft') return '📝';
+  if (s === 'void') return '❌';
+  return esc(s || '');
+}
+function maskAccNum(n) {
+  const s = String(n || '').replace(/\s/g, '');
+  if (s.length <= 4) return s || '—';
+  return '****' + s.slice(-4);
+}
 
 function openAccountModal(row) {
   document.getElementById('ma-id').value = row?.id || '';
@@ -374,11 +501,11 @@ async function openBalModal(id) {
   balAccountId = id;
   balAccountType = a ? a.account_type : '';
   document.getElementById('mb-title').textContent = a ? a.name : '';
-  document.getElementById('btn-recon-card').style.display = atype === 'bank' ? 'inline-block' : 'none';
+  document.getElementById('btn-recon-card').style.display = balAccountType === 'bank' ? 'inline-block' : 'none';
   const d = await api('GET', '/mgmt/accounts/' + id + '/balance');
   document.getElementById('mb-bal').textContent = 'Баланс: ' + fmt(d.balance) + ' ₽';
   document.getElementById('mb-rec').innerHTML = '<table class="tbl"><tr><th>Дата</th><th>Тип</th><th>Сумма</th><th>Описание</th></tr>' +
-    (d.transactions || []).slice(0, 10).map(t => `<tr><td>${esc(t.transaction_date)}</td><td>${esc(t.transaction_type)}</td><td>${fmt(t.amount)}</td><td>${esc(t.description)}</td></tr>`).join('') + '</table>';
+    (d.transactions || []).slice(0, 10).map(t => `<tr><td>${fmtDateRu(t.transaction_date)}</td><td>${esc(t.transaction_type)}</td><td>${fmt(t.amount)}</td><td>${esc(t.description)}</td></tr>`).join('') + '</table>';
   openModal('modal-bal');
 }
 
@@ -426,19 +553,111 @@ function renderJournalTab() {
         <div class="field" style="margin:0;width:140px"><div class="fl">По</div><input class="fin" id="jf-to" type="date" value="${to}"/></div>
         <div class="field" style="margin:0;width:160px"><div class="fl">Счёт</div><select class="fselect" id="jf-acc"><option value="">Все</option></select></div>
         <div class="field" style="margin:0;width:160px"><div class="fl">Проект</div><select class="fselect" id="jf-proj"><option value="">Все</option></select></div>
+        <div class="field" style="margin:0;width:180px"><div class="fl">Статья</div><select class="fselect" id="jf-cat"><option value="">Все</option></select></div>
         <div class="field" style="margin:0;width:160px"><div class="fl">Тип</div><select class="fselect" id="jf-tt"><option value="">Все</option><option value="income">Доход</option><option value="expense">Расход</option><option value="transfer">Трансфер</option></select></div>
-        <button class="btn btn-primary" onclick="loadJournal(0)">Фильтр</button>
-        <button class="btn btn-ghost" onclick="journalReset()">Сбросить</button>
-        <button class="btn btn-primary" onclick="openTxModal()" style="margin-left:auto">+ Операция</button>
+        <button type="button" class="btn btn-primary" onclick="loadJournal(0)">🔍 Фильтр</button>
+        <button type="button" class="btn btn-ghost" onclick="journalReset()">✕ Сбросить</button>
+        <button type="button" class="btn btn-primary" onclick="openTxModal()" style="margin-left:auto">➕ Операция</button>
+      </div>
+      <div id="quick-entry" class="qe-row" style="display:flex;gap:6px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap">
+        <input type="date" class="fin" id="qe-date" style="width:120px"/>
+        <select class="fselect" id="qe-type" style="width:90px">
+          <option value="expense">Расход</option><option value="income">Доход</option><option value="transfer">Трансфер</option>
+        </select>
+        <input type="number" class="fin" id="qe-amount" placeholder="Сумма" style="width:100px" step="0.01"/>
+        <select class="fselect" id="qe-acc" style="width:130px"></select>
+        <select class="fselect" id="qe-to-acc" style="width:130px;display:none"><option value="">→ Счёт зачисл.</option></select>
+        <input type="text" class="fin" id="qe-cp" placeholder="Контрагент" list="cp-list" style="width:130px"/>
+        <input type="text" class="fin" id="qe-desc" placeholder="Назначение" style="width:180px"/>
+        <select class="fselect" id="qe-cat" style="width:130px"><option value="">Статья</option></select>
+        <select class="fselect" id="qe-proj" style="width:130px"><option value="">Проект</option></select>
+        <button type="button" class="btn btn-primary" onclick="quickSave()" style="padding:6px 16px;white-space:nowrap">✅ Добавить</button>
       </div>
       <div id="jl-tot" style="font-size:13px;color:var(--text2);margin-bottom:8px"></div>
-      <div class="table-wrap"><table class="tbl" id="jl-tbl"><thead><tr><th>Дата</th><th>Счёт</th><th>Тип</th><th>Сумма</th><th>Проект</th><th>Статья</th><th>Контрагент</th><th>Статус</th></tr></thead><tbody></tbody></table></div>
-      <button class="btn btn-ghost" id="jl-more" onclick="loadJournal(journalOffset)" style="margin-top:8px;display:none">Ещё</button>
+      <div class="table-wrap"><table class="tbl" id="jl-tbl"><thead><tr>
+        <th>Дата</th><th>Тип</th><th>Сумма</th><th>Счёт</th><th>Контрагент</th><th>Назначение</th><th>Статья</th><th>Проект</th><th>Статус</th>
+      </tr></thead><tbody></tbody></table></div>
+      <button type="button" class="btn btn-ghost" id="jl-more" onclick="loadJournal(journalOffset)" style="margin-top:8px;display:none">⬇ Ещё</button>
     </div>`;
   const sa = document.getElementById('jf-acc'); sa.innerHTML = '<option value="">Все</option>' + accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
   const sp = document.getElementById('jf-proj'); sp.innerHTML = '<option value="">Все</option>' + projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const sc = document.getElementById('jf-cat'); sc.innerHTML = '<option value="">Все</option>' + categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   loadJournal(0);
+  initQuickEntry();
   loadCpHints();
+}
+
+function initQuickEntry() {
+  const d = document.getElementById('qe-date');
+  if (!d) return;
+  d.value = new Date().toISOString().slice(0, 10);
+  const acc = document.getElementById('qe-acc');
+  acc.innerHTML = accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  if (accounts[0]) acc.value = accounts[0].id;
+  const toa = document.getElementById('qe-to-acc');
+  toa.innerHTML = '<option value="">→ Счёт зачисл.</option>' + accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  document.getElementById('qe-type').onchange = () => {
+    filterQeCats();
+    const tt = document.getElementById('qe-type').value;
+    toa.style.display = tt === 'transfer' ? 'inline-block' : 'none';
+  };
+  filterQeCats();
+  document.getElementById('qe-proj').innerHTML = '<option value="">Проект</option>' + projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const qe = document.getElementById('quick-entry');
+  if (qe) {
+    qe.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      const tag = e.target.tagName;
+      if (tag !== 'INPUT' && tag !== 'SELECT') return;
+      e.preventDefault();
+      quickSave();
+    });
+  }
+  setTimeout(() => document.getElementById('qe-amount')?.focus(), 80);
+}
+
+function filterQeCats() {
+  const tt = document.getElementById('qe-type')?.value || 'expense';
+  const ct = tt === 'transfer' ? 'transfer' : tt === 'income' ? 'income' : 'expense';
+  const s = document.getElementById('qe-cat');
+  if (!s) return;
+  const cur = s.value;
+  s.innerHTML = '<option value="">Статья</option>' + categories.filter(c => c.category_type === ct).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if ([...s.options].some(o => o.value === cur)) s.value = cur;
+}
+
+async function quickSave() {
+  const transaction_date = document.getElementById('qe-date').value;
+  const transaction_type = document.getElementById('qe-type').value;
+  const amount = parseFloat(document.getElementById('qe-amount').value);
+  if (!transaction_date) { toast('Укажите дату'); return; }
+  if (!amount || amount <= 0) { toast('Укажите сумму'); return; }
+  const account_id = document.getElementById('qe-acc').value;
+  let to_account_id = null;
+  if (transaction_type === 'transfer') {
+    to_account_id = document.getElementById('qe-to-acc').value;
+    if (!to_account_id) { toast('Выберите счёт зачисления'); return; }
+  }
+  const body = {
+    transaction_date,
+    transaction_type,
+    account_id,
+    to_account_id,
+    amount,
+    counterparty: document.getElementById('qe-cp').value.trim() || null,
+    description: document.getElementById('qe-desc').value.trim() || null,
+    category_id: document.getElementById('qe-cat').value || null,
+    project_id: document.getElementById('qe-proj').value || null,
+  };
+  try {
+    await api('POST', '/mgmt/transactions', body);
+    document.getElementById('qe-amount').value = '';
+    document.getElementById('qe-cp').value = '';
+    document.getElementById('qe-desc').value = '';
+    document.getElementById('qe-amount').focus();
+    toast('Сохранено');
+    loadJournal(0);
+  } catch (e) { toast(e.message); }
 }
 
 async function loadCpHints() {
@@ -459,6 +678,8 @@ async function loadJournal(off) {
   if (acc) q.set('account_id', acc);
   const pr = document.getElementById('jf-proj')?.value;
   if (pr) q.set('project_id', pr);
+  const cat = document.getElementById('jf-cat')?.value;
+  if (cat) q.set('category_id', cat);
   const tt = document.getElementById('jf-tt')?.value;
   if (tt) q.set('transaction_type', tt);
   q.set('limit', '50');
@@ -471,8 +692,9 @@ async function loadJournal(off) {
     const rows = (off === 0 ? '' : tb.innerHTML) + (d.transactions || []).map(t => {
       const voided = t.status === 'void';
       const badge = t.transaction_type === 'income' ? 'badge-inc' : t.transaction_type === 'expense' ? 'badge-exp' : 'badge-tr';
-      const lbl = t.transaction_type === 'income' ? '🟢 доход' : t.transaction_type === 'expense' ? '🔴 расход' : '🔵 трансфер';
-      return `<tr class="${voided ? 'row-void' : ''}" style="cursor:pointer" onclick="openTxModal('${t.id}')"><td>${esc(t.transaction_date)}</td><td>${esc(t.account_name)}</td><td><span class="${badge}">${lbl}</span></td><td>${fmt(t.amount)}</td><td>${esc(t.project_name)}</td><td>${esc(t.category_name)}</td><td>${esc(t.counterparty)}</td><td>${esc(t.status)}</td></tr>`;
+      const lbl = t.transaction_type === 'income' ? 'Доход' : t.transaction_type === 'expense' ? 'Расход' : 'Трансфер';
+      const desc = t.description || '';
+      return `<tr class="${voided ? 'row-void' : ''}" style="cursor:pointer" onclick="openTxModal('${t.id}')"><td>${fmtDateRu(t.transaction_date)}</td><td><span class="${badge}">${lbl}</span></td><td>${fmt(t.amount)}</td><td>${esc(t.account_name)}</td><td>${esc(t.counterparty)}</td><td>${esc(desc)}</td><td>${esc(t.category_name)}</td><td>${esc(t.project_name)}</td><td>${fmtTxStatus(t.status)}</td></tr>`;
     }).join('');
     if (off === 0) tb.innerHTML = rows; else tb.innerHTML += rows;
     document.getElementById('jl-more').style.display = d.transactions && d.transactions.length >= 50 ? 'inline-block' : 'none';
@@ -487,6 +709,7 @@ function journalReset() {
   document.getElementById('jf-from').value = t.toISOString().slice(0, 10);
   document.getElementById('jf-acc').value = '';
   document.getElementById('jf-proj').value = '';
+  const jc = document.getElementById('jf-cat'); if (jc) jc.value = '';
   document.getElementById('jf-tt').value = '';
   loadJournal(0);
 }
@@ -573,10 +796,10 @@ function renderImportTab() {
       <div class="field"><div class="fl">Счёт для импорта</div><select class="fselect" id="im-acc"></select></div>
       <div class="dropzone" id="im-drop" onclick="document.getElementById('im-file').click()">Перетащите файл или нажмите (CSV / XLSX)</div>
       <input type="file" id="im-file" style="display:none" accept=".csv,.xlsx,.xls"/>
-      <button class="btn btn-primary" style="margin-top:12px" onclick="doImport()">Загрузить и распознать</button>
+      <button type="button" class="btn btn-primary" style="margin-top:12px" onclick="doImport()">📤 Загрузить</button>
     </div>
     <div class="section" id="im-detail" style="display:none"><div class="section-title">Строки импорта</div><div id="im-rows"></div>
-      <button class="btn btn-primary" onclick="confirmImport()">Подтвердить и создать операции</button>
+      <button type="button" class="btn btn-primary" onclick="confirmImport()">✅ Подтвердить и создать операции</button>
     </div>
     <div class="section"><div class="section-title">Правила автораспознавания</div><div id="im-rules"></div></div>`;
   document.getElementById('im-acc').innerHTML = accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
@@ -613,21 +836,37 @@ async function doImport() {
   } catch (e) { toast(e.message); }
 }
 
+function importRowClass(row) {
+  if (row.match_status === 'skipped') return 'im-row-skipped';
+  if (row.match_status === 'pending') return 'im-row-pending';
+  if (row.match_status === 'manual') return 'im-row-manual';
+  if (row.match_status === 'auto') {
+    const c = parseFloat(row.confidence);
+    if (c > 0.8) return 'im-row-auto-hi';
+    if (c >= 0.5) return 'im-row-auto-mid';
+    return 'im-row-pending';
+  }
+  return '';
+}
+
 async function showImportDetail(id) {
   const d = await api('GET', '/mgmt/bank-imports/' + id);
   document.getElementById('im-detail').style.display = 'block';
-  document.getElementById('im-rows').innerHTML = '<table class="tbl"><tr><th>#</th><th>Дата</th><th>Сумма</th><th>Напр.</th><th>Статья</th><th>Проект</th><th>Статус</th><th></th></tr>' +
-    d.rows.map(row => `<tr>
-      <td>${row.row_number}</td><td>${esc(row.operation_date)}</td><td>${fmt(row.amount)}</td><td>${esc(row.direction)}</td>
-      <td><select class="fselect" id="cat-${row.id}" onchange="saveRowMatch('${id}','${row.id}')">${catOptions(row.suggested_category_id)}</select></td>
+  document.getElementById('im-rows').innerHTML = '<div class="table-wrap"><table class="tbl"><tr><th>#</th><th>Дата</th><th>Сумма</th><th>Напр.</th><th>Назначение</th><th>Статья</th><th>Проект</th><th>Статус</th><th></th></tr>' +
+    d.rows.map(row => `<tr class="${importRowClass(row)}">
+      <td>${row.row_number}</td><td>${fmtDateRu(row.operation_date)}</td><td>${fmt(row.amount)}</td><td>${esc(row.direction)}</td>
+      <td style="max-width:200px;font-size:11px;color:var(--text2)">${esc(row.payment_purpose || '')}</td>
+      <td><select class="fselect" id="cat-${row.id}" onchange="saveRowMatch('${id}','${row.id}')">${catOptions(row.suggested_category_id, row.direction)}</select></td>
       <td><select class="fselect" id="proj-${row.id}" onchange="saveRowMatch('${id}','${row.id}')">${projOptions(row.suggested_project_id)}</select></td>
       <td>${esc(row.match_status)} ${row.confidence != null ? '(' + row.confidence + ')' : ''}</td>
-      <td><button class="btn btn-ghost" onclick="skipRow('${id}','${row.id}')">Пропуск</button></td>
-    </tr>`).join('') + '</table>';
+      <td><button type="button" class="btn btn-ghost" onclick="skipRow('${id}','${row.id}')">⏭ Пропустить</button></td>
+    </tr>`).join('') + '</table></div>';
 }
 
-function catOptions(sel) {
-  return '<option value="">—</option>' + categories.map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+function catOptions(sel, direction) {
+  const ct = direction === 'credit' ? 'income' : 'expense';
+  const list = categories.filter(c => c.category_type === ct);
+  return '<option value="">—</option>' + list.map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
 }
 function projOptions(sel) {
   return '<option value="">—</option>' + projects.map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
@@ -655,32 +894,250 @@ async function confirmImport() {
 }
 
 function renderRefTab() {
-  document.getElementById('content').innerHTML = `
-    <div class="section"><div class="section-title">Юрлица</div>
-      ${canFinanceAdmin() ? '<button class="btn btn-primary" onclick="addLe()">+ Добавить</button>' : ''}
-      <table class="tbl" id="tbl-le"><thead><tr><th>Название</th><th>ИНН</th><th>Форма</th><th>Статус</th></tr></thead><tbody></tbody></table></div>
-    <div class="section"><div class="section-title">Проекты</div>
-      ${canFinanceAdmin() ? '<button class="btn btn-ghost" onclick="syncProj()">Синхронизировать из площадок</button> <button class="btn btn-primary" onclick="seedCat()">Seed категорий</button>' : ''}
-      <table class="tbl"><thead><tr><th>Название</th><th>Тип</th><th>Площадка</th></tr></thead><tbody id="tb-pr"></tbody></table></div>
-    <div class="section"><div class="section-title">Категории</div><div id="cat-groups"></div></div>`;
-  document.querySelector('#tbl-le tbody').innerHTML = legalEntities.map(e => `<tr><td>${esc(e.name)}</td><td>${esc(e.inn)}</td><td>${esc(e.legal_form)}</td><td>${e.is_active ? 'активен' : 'нет'}</td></tr>`).join('');
-  document.getElementById('tb-pr').innerHTML = projects.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.project_type)}</td><td>${esc(p.venue_name || '')}</td></tr>`).join('');
-  const types = ['expense', 'income', 'transfer'];
-  const labels = { expense: 'Расходы', income: 'Доходы', transfer: 'Трансферы' };
-  document.getElementById('cat-groups').innerHTML = types.map(tp => `<h4 style="margin:12px 0 6px">${labels[tp]}</h4><ul style="font-size:12px;color:var(--text2)">` +
-    categories.filter(c => c.category_type === tp).map(c => `<li>${esc(c.name)} ${c.icon || ''}</li>`).join('') + '</ul>').join('');
+  const fa = canFinanceAdmin();
+  const typeLabels = { expense: 'Расходы', income: 'Доходы', transfer: 'Трансферы' };
+  let html = `<div class="section"><div class="section-title">📋 Юрлица</div>`;
+  if (fa) html += `<button type="button" class="btn btn-primary" onclick="openLeModal(null)" style="margin-bottom:12px">➕ Юрлицо</button>`;
+  html += `<div class="ref-card-grid">` + legalEntities.map(e => `
+    <button type="button" class="ref-card" onclick="openLeModal('${e.id}')">
+      <div style="font-weight:600">${esc(e.name)}</div>
+      <div style="font-size:11px;color:var(--text3)">ИНН ${esc(e.inn || '—')} · ${esc(e.legal_form || '—')}</div>
+    </button>`).join('') + `</div></div>`;
+
+  html += `<div class="section"><div class="section-title">📁 Проекты</div>`;
+  if (fa) {
+    html += `<button type="button" class="btn btn-ghost" onclick="syncProj()">🔄 Синхронизировать</button> `;
+    html += `<button type="button" class="btn btn-primary" onclick="openProjectModal(null)">➕ Новый проект</button>`;
+  }
+  html += `<div class="ref-card-grid" style="margin-top:12px">`;
+  for (const p of projects) {
+    const col = p.color && /^#/.test(p.color) ? p.color : 'var(--accent)';
+    const badge = esc(p.project_type || '');
+    const vn = (p.venue_name) ? `${esc(p.venue_city || '')} ${esc(p.venue_category || '')} · ${esc(p.venue_name)}` : '';
+    html += `<button type="button" class="ref-card" onclick="openProjectModal('${p.id}')" style="padding-left:16px">
+      <span class="ref-card-stripe" style="background:${col}"></span>
+      <div style="font-weight:600">${esc(p.name)}</div>
+      <div style="font-size:10px;color:var(--accent2)">${badge}</div>
+      ${vn ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${vn}</div>` : ''}
+      <div style="font-size:10px;margin-top:4px;color:var(--text3)">Операций: ${Number(p.tx_count) || 0}</div>
+    </button>`;
+  }
+  html += `</div></div>`;
+
+  html += `<div class="section"><div class="section-title">🏷 Категории</div>`;
+  if (fa) html += `<button type="button" class="btn btn-primary" onclick="openCategoryModal(null)" style="margin-bottom:8px">➕ Категория</button> <button type="button" class="btn btn-ghost" onclick="seedCat()">🌱 Заполнить категории</button>`;
+  for (const tp of ['expense', 'income', 'transfer']) {
+    html += `<details open style="margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg3)"><summary style="cursor:pointer;font-weight:600;list-style:none">${typeLabels[tp]}</summary><div class="ref-card-grid" style="margin-top:10px">`;
+    for (const c of categories.filter(x => x.category_type === tp)) {
+      html += `<button type="button" class="ref-card" onclick="openCategoryModal('${c.id}')">
+        <div><span style="font-size:16px">${esc(c.icon || '📁')}</span> <strong>${esc(c.name)}</strong></div>
+        <div style="font-size:10px;color:var(--text3)">Операций: ${Number(c.tx_count) || 0}</div>
+      </button>`;
+    }
+    html += `</div></details>`;
+  }
+  html += `</div>`;
+  document.getElementById('content').innerHTML = html;
 }
 
-async function addLe() {
-  const name = prompt('Название юрлица');
-  if (!name) return;
-  try { await api('POST', '/mgmt/legal-entities', { name }); legalEntities = await api('GET', '/mgmt/legal-entities'); renderRefTab(); } catch (e) { toast(e.message); }
+function openLeModal(id) {
+  if (!canFinanceAdmin()) return;
+  const e = id ? legalEntities.find(x => x.id === id) : null;
+  document.getElementById('mle-id').value = e?.id || '';
+  document.getElementById('mle-title').textContent = e ? 'Юрлицо' : 'Новое юрлицо';
+  document.getElementById('mle-name').value = e?.name || '';
+  document.getElementById('mle-inn').value = e?.inn || '';
+  document.getElementById('mle-form').value = e?.legal_form || '';
+  document.getElementById('mle-notes').value = e?.notes || '';
+  document.getElementById('mle-del').style.display = e ? 'inline-block' : 'none';
+  openModal('modal-le');
 }
+
+async function saveLegalEntity() {
+  const id = document.getElementById('mle-id').value;
+  const body = {
+    name: document.getElementById('mle-name').value.trim(),
+    inn: document.getElementById('mle-inn').value.trim() || null,
+    legal_form: document.getElementById('mle-form').value || null,
+    notes: document.getElementById('mle-notes').value.trim() || null,
+  };
+  if (!body.name) { toast('Название обязательно'); return; }
+  try {
+    if (id) await api('PATCH', '/mgmt/legal-entities/' + id, body);
+    else await api('POST', '/mgmt/legal-entities', body);
+    closeModal('modal-le');
+    legalEntities = await api('GET', '/mgmt/legal-entities');
+    renderRefTab();
+    toast('Сохранено');
+  } catch (e) { toast(e.message); }
+}
+
+async function deleteLegalEntity() {
+  const id = document.getElementById('mle-id').value;
+  if (!id || !confirm('Удалить юрлицо?')) return;
+  try {
+    await api('DELETE', '/mgmt/legal-entities/' + id);
+    closeModal('modal-le');
+    legalEntities = await api('GET', '/mgmt/legal-entities');
+    renderRefTab();
+    toast('Удалено');
+  } catch (e) { toast(e.message); }
+}
+
+function openCategoryModal(id) {
+  if (!canFinanceAdmin()) return;
+  const c = id ? categories.find(x => x.id === id) : null;
+  document.getElementById('mcat-id').value = c?.id || '';
+  document.getElementById('mcat-title').textContent = c ? 'Статья' : 'Новая статья';
+  document.getElementById('mcat-name').value = c?.name || '';
+  document.getElementById('mcat-type').value = c?.category_type || 'expense';
+  const ctype = document.getElementById('mcat-type').value;
+  const par = document.getElementById('mcat-parent');
+  par.innerHTML = '<option value="">—</option>' + categories.filter(x => x.id !== c?.id && x.category_type === ctype).map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  if (c?.parent_id) par.value = c.parent_id;
+  document.getElementById('mcat-icon').value = c?.icon || '';
+  document.getElementById('mcat-sort').value = c?.sort_order ?? 0;
+  const canDel = c && !c.is_system && !(Number(c.tx_count) > 0);
+  document.getElementById('mcat-del').style.display = canDel ? 'inline-block' : 'none';
+  document.getElementById('mcat-merge-btn').style.display = c && Number(c.tx_count) > 0 ? 'inline-block' : 'none';
+  openModal('modal-cat');
+}
+
+async function saveCategory() {
+  const id = document.getElementById('mcat-id').value;
+  const body = {
+    name: document.getElementById('mcat-name').value.trim(),
+    category_type: document.getElementById('mcat-type').value,
+    parent_id: document.getElementById('mcat-parent').value || null,
+    icon: document.getElementById('mcat-icon').value.trim() || null,
+    sort_order: parseInt(document.getElementById('mcat-sort').value, 10) || 0,
+  };
+  if (!body.name) { toast('Название обязательно'); return; }
+  try {
+    if (id) await api('PATCH', '/mgmt/categories/' + id, body);
+    else await api('POST', '/mgmt/categories', body);
+    closeModal('modal-cat');
+    await loadRefData();
+    renderRefTab();
+    toast('Сохранено');
+  } catch (e) { toast(e.message); }
+}
+
+async function deleteCategory() {
+  const id = document.getElementById('mcat-id').value;
+  if (!id || !confirm('Удалить категорию?')) return;
+  try {
+    await api('DELETE', '/mgmt/categories/' + id);
+    closeModal('modal-cat');
+    await loadRefData();
+    renderRefTab();
+    toast('Удалено');
+  } catch (e) { toast(e.message); }
+}
+
+function openMergeCat() {
+  const id = document.getElementById('mcat-id').value;
+  const others = categories.filter(c => c.id !== id);
+  if (!others.length) { toast('Нет другой статьи для объединения'); return; }
+  document.getElementById('mmc-from').value = id;
+  const sel = document.getElementById('mmc-target');
+  sel.innerHTML = others.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  closeModal('modal-cat');
+  openModal('modal-merge-cat');
+}
+
+async function doMergeCategory() {
+  const from = document.getElementById('mmc-from').value;
+  const target_id = document.getElementById('mmc-target').value;
+  if (!from || !target_id) return;
+  try {
+    await api('POST', '/mgmt/categories/' + from + '/merge', { target_id });
+    closeModal('modal-merge-cat');
+    await loadRefData();
+    renderRefTab();
+    toast('Объединено');
+  } catch (e) { toast(e.message); }
+}
+
+function openProjectModal(id) {
+  if (!canFinanceAdmin()) return;
+  const p = id ? projects.find(x => x.id === id) : null;
+  document.getElementById('mproj-id').value = p?.id || '';
+  document.getElementById('mproj-title').textContent = p ? 'Проект' : 'Новый проект';
+  document.getElementById('mproj-name').value = p?.name || '';
+  document.getElementById('mproj-type').value = p?.project_type || 'other';
+  document.getElementById('mproj-color').value = p?.color || '';
+  document.getElementById('mproj-sort').value = p?.sort_order ?? 0;
+  const vs = document.getElementById('mproj-venue');
+  vs.innerHTML = '<option value="">—</option>' + (venuesPick || []).map(v => `<option value="${v.id}">${esc(v.city || '')} · ${esc(v.name)}</option>`).join('');
+  if (p?.venue_id) vs.value = p.venue_id;
+  const canDel = p && !(Number(p.tx_count) > 0);
+  document.getElementById('mproj-del').style.display = canDel ? 'inline-block' : 'none';
+  document.getElementById('mproj-merge-btn').style.display = p && Number(p.tx_count) > 0 ? 'inline-block' : 'none';
+  openModal('modal-proj');
+}
+
+async function saveProject() {
+  const id = document.getElementById('mproj-id').value;
+  const body = {
+    name: document.getElementById('mproj-name').value.trim(),
+    project_type: document.getElementById('mproj-type').value,
+    color: document.getElementById('mproj-color').value.trim() || null,
+    venue_id: document.getElementById('mproj-venue').value || null,
+    sort_order: parseInt(document.getElementById('mproj-sort').value, 10) || 0,
+  };
+  if (!body.name) { toast('Название обязательно'); return; }
+  try {
+    if (id) await api('PATCH', '/mgmt/projects/' + id, body);
+    else await api('POST', '/mgmt/projects', body);
+    closeModal('modal-proj');
+    await loadRefData();
+    renderRefTab();
+    toast('Сохранено');
+  } catch (e) { toast(e.message); }
+}
+
+async function deleteProject() {
+  const id = document.getElementById('mproj-id').value;
+  if (!id || !confirm('Удалить проект?')) return;
+  try {
+    await api('DELETE', '/mgmt/projects/' + id);
+    closeModal('modal-proj');
+    await loadRefData();
+    renderRefTab();
+    toast('Удалено');
+  } catch (e) { toast(e.message); }
+}
+
+function openMergeProj() {
+  const id = document.getElementById('mproj-id').value;
+  const others = projects.filter(p => p.id !== id);
+  if (!others.length) { toast('Нет другого проекта для объединения'); return; }
+  document.getElementById('mmp-from').value = id;
+  const sel = document.getElementById('mmp-target');
+  sel.innerHTML = others.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  closeModal('modal-proj');
+  openModal('modal-merge-proj');
+}
+
+async function doMergeProject() {
+  const from = document.getElementById('mmp-from').value;
+  const target_id = document.getElementById('mmp-target').value;
+  if (!from || !target_id) return;
+  try {
+    await api('POST', '/mgmt/projects/' + from + '/merge', { target_id });
+    closeModal('modal-merge-proj');
+    await loadRefData();
+    renderRefTab();
+    toast('Объединено');
+  } catch (e) { toast(e.message); }
+}
+
 async function syncProj() {
-  try { await api('POST', '/mgmt/projects/sync-venues', {}); await loadRefData(); renderRefTab(); toast('OK'); } catch (e) { toast(e.message); }
+  try { await api('POST', '/mgmt/projects/sync-venues', {}); await loadRefData(); renderRefTab(); toast('Синхронизировано'); } catch (e) { toast(e.message); }
 }
 async function seedCat() {
-  try { await api('POST', '/mgmt/categories/seed', {}); await loadRefData(); renderRefTab(); toast('OK'); } catch (e) { toast(e.message); }
+  try { await api('POST', '/mgmt/categories/seed', {}); await loadRefData(); renderRefTab(); toast('Готово'); } catch (e) { toast(e.message); }
 }
 
 async function renderAnalyticsTab() {
@@ -692,11 +1149,12 @@ async function renderAnalyticsTab() {
     <div class="toolbar">
       <div class="field" style="margin:0;width:140px"><div class="fl">С</div><input class="fin" id="an-from" type="date" value="${from}"/></div>
       <div class="field" style="margin:0;width:140px"><div class="fl">По</div><input class="fin" id="an-to" type="date" value="${to}"/></div>
-      <button class="btn btn-primary" onclick="loadAnalytics()">Обновить</button>
+      <button type="button" class="btn btn-primary" onclick="loadAnalytics()">🔄 Обновить</button>
     </div>
     <div class="summary-grid" id="an-sum"></div>
-    <div class="section"><div class="section-title">Тренд (месяцы)</div><div class="bar-chart" id="an-bars"></div></div>
+    <div class="section"><div class="section-title">Тренд (месяцы)</div><div id="an-bars" style="display:flex;gap:4px;align-items:flex-end;height:200px;margin-top:8px"></div></div>
     <div class="section"><div class="section-title">Рентабельность площадок</div><table class="tbl" id="an-proj"></table></div>
+    <div class="section"><div class="section-title">Расходы по статьям</div><div id="an-catbars"></div></div>
     <div class="section"><div class="section-title">Топ контрагенты</div><div id="an-top"></div></div>`;
   loadAnalytics();
 }
@@ -708,21 +1166,49 @@ async function loadAnalytics() {
     const pnl = await api('GET', '/mgmt/analytics/pnl?from=' + from + '&to=' + to + '&group_by=month');
     const margin = pnl.total_income > 0 ? ((pnl.net_profit / pnl.total_income) * 100).toFixed(1) : '0';
     document.getElementById('an-sum').innerHTML = `
-      <div class="stat-box"><div class="stat-box-num">${fmt(pnl.total_income)}</div><div class="stat-box-lbl">Доход</div></div>
-      <div class="stat-box"><div class="stat-box-num">${fmt(pnl.total_expense)}</div><div class="stat-box-lbl">Расход</div></div>
+      <div class="stat-box"><div class="stat-box-num" style="color:var(--rank1)">${fmt(pnl.total_income)}</div><div class="stat-box-lbl">Доход</div></div>
+      <div class="stat-box"><div class="stat-box-num" style="color:var(--rank3)">${fmt(pnl.total_expense)}</div><div class="stat-box-lbl">Расход</div></div>
       <div class="stat-box"><div class="stat-box-num" style="color:${pnl.net_profit >= 0 ? 'var(--rank1)' : 'var(--rank3)'}">${fmt(pnl.net_profit)}</div><div class="stat-box-lbl">Прибыль</div></div>
       <div class="stat-box"><div class="stat-box-num">${margin}%</div><div class="stat-box-lbl">Маржа</div></div>`;
     const tr = await api('GET', '/mgmt/analytics/trends?months=12');
     const max = Math.max(1, ...tr.map(x => Math.max(parseFloat(x.income) || 0, parseFloat(x.expense) || 0)));
-    document.getElementById('an-bars').innerHTML = tr.map(x =>
-      `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="display:flex;gap:2px;align-items:flex-end;height:100px">
-        <div class="bar" style="height:${(x.income / max) * 100}%"></div>
-        <div class="bar exp" style="height:${(x.expense / max) * 100}%"></div>
-      </div><span style="font-size:9px;color:var(--text3)">${esc(x.month)}</span></div>`
-    ).join('');
-    const bp = await api('GET', '/mgmt/analytics/by-project?from=' + from + '&to=' + to);
+    document.getElementById('an-bars').innerHTML = tr.map(x => {
+      const incPct = max ? (parseFloat(x.income) || 0) / max * 100 : 0;
+      const expPct = max ? (parseFloat(x.expense) || 0) / max * 100 : 0;
+      const m = String(x.month || '').slice(5, 7);
+      const mo = ['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][parseInt(m, 10) || 0] || x.month;
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%">
+        <div style="flex:1;width:100%;display:flex;gap:2px;align-items:flex-end;min-height:0">
+          <div style="flex:1;background:var(--rank1);height:${incPct}%;min-height:${incPct > 0 ? 4 : 0}px;border-radius:2px 2px 0 0"></div>
+          <div style="flex:1;background:var(--rank3);height:${expPct}%;min-height:${expPct > 0 ? 4 : 0}px;border-radius:2px 2px 0 0"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text3)">${esc(mo)}</div></div>`;
+    }).join('');
+    const bp = (await api('GET', '/mgmt/analytics/by-project?from=' + from + '&to=' + to)).slice().sort((a, b) => (parseFloat(b.profit) || 0) - (parseFloat(a.profit) || 0));
+    let totI = 0, totE = 0, totP = 0;
+    for (const r of bp) { totI += parseFloat(r.income) || 0; totE += parseFloat(r.total_expense) || 0; totP += parseFloat(r.profit) || 0; }
     document.getElementById('an-proj').innerHTML = '<tr><th>Проект</th><th>Доход</th><th>Расход</th><th>Прибыль</th><th>Маржа %</th></tr>' +
-      bp.map(r => `<tr><td>${esc(r.project_name)}</td><td>${fmt(r.income)}</td><td>${fmt(r.total_expense)}</td><td style="color:${r.profit >= 0 ? 'var(--rank1)' : 'var(--rank3)'}">${fmt(r.profit)}</td><td>${r.margin_pct.toFixed(1)}</td></tr>`).join('');
+      bp.map(r => {
+        const p = parseFloat(r.profit);
+        const col = !isNaN(p) && p >= 0 ? 'var(--rank1)' : 'var(--rank3)';
+        return `<tr><td>${esc(r.project_name)}</td><td>${fmt(r.income)}</td><td>${fmt(r.total_expense)}</td><td style="color:${col};font-weight:600">${fmt(r.profit)}</td><td>${Number(r.margin_pct).toFixed(1)}</td></tr>`;
+      }).join('') +
+      `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Итого</td><td>${fmt(totI)}</td><td>${fmt(totE)}</td><td style="color:${totP >= 0 ? 'var(--rank1)' : 'var(--rank3)'};font-weight:700">${fmt(totP)}</td><td>—</td></tr>`;
+    try {
+      const cats = await api('GET', '/mgmt/analytics/by-category?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + '&transaction_type=expense');
+      const catMax = Math.max(1, ...cats.map(c => parseFloat(c.total) || 0));
+      document.getElementById('an-catbars').innerHTML = (cats || []).map(c => {
+        const pct = catMax ? (parseFloat(c.total) || 0) / catMax * 100 : 0;
+        const nm = (c.icon ? c.icon + ' ' : '') + (c.category_name || '');
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:140px;font-size:12px">${esc(nm)}</span>
+          <div style="flex:1;background:var(--bg3);border-radius:4px;overflow:hidden;height:20px">
+            <div style="width:${pct}%;background:var(--rank3);height:100%"></div>
+          </div>
+          <span style="font-size:12px;min-width:90px;text-align:right">${fmt(c.total)} ₽</span>
+        </div>`;
+      }).join('') || '<p style="color:var(--text3);font-size:12px">Нет данных</p>';
+    } catch { document.getElementById('an-catbars').innerHTML = '<p style="color:var(--text3)">—</p>'; }
     const top = await api('GET', '/mgmt/analytics/top-counterparties?from=' + from + '&to=' + to);
     document.getElementById('an-top').innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><b>Расходы</b><table class="tbl">' +
       top.expenses.map(x => `<tr><td>${esc(x.counterparty)}</td><td>${fmt(x.total)}</td></tr>`).join('') + '</table></div><div><b>Доходы</b><table class="tbl">' +
@@ -730,16 +1216,47 @@ async function loadAnalytics() {
   } catch (e) { toast(e.message); }
 }
 
+const ACCESS_LEVEL_LABEL = {
+  account_owner: 'Владелец счёта',
+  accountant: 'Бухгалтер',
+  finance_admin: 'Финансы (админ)',
+};
+
 async function renderAccessTab() {
-  if (currentUser.role !== 'super_admin') { document.getElementById('content').innerHTML = '<p>Только super_admin</p>'; return; }
-  const rows = await api('GET', '/mgmt/access');
-  const allUsers = await api('GET', '/users').catch(() => []);
-  document.getElementById('content').innerHTML = `
-    <button class="btn btn-primary" onclick="openAccessModal()">+ Добавить доступ</button>
-    <table class="tbl" style="margin-top:12px"><thead><tr><th>Пользователь</th><th>Email</th><th>Роль</th><th>Уровень</th><th>Все счета</th><th></th></tr></thead><tbody id="acc-tb"></tbody></table>`;
-  document.getElementById('acc-tb').innerHTML = rows.map(r => `<tr>
-    <td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.system_role)}</td><td>${esc(r.access_level)}</td><td>${r.can_see_all_accounts ? 'да' : 'нет'}</td>
-    <td><button class="btn btn-ghost" onclick="delAccess('${r.user_id}')">Удалить</button></td></tr>`).join('');
+  try {
+    const rows = await api('GET', '/mgmt/access');
+    const isSuper = currentUser.role === 'super_admin';
+    if (isSuper) {
+      document.getElementById('content').innerHTML = `
+        <div class="section">
+          <button type="button" class="btn btn-primary" onclick="openAccessModal()">🔑 Добавить доступ</button>
+          <div class="table-wrap" style="margin-top:12px">
+            <table class="tbl"><thead><tr><th>Пользователь</th><th>Email</th><th>Роль</th><th>Уровень</th><th>Все счета</th><th></th></tr></thead><tbody id="acc-tb"></tbody></table>
+          </div>
+        </div>`;
+      document.getElementById('acc-tb').innerHTML = rows.map(r => `<tr>
+        <td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.system_role)}</td><td>${esc(ACCESS_LEVEL_LABEL[r.access_level] || r.access_level)}</td><td>${r.can_see_all_accounts ? 'да' : 'нет'}</td>
+        <td><button type="button" class="btn btn-ghost" onclick="delAccess('${r.user_id}')">🗑 Удалить</button></td></tr>`).join('');
+      return;
+    }
+    const r = rows[0];
+    document.getElementById('content').innerHTML = `
+      <div class="section">
+        <p style="color:var(--text2);font-size:13px;max-width:520px;line-height:1.45;margin-bottom:14px">
+          Выдачу и отзыв доступа к управленческому учёту выполняет только <strong>super_admin</strong>. Ниже — ваш текущий уровень.
+        </p>
+        ${r ? `<div class="ref-card" style="cursor:default;max-width:440px">
+          <div style="font-weight:600">${esc(r.name || currentUser.name || '')}</div>
+          <div style="font-size:12px;color:var(--text3)">${esc(r.email || '')}</div>
+          <div style="margin-top:10px;font-size:13px">Системная роль: <strong>${esc(r.system_role || '—')}</strong></div>
+          <div style="margin-top:6px;font-size:13px">Уровень в учёте: <strong>${esc(ACCESS_LEVEL_LABEL[r.access_level] || r.access_level || '—')}</strong></div>
+          <div style="margin-top:6px;font-size:12px;color:var(--text3)">Видимость всех счетов: ${r.can_see_all_accounts ? 'да' : 'нет'}</div>
+        </div>` : '<p style="color:var(--text3)">Запись доступа не найдена.</p>'}
+      </div>`;
+  } catch (e) {
+    toast(e.message);
+    document.getElementById('content').innerHTML = '<div class="section"><p style="color:var(--rank3)">' + esc(e.message) + '</p></div>';
+  }
 }
 
 async function openAccessModal() {
