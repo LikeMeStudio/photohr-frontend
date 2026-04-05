@@ -606,6 +606,21 @@ function getCategoryPrefix(type,value){
   const found=cats.find(c=>c.value===value);
   return found?found.prefix:'';
 }
+async function loadCategoriesFromApi() {
+  try {
+    const data = await api('GET', '/inventory-categories');
+    if (data && data.equipment) {
+      EQUIPMENT_CATEGORIES.length = 0;
+      data.equipment.forEach(c => EQUIPMENT_CATEGORIES.push(c));
+    }
+    if (data && data.consumable) {
+      CONSUMABLE_CATEGORIES.length = 0;
+      data.consumable.forEach(c => CONSUMABLE_CATEGORIES.push(c));
+    }
+  } catch (e) {
+    console.warn('Categories API fallback to hardcoded:', e.message);
+  }
+}
 let venues=[],users=[];
 let equipmentListCache=[];
 let refreshLock=null;
@@ -742,6 +757,7 @@ function safeCloseInvModal() {
     fillPlaceholderStats();
     updateStickyTop();
     window.addEventListener('resize', updateStickyTop);
+    await loadCategoriesFromApi();
     loadSummary();
     [warehouses,items]=await Promise.all([api('GET','/warehouses').catch(()=>[]),api('GET','/inventory-items').catch(()=>[])]);
     switchTab(0);
