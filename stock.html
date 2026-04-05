@@ -1494,10 +1494,129 @@ function onWhCardClick(id,ev){
   });
   renderWhStockPanel(id);
 }
+
+async function renderAllWarehousesPanel(host) {
+  try {
+    const activeWh = warehouses.filter(w => w.is_active);
+    const [allStock, allEquip] = await Promise.all([
+      Promise.all(activeWh.map(w => api('GET', '/stock?warehouse_id=' + encodeURIComponent(w.id)).then(data => ({ wh: w, stock: data })).catch(() => ({ wh: w, stock: [] })))),
+      api('GET', '/equipment').catch(() => []),
+    ]);
+
+    let html = `<div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+      <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">📋 Все склады — сводка</div>`;
+
+    for (const { wh, stock } of allStock) {
+      const eqHere = (allEquip || []).filter(e => String(e.warehouse_id) === String(wh.id));
+      const consumables = (stock || []).filter(s => (s.item_type || 'consumable') === 'consumable');
+
+      if (!consumables.length && !eqHere.length) continue;
+
+      // Группировка расходников по категориям
+      const consByCat = new Map();
+      for (const s of consumables) {
+        const catVal = s.item_category || 'other';
+        const catLabel = getCategoryLabel('consumable', catVal);
+        if (!consByCat.has(catVal)) consByCat.set(catVal, { label: catLabel, items: [] });
+        consByCat.get(catVal).items.push(s);
+      }
+      const consArr = [...consByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
+
+      // Группировка оборудования по категориям
+      const eqByCat = new Map();
+      for (const e of eqHere) {
+        const catVal = e.item_category || 'other';
+        const catLabel = getCategoryLabel('equipment', catVal);
+        if (!eqByCat.has(catVal)) eqByCat.set(catVal, { label: catLabel, items: [] });
+        eqByCat.get(catVal).items.push(e);
+      }
+      const eqArr = [...eqByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
+
+      const whBadge = wh.warehouse_type === 'venue' ? `<span style="font-size:9px;color:var(--accent2);font-weight:600">НА ПЛОЩАДКЕ</span>` : `<span style="font-size:9px;color:var(--text3);font-weight:600">${esc(wh.warehouse_type === 'central' ? 'ЦЕНТРАЛЬНЫЙ' : wh.warehouse_type || '')}</span>`;
+
+      html += `<details open style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <summary style="font-size:13px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:var(--text3)">▸</span>
+          🏢 ${esc(wh.name)} ${whBadge}
+          <span style="font-size:10px;color:var(--text3);margin-left:auto">${consumables.length} расх. · ${eqHere.length} обор.</span>
+        </summary>`;
+
+      // Расходники
+      if (consArr.length) {
+        html += `<details open style="margin:8px 0 0 12px">
+          <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})</summary>`;
+        for (const [, cat] of consArr) {
+          html += `<div style="margin:6px 0 0 8px">
+            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${cat.items.length})</div>
+            <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th></tr></thead><tbody>
+            ${cat.items.map(s => {
+              const q = parseFloat(s.quantity) || 0;
+              const mn = parseFloat(s.min_quantity) || 0;
+              const isCrit = mn > 0 && q <= mn;
+              const qDisp = s.units_per_pack ? `${q} уп. (${Math.round(q * parseFloat(s.units_per_pack))} ${esc(s.consumption_unit || 'шт')})` : fmtNum(q);
+              return `<tr>
+                <td>${esc(s.item_name)}</td>
+                <td style="font-weight:600;${isCrit ? 'color:var(--rank3)' : ''}">${qDisp}</td>
+                <td>${esc(s.consumption_unit || s.unit || 'шт')}</td>
+                <td>${mn > 0 ? fmtNum(mn) : '—'}</td>
+                <td>${isCrit ? '<span style="color:var(--rank3)">🔴</span>' : '<span style="color:var(--rank1)">🟢</span>'}</td>
+              </tr>`;
+            }).join('')}
+            </tbody></table></div>
+          </div>`;
+        }
+        html += '</details>';
+      }
+
+      // Оборудование
+      if (eqArr.length) {
+        html += `<details open style="margin:8px 0 0 12px">
+          <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">🔧 Оборудование (${eqHere.length})</summary>`;
+        for (const [, cat] of eqArr) {
+          html += `<div style="margin:6px 0 0 8px">
+            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${cat.items.length})</div>
+            <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>SN</th><th>Инв.№</th><th>Статус</th></tr></thead><tbody>
+            ${cat.items.map(e => {
+              const EQ_ST = { active: '🟢', repair: '🔧', written_off: '⚫', lost: '🔴' };
+              return `<tr>
+                <td>${esc(e.item_name)}</td>
+                <td style="font-size:10px;color:var(--text3)">${esc(e.serial_number || '—')}</td>
+                <td style="font-size:10px;color:var(--accent2)">${esc(e.inventory_number || '—')}</td>
+                <td>${EQ_ST[e.status] || esc(e.status)}</td>
+              </tr>`;
+            }).join('')}
+            </tbody></table></div>
+          </div>`;
+        }
+        html += '</details>';
+      }
+
+      html += '</details>';
+    }
+
+    // Пустые склады
+    const emptyWh = allStock.filter(({ stock, wh }) => {
+      const eqCount = (allEquip || []).filter(e => String(e.warehouse_id) === String(wh.id)).length;
+      return !(stock || []).length && !eqCount;
+    });
+    if (emptyWh.length) {
+      html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);font-size:11px;color:var(--text3)">
+        Пустые склады (${emptyWh.length}): ${emptyWh.map(({ wh }) => esc(wh.name)).join(', ')}
+      </div>`;
+    }
+
+    html += '</div>';
+    host.innerHTML = html;
+  } catch (e) {
+    host.innerHTML = `<div style="color:var(--rank3);padding:12px">${esc(e.message)}</div>`;
+  }
+}
+
 async function renderWhStockPanel(whId){
   const host=document.getElementById('wh-stock-panel');
   if(!host||!whId)return;
   host.innerHTML='<div style="color:var(--text3);padding:16px">Загрузка...</div>';
+  if (whId === '__all__') { return renderAllWarehousesPanel(host); }
   try{
     const wh=warehouses.find(w=>w.id===whId);
     const [stock,equip]=await Promise.all([
@@ -1631,7 +1750,7 @@ async function loadWarehouses() {
     const inactiveList = whs.filter(w => !w.is_active);
     const list = activeList;
     const sel=selectedWarehouseId;
-    if(sel&&!list.find(w=>w.id===sel))selectedWarehouseId=null;
+    if(sel&&sel!=='__all__'&&!list.find(w=>w.id===sel))selectedWarehouseId=null;
 
     const mobileBar = isMobile() ? `<div class="wh-mobile-bar" id="wh-mobile-bar">
       ${list.map(w => {
@@ -1659,6 +1778,13 @@ async function loadWarehouses() {
         ${!isMobile() && canDnd ? `<p style="font-size:10px;color:var(--text3);margin-bottom:6px;margin-top:0">Перетащите позицию или оборудование на другой склад для перемещения.</p>` : ''}
         ${mobileBar || ''}
         ${!isMobile() && list.length ? `<div class="card-grid">
+        <div class="wh-card wh-card-compact ${sel==='__all__'?'wh-card-active':''}" data-wh-id="__all__" onclick="onWhCardClick('__all__',event)" style="border-style:dashed;min-width:80px">
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="wh-type" style="background:var(--accent);color:#fff;font-size:8px">ВСЕ</span>
+          </div>
+          <div style="font-weight:600;margin-top:6px;font-size:13px">Все склады</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${activeList.length} складов</div>
+        </div>
           ${list.map(w => `
             <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondragleave="dndDragLeave(event)" ondrop="dndDrop(event);dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
               ${canEdit ? `<button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Редактировать">⚙</button>` : ''}
