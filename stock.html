@@ -3092,7 +3092,8 @@ async function loadEquipment() {
 
     const miniCard = (e) => {
       const st = STATUS[e.status] || { label: e.status, color: 'var(--text2)', icon: '⚪' };
-      return `<div class="eq-mini-card" onclick="openEqDrawer('${e.id}')">
+      return `<div class="eq-mini-card" style="position:relative" onclick="openEqDrawer('${e.id}')">
+        <input type="checkbox" class="eq-label-check" value="${e.id}" onclick="event.stopPropagation();updateBulkLabelBtn()" style="position:absolute;top:4px;right:4px;width:14px;height:14px;cursor:pointer;accent-color:var(--accent)"/>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
           <span style="font-size:12px;font-weight:700;color:var(--text)">${esc(e.inventory_number || '—')}</span>
           <span style="font-size:8px;color:${st.color}">${st.icon}</span>
@@ -3105,6 +3106,7 @@ async function loadEquipment() {
     let html = `<div class="section">
       <div class="section-title">🖨 Оборудование (${equip.length})
         ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openEqModal()">+ Добавить</button>` : ''}
+        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;font-size:11px;padding:4px 12px;${canEdit ? 'margin-left:4px' : 'margin-left:auto'}" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>`;
 
     if (!catArr.length) {
@@ -3314,6 +3316,65 @@ function openEqModalFromDrawer() {
   if (eq) openEqModal(eq);
 }
 
+async function downloadEqLabel(id) {
+  try {
+    const invNum = (equipmentListCache || []).find(e => e.id === id)?.inventory_number || '';
+    showToast('Генерация этикетки...');
+    const token = accessToken || localStorage.getItem('fhr_access');
+    const resp = await fetch(`${API}/equipment/${id}/label`, {
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    });
+    if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'Ошибка'); }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `label-${invNum || id.slice(0, 8)}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Этикетка скачана');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function downloadBulkLabels() {
+  const checked = document.querySelectorAll('.eq-label-check:checked');
+  if (!checked.length) { showToast('Выберите оборудование для печати', true); return; }
+  const ids = [...checked].map(cb => cb.value);
+  try {
+    showToast(`Генерация ${ids.length} этикеток...`);
+    const token = accessToken || localStorage.getItem('fhr_access');
+    const resp = await fetch(`${API}/equipment/labels`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      },
+      body: JSON.stringify({ ids }),
+    });
+    if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'Ошибка'); }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `labels-${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`${ids.length} этикеток скачано`);
+  } catch (e) { showToast(e.message, true); }
+}
+
+function toggleAllEqLabels(master) {
+  document.querySelectorAll('.eq-label-check').forEach(cb => { cb.checked = master.checked; });
+  updateBulkLabelBtn();
+}
+
+function updateBulkLabelBtn() {
+  const cnt = document.querySelectorAll('.eq-label-check:checked').length;
+  const btn = document.getElementById('bulk-label-btn');
+  if (btn) {
+    btn.style.display = cnt > 0 ? 'inline-flex' : 'none';
+    btn.textContent = `🏷 Печать этикеток (${cnt})`;
+  }
+}
+
 async function openEqDrawer(id) {
   document.getElementById('eq-drawer').dataset.eqId = id;
   document.getElementById('eq-drawer-backdrop').classList.add('open');
@@ -3382,9 +3443,10 @@ async function openEqDrawer(id) {
       ${showCounters ? `<div style="margin-top:16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">История счётчиков</div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Формат</th><th>Счётчики</th><th>Напечатано</th><th>Площадка</th></tr></thead>
       <tbody>${counterRows}</tbody></table></div>` : ''}
-      ${canEdit ? `<div style="margin-top:16px">
-        <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="openEqModalFromDrawer()">✏️ Редактировать</button>
-      </div>` : ''}
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
+        ${canEdit ? `<button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="openEqModalFromDrawer()">✏️ Редактировать</button>` : ''}
+        <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="downloadEqLabel('${eq.id}')">🏷 Этикетка</button>
+      </div>
     `;
   } catch(e) { document.getElementById('eq-drawer-body').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
