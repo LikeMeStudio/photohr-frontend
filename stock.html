@@ -766,7 +766,14 @@ function safeCloseInvModal() {
     await loadCategoriesFromApi();
     loadSummary();
     [warehouses,items]=await Promise.all([api('GET','/warehouses').catch(()=>[]),api('GET','/inventory-items').catch(()=>[])]);
-    switchTab(0);
+    // Автооткрытие карточки оборудования по QR-ссылке (?eq=UUID)
+    const _qrEq = new URLSearchParams(window.location.search).get('eq');
+    if (_qrEq) {
+      switchTab(7);
+      setTimeout(() => openEqDrawer(_qrEq), 1500);
+    } else {
+      switchTab(0);
+    }
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
 
