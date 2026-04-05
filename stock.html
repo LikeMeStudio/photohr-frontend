@@ -292,7 +292,13 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="field">
     <div class="fl">Фотография</div>
     <div id="item-photo-preview" style="margin-bottom:6px"></div>
-    <input type="file" id="item-photo-file" accept="image/jpeg,image/png,image/webp" style="font-size:12px"/>
+    <label id="item-photo-label" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:2px dashed var(--border);background:var(--bg3);cursor:pointer;transition:all .15s;font-size:13px;color:var(--text2);width:100%;justify-content:center"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent2)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+      <span style="font-size:20px">📷</span>
+      <span id="item-photo-label-text">Выбрать фото</span>
+      <input type="file" id="item-photo-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="onItemPhotoSelected(this)"/>
+    </label>
   </div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="safeCloseModal('item-modal')">Отмена</button>
@@ -1807,6 +1813,28 @@ async function loadItems() {
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
 
+function onItemPhotoSelected(input) {
+  const labelText = document.getElementById('item-photo-label-text');
+  const label = document.getElementById('item-photo-label');
+  const preview = document.getElementById('item-photo-preview');
+  if (input.files.length > 0) {
+    const file = input.files[0];
+    labelText.textContent = file.name.length > 30 ? file.name.slice(0, 27) + '…' : file.name;
+    label.style.borderColor = 'var(--rank1)';
+    label.style.color = 'var(--rank1)';
+    // Превью
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.innerHTML = `<img src="${e.target.result}" style="max-width:100px;max-height:80px;border-radius:8px;border:1px solid var(--border)"/>`;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    labelText.textContent = 'Выбрать фото';
+    label.style.borderColor = 'var(--border)';
+    label.style.color = 'var(--text2)';
+  }
+}
+
 function openItemModal(it) {
   document.getElementById('item-modal-title').textContent = it ? 'Редактировать позицию' : 'Новая позиция';
   document.getElementById('item-id').value = it?.id || '';
@@ -1838,6 +1866,10 @@ function openItemModal(it) {
   document.getElementById('item-reorder').value = it?.reorder_point || 0;
   document.getElementById('item-price').value = it?.last_purchase_price || '';
   document.getElementById('item-photo-file').value = '';
+  const photoLabel = document.getElementById('item-photo-label');
+  const photoLabelText = document.getElementById('item-photo-label-text');
+  if (photoLabel) { photoLabel.style.borderColor = 'var(--border)'; photoLabel.style.color = 'var(--text2)'; }
+  if (photoLabelText) photoLabelText.textContent = 'Выбрать фото';
   const preview = document.getElementById('item-photo-preview');
   if (it?.photo_url) {
     const purl = API_ROOT + it.photo_url;
@@ -1964,6 +1996,20 @@ async function saveItem() {
   };
   if (!body.name) { showToast('Введите название', true); return; }
   if (!body.category || body.category === '__custom__') { showToast('Выберите категорию', true); return; }
+
+  // Мягкие предупреждения: фото и сокращение
+  const hasPhoto = document.getElementById('item-photo-file').files.length > 0;
+  const existingPhoto = document.getElementById('item-photo-preview')?.querySelector('img');
+  const hasPrefix = !!body.category_prefix;
+
+  if (!id) { // Только для новых позиций
+    const missing = [];
+    if (!hasPhoto && !existingPhoto) missing.push('фото');
+    if (!hasPrefix) missing.push('сокращение (префикс)');
+    if (missing.length) {
+      if (!confirm(`Не заполнено: ${missing.join(', ')}.\n\nЭти поля помогают быстро находить позицию.\nСохранить без них?`)) return;
+    }
+  }
   try {
     let item;
     if (id) {
