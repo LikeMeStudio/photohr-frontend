@@ -1877,6 +1877,11 @@ function openItemModal(it) {
   } else {
     preview.innerHTML = '<span style="font-size:11px;color:var(--text3)">Нет фото</span>';
   }
+  // Сбросить красную подсветку с прошлого раза
+  ['item-name','item-type','item-category','item-prefix','item-unit','item-desc','item-supplier','item-reorder','item-price','item-pack-unit','item-consumption-unit','item-units-per-pack'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (el) el.style.borderColor = '';
+  });
   document.getElementById('item-modal').classList.add('open');
   loadSuppliersList();
 }
@@ -1994,21 +1999,45 @@ async function saveItem() {
     consumption_unit: document.getElementById('item-consumption-unit').value.trim() || null,
     units_per_pack: parseFloat(document.getElementById('item-units-per-pack').value) || null,
   };
-  if (!body.name) { showToast('Введите название', true); return; }
-  if (!body.category || body.category === '__custom__') { showToast('Выберите категорию', true); return; }
+  // Валидация обязательных полей (всё кроме фото)
+  const requiredFields = [
+    { id: 'item-name', label: 'Название', value: body.name },
+    { id: 'item-type', label: 'Тип', value: body.item_type },
+    { id: 'item-category', label: 'Категория', value: body.category && body.category !== '__custom__' ? body.category : '' },
+    { id: 'item-prefix', label: 'Сокращение', value: body.category_prefix },
+    { id: 'item-unit', label: 'Единица измерения', value: body.unit },
+    { id: 'item-desc', label: 'Описание', value: body.description },
+    { id: 'item-supplier', label: 'Поставщик', value: body.supplier },
+  ];
 
-  // Мягкие предупреждения: фото и сокращение
-  const hasPhoto = document.getElementById('item-photo-file').files.length > 0;
-  const existingPhoto = document.getElementById('item-photo-preview')?.querySelector('img');
-  const hasPrefix = !!body.category_prefix;
+  // Дробный учёт — обязателен если выбрана Упаковка
+  if (body.item_type === 'consumable' && body.unit === 'Упаковка') {
+    requiredFields.push(
+      { id: 'item-pack-unit', label: 'Название упаковки', value: body.pack_unit },
+      { id: 'item-consumption-unit', label: 'Единица расхода', value: body.consumption_unit },
+      { id: 'item-units-per-pack', label: 'Кол-во в упаковке', value: body.units_per_pack },
+    );
+  }
 
-  if (!id) { // Только для новых позиций
-    const missing = [];
-    if (!hasPhoto && !existingPhoto) missing.push('фото');
-    if (!hasPrefix) missing.push('сокращение (префикс)');
-    if (missing.length) {
-      if (!confirm(`Не заполнено: ${missing.join(', ')}.\n\nЭти поля помогают быстро находить позицию.\nСохранить без них?`)) return;
-    }
+  // Сбросить предыдущую подсветку
+  requiredFields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (el) el.style.borderColor = '';
+  });
+
+  const missing = requiredFields.filter(f => !f.value);
+  if (missing.length) {
+    missing.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el) {
+        el.style.borderColor = 'var(--rank3)';
+        el.style.transition = 'border-color .3s';
+      }
+    });
+    const firstEl = document.getElementById(missing[0].id);
+    if (firstEl) firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('Заполните: ' + missing.map(f => f.label).join(', '), true);
+    return;
   }
   try {
     let item;
