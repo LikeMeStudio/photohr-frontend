@@ -929,6 +929,9 @@ async function loadSchedulePanel(phId){
       await loadProfile();
     } else if (currentUser.team_member_id) {
       await loadTeamProfile();
+      if (currentUser.role === 'tech_director' || currentUser.role === 'site_specialist') {
+        setTimeout(() => initTechTimer(), 500);
+      }
     } else {
       document.getElementById('main').innerHTML='<div class="loading">Ваш аккаунт не привязан к карточке сотрудника. Обратитесь к администратору.</div>';
       return;
@@ -1216,6 +1219,46 @@ async function loadTeamProfile() {
 
       ${commentsHtml ? `<div class="section"><div class="section-title">💬 Мои последние комментарии</div>${commentsHtml}</div>` : ''}
 
+      ${(currentUser.role === 'tech_director' || currentUser.role === 'site_specialist') ? `
+      <div class="section" id="tech-timer-section">
+        <div class="section-title">⏱ Рабочее время</div>
+        <div id="tech-timer-body" style="text-align:center">
+          <div style="margin-bottom:12px">
+            <select id="tt-activity" class="fselect" style="font-size:13px;min-width:200px">
+              <option value="delivery">🚚 Завоз</option>
+              <option value="setup">🔧 Монтаж</option>
+              <option value="maintenance">🛠 ТО</option>
+              <option value="repair">⚡ Ремонт</option>
+              <option value="pickup">📦 Вывоз</option>
+              <option value="travel">🚗 Дорога</option>
+              <option value="office">🏢 Офис</option>
+              <option value="meeting">👥 Совещание</option>
+              <option value="planning">📋 Планирование</option>
+              <option value="development">💻 Разработка</option>
+              <option value="other">⚙️ Прочее</option>
+            </select>
+          </div>
+          <button id="tt-start-btn" class="btn btn-primary" style="font-size:16px;padding:14px 40px;border-radius:50px" onclick="toggleTechTimer()">▶ Начать</button>
+          <div id="tt-live-counter" style="display:none;font-size:32px;font-weight:700;color:var(--accent2);margin:12px 0;font-family:monospace">00:00:00</div>
+          <div id="tt-active-info" style="display:none;font-size:12px;color:var(--text2);margin-bottom:8px"></div>
+          <div id="tt-day-total" style="font-size:13px;color:var(--text2);margin-top:12px"></div>
+          <div style="margin-top:12px">
+            <button class="btn btn-ghost" style="font-size:12px" onclick="openEndDayModal()">✅ Завершить рабочий день</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="tech-plan-section">
+        <div class="section-title">📅 План на сегодня</div>
+        <div id="tech-plan-body"><div class="loading">Загрузка...</div></div>
+      </div>
+
+      <div class="section" id="tech-week-chart-section">
+        <div class="section-title">📊 Загрузка за неделю</div>
+        <div id="tech-week-chart"></div>
+      </div>
+      ` : ''}
+
       ${tm.summary ? `<div class="section"><div class="section-title">📝 О себе</div><div style="font-size:13px;color:var(--text2);line-height:1.6">${esc(tm.summary)}</div></div>` : ''}
     </div>
   `;
@@ -1330,6 +1373,221 @@ async function loadMyGradeDetails() {
     console.error('loadMyGradeDetails', e);
     el.innerHTML = '';
   }
+}
+
+// ═══════ TECH WORKTIME ═══════
+let techTimerInterval = null;
+let techTimerStarted = null;
+
+async function initTechTimer() {
+  if (currentUser.role !== 'tech_director' && currentUser.role !== 'site_specialist') return;
+  try {
+    const active = await api('GET', '/tech-time/active');
+    if (active) {
+      techTimerStarted = new Date(active.started_at);
+      document.getElementById('tt-activity').value = active.activity_type || 'other';
+      document.getElementById('tt-activity').disabled = true;
+      showTimerRunning(active);
+    }
+    await loadTechDayTotal();
+    await loadTechPlanToday();
+    await loadTechWeekChart();
+  } catch (e) { console.error('initTechTimer:', e); }
+}
+
+function showTimerRunning(active) {
+  const btn = document.getElementById('tt-start-btn');
+  btn.textContent = '⏹ Остановить';
+  btn.style.background = 'var(--rank3)';
+  btn.style.borderColor = 'var(--rank3)';
+  const counter = document.getElementById('tt-live-counter');
+  counter.style.display = '';
+  const info = document.getElementById('tt-active-info');
+  const LABELS = {delivery:'🚚 Завоз',setup:'🔧 Монтаж',maintenance:'🛠 ТО',repair:'⚡ Ремонт',pickup:'📦 Вывоз',travel:'🚗 Дорога',office:'🏢 Офис',meeting:'👥 Совещание',planning:'📋 Планирование',development:'💻 Разработка',other:'⚙️ Прочее'};
+  info.style.display = '';
+  info.textContent = (LABELS[active.activity_type] || active.activity_type) + (active.venue_name ? ' · ' + active.venue_name : '') + (active.task_title ? ' · ' + active.task_title : '');
+  if (techTimerInterval) clearInterval(techTimerInterval);
+  techTimerInterval = setInterval(updateTimerDisplay, 1000);
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  if (!techTimerStarted) return;
+  const diff = Math.floor((Date.now() - techTimerStarted.getTime()) / 1000);
+  const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+  const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+  const s = String(diff % 60).padStart(2, '0');
+  const el = document.getElementById('tt-live-counter');
+  if (el) el.textContent = `${h}:${m}:${s}`;
+}
+
+async function toggleTechTimer() {
+  try {
+    if (techTimerStarted) {
+      await api('POST', '/tech-time/stop', {});
+      techTimerStarted = null;
+      if (techTimerInterval) { clearInterval(techTimerInterval); techTimerInterval = null; }
+      document.getElementById('tt-start-btn').textContent = '▶ Начать';
+      document.getElementById('tt-start-btn').style.background = '';
+      document.getElementById('tt-start-btn').style.borderColor = '';
+      document.getElementById('tt-live-counter').style.display = 'none';
+      document.getElementById('tt-active-info').style.display = 'none';
+      document.getElementById('tt-activity').disabled = false;
+      showToast('Таймер остановлен');
+      await loadTechDayTotal();
+    } else {
+      const activity = document.getElementById('tt-activity').value;
+      const result = await api('POST', '/tech-time/start', { activity_type: activity });
+      techTimerStarted = new Date(result.started_at);
+      document.getElementById('tt-activity').disabled = true;
+      showTimerRunning(result);
+      showToast('Таймер запущен');
+    }
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function loadTechDayTotal() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const entries = await api('GET', `/tech-time/log?from=${today}&to=${today}&user_id=${currentUser.id}`).catch(() => []);
+    const total = (entries || []).reduce((s, e) => s + (parseInt(e.duration_minutes) || 0), 0);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    const el = document.getElementById('tt-day-total');
+    if (el) el.innerHTML = `Сегодня: <b>${h}ч ${m}м</b>`;
+  } catch (e) { console.error(e); }
+}
+
+async function loadTechPlanToday() {
+  try {
+    const plans = await api('GET', '/tech-plans/my-day').catch(() => []);
+    const body = document.getElementById('tech-plan-body');
+    if (!body) return;
+    if (!plans.length) { body.innerHTML = '<div style="color:var(--text3);font-size:12px">Нет планов на сегодня</div>'; return; }
+    const LABELS = {delivery:'🚚',setup:'🔧',maintenance:'🛠',repair:'⚡',pickup:'📦',travel:'🚗',office:'🏢',meeting:'👥',planning:'📋',development:'💻',other:'⚙️'};
+    body.innerHTML = plans.map(p => {
+      const icon = LABELS[p.activity_type] || '📋';
+      const time = p.start_time ? p.start_time.toString().slice(0,5) + (p.end_time ? '–' + p.end_time.toString().slice(0,5) : '') : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:4px;font-size:12px">
+        <span style="font-size:16px">${icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(p.title || p.activity_type)} <span style="color:var(--accent2)">${p.planned_hours}ч</span></div>
+          ${time ? `<div style="color:var(--text3)">${esc(time)}</div>` : ''}
+          ${p.venue_name ? `<div style="color:var(--text3)">📍 ${esc(p.venue_name)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { console.error(e); }
+}
+
+async function loadTechWeekChart() {
+  try {
+    const summary = await api('GET', `/tech-time/summary?user_id=${currentUser.id}`).catch(() => null);
+    const planWeek = await api('GET', '/tech-plans/my-week').catch(() => []);
+    const el = document.getElementById('tech-week-chart');
+    if (!el || !summary) return;
+
+    const byDate = {};
+    for (const d of summary.by_date || []) {
+      const ds = (d.date || '').toString().slice(0, 10);
+      byDate[ds] = d.minutes;
+    }
+    const planByDate = {};
+    for (const p of planWeek || []) {
+      const ds = (p.plan_date || '').toString().slice(0, 10);
+      planByDate[ds] = (planByDate[ds] || 0) + parseFloat(p.planned_hours || 0) * 60;
+    }
+
+    const today = new Date();
+    const dow = (today.getDay() + 6) % 7;
+    const monday = new Date(today); monday.setDate(today.getDate() - dow);
+    const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    let html = '<div style="display:flex;gap:4px;align-items:end;height:80px">';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday); d.setDate(monday.getDate() + i);
+      const ds = d.toISOString().split('T')[0];
+      const fact = byDate[ds] || 0;
+      const plan = planByDate[ds] || 480;
+      const factPct = Math.min(100, Math.round(fact / 480 * 100));
+      const planPct = Math.min(100, Math.round(plan / 480 * 100));
+      const isToday = ds === new Date().toISOString().split('T')[0];
+      const bg = fact > plan * 1.1 ? 'var(--rank2)' : fact >= plan * 0.9 ? 'var(--rank1)' : 'var(--accent2)';
+      html += `<div style="flex:1;text-align:center">
+        <div style="position:relative;height:60px;display:flex;align-items:end;justify-content:center;gap:1px">
+          <div style="width:8px;height:${planPct * 0.6}px;background:rgba(124,108,255,.2);border-radius:2px" title="План: ${Math.round(plan/60*10)/10}ч"></div>
+          <div style="width:8px;height:${factPct * 0.6}px;background:${bg};border-radius:2px" title="Факт: ${Math.round(fact/60*10)/10}ч"></div>
+        </div>
+        <div style="font-size:10px;color:${isToday ? 'var(--accent2)' : 'var(--text3)'};font-weight:${isToday ? '700' : '400'};margin-top:2px">${dayNames[i]}</div>
+      </div>`;
+    }
+    html += '</div>';
+    html += '<div style="display:flex;gap:12px;justify-content:center;margin-top:6px;font-size:10px;color:var(--text3)"><span>▓ План</span> <span>▓ Факт</span></div>';
+    el.innerHTML = html;
+  } catch (e) { console.error(e); }
+}
+
+function openEndDayModal() {
+  const date = new Date().toISOString().split('T')[0];
+  api('GET', `/tech-time/log?from=${date}&to=${date}&user_id=${currentUser.id}`).then(entries => {
+    const LABELS = {delivery:'🚚 Завоз',setup:'🔧 Монтаж',maintenance:'🛠 ТО',repair:'⚡ Ремонт',pickup:'📦 Вывоз',travel:'🚗 Дорога',office:'🏢 Офис',meeting:'👥 Совещание',planning:'📋 Планирование',development:'💻 Разработка',other:'⚙️ Прочее'};
+    const total = entries.reduce((s, e) => s + (parseInt(e.duration_minutes) || 0), 0);
+    const old = document.getElementById('end-day-modal');
+    if (old) old.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'end-day-modal';
+    modal.className = 'overlay open';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+      <div class="modal" style="max-width:560px;max-height:80vh;overflow-y:auto">
+        <div class="modal-title"><span>✅ Завершение рабочего дня</span><button class="dr-close" onclick="document.getElementById('end-day-modal').remove()">×</button></div>
+        <div style="font-size:13px;margin-bottom:12px">Итого: <b>${Math.floor(total/60)}ч ${total%60}м</b> · ${entries.length} записей</div>
+        <div id="end-day-entries" style="display:grid;gap:6px">
+          ${entries.map((e, idx) => {
+            const st = new Date(e.started_at);
+            const en = e.ended_at ? new Date(e.ended_at) : null;
+            const tFrom = st.toTimeString().slice(0,5);
+            const tTo = en ? en.toTimeString().slice(0,5) : '—';
+            return `<div style="display:flex;gap:8px;align-items:center;padding:8px;background:var(--bg3);border-radius:8px;font-size:12px" data-entry-id="${e.id}">
+              <span style="font-size:16px">${(LABELS[e.activity_type]||'📋').slice(0,2)}</span>
+              <div style="flex:1">
+                <div>${LABELS[e.activity_type] || e.activity_type}${e.venue_name ? ' · ' + esc(e.venue_name) : ''}</div>
+                <div style="color:var(--text3)">${tFrom} — ${tTo}</div>
+              </div>
+              <input type="number" class="fin ed-dur" value="${e.duration_minutes || ''}" style="width:50px;text-align:center" data-orig="${e.duration_minutes || ''}">
+              <span style="color:var(--text3)">мин</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:12px">
+          <div class="section-title">Комментарий</div>
+          <textarea id="end-day-notes" class="fin" rows="2" style="width:100%" placeholder="Заметки к дню (необязательно)"></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="submitEndDay()">📤 Отправить на проверку</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }).catch(e => showToast(e.message, true));
+}
+
+async function submitEndDay() {
+  try {
+    const corrections = [];
+    document.querySelectorAll('#end-day-entries [data-entry-id]').forEach(row => {
+      const id = row.dataset.entryId;
+      const durInput = row.querySelector('.ed-dur');
+      const dur = parseInt(durInput?.value);
+      const orig = parseInt(durInput?.dataset.orig);
+      if (dur && dur !== orig) {
+        corrections.push({ id, duration_minutes: dur });
+      }
+    });
+    const notes = document.getElementById('end-day-notes')?.value?.trim() || null;
+    await api('POST', '/tech-daily-reports/submit', { corrections, employee_notes: notes });
+    document.getElementById('end-day-modal')?.remove();
+    showToast('Рабочий день отправлен на проверку');
+    await loadTechDayTotal();
+  } catch (e) { showToast(e.message, true); }
 }
 </script>
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">

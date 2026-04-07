@@ -3843,6 +3843,7 @@ async function loadAnalytics() {
 
 // ═══════ TECH SCHEDULE (TAB 9) ═══════
 let techMonth = null;
+let techView = 'calendar'; // 'calendar' | 'reports' | 'heatmap' | 'payroll'
 let techTasks = [];
 
 function getTechMonth() {
@@ -3868,7 +3869,10 @@ async function loadTechSchedule() {
       users = usrs || [];
     }
     techTasks = await api('GET', `/tech-tasks?from=${from}&to=${to}`);
-    renderTechSchedule();
+    if (techView === 'calendar') renderTechView();
+    else if (techView === 'reports') await loadTechReports();
+    else if (techView === 'heatmap') await loadTechHeatmap();
+    else if (techView === 'payroll') await loadTechPayroll();
   } catch (e) {
     c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
@@ -3954,6 +3958,314 @@ function renderTechSchedule() {
 
   html += `</div></div>`;
   c.innerHTML = html;
+}
+
+function renderTechView() {
+  const canManage = can('tech_director') || can('exec_director') || can('admin');
+  const c = document.getElementById('content');
+
+  const submenuHtml = canManage ? `
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="f-btn ${techView==='calendar'?'active':''}" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
+      <button class="f-btn ${techView==='reports'?'active':''}" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
+      <button class="f-btn ${techView==='heatmap'?'active':''}" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
+      <button class="f-btn ${techView==='payroll'?'active':''}" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+    </div>
+  ` : '';
+
+  if (techView === 'calendar') {
+    renderTechSchedule();
+    const first = c.querySelector('.section');
+    if (first && canManage) first.insertAdjacentHTML('afterbegin', submenuHtml);
+  }
+}
+
+async function loadTechReports() {
+  const c = document.getElementById('content');
+  const m = getTechMonth();
+  const [y, mo] = m.split('-').map(Number);
+  const from = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, mo, 0).getDate();
+  const to = `${y}-${String(mo).padStart(2,'0')}-${lastDay}`;
+  c.innerHTML = '<div class="loading">Загрузка отчётов...</div>';
+
+  try {
+    const reports = await api('GET', `/tech-daily-reports?from=${from}&to=${to}`);
+    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const STATUS_LABELS = { draft:'Черновик', submitted:'На проверке', approved:'Утверждён', revision_requested:'Доработка' };
+    const STATUS_COLORS = { draft:'var(--text3)', submitted:'var(--rank2)', approved:'var(--rank1)', revision_requested:'var(--rank3)' };
+    const submenuHtml = `
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
+        <button class="f-btn active" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
+        <button class="f-btn" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
+        <button class="f-btn" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+      </div>`;
+
+    const pending = reports.filter(r => r.status === 'submitted');
+    const approved = reports.filter(r => r.status === 'approved');
+
+    c.innerHTML = `<div class="section">
+      ${submenuHtml}
+      <div class="section-title">📋 Дневные отчёты · ${['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][mo]} ${y}</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="stat"><div class="stat-num" style="color:var(--rank2)">${pending.length}</div><div class="stat-lbl">На проверке</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--rank1)">${approved.length}</div><div class="stat-lbl">Утверждено</div></div>
+        <div class="stat"><div class="stat-num">${reports.length}</div><div class="stat-lbl">Всего</div></div>
+      </div>
+      <div style="display:grid;gap:4px">
+        ${reports.length ? reports.map(r => {
+          const h = Math.floor((r.total_minutes||0)/60);
+          const m2 = (r.total_minutes||0)%60;
+          const d = new Date(r.report_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
+          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;cursor:pointer" onclick="openTechReportDetail('${r.id}')">
+            <div style="min-width:90px;font-size:12px;font-weight:600">${esc(d)}</div>
+            <div style="flex:1;font-size:12px">${esc(r.user_name)}</div>
+            <div style="font-size:12px;color:var(--accent2)">${h}ч ${m2}м</div>
+            <div style="font-size:11px;color:${STATUS_COLORS[r.status] || 'var(--text3)'}">${STATUS_LABELS[r.status] || r.status}</div>
+            ${canManage && r.status === 'submitted' ? '<div style="font-size:14px">⏳</div>' : ''}
+          </div>`;
+        }).join('') : '<div style="color:var(--text3);font-size:12px">Нет отчётов за месяц</div>'}
+      </div>
+    </div>`;
+  } catch (e) { c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function openTechReportDetail(reportId) {
+  try {
+    const reports = await api('GET', `/tech-daily-reports?limit=200`);
+    const r = reports.find(x => x.id === reportId);
+    if (!r) { showToast('Отчёт не найден', true); return; }
+    const entries = r.entries_snapshot ? (typeof r.entries_snapshot === 'string' ? JSON.parse(r.entries_snapshot) : r.entries_snapshot) : [];
+    const canManage = can('tech_director') || can('exec_director') || can('admin');
+    const LABELS = {delivery:'🚚 Завоз',setup:'🔧 Монтаж',maintenance:'🛠 ТО',repair:'⚡ Ремонт',pickup:'📦 Вывоз',travel:'🚗 Дорога',office:'🏢 Офис',meeting:'👥 Совещание',planning:'📋 Планирование',development:'💻 Разработка',other:'⚙️ Прочее'};
+    const STATUS_LABELS = { draft:'Черновик', submitted:'На проверке', approved:'Утверждён', revision_requested:'Доработка' };
+
+    const old = document.getElementById('tech-report-modal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'tech-report-modal';
+    modal.className = 'overlay open';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+      <div class="modal" style="max-width:560px;max-height:85vh;overflow-y:auto">
+        <div class="modal-title"><span>📋 ${esc(r.user_name)} · ${new Date(r.report_date).toLocaleDateString('ru-RU')}</span><button class="dr-close" onclick="document.getElementById('tech-report-modal').remove()">×</button></div>
+        <div style="font-size:13px;margin-bottom:8px">Итого: <b>${Math.floor((r.total_minutes||0)/60)}ч ${(r.total_minutes||0)%60}м</b> · Статус: <b>${STATUS_LABELS[r.status] || r.status}</b></div>
+        ${r.employee_notes ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;padding:6px 8px;background:var(--bg3);border-radius:6px">💬 ${esc(r.employee_notes)}</div>` : ''}
+        ${r.reviewer_notes ? `<div style="font-size:12px;color:var(--rank3);margin-bottom:8px;padding:6px 8px;background:rgba(242,85,85,.08);border-radius:6px">📝 Ревизор: ${esc(r.reviewer_notes)}</div>` : ''}
+        <div style="display:grid;gap:4px;margin-bottom:12px">
+          ${entries.map(e => {
+            const st = new Date(e.started_at);
+            const en = e.ended_at ? new Date(e.ended_at) : null;
+            return `<div style="display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--bg3);border-radius:6px;font-size:12px">
+              <span>${(LABELS[e.activity_type]||'📋').slice(0,2)}</span>
+              <div style="flex:1">${LABELS[e.activity_type]||e.activity_type}</div>
+              <div style="color:var(--text3)">${st.toTimeString().slice(0,5)}–${en ? en.toTimeString().slice(0,5) : '?'}</div>
+              <div style="font-weight:600;color:var(--accent2)">${e.duration_minutes||'?'}м</div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${canManage && r.status === 'submitted' ? `
+          <div style="margin-bottom:8px"><textarea id="tr-reviewer-notes" class="fin" rows="2" style="width:100%" placeholder="Комментарий (обязателен для возврата)"></textarea></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="approveTechReport('${r.id}')">✅ Утвердить</button>
+            <button class="btn btn-ghost" style="flex:1;color:var(--rank3)" onclick="revisionTechReport('${r.id}')">🔄 На доработку</button>
+          </div>
+        ` : ''}
+      </div>`;
+    document.body.appendChild(modal);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function approveTechReport(id) {
+  try {
+    const notes = document.getElementById('tr-reviewer-notes')?.value?.trim() || null;
+    await api('PATCH', `/tech-daily-reports/${id}/approve`, { reviewer_notes: notes });
+    document.getElementById('tech-report-modal')?.remove();
+    showToast('Отчёт утверждён');
+    loadTechReports();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function revisionTechReport(id) {
+  const notes = document.getElementById('tr-reviewer-notes')?.value?.trim();
+  if (!notes) { showToast('Укажите причину возврата', true); return; }
+  try {
+    await api('PATCH', `/tech-daily-reports/${id}/revision`, { reviewer_notes: notes });
+    document.getElementById('tech-report-modal')?.remove();
+    showToast('Отчёт возвращён на доработку');
+    loadTechReports();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function loadTechHeatmap() {
+  const c = document.getElementById('content');
+  const m = getTechMonth();
+  const [y, mo] = m.split('-').map(Number);
+  const from = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, mo, 0).getDate();
+  const to = `${y}-${String(mo).padStart(2,'0')}-${lastDay}`;
+  c.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  try {
+    const data = await api('GET', `/tech-analytics/team-heatmap?from=${from}&to=${to}`);
+    const submenuHtml = `
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
+        <button class="f-btn" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
+        <button class="f-btn active" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
+        <button class="f-btn" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+      </div>`;
+
+    let html = `<div class="section">${submenuHtml}<div class="section-title">🌡 Загрузка команды · ${['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][mo]} ${y}</div>`;
+
+    if (!data.length) {
+      html += '<div style="color:var(--text3);font-size:12px">Нет данных</div>';
+    } else {
+      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr><th style="text-align:left;padding:4px;min-width:80px">Сотрудник</th>';
+      for (let d = 1; d <= lastDay; d++) html += `<th style="padding:2px;min-width:22px">${d}</th>`;
+      html += '<th style="padding:4px;min-width:50px">Итого</th></tr></thead><tbody>';
+
+      for (const u of data) {
+        let total = 0;
+        html += `<tr><td style="padding:4px;font-weight:600;white-space:nowrap">${esc(u.user_name)}</td>`;
+        for (let d = 1; d <= lastDay; d++) {
+          const ds = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const mins = u.days[ds] || 0;
+          total += mins;
+          const h = Math.round(mins / 60 * 10) / 10;
+          let bg = 'transparent';
+          if (mins > 0 && mins < 240) bg = 'rgba(124,108,255,.15)';
+          else if (mins >= 240 && mins < 480) bg = 'rgba(78,143,255,.25)';
+          else if (mins >= 480 && mins < 600) bg = 'rgba(62,207,142,.3)';
+          else if (mins >= 600 && mins < 720) bg = 'rgba(245,166,35,.3)';
+          else if (mins >= 720) bg = 'rgba(242,85,85,.3)';
+          html += `<td style="padding:2px;text-align:center;background:${bg};border-radius:2px" title="${h}ч">${mins > 0 ? h : ''}</td>`;
+        }
+        html += `<td style="padding:4px;font-weight:600;color:var(--accent2)">${Math.round(total/60*10)/10}ч</td></tr>`;
+      }
+      html += '</tbody></table></div>';
+      html += '<div style="display:flex;gap:8px;margin-top:8px;font-size:10px;color:var(--text3);flex-wrap:wrap"><span style="display:inline-block;width:12px;height:12px;background:rgba(124,108,255,.15);border-radius:2px;vertical-align:middle"></span> &lt;4ч <span style="display:inline-block;width:12px;height:12px;background:rgba(78,143,255,.25);border-radius:2px;vertical-align:middle"></span> 4-8ч <span style="display:inline-block;width:12px;height:12px;background:rgba(62,207,142,.3);border-radius:2px;vertical-align:middle"></span> 8-10ч <span style="display:inline-block;width:12px;height:12px;background:rgba(245,166,35,.3);border-radius:2px;vertical-align:middle"></span> 10-12ч <span style="display:inline-block;width:12px;height:12px;background:rgba(242,85,85,.3);border-radius:2px;vertical-align:middle"></span> 12+ч</div>';
+    }
+
+    html += '</div>';
+    c.innerHTML = html;
+  } catch (e) { c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function loadTechPayroll() {
+  const c = document.getElementById('content');
+  const m = getTechMonth();
+  const [y, mo] = m.split('-').map(Number);
+  const from = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, mo, 0).getDate();
+  const to = `${y}-${String(mo).padStart(2,'0')}-${lastDay}`;
+  c.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  try {
+    const data = await api('GET', `/tech-payroll/preview?from=${from}&to=${to}`);
+    const LABELS = {delivery:'🚚',setup:'🔧',maintenance:'🛠',repair:'⚡',pickup:'📦',travel:'🚗',office:'🏢',meeting:'👥',planning:'📋',development:'💻',other:'⚙️'};
+    const submenuHtml = `
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
+        <button class="f-btn" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
+        <button class="f-btn" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
+        <button class="f-btn active" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+      </div>`;
+
+    let html = `<div class="section">${submenuHtml}<div class="section-title">💰 Зарплата техотдела · ${['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][mo]} ${y}</div>`;
+
+    if (!data.length) {
+      html += '<div style="color:var(--text3);font-size:12px">Нет сотрудников с настроенными ставками. Настройте ставки в admin.html.</div>';
+    } else {
+      for (const p of data) {
+        const workedH = p.total_worked_hours;
+        const normH = p.monthly_norm_hours;
+        const devH = Math.round((p.total_worked_minutes - normH * 60) / 6) / 10;
+        const devColor = devH > 0 ? 'var(--rank2)' : devH < -10 ? 'var(--rank3)' : 'var(--rank1)';
+        const utilPct = p.utilization_pct != null ? p.utilization_pct : Math.round(workedH / normH * 1000) / 10;
+        const barW = Math.min(100, Math.max(0, utilPct));
+        const barColor = utilPct >= 100 ? 'var(--rank2)' : utilPct >= 85 ? 'var(--rank1)' : 'var(--accent2)';
+        const PAY_LABELS = { hourly:'Почасовая', fixed:'Фикс', mixed:'Смешанная' };
+        const isFinalized = p.existing_review?.status === 'finalized';
+
+        html += `<div style="padding:14px;background:var(--bg3);border-radius:10px;margin-bottom:10px" data-payroll-user="${p.user_id}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-weight:700;font-size:14px">${esc(p.user_name)}</div>
+            <div style="font-size:11px;color:var(--text2)">${PAY_LABELS[p.pay_type]||p.pay_type}${p.hourly_rate ? ' · ' + p.hourly_rate + '₽/ч' : ''}${p.fixed_salary ? ' · ' + Number(p.fixed_salary).toLocaleString('ru-RU') + '₽' : ''}</div>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span>Факт: <b>${workedH}ч</b> / Норма: ${normH}ч</span>
+              <span style="color:${devColor};font-weight:600">${devH > 0 ? '+' : ''}${devH}ч</span>
+            </div>
+            <div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden">
+              <div style="width:${barW}%;height:100%;background:${barColor};border-radius:4px;transition:width .3s"></div>
+            </div>
+            <div style="text-align:right;font-size:10px;color:var(--text3);margin-top:2px">${utilPct}%</div>
+          </div>
+          ${p.by_activity.length ? `<div style="margin-bottom:8px">${p.by_activity.map(a => {
+            const pct = workedH > 0 ? Math.round(a.hours / workedH * 100) : 0;
+            return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:2px"><span>${LABELS[a.activity_type]||'⚙️'}</span><div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--accent2);border-radius:3px"></div></div><span style="min-width:60px;text-align:right;color:var(--text2)">${a.hours}ч (${pct}%)</span></div>`;
+          }).join('')}</div>` : ''}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:8px">
+            <div>Базовая: <b>${Number(p.base_pay).toLocaleString('ru-RU')}₽</b></div>
+            <div>Переработка: <b style="color:var(--rank2)">${p.overtime_pay > 0 ? Number(p.overtime_pay).toLocaleString('ru-RU') + '₽' : '—'}</b></div>
+          </div>
+          <div style="display:flex;gap:8px;font-size:12px;margin-bottom:8px;align-items:center">
+            <span>Статус дней: ✅${p.approved_days}</span>
+            ${p.pending_days > 0 ? `<span style="color:var(--rank2)">⏳${p.pending_days} ожидают</span>` : ''}
+          </div>
+          ${!isFinalized ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+              <div><label style="color:var(--text2)">Бонус ₽</label><input type="number" class="fin tp-bonus" value="0" style="width:100%"></div>
+              <div><label style="color:var(--text2)">Штраф ₽</label><input type="number" class="fin tp-penalty" value="0" style="width:100%"></div>
+              <div><label style="color:var(--text2)">Причина бонуса</label><input type="text" class="fin tp-bonus-reason" style="width:100%" placeholder=""></div>
+              <div><label style="color:var(--text2)">Причина штрафа</label><input type="text" class="fin tp-penalty-reason" style="width:100%" placeholder=""></div>
+            </div>
+          ` : `<div style="font-size:12px;color:var(--rank1)">✅ Утверждено: ${Number(p.existing_review.final_pay).toLocaleString('ru-RU')}₽</div>`}
+        </div>`;
+      }
+
+      const hasUnfinalized = data.some(p => !p.existing_review || p.existing_review?.status !== 'finalized');
+      if (hasUnfinalized) {
+        html += `<button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="finalizeTechPayroll('${from}','${to}')">✅ Утвердить и начислить</button>`;
+      }
+    }
+
+    html += '</div>';
+    c.innerHTML = html;
+  } catch (e) { c.innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+async function finalizeTechPayroll(from, to) {
+  if (!confirm('Утвердить зарплату за период и создать начисления?')) return;
+  try {
+    const cards = document.querySelectorAll('[data-payroll-user]');
+    const items = [];
+    for (const card of cards) {
+      const userId = card.dataset.payrollUser;
+      const bonus = parseFloat(card.querySelector('.tp-bonus')?.value || 0);
+      const penalty = parseFloat(card.querySelector('.tp-penalty')?.value || 0);
+      const bonusReason = card.querySelector('.tp-bonus-reason')?.value?.trim() || null;
+      const penaltyReason = card.querySelector('.tp-penalty-reason')?.value?.trim() || null;
+      items.push({ user_id: userId, bonus_amount: bonus, penalty_amount: penalty, bonus_reason: bonusReason, penalty_reason: penaltyReason });
+    }
+    const preview = await api('GET', `/tech-payroll/preview?from=${from}&to=${to}`);
+    for (const item of items) {
+      const p = preview.find(x => x.user_id === item.user_id);
+      if (p) {
+        item.base_pay = p.base_pay;
+        item.overtime_minutes = p.overtime_minutes;
+        item.overtime_pay = p.overtime_pay;
+        item.total_worked_minutes = p.total_worked_minutes;
+        item.total_planned_minutes = p.total_planned_minutes;
+      }
+    }
+    await api('POST', '/tech-payroll/finalize', { from, to, items });
+    showToast('Зарплата утверждена и начислена');
+    loadTechPayroll();
+  } catch (e) { showToast(e.message, true); }
 }
 
 function openTechTaskModal(dateStr) {
