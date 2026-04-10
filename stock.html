@@ -458,6 +458,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="modal-title"><span id="po-view-title">Заказ</span><button class="dr-close" onclick="safeCloseModal('po-view-modal')">×</button></div>
   <input type="hidden" id="po-view-id"/>
   <div id="po-view-meta" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+  <div id="po-view-actions" style="margin-bottom:10px"></div>
   <div class="table-wrap"><table class="tbl"><thead><tr id="po-view-thead"></tr></thead><tbody id="po-view-lines"></tbody></table></div>
   <div class="modal-footer" id="po-view-footer" style="display:none">
     <button class="btn btn-ghost" onclick="safeCloseModal('po-view-modal')">Закрыть</button>
@@ -1357,6 +1358,12 @@ async function openPoDetail(id) {
     document.getElementById('po-view-id').value = id;
     document.getElementById('po-view-title').textContent = 'Заказ от ' + (po.order_date ? new Date(po.order_date).toLocaleDateString('ru-RU') : '');
     document.getElementById('po-view-meta').innerHTML = `${poStatusBadge(po.status)} · ${esc(po.warehouse_name || '')} · ${esc(po.supplier || '—')}`;
+    const act = document.getElementById('po-view-actions');
+    if (act) {
+      act.innerHTML = can('super_admin')
+        ? `<button type="button" class="btn btn-ghost" style="font-size:12px" onclick="event.stopPropagation();openPoEditModal()">✏️ Редактировать закупку</button>`
+        : '';
+    }
     const canDeliver = (can('tech_director') || can('exec_director') || can('admin')) && po.status !== 'delivered' && po.status !== 'cancelled';
     document.getElementById('po-view-thead').innerHTML = canDeliver
       ? '<th>Позиция</th><th>Заказ</th><th>Цена</th><th>Принять</th>'
@@ -1399,6 +1406,91 @@ async function submitPoDeliver() {
     if (currentTabIdx === 3) loadPurchaseOrders();
     if (currentTabIdx === 5) loadMovements();
   } catch (e) { showToast(e.message, true); }
+}
+
+async function openPoEditModal() {
+  if (!can('super_admin')) return;
+  const id = document.getElementById('po-view-id')?.value;
+  if (!id) return;
+  let po;
+  try {
+    po = await api('GET', `/purchase-orders/${id}`);
+  } catch (e) { showToast(e.message, true); return; }
+  const old = document.getElementById('po-edit-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'po-edit-modal';
+  modal.className = 'overlay open';
+  modal.style.zIndex = '340';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+  const od = po.order_date ? String(po.order_date).slice(0, 10) : '';
+  const dd = po.delivery_date ? String(po.delivery_date).slice(0, 10) : '';
+  const stOpts = ['draft', 'ordered', 'delivered', 'partial', 'cancelled'].map(st =>
+    `<option value="${st}"${po.status === st ? ' selected' : ''}>${({ draft: 'Черновик', ordered: 'Заказано', delivered: 'Получено', partial: 'Частично', cancelled: 'Отмена' }[st] || st)}</option>`
+  ).join('');
+  const lines = po.lines || [];
+  const lineRows = lines.map(l => `<tr>
+    <td style="font-size:12px">${esc(l.item_name || '')}</td>
+    <td><input class="fin" type="number" min="0" step="0.01" id="po-ed-q-${l.id}" value="${esc(String(l.quantity ?? ''))}" style="width:72px;font-size:11px"/></td>
+    <td><input class="fin" type="number" min="0" step="0.01" id="po-ed-p-${l.id}" value="${esc(String(l.unit_price ?? ''))}" style="width:80px;font-size:11px"/></td>
+    <td><input class="fin" type="text" id="po-ed-n-${l.id}" value="${esc(l.notes || '')}" style="width:100%;font-size:11px" placeholder="—"/></td>
+  </tr>`).join('');
+  modal.innerHTML = `
+    <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Редактирование закупки</span><button type="button" class="dr-close" onclick="document.getElementById('po-edit-modal')?.remove()">×</button></div>
+      <div class="field"><div class="fl">Поставщик</div><input class="fin" id="po-ed-supplier" value="${esc(po.supplier || '')}" style="width:100%"/></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:120px"><div class="fl">Дата заказа</div><input class="fin" type="date" id="po-ed-order-date" value="${esc(od)}"/></div>
+        <div class="field" style="flex:1;min-width:120px"><div class="fl">Поставка</div><input class="fin" type="date" id="po-ed-delivery-date" value="${esc(dd)}"/></div>
+        <div class="field" style="min-width:140px"><div class="fl">Статус</div><select class="fselect" id="po-ed-status">${stOpts}</select></div>
+      </div>
+      <div class="field"><div class="fl">Сумма заказа (₽)</div><input class="fin" type="number" min="0" step="0.01" id="po-ed-total" value="${esc(String(po.total_amount ?? ''))}" style="width:100%"/></div>
+      <div class="field"><div class="fl">Заметки</div><textarea class="fin" id="po-ed-notes" rows="2" style="width:100%;resize:vertical">${esc(po.notes || '')}</textarea></div>
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:10px 0 6px">Строки</div>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Цена</th><th>Заметка</th></tr></thead><tbody>${lineRows || '<tr><td colspan="4" style="color:var(--text3)">Нет строк</td></tr>'}</tbody></table></div>
+      <div class="modal-footer" style="margin-top:12px">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('po-edit-modal')?.remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="po-ed-save">Сохранить</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('po-ed-save').onclick = async () => {
+    try {
+      const orderDateVal = document.getElementById('po-ed-order-date').value;
+      const totRaw = parseFloat(document.getElementById('po-ed-total').value);
+      const linePayload = lines.map(l => {
+        const qEl = document.getElementById('po-ed-q-' + l.id);
+        const pEl = document.getElementById('po-ed-p-' + l.id);
+        const nEl = document.getElementById('po-ed-n-' + l.id);
+        const q = qEl ? parseFloat(qEl.value) : NaN;
+        const p = pEl ? parseFloat(pEl.value) : NaN;
+        if (!Number.isFinite(q) || q < 0 || !Number.isFinite(p) || p < 0) {
+          throw new Error('Проверьте количество и цену в строках');
+        }
+        return {
+          id: l.id,
+          quantity: q,
+          unit_price: p,
+          notes: nEl ? ((nEl.value || '').trim() || null) : null,
+        };
+      });
+      const body = {
+        supplier: (document.getElementById('po-ed-supplier').value || '').trim() || null,
+        delivery_date: document.getElementById('po-ed-delivery-date').value || null,
+        notes: (document.getElementById('po-ed-notes').value || '').trim() || null,
+        status: document.getElementById('po-ed-status').value,
+        lines: linePayload,
+      };
+      if (orderDateVal) body.order_date = orderDateVal;
+      if (Number.isFinite(totRaw) && totRaw >= 0) body.total_amount = totRaw;
+      await api('PATCH', `/purchase-orders/${id}`, body);
+      modal.remove();
+      showToast('Закупка обновлена');
+      await openPoDetail(id);
+      loadSummary();
+      if (currentTabIdx === 3) loadPurchaseOrders();
+    } catch (e) { showToast(e.message, true); }
+  };
 }
 
 const TR_STATUS_RU = { pending: 'Ожидает', confirmed: 'Подтверждено', cancelled: 'Отменено' };
@@ -1596,9 +1688,15 @@ async function loadSummary() {
       pendingActions = (Array.isArray(trPending) ? trPending.length : 0) + (Array.isArray(invOpen) ? invOpen.length : 0);
     } catch (_) {}
 
+    const fmtVal = (v) => { const n = parseFloat(v) || 0; return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(Math.round(n)); };
     el.innerHTML = `
+      <div class="stat"><div class="stat-num" style="color:var(--accent)">${s.warehouses_count ?? 0}</div><div class="stat-lbl">складов</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--text)">${s.items_count ?? 0}</div><div class="stat-lbl">позиций</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--rank1)">${s.equipment_active ?? 0}</div><div class="stat-lbl">оборудование</div></div>
+      ${(s.total_stock_value || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent2)">${fmtVal(s.total_stock_value)} ₽</div><div class="stat-lbl">стоимость</div></div>` : ''}
       ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>` : ''}
       ${(s.warning_count || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.warning_count}</div><div class="stat-lbl">внимание</div></div>` : ''}
+      ${(s.equipment_repair || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.equipment_repair}</div><div class="stat-lbl">в ремонте</div></div>` : ''}
       ${(s.equipment_deficit || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.equipment_deficit}</div><div class="stat-lbl">дефицит оборуд.</div></div>` : ''}
       ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
     `;
@@ -4915,10 +5013,67 @@ document.addEventListener('keydown', function(e) {
   if (overlays.length) {
     const last = overlays[overlays.length - 1];
     last.classList.remove('open');
-    if (last.id && (last.id.endsWith('-modal') || last.id === 'thresh-edit-modal' || last.id === 'dnd-qty-modal')) last.remove();
+    if (last.id && (last.id.endsWith('-modal') || last.id === 'thresh-edit-modal' || last.id === 'dnd-qty-modal' ||
+        /^styled-(confirm|prompt)-/.test(last.id))) last.remove();
     return;
   }
 });
+
+// ── Утилиты: стильные модалки (новые сценарии вместо системных окон) ──
+function showStyledConfirm(title, message, onOk, opts = {}) {
+  const id = 'styled-confirm-' + Date.now();
+  const old = document.querySelector('[id^="styled-confirm-"]');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = id;
+  modal.className = 'overlay open';
+  modal.style.zIndex = '330';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+  const okLabel = opts.okLabel || 'Подтвердить';
+  const okStyle = opts.danger ? 'background:var(--rank3);border-color:var(--rank3)' : '';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:${opts.width || 420}px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>${esc(title)}</span><button type="button" class="dr-close" onclick="document.getElementById('${id}').remove()">×</button></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5;white-space:pre-line">${esc(message)}</p>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="document.getElementById('${id}').remove()">Отмена</button>
+        <button class="btn btn-primary" style="${okStyle}" id="${id}-ok">${esc(okLabel)}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById(id + '-ok').onclick = () => { modal.remove(); onOk(); };
+}
+
+function showStyledPrompt(title, label, defaultVal, onOk, opts = {}) {
+  const id = 'styled-prompt-' + Date.now();
+  const old = document.querySelector('[id^="styled-prompt-"]');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = id;
+  modal.className = 'overlay open';
+  modal.style.zIndex = '330';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+  const inputType = opts.inputType || 'text';
+  const hint = opts.hint ? `<p style="font-size:11px;color:var(--text3);margin-top:4px">${esc(opts.hint)}</p>` : '';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:${opts.width || 400}px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>${esc(title)}</span><button type="button" class="dr-close" onclick="document.getElementById('${id}').remove()">×</button></div>
+      <div class="field"><div class="fl">${esc(label)}</div>
+        <input class="fin" type="${inputType}" id="${id}-input" value="${esc(String(defaultVal ?? ''))}" style="width:100%" autofocus/>
+      </div>
+      ${hint}
+      <div class="modal-footer" style="margin-top:12px">
+        <button class="btn btn-ghost" onclick="document.getElementById('${id}').remove()">Отмена</button>
+        <button class="btn btn-primary" id="${id}-ok">${esc(opts.okLabel || 'OK')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const inp = document.getElementById(id + '-input');
+  inp.focus();
+  if (opts.selectAll !== false) inp.select();
+  document.getElementById(id + '-ok').onclick = () => { const v = inp.value; modal.remove(); onOk(v); };
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById(id + '-ok')?.click(); });
+}
 
 function openWriteoffModal(eqId) {
   const eq = (equipmentListCache || []).find(e => String(e.id) === String(eqId));
