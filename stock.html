@@ -1353,6 +1353,15 @@ async function loadStockTabBadges() {
       }
       if (total < rp) critItems.add(String(it.id));
     }
+    try {
+      const eqMatrix = await api('GET', '/stock/equipment-matrix').catch(() => ({ subcategories: [], warehouses: [], counts: [], thresholds: [] }));
+      for (const t of (eqMatrix.thresholds || [])) {
+        const minQ = parseFloat(t.min_quantity) || 0;
+        if (minQ <= 0) continue;
+        const cnt = (eqMatrix.counts || []).find(c => String(c.subcategory_id) === String(t.subcategory_id) && String(c.warehouse_id) === String(t.warehouse_id));
+        if (!cnt || cnt.active_count < minQ) critItems.add('eq_' + t.subcategory_id + '_' + t.warehouse_id);
+      }
+    } catch (_) {}
     const fcN = critItems.size;
     const pend = Array.isArray(trList) ? trList.length : 0;
     if (tabFc) {
@@ -1397,6 +1406,7 @@ async function loadSummary() {
     el.innerHTML = `
       ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>` : ''}
       ${(s.warning_count || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.warning_count}</div><div class="stat-lbl">внимание</div></div>` : ''}
+      ${(s.equipment_deficit || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.equipment_deficit}</div><div class="stat-lbl">дефицит оборуд.</div></div>` : ''}
       ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
     `;
     updateStickyTop();
@@ -3058,6 +3068,104 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
   return `<div class="matrix-wrap"><table class="tbl"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
 }
 
+async function buildEquipmentMatrix(cityFilter) {
+  try {
+    const data = await api('GET', '/stock/equipment-matrix' + (cityFilter ? '?city=' + encodeURIComponent(cityFilter) : ''));
+    const { subcategories, warehouses, counts, thresholds } = data;
+    if (!subcategories.length || !warehouses.length) {
+      return '<div style="color:var(--text3);margin-top:8px;font-size:11px">Нет данных по оборудованию. Добавьте подкатегории и пороги.</div>';
+    }
+
+    const countMap = new Map();
+    for (const c of counts) countMap.set(`${c.subcategory_id}_${c.warehouse_id}`, c.active_count);
+    const threshMap = new Map();
+    for (const t of thresholds) threshMap.set(`${t.subcategory_id}_${t.warehouse_id}`, parseFloat(t.min_quantity) || 0);
+
+    const whIds = warehouses.map(w => w.id);
+    const canEdit = can('tech_director') || can('exec_director') || can('admin');
+
+    const thead = `<th class="matrix-sticky-col">Подкатегория</th><th>Σ</th><th>Мин Σ</th>${warehouses.map(w => {
+      const colTitle = esc((w.name || '') + (w.city ? ', ' + w.city : ''));
+      return `<th title="${colTitle}" style="max-width:80px">${esc((w.name || '').length > 14 ? (w.name || '').slice(0, 14) + '…' : (w.name || ''))}</th>`;
+    }).join('')}`;
+
+    const catGrouped = new Map();
+    for (const sc of subcategories) {
+      if (!catGrouped.has(sc.parent_category)) catGrouped.set(sc.parent_category, []);
+      catGrouped.get(sc.parent_category).push(sc);
+    }
+
+    let tbody = '';
+    let hasAnyThreshold = false;
+
+    for (const [catVal, subs] of [...catGrouped.entries()].sort((a, b) => getCategoryLabel('equipment', a[0]).localeCompare(getCategoryLabel('equipment', b[0]), 'ru'))) {
+      const catLabel = getCategoryLabel('equipment', catVal);
+      tbody += `<tr><td colspan="${3 + whIds.length}" style="background:var(--bg3);font-weight:600;font-size:11px;padding:6px 8px;color:var(--accent2)">${catLabel}</td></tr>`;
+
+      for (const sc of subs) {
+        let total = 0;
+        let totalMin = 0;
+
+        const cells = whIds.map(wid => {
+          const cnt = countMap.get(`${sc.id}_${wid}`) || 0;
+          const minQ = threshMap.get(`${sc.id}_${wid}`) || 0;
+          total += cnt;
+          totalMin += minQ;
+          if (minQ > 0) hasAnyThreshold = true;
+
+          let cellStyle = 'background:rgba(62,207,142,.12)';
+          if (minQ > 0 && cnt < minQ) cellStyle = 'background:rgba(242,85,85,.15)';
+          else if (minQ > 0 && cnt < minQ * 1.5) cellStyle = 'background:rgba(245,166,35,.18)';
+
+          const whName = warehouses.find(w => String(w.id) === String(wid))?.name || '';
+          const editThreshAttr = canEdit
+            ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" onclick="setEqSubcatThreshold(${JSON.stringify(sc.id)},${JSON.stringify(wid)},${minQ},${JSON.stringify(sc.name)},${JSON.stringify(whName)})"`
+            : ` style="${cellStyle};text-align:center;font-size:11px"`;
+
+          return `<td${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
+        }).join('');
+
+        const sigmaStyle = totalMin > 0 && total < totalMin ? 'color:var(--rank3);font-weight:700' : totalMin > 0 && total < totalMin * 1.5 ? 'color:var(--rank2);font-weight:600' : '';
+
+        tbody += `<tr>
+          <td class="matrix-sticky-col" style="font-weight:500;font-size:10px;white-space:normal">${esc(sc.icon)} ${esc(sc.name)}</td>
+          <td style="text-align:center;font-weight:600;${sigmaStyle}">${total}</td>
+          <td style="text-align:center;font-size:11px;color:var(--text3)">${totalMin > 0 ? totalMin : '—'}</td>
+          ${cells}
+        </tr>`;
+      }
+    }
+
+    if (!hasAnyThreshold) {
+      return `<div style="margin-top:8px">
+        <div class="matrix-wrap"><table class="tbl"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>
+        <div style="font-size:11px;color:var(--rank2);margin-top:6px">⚠ Пороги не заданы. Кликните на ячейку в матрице, чтобы установить минимальное количество оборудования по подкатегории на складе.</div>
+      </div>`;
+    }
+
+    return `<div class="matrix-wrap"><table class="tbl"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
+  } catch (e) {
+    return `<div style="color:var(--rank3);font-size:11px;margin-top:8px">${esc(e.message)}</div>`;
+  }
+}
+
+async function setEqSubcatThreshold(subcatId, warehouseId, currentMin, subcatName, whName) {
+  const v = prompt(`Минимум «${subcatName}» на «${whName}»:`, String(currentMin || 0));
+  if (v === null) return;
+  const qty = parseFloat(v);
+  if (!Number.isFinite(qty) || qty < 0) { showToast('Некорректное число', true); return; }
+  try {
+    if (qty > 0) {
+      await api('POST', '/subcategory-thresholds', { subcategory_id: subcatId, warehouse_id: warehouseId, min_quantity: qty });
+    } else {
+      const existing = await api('GET', `/subcategory-thresholds?subcategory_id=${encodeURIComponent(subcatId)}&warehouse_id=${encodeURIComponent(warehouseId)}`);
+      if (Array.isArray(existing) && existing.length) await api('DELETE', `/subcategory-thresholds/${existing[0].id}`);
+    }
+    showToast('Порог сохранён');
+    loadStockForecast();
+  } catch (e) { showToast(e.message, true); }
+}
+
 function onDetailFcCityChange() {
   detailFcWhIds = null;
   detailFcCity = document.getElementById('fc-detail-city')?.value || '';
@@ -3133,8 +3241,11 @@ async function loadStockForecast() {
         <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="applyStockTabFilters()">Обновить</button>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:10px">🔴 ≤ мин · 🟡 выше мин, но ≤ мин×1.5 · 🟢 &gt; мин×1.5 (если мин не задан — 🟢). Минимумы — во вкладке «Склады». Колонка «Порог» в матрице только для просмотра; изменить порог можно в «Справочнике».</div>
-      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px">Матрица остатков</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px">Матрица остатков (расходники)</div>
       ${matrixHtml}
+      <div style="font-size:11px;font-weight:600;color:var(--text3);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.4px">Матрица оборудования (по подкатегориям)</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px">Кол-во active единиц / порог. 🔴 ниже мин · 🟡 близко · 🟢 норма. Клик на ячейку — установить порог.</div>
+      <div id="eq-matrix-container"><div style="color:var(--text3);font-size:11px">Загрузка...</div></div>
       <div style="font-size:11px;font-weight:600;color:var(--text3);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.4px">Детальный прогноз</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px">
         <div class="field" style="margin:0;min-width:140px"><div class="fl">Город</div>
@@ -3161,6 +3272,10 @@ async function loadStockForecast() {
       ${fcTable}
     </div>`;
     loadStockTabBadges();
+    buildEquipmentMatrix(matrixCityFilter).then(html => {
+      const container = document.getElementById('eq-matrix-container');
+      if (container) container.innerHTML = html;
+    });
   } catch (e) {
     document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;
   }
@@ -4334,7 +4449,7 @@ async function loadAnalytics() {
       }).join('');
     }
 
-    const alertsSection = (alerts.critical_stock?.length || alerts.warning_stock?.length || alerts.equipment_repair?.length || alerts.equipment_resource?.length) ? `
+    const alertsSection = (alerts.critical_stock?.length || alerts.warning_stock?.length || alerts.equipment_repair?.length || alerts.equipment_resource?.length || alerts.equipment_deficit?.length) ? `
       <div class="section" style="border-color:rgba(242,85,85,.3)">
         <div class="section-title" style="color:var(--rank3)">🚨 Требуют внимания (${alerts.total})</div>
         ${alerts.critical_stock?.length ? `
@@ -4364,6 +4479,13 @@ async function loadAnalytics() {
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
               <span>${esc(a.item_name)} ${a.serial_number ? '· ' + esc(a.serial_number) : ''}</span>
               <span style="color:var(--rank3);font-weight:600">${a.pct}%</span>
+            </div>`).join('')}` : ''}
+        ${alerts.equipment_deficit?.length ? `
+          <div style="margin-top:10px;margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">Дефицит оборудования (подкатегории)</div>
+          ${alerts.equipment_deficit.map(a => `
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span>${esc(a.subcategory_icon || '')} <b>${esc(a.subcategory_name || '')}</b> · ${esc(a.warehouse_name || '')}</span>
+              <span style="color:var(--rank3);font-weight:600">${a.actual_count ?? 0} / мин ${fmtNum(a.min_quantity)}</span>
             </div>`).join('')}` : ''}
       </div>` : '';
 
