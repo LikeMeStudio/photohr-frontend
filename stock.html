@@ -265,7 +265,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
       <select class="fselect" id="item-subcategory" onchange="onSubcategoryChange()"></select>
     </div>
     <div class="field"><div class="fl">Сокр.</div>
-      <input class="fin" id="item-prefix" placeholder="P" maxlength="4" style="text-transform:uppercase;text-align:center"/>
+      <input class="fin" id="item-prefix" placeholder="P" maxlength="4" pattern="[A-Za-z0-9]*" inputmode="latin" autocomplete="off" style="text-transform:uppercase;text-align:center" oninput="this.value=this.value.replace(/[^A-Za-z0-9]/g,'').toUpperCase()"/>
     </div>
   </div>
   <input type="hidden" id="item-subcategory-id"/>
@@ -624,6 +624,18 @@ function getCategoryIcon(type,value){
   const sc = allSubcategories.find(s => s.parent_category === value);
   if (sc) return sc.icon;
   return '📦';
+}
+/** Имя без дубля эмодзи слева (иконка показывается отдельно). */
+function stripLabelDuplicateIcon(name, icon) {
+  if (name == null || name === '') return '';
+  let s = String(name).trim();
+  if (icon && s.startsWith(icon)) s = s.slice(icon.length).trim();
+  s = s.replace(/^[\s\uFE0F]+/, '').trim();
+  return s || String(name).trim();
+}
+/** Сокращение: только латиница и цифры, до 4 символов. */
+function latinPrefixFilter(v) {
+  return String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
 }
 function getCategoryPrefix(type,value){
   const cats=getCategoriesForType(type);
@@ -2190,7 +2202,7 @@ function openItemModal(it) {
       document.getElementById('item-subcategory').value = it.subcategory_id;
       document.getElementById('item-subcategory-id').value = it.subcategory_id;
     }
-    document.getElementById('item-prefix').value = it?.category_prefix || it?.subcategory_prefix || getCategoryPrefix(it?.item_type || 'consumable', catVal) || '';
+    document.getElementById('item-prefix').value = latinPrefixFilter(it?.category_prefix || it?.subcategory_prefix || getCategoryPrefix(it?.item_type || 'consumable', catVal) || '');
   }, 0);
   document.getElementById('item-pack-unit').value = it?.pack_unit || '';
   document.getElementById('item-consumption-unit').value = it?.consumption_unit || '';
@@ -2234,7 +2246,7 @@ function updateSubcategorySelect() {
   if (!catVal) { sel.innerHTML = '<option value="">— сначала выберите категорию —</option>'; return; }
   const subs = allSubcategories.filter(s => s.item_type === type && s.parent_category === catVal);
   sel.innerHTML = (subs.length > 1 ? '<option value="">— выберите подкатегорию —</option>' : '') +
-    subs.map(s => `<option value="${s.id}" data-prefix="${esc(s.prefix)}">${esc(s.icon)} ${esc(s.name)}</option>`).join('') +
+    subs.map(s => `<option value="${s.id}" data-prefix="${esc(s.prefix)}">${esc(s.icon)} ${esc(stripLabelDuplicateIcon(s.name, s.icon))}</option>`).join('') +
     '<option value="__new__">+ Добавить подкатегорию...</option>';
   if (subs.length === 1) {
     sel.value = subs[0].id;
@@ -2247,7 +2259,8 @@ function onSubcategoryChange() {
   if (sel.value === '__new__') {
     const name = prompt('Название новой подкатегории:');
     if (!name || !name.trim()) { sel.value = ''; return; }
-    const prefix = prompt('Сокращение (2-4 буквы, для инвентарных номеров):', name.trim().slice(0, 3).toUpperCase());
+    const defaultPfx = latinPrefixFilter(name.trim().slice(0, 3));
+    const prefix = prompt('Сокращение (латиница/цифры, 2–4 символа):', defaultPfx || 'XX');
     if (!prefix || !prefix.trim()) { sel.value = ''; return; }
     const icon = prompt('Иконка (emoji):', '📦') || '📦';
     const type = document.getElementById('item-type').value;
@@ -2256,7 +2269,7 @@ function onSubcategoryChange() {
       item_type: type,
       parent_category: catVal,
       name: name.trim(),
-      prefix: prefix.trim().toUpperCase(),
+      prefix: latinPrefixFilter(prefix),
       icon: icon.trim(),
     }).then(sc => {
       allSubcategories.push({ id: sc.id, item_type: sc.item_type, parent_category: sc.parent_category, name: sc.name, icon: sc.icon, prefix: sc.prefix, unit: sc.unit, sort_order: sc.sort_order });
@@ -2269,7 +2282,7 @@ function onSubcategoryChange() {
   }
   const opt = sel.selectedOptions[0];
   if (opt && opt.dataset.prefix) {
-    document.getElementById('item-prefix').value = opt.dataset.prefix;
+    document.getElementById('item-prefix').value = latinPrefixFilter(opt.dataset.prefix);
   }
   document.getElementById('item-subcategory-id').value = sel.value || '';
 }
@@ -2354,7 +2367,7 @@ async function saveItem() {
     unit: document.getElementById('item-unit').value || 'Штука',
     category: document.getElementById('item-category').value || null,
     subcategory_id: document.getElementById('item-subcategory-id').value || null,
-    category_prefix: document.getElementById('item-prefix').value.trim().toUpperCase() || null,
+    category_prefix: latinPrefixFilter(document.getElementById('item-prefix').value) || null,
     description: document.getElementById('item-desc').value.trim() || null,
     supplier: document.getElementById('item-supplier').value.trim() || null,
     reorder_point: parseFloat(document.getElementById('item-reorder').value) || 0,
@@ -3615,8 +3628,8 @@ function openAddCategoryForm(itemType) {
       </div>
       <div class="field"><div class="fl">Иконка</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span id="aic-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('aic-icon','aic-icon-preview')">📦</span>
-          <input class="fin" id="aic-icon" value="📦" style="width:56px;text-align:center;font-size:16px"/>
+          <span id="aic-icon-preview" style="font-size:28px;cursor:pointer;line-height:1" title="Выбрать emoji" onclick="pickEmojiForField('aic-icon','aic-icon-preview')">📦</span>
+          <input type="hidden" id="aic-icon" value="📦"/>
         </div>
       </div>
       <div class="modal-footer">
@@ -3659,12 +3672,12 @@ function editInventoryCategory(catId) {
       <div class="modal-title"><span>Категория</span><button type="button" class="dr-close" onclick="document.getElementById('edit-inv-cat-modal').remove()">×</button></div>
       <div class="field"><div class="fl">Иконка</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span id="eic-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('eic-icon','eic-icon-preview')">${esc(cat.icon)}</span>
-          <input class="fin" id="eic-icon" value="${esc(cat.icon)}" style="width:56px;text-align:center;font-size:16px"/>
+          <span id="eic-icon-preview" style="font-size:28px;cursor:pointer;line-height:1" title="Выбрать emoji" onclick="pickEmojiForField('eic-icon','eic-icon-preview')">${esc(cat.icon)}</span>
+          <input type="hidden" id="eic-icon" value="${esc(cat.icon)}"/>
         </div>
       </div>
       <div class="field"><div class="fl">Название *</div>
-        <input class="fin" id="eic-name" value="${esc(cat.name)}"/>
+        <input class="fin" id="eic-name" value="${esc(stripLabelDuplicateIcon(cat.name, cat.icon))}"/>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-inv-cat-modal').remove()">Отмена</button>
@@ -3781,9 +3794,10 @@ async function openSubcatManager() {
   }
 
   function renderSubcatRow(s) {
+    const subName = stripLabelDuplicateIcon(s.name, s.icon);
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px" data-sc-id="${s.id}">
-      <span style="font-size:16px;cursor:pointer" title="Иконка" onclick="changeSubcatIcon('${s.id}')">${esc(s.icon)}</span>
-      <span style="flex:1;font-weight:500">${esc(s.name)}</span>
+      <span style="font-size:16px;cursor:pointer" title="Иконка" onclick="event.stopPropagation();changeSubcatIcon('${s.id}')">${esc(s.icon)}</span>
+      <span style="flex:1;font-weight:500">${esc(subName)}</span>
       <span style="color:var(--accent2);font-weight:600;min-width:30px;text-align:center">${esc(s.prefix)}</span>
       <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="editSubcatInline('${s.id}')">✏️</button>
       <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--rank3)" onclick="deleteSubcatWithMerge('${s.id}')">🗑</button>
@@ -3797,7 +3811,7 @@ async function openSubcatManager() {
       const cat = catsArr.find(c => c.slug === slug);
       const subs = subsByParent(itemType, slug);
       const icon = cat ? cat.icon : getCategoryIcon(itemType, slug);
-      let titleText = cat ? cat.name : getCategoryLabel(itemType, slug);
+      let titleText = cat ? stripLabelDuplicateIcon(cat.name, cat.icon) : getCategoryLabel(itemType, slug);
       if (!cat) {
         const full = getCategoryLabel(itemType, slug);
         if (full.startsWith(icon)) titleText = full.slice(icon.length).trim() || slug;
@@ -3807,8 +3821,8 @@ async function openSubcatManager() {
            <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--rank3)" onclick="event.stopPropagation();deleteInventoryCategory('${cat.id}')">🗑</button>`
         : '';
       const iconClk = cat
-        ? `event.stopPropagation();pickInvCategoryIcon('${cat.id}')`
-        : 'event.stopPropagation()';
+        ? `event.stopPropagation();event.preventDefault();pickInvCategoryIcon('${cat.id}');return false;`
+        : 'event.stopPropagation();event.preventDefault();return false;';
       secHtml += `<details style="margin-bottom:4px" open>
         <summary style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);user-select:none">
           <span style="font-size:14px;cursor:pointer" title="Иконка категории" onclick="${iconClk}">${esc(icon)}</span>
@@ -3891,12 +3905,12 @@ function openAddSubcatForm(itemType) {
       <div style="display:grid;grid-template-columns:1fr 80px;gap:10px">
         <div class="field"><div class="fl">Иконка</div>
           <div style="display:flex;gap:4px;align-items:center">
-            <span id="asc-icon-preview" style="font-size:20px;cursor:pointer" onclick="pickEmojiForField('asc-icon','asc-icon-preview')">📦</span>
-            <input class="fin" id="asc-icon" value="📦" style="width:50px;text-align:center;font-size:16px"/>
+            <span id="asc-icon-preview" style="font-size:26px;cursor:pointer;line-height:1" title="Выбрать emoji" onclick="pickEmojiForField('asc-icon','asc-icon-preview')">📦</span>
+            <input type="hidden" id="asc-icon" value="📦"/>
           </div>
         </div>
         <div class="field"><div class="fl">Сокр. *</div>
-          <input class="fin" id="asc-prefix" placeholder="MON" maxlength="4" style="text-transform:uppercase;text-align:center"/>
+          <input class="fin" id="asc-prefix" placeholder="MON" maxlength="4" pattern="[A-Za-z0-9]*" inputmode="latin" autocomplete="off" style="text-transform:uppercase;text-align:center"/>
         </div>
       </div>
       <div class="modal-footer">
@@ -3909,11 +3923,13 @@ function openAddSubcatForm(itemType) {
   document.getElementById('asc-name').addEventListener('input', function() {
     const pfxEl = document.getElementById('asc-prefix');
     if (!pfxEl.dataset.manual) {
-      pfxEl.value = this.value.trim().slice(0, 3).toUpperCase().replace(/[^A-ZА-ЯЁ0-9]/gi, '');
+      pfxEl.value = latinPrefixFilter(this.value.trim().slice(0, 3));
     }
   });
   document.getElementById('asc-prefix').addEventListener('input', function() {
     this.dataset.manual = '1';
+    const cur = latinPrefixFilter(this.value);
+    if (this.value !== cur) this.value = cur;
   });
   document.getElementById('asc-submit-btn').addEventListener('click', () => { void submitAddSubcat(itemType); });
 }
@@ -3938,7 +3954,7 @@ async function submitAddSubcat(itemType) {
 
   const name = nameEl.value.trim();
   const icon = (iconEl ? iconEl.value.trim() : '') || '📦';
-  const prefix = prefixEl.value.trim().toUpperCase();
+  const prefix = latinPrefixFilter(prefixEl.value);
 
   if (!parentCat) {
     console.error('submitAddSubcat: empty parent_category');
@@ -4060,15 +4076,15 @@ function editSubcatInline(scId) {
       </div>
       <div class="field"><div class="fl">Иконка</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span id="esc-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('esc-icon','esc-icon-preview')">${esc(sc.icon)}</span>
-          <input class="fin" id="esc-icon" value="${esc(sc.icon)}" style="width:56px;text-align:center;font-size:16px"/>
+          <span id="esc-icon-preview" style="font-size:28px;cursor:pointer;line-height:1" title="Выбрать emoji" onclick="pickEmojiForField('esc-icon','esc-icon-preview')">${esc(sc.icon)}</span>
+          <input type="hidden" id="esc-icon" value="${esc(sc.icon)}"/>
         </div>
       </div>
       <div class="field"><div class="fl">Название *</div>
-        <input class="fin" id="esc-name" value="${esc(sc.name)}"/>
+        <input class="fin" id="esc-name" value="${esc(stripLabelDuplicateIcon(sc.name, sc.icon))}"/>
       </div>
       <div class="field"><div class="fl">Сокращение *</div>
-        <input class="fin" id="esc-prefix" value="${esc(sc.prefix)}" maxlength="4" style="text-transform:uppercase;text-align:center"/>
+        <input class="fin" id="esc-prefix" value="${esc(latinPrefixFilter(sc.prefix))}" maxlength="4" pattern="[A-Za-z0-9]*" inputmode="latin" autocomplete="off" style="text-transform:uppercase;text-align:center"/>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-subcat-modal').remove()">Отмена</button>
@@ -4076,10 +4092,14 @@ function editSubcatInline(scId) {
       </div>
     </div>`;
   document.body.appendChild(wrap);
+  document.getElementById('esc-prefix').addEventListener('input', function () {
+    const cur = latinPrefixFilter(this.value);
+    if (this.value !== cur) this.value = cur;
+  });
   document.getElementById('esc-save').onclick = async () => {
     const newParent = (document.getElementById('esc-parent').value || '').trim();
     const name = (document.getElementById('esc-name').value || '').trim();
-    const prefix = (document.getElementById('esc-prefix').value || '').trim().toUpperCase();
+    const prefix = latinPrefixFilter(document.getElementById('esc-prefix').value);
     const icon = (document.getElementById('esc-icon').value || '').trim() || '📦';
     if (!newParent) { showToast('Выберите родительскую категорию', true); return; }
     if (!name) { showToast('Введите название', true); return; }
