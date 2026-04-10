@@ -2601,7 +2601,7 @@ function openMergeModal(sourceId, sourceName, usageText) {
             ${candidates.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.category || '—')}, ${esc(c.unit || 'шт')})</option>`).join('')}
           </select>
           <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;width:100%">
-            ${can('super_admin') ? `<button type="button" class="btn btn-ghost" style="color:var(--rank3);border-color:rgba(242,85,85,.3);font-size:12px" onclick="forceDeleteItem('${sourceId}', ${JSON.stringify(sourceName)})">🗑 Списать и удалить</button>` : '<span></span>'}
+            ${can('super_admin') ? `<button type="button" class="btn btn-ghost" style="color:var(--rank3);border-color:rgba(242,85,85,.3);font-size:12px" data-item-id="${esc(sourceId)}" data-item-name="${esc(sourceName)}" onclick="forceDeleteFromBtn(this)">🗑 Списать и удалить</button>` : '<span></span>'}
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-ghost" onclick="document.getElementById('merge-modal').remove()">Отмена</button>
             <button class="btn btn-primary" style="background:var(--rank3)" onclick="executeMerge('${sourceId}')">Объединить и удалить</button>
@@ -2610,7 +2610,7 @@ function openMergeModal(sourceId, sourceName, usageText) {
         ` : `
           <div style="color:var(--text3);font-size:12px;margin-bottom:16px">Нет подходящих позиций того же типа для слияния. Создайте целевую позицию сначала.</div>
           <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;width:100%">
-            ${can('super_admin') ? `<button type="button" class="btn btn-ghost" style="color:var(--rank3);border-color:rgba(242,85,85,.3);font-size:12px" onclick="forceDeleteItem('${sourceId}', ${JSON.stringify(sourceName)})">🗑 Списать и удалить</button>` : '<span></span>'}
+            ${can('super_admin') ? `<button type="button" class="btn btn-ghost" style="color:var(--rank3);border-color:rgba(242,85,85,.3);font-size:12px" data-item-id="${esc(sourceId)}" data-item-name="${esc(sourceName)}" onclick="forceDeleteFromBtn(this)">🗑 Списать и удалить</button>` : '<span></span>'}
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-ghost" onclick="document.getElementById('merge-modal').remove()">Закрыть</button>
             </div>
@@ -2620,6 +2620,10 @@ function openMergeModal(sourceId, sourceName, usageText) {
     </div>
   `;
   document.body.appendChild(modal);
+}
+
+function forceDeleteFromBtn(btn) {
+  forceDeleteItem(btn.dataset.itemId, btn.dataset.itemName);
 }
 
 async function forceDeleteItem(itemId, itemName) {
