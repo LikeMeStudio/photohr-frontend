@@ -187,6 +187,13 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 .ss-option:hover,.ss-option.highlighted{background:var(--accent);color:#fff}
 .ss-option.selected{font-weight:600}
 .ss-empty{padding:6px 10px;font-size:11px;color:var(--text3);font-style:italic}
+/* Типографика вкладок (#content): заголовки секций 15px, таблицы 13px / th 12px. Матрицы остаются компактными. */
+#content .section .section-title{font-size:15px}
+#content .section .tbl{font-size:13px}
+#content .section .tbl th{font-size:12px}
+#content .section .matrix-wrap .tbl{font-size:10px}
+#content .section .matrix-wrap .tbl th{font-size:11px}
+#content .section table.tbl.matrix-inner{font-size:10px}
 </style>
 </head>
 <body>
@@ -1334,13 +1341,13 @@ async function loadPurchaseOrders() {
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🛒 Закупки
-          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openPoModal()">+ Новый заказ</button>` : ''}
+          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openPoModal()">+ Новый заказ</button>` : ''}
         </div>
         ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Поставщик</th><th>Склад</th><th>Сумма</th><th>Поз.</th><th>Статус</th></tr></thead><tbody>
         ${list.map(po => `<tr style="cursor:pointer" onclick="openPoDetail('${po.id}')">
-          <td style="font-size:11px">${po.order_date ? new Date(po.order_date).toLocaleDateString('ru-RU') : '—'}</td>
+          <td>${po.order_date ? new Date(po.order_date).toLocaleDateString('ru-RU') : '—'}</td>
           <td>${esc(po.supplier || '—')}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(po.warehouse_name || '')}</td>
+          <td style="color:var(--text3)">${esc(po.warehouse_name || '')}</td>
           <td style="font-weight:600">${(parseFloat(po.total_amount) || 0).toLocaleString('ru-RU')} ₽</td>
           <td style="color:var(--text3)">${po.lines_count ?? '—'}</td>
           <td>${poStatusBadge(po.status)}</td>
@@ -1517,17 +1524,17 @@ async function toggleTransferExpand(id) {
     const pending = d.status === 'pending';
     let actions = '';
     if (pending && canManage) {
-      actions += `<button type="button" class="btn btn-ghost" style="margin-top:10px;margin-right:8px;font-size:11px;color:var(--rank1)" onclick="event.stopPropagation();confirmTransfer('${id}')">Подтвердить</button>`;
+      actions += `<button type="button" class="btn btn-ghost" style="margin-top:10px;margin-right:8px;font-size:12px;color:var(--rank1)" onclick="event.stopPropagation();confirmTransfer('${id}')">Подтвердить</button>`;
     }
     if (pending && canCancel) {
-      actions += `<button type="button" class="btn btn-ghost" style="margin-top:10px;font-size:11px;color:var(--rank3)" onclick="event.stopPropagation();cancelTransfer('${id}')">Отменить</button>`;
+      actions += `<button type="button" class="btn btn-ghost" style="margin-top:10px;font-size:12px;color:var(--rank3)" onclick="event.stopPropagation();cancelTransfer('${id}')">Отменить</button>`;
     }
     const html = `<div style="padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)" onclick="event.stopPropagation()">
       <div style="font-weight:600;margin-bottom:8px;font-size:12px">Позиции</div>
       <ul style="font-size:12px;color:var(--text2);margin-left:18px;line-height:1.55;list-style:disc">
         ${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}
       </ul>
-      ${pending ? actions : '<div style="font-size:11px;color:var(--text3);margin-top:8px">Только просмотр</div>'}
+      ${pending ? actions : '<div style="font-size:12px;color:var(--text3);margin-top:8px">Только просмотр</div>'}
     </div>`;
     transferRowDetailCache[id] = html;
     cell.innerHTML = html;
@@ -1552,20 +1559,20 @@ async function loadStockTransfers() {
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🔄 Перемещения между складами
-          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openTrModal()">+ Новое</button>` : ''}
+          ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openTrModal()">+ Новое</button>` : ''}
         </div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Клик по строке — состав заявки. Для «Ожидает» — подтверждение и отмена в раскрытии.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Клик по строке — состав заявки. Для «Ожидает» — подтверждение и отмена в раскрытии.</p>
         ${list.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>№</th><th>Откуда</th><th>Куда</th><th>Поз.</th><th>Кол-во</th><th>Статус</th><th>Запросил</th><th>Подтвердил</th></tr></thead><tbody>
         ${list.map(tr => `<tr id="tr-st-main-${tr.id}" class="${tr.status === 'pending' ? 'tr-transfer-pending' : ''}" style="cursor:pointer" onclick="toggleTransferExpand('${tr.id}')">
-          <td style="font-size:11px">${tr.created_at ? new Date(tr.created_at).toLocaleDateString('ru-RU') : '—'}</td>
-          <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(transferIdShort8(tr.id))}</td>
+          <td>${tr.created_at ? new Date(tr.created_at).toLocaleDateString('ru-RU') : '—'}</td>
+          <td style="font-family:monospace;color:var(--text3)">${esc(transferIdShort8(tr.id))}</td>
           <td>${esc(tr.from_warehouse_name)}</td>
           <td>${esc(tr.to_warehouse_name)}</td>
           <td style="color:var(--text3)">${tr.lines_count ?? '—'}</td>
           <td style="font-weight:600">${fmtNum(tr.total_qty)}</td>
           <td>${esc(TR_STATUS_RU[tr.status] || tr.status)}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(tr.requested_by_name || '—')}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(tr.confirmed_by_name || '—')}</td>
+          <td style="color:var(--text3)">${esc(tr.requested_by_name || '—')}</td>
+          <td style="color:var(--text3)">${esc(tr.confirmed_by_name || '—')}</td>
         </tr>
         <tr id="tr-st-exp-${tr.id}" style="display:none"><td colspan="9" id="tr-st-exp-cell-${tr.id}" style="background:var(--bg);padding:0"></td></tr>`).join('')}
         </tbody></table></div>` : '<div style="color:var(--text3)">Нет заявок на перемещение</div>'}
@@ -1688,17 +1695,12 @@ async function loadSummary() {
       pendingActions = (Array.isArray(trPending) ? trPending.length : 0) + (Array.isArray(invOpen) ? invOpen.length : 0);
     } catch (_) {}
 
-    const fmtVal = (v) => { const n = parseFloat(v) || 0; return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(Math.round(n)); };
     el.innerHTML = `
-      <div class="stat"><div class="stat-num" style="color:var(--accent)">${s.warehouses_count ?? 0}</div><div class="stat-lbl">складов</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--text)">${s.items_count ?? 0}</div><div class="stat-lbl">позиций</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--rank1)">${s.equipment_active ?? 0}</div><div class="stat-lbl">оборудование</div></div>
-      ${(s.total_stock_value || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent2)">${fmtVal(s.total_stock_value)} ₽</div><div class="stat-lbl">стоимость</div></div>` : ''}
-      ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">критичных</div></div>` : ''}
-      ${(s.warning_count || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.warning_count}</div><div class="stat-lbl">внимание</div></div>` : ''}
-      ${(s.equipment_repair || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.equipment_repair}</div><div class="stat-lbl">в ремонте</div></div>` : ''}
+      ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">🔴 критичных</div></div>` : ''}
+      ${(s.warning_count || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.warning_count}</div><div class="stat-lbl">🟡 внимание</div></div>` : ''}
       ${(s.equipment_deficit || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.equipment_deficit}</div><div class="stat-lbl">дефицит оборуд.</div></div>` : ''}
-      ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
+      ${(s.equipment_repair || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.equipment_repair}</div><div class="stat-lbl">🔧 в ремонте</div></div>` : ''}
+      ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">⏳ действий</div></div>` : ''}
     `;
     el.style.display = '';
     updateStickyTop();
@@ -2157,7 +2159,7 @@ async function loadWarehouses() {
     c.innerHTML = `
       <div class="section">
         <div class="section-title">🏢 Склады
-          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
+          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
         <div id="wh-cards-sticky" style="position:sticky;top:0;z-index:10;background:var(--bg2);padding:8px 0;border-radius:0 0 12px 12px">
         ${!isMobile() && canDnd ? `<p style="font-size:10px;color:var(--text3);margin-bottom:6px;margin-top:0">Перетащите позицию или оборудование на другой склад для перемещения.</p>` : ''}
@@ -2372,12 +2374,12 @@ function renderItemsCatalog() {
   const renderRow = (it) => `<tr style="${it.is_active ? '' : 'opacity:.4'}">
     <td style="width:36px;padding:4px">${it.photo_url ? `<img src="${API_ROOT}${it.photo_url}" data-lightbox="${esc(API_ROOT + it.photo_url)}" onclick="event.stopPropagation();openLightbox(this.getAttribute('data-lightbox'))" style="cursor:zoom-in;width:32px;height:32px;border-radius:6px;object-fit:cover"/>` : `<span style="display:inline-block;width:32px;height:32px;border-radius:6px;background:var(--bg3)"></span>`}</td>
     <td>${esc(it.name)}${it.subcategory_name ? `<div style="font-size:9px;color:var(--text3)">${esc(it.subcategory_icon||'')} ${esc(it.subcategory_name)}</div>` : ''}</td>
-    <td style="text-align:center;font-size:11px;font-weight:600;color:var(--accent2)">${esc(it.category_prefix || it.subcategory_prefix || '')}</td>
-    <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
+    <td style="text-align:center;font-weight:600;color:var(--accent2)">${esc(it.category_prefix || it.subcategory_prefix || '')}</td>
+    <td style="color:var(--text3)">${esc(it.supplier || '—')}</td>
     <td style="color:var(--text3)">${esc(it.unit || 'шт')}${it.units_per_pack ? `<div style="font-size:9px;color:var(--accent2)">${it.units_per_pack}/${esc(it.pack_unit||'упак.')}</div>` : ''}</td>
     <td>${it.reorder_point > 0 ? fmtNum(it.reorder_point) : '—'}</td>
     <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
-    <td style="white-space:nowrap">${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}${isSuperAdmin && it.is_active ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--text3)" onclick="archiveItem('${it.id}')" title="Архивировать">📁</button>` : ''}</td>
+    <td style="white-space:nowrap">${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:12px" onclick='openItemModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:12px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}${isSuperAdmin && it.is_active ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:12px;color:var(--text3)" onclick="archiveItem('${it.id}')" title="Архивировать">📁</button>` : ''}</td>
   </tr>`;
 
   let tablesHtml = '';
@@ -2401,7 +2403,7 @@ function renderItemsCatalog() {
       const catLabel = getCategoryLabel(typeKey, catKey);
       tablesHtml += `<details style="margin-bottom:8px" open>
         <summary style="font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;padding:6px 0;border-bottom:1px solid var(--border)">
-          ${catLabel} <span style="color:var(--text3);font-weight:400;font-size:11px">(${catItems.length})</span>
+          ${catLabel} <span style="color:var(--text3);font-weight:400;font-size:12px">(${catItems.length})</span>
         </summary>
         <div class="table-wrap"><table class="tbl">
           <thead><tr><th style="width:36px"></th><th>Название</th><th style="width:50px">Сокр.</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
@@ -2421,22 +2423,22 @@ function renderItemsCatalog() {
       <div class="section">
         <div class="section-title" style="flex-wrap:wrap;gap:8px">
           <span>📋 Справочник позиций</span>
-          <span id="items-count" style="color:var(--text3);font-size:11px;font-weight:400">(${filtered.length} из ${items.length})</span>
+          <span id="items-count" style="color:var(--text3);font-size:12px;font-weight:400">(${filtered.length} из ${items.length})</span>
           ${canManageCategories ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="openSubcatManager()">⚙ Категории</button>` : ''}
-          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
+          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
         </div>
         <div id="items-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-          <input class="fin" type="text" id="items-search-input" placeholder="🔍 Поиск по названию..." value="${esc(itemsSearchQuery)}" oninput="itemsSearchQuery=this.value;renderItemsCatalog()" style="width:200px;font-size:11px"/>
-          <select class="fselect" id="items-type-filter" style="width:auto;font-size:11px" onchange="itemsFilterType=this.value;itemsFilterCat='';itemsFilterSubcat='';renderItemsCatalog()">
+          <input class="fin" type="text" id="items-search-input" placeholder="🔍 Поиск по названию..." value="${esc(itemsSearchQuery)}" oninput="itemsSearchQuery=this.value;renderItemsCatalog()" style="width:200px;font-size:12px"/>
+          <select class="fselect" id="items-type-filter" style="width:auto;font-size:12px" onchange="itemsFilterType=this.value;itemsFilterCat='';itemsFilterSubcat='';renderItemsCatalog()">
             <option value="all" ${itemsFilterType==='all'?'selected':''}>Все типы</option>
             <option value="consumable" ${itemsFilterType==='consumable'?'selected':''}>📦 Расходники</option>
             <option value="equipment" ${itemsFilterType==='equipment'?'selected':''}>🔧 Оборудование</option>
           </select>
-          <select class="fselect" id="items-cat-filter" style="width:auto;font-size:11px" onchange="itemsFilterCat=this.value;itemsFilterSubcat='';renderItemsCatalog()">
+          <select class="fselect" id="items-cat-filter" style="width:auto;font-size:12px" onchange="itemsFilterCat=this.value;itemsFilterSubcat='';renderItemsCatalog()">
             <option value="">Все категории</option>
             ${catOptions}
           </select>
-          <select class="fselect" id="items-subcat-filter" style="width:auto;font-size:11px${!subcatFilterOptions ? ';display:none' : ''}" onchange="itemsFilterSubcat=this.value;renderItemsCatalog()">
+          <select class="fselect" id="items-subcat-filter" style="width:auto;font-size:12px${!subcatFilterOptions ? ';display:none' : ''}" onchange="itemsFilterSubcat=this.value;renderItemsCatalog()">
             <option value="">Все подкатегории</option>
             ${subcatFilterOptions}
           </select>
@@ -3264,23 +3266,23 @@ async function loadMovements() {
       <div class="section" style="margin-bottom:12px">
         <div class="section-title">📊 Журнал движений
           ${canManage ? `<div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Ручное движение</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(4)">К перемещениям</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="switchTab(3)">К закупкам</button>
+            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="openMoveModal()">+ Ручное движение</button>
+            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="switchTab(4)">К перемещениям</button>
+            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="switchTab(3)">К закупкам</button>
           </div>` : ''}
         </div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Корректировки, закупки и перемещения с заявкой — клик по примечанию. Перемещения: 📤 отправка / 📥 приёмка.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Корректировки, закупки и перемещения с заявкой — клик по примечанию. Перемещения: 📤 отправка / 📥 приёмка.</p>
         <div class="table-wrap"><table class="tbl"><thead><tr><th>Дата</th><th>Тип</th><th>Товар</th><th>Кол-во</th><th>Откуда</th><th>Куда</th><th>Цена</th><th>Примечание</th><th>Кто</th></tr></thead><tbody>
         ${moves.map(m=>{ const wh = transferMovementWhNames(m); return `<tr>
-          <td style="font-size:11px;color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+          <td style="color:var(--text3)">${new Date(m.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
           <td>${movementTypeDisplay(m)}</td>
           <td>${esc(m.item_name)}</td>
           <td style="font-weight:600">${fmtNum(m.quantity)} ${esc(m.unit||'')}</td>
-          <td style="color:var(--text3);font-size:11px">${esc(wh.from)}</td>
-          <td style="color:var(--text3);font-size:11px">${esc(wh.to)}</td>
-          <td style="color:var(--text3);font-size:11px">${m.unit_price ? m.unit_price.toLocaleString('ru-RU')+'₽' : '—'}</td>
+          <td style="color:var(--text3)">${esc(wh.from)}</td>
+          <td style="color:var(--text3)">${esc(wh.to)}</td>
+          <td style="color:var(--text3)">${m.unit_price ? m.unit_price.toLocaleString('ru-RU')+'₽' : '—'}</td>
           <td style="max-width:220px">${movementNotesHtml(m)}</td>
-          <td style="color:var(--text3);font-size:11px">${esc(m.created_by_name||'')}</td>
+          <td style="color:var(--text3)">${esc(m.created_by_name||'')}</td>
         </tr>`;}).join('')}
         </tbody></table></div>
       </div>
@@ -3293,10 +3295,10 @@ const _fcStatusRank = { critical: 0, warning: 1, ok: 2 };
 function buildForecastWhToggleHtml() {
   const filtered = warehouses.filter(w => w.is_active && (!detailFcCity || (w.city || '') === detailFcCity));
   const allOn = detailFcWhIds === null;
-  let h = `<button type="button" class="btn ${allOn ? 'btn-primary' : 'btn-ghost'} fc-wh-btn" style="font-size:11px;padding:4px 10px" onclick="setDetailFcWhIds(null)">Все</button>`;
+  let h = `<button type="button" class="btn ${allOn ? 'btn-primary' : 'btn-ghost'} fc-wh-btn" style="font-size:12px;padding:4px 10px" onclick="setDetailFcWhIds(null)">Все</button>`;
   for (const w of filtered) {
     const on = detailFcWhIds && detailFcWhIds.includes(w.id);
-    h += `<button type="button" class="btn ${on ? 'btn-primary' : 'btn-ghost'} fc-wh-btn" style="font-size:11px;padding:4px 10px" onclick="toggleDetailFcWhId('${w.id}')">${esc(w.name)}</button>`;
+    h += `<button type="button" class="btn ${on ? 'btn-primary' : 'btn-ghost'} fc-wh-btn" style="font-size:12px;padding:4px 10px" onclick="toggleDetailFcWhId('${w.id}')">${esc(w.name)}</button>`;
   }
   if (!filtered.length) h += '<span style="font-size:11px;color:var(--text3)">Нет складов для города</span>';
   return h;
@@ -3730,7 +3732,7 @@ async function loadStockForecast() {
         const daysCell = daysL !== null ? `${daysL} д` : '∞';
         return `<tr>
           <td>${esc(r.item_name)} <span style="color:var(--text3);font-size:10px">${esc(r.consumption_unit || r.unit || 'шт')}</span></td>
-          <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name)}</td>
+          <td style="color:var(--text3)">${esc(r.warehouse_name)}</td>
           <td style="font-weight:600">${fmtNum(r.current_qty)}</td>
           <td style="color:var(--text3)">${minV}</td>
           <td>${fmtNum(r.avg_daily)}</td>
@@ -3745,7 +3747,7 @@ async function loadStockForecast() {
       : '<div style="color:var(--text3);margin-top:12px">Нет данных по расходникам. Добавьте склады и остатки.</div>';
     c.innerHTML = `<div class="section">
       <div class="section-title" style="align-items:center;flex-wrap:wrap;gap:8px">📦 Остатки и прогноз
-        <button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button>
+        <button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openMoveModal()">+ Движение</button>
       </div>
       <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Матрица — фильтры</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
@@ -3949,7 +3951,7 @@ async function loadEquipment() {
     let html = `<div class="section">
       <div class="section-title" style="flex-wrap:wrap;gap:8px">
         <span style="flex:1;min-width:0">🖨 Оборудование (${equip.length})</span>
-        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;margin-left:auto;font-size:11px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
+        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;margin-left:auto;font-size:12px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>`;
 
     if (!catArr.length) {
@@ -4724,10 +4726,10 @@ async function openEqHistoryModal(unitId) {
     document.getElementById('eq-history-body').innerHTML = logs.length ? logs.map(l => {
       const repLink = l.report_id ? `<a href="venue.html" style="color:var(--accent2);text-decoration:underline" title="Отчёты">#${String(l.report_id).slice(0, 8)}</a>` : '—';
       return `<tr>
-        <td style="font-size:11px">${l.log_date ? new Date(l.log_date).toLocaleDateString('ru-RU') : '—'}</td>
-        <td style="font-size:11px">${repLink}</td>
-        <td style="font-size:11px;color:var(--text3)">${esc(l.format || '')}</td>
-        <td style="font-family:monospace;font-size:11px">${l.counter_start} → ${l.counter_end}</td>
+        <td>${l.log_date ? new Date(l.log_date).toLocaleDateString('ru-RU') : '—'}</td>
+        <td>${repLink}</td>
+        <td style="color:var(--text3)">${esc(l.format || '')}</td>
+        <td style="font-family:monospace">${l.counter_start} → ${l.counter_end}</td>
         <td style="font-weight:600;color:var(--rank1)">${l.printed_qty}</td>
       </tr>`;
     }).join('') : '<tr><td colspan="5" style="color:var(--text3)">Нет записей</td></tr>';
@@ -4940,9 +4942,9 @@ async function openEqDrawer(id) {
     const resourceBarColor = resourcePct == null ? 'var(--rank1)' : resourcePct > 95 ? 'var(--rank3)' : resourcePct > 80 ? 'var(--rank2)' : 'var(--rank1)';
     const counterRows = history.logs?.length
       ? history.logs.map(l => `<tr>
-          <td style="font-size:11px">${new Date(l.log_date).toLocaleDateString('ru-RU')}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(l.format)}</td>
-          <td style="font-family:monospace;font-size:11px">${l.counter_start} → ${l.counter_end}</td>
+          <td>${new Date(l.log_date).toLocaleDateString('ru-RU')}</td>
+          <td style="color:var(--text3)">${esc(l.format)}</td>
+          <td style="font-family:monospace">${l.counter_start} → ${l.counter_end}</td>
           <td style="font-weight:600;color:var(--rank1)">${l.printed_qty}</td>
           <td style="color:var(--text3);font-size:10px">${esc(l.venue_name || '')}</td>
         </tr>`).join('')
@@ -5211,9 +5213,9 @@ async function loadInventory() {
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Склад</th><th>Начало</th><th>Завершено</th><th>Создал</th><th>Позиций</th><th>Корректировок</th></tr></thead><tbody>
         ${doneS.map(s => `<tr style="cursor:pointer" onclick="openInvSession('${s.id}',true)" title="Просмотр">
           <td>${esc(s.warehouse_name)}</td>
-          <td style="font-size:11px;color:var(--text3)">${new Date(s.session_date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-          <td style="font-size:11px;color:var(--text3)">${s.completed_at ? new Date(s.completed_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(s.created_by_name || '')}</td>
+          <td style="color:var(--text3)">${new Date(s.session_date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+          <td style="color:var(--text3)">${s.completed_at ? new Date(s.completed_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+          <td style="color:var(--text3)">${esc(s.created_by_name || '')}</td>
           <td style="color:var(--text3)">${s.lines_count ?? '—'}</td>
           <td style="font-weight:600;color:${parseInt(s.discrepancies_count, 10) > 0 ? 'var(--rank2)' : 'var(--text3)'}">${s.discrepancies_count ?? 0}</td>
         </tr>`).join('')}
@@ -5361,7 +5363,7 @@ async function openInvSession(id, readOnly = false) {
           : `<input class="fin" style="font-size:11px;width:100%" value="${esc(l.notes || '')}" data-eq-note-line="${l.id}" onblur="saveEqInventoryNote(this)"/>`;
         tbody += `<tr>
       <td>${esc(l.item_name)}</td>
-      <td style="font-weight:600;font-size:11px">${esc(l.eq_inventory_number || '—')}</td>
+      <td style="font-weight:600">${esc(l.eq_inventory_number || '—')}</td>
       <td style="font-size:10px;color:var(--text3)">${esc(l.eq_serial_number || '—')}</td>
       <td style="text-align:center">${selOpen}</td>
       <td></td>
@@ -5537,7 +5539,7 @@ async function loadAnalytics() {
     const writeoffPendingSection = woPend.length ? `
       <div class="section" style="margin-bottom:12px;border-color:rgba(242,85,85,.3)">
         <div class="section-title" style="color:var(--rank3)">📋 Ожидают подтверждения списания (${woPend.length})</div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Запросы от HR/менеджеров — подтверждает тех. директор, исп. директор или админ.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Запросы от HR/менеджеров — подтверждает тех. директор, исп. директор или админ.</p>
         ${woPend.map(w => `
           <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:12px">
             <div style="font-weight:600">${esc(w.item_name || '')}</div>
@@ -5547,8 +5549,8 @@ async function loadAnalytics() {
             ${w.document_ref ? `<div style="margin-top:4px;font-size:11px;color:var(--accent2)">Док: ${esc(w.document_ref)}</div>` : ''}
             <div style="font-size:10px;color:var(--text3);margin-top:4px">Запросил: ${esc(w.requested_by_name || '—')}</div>
             ${canConfirmWriteoff ? `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-              <button type="button" class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="confirmEquipmentWriteoff('${w.id}')">✅ Подтвердить</button>
-              <button type="button" class="btn btn-ghost" style="font-size:11px;padding:4px 12px;color:var(--rank3)" onclick="rejectEquipmentWriteoff('${w.id}')">❌ Отклонить</button>
+              <button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="confirmEquipmentWriteoff('${w.id}')">✅ Подтвердить</button>
+              <button type="button" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;color:var(--rank3)" onclick="rejectEquipmentWriteoff('${w.id}')">❌ Отклонить</button>
             </div>` : ''}
           </div>`).join('')}
       </div>` : '';
@@ -5570,15 +5572,15 @@ async function loadAnalytics() {
     const invDiscSection = discList.length ? `
       <div class="section" style="margin-bottom:12px">
         <div class="section-title">📌 Расхождения инвентаризации (строки с пояснениями)</div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">За 90 дн.: факт ≠ учёт, примечания из строк сессии.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">За 90 дн.: факт ≠ учёт, примечания из строк сессии.</p>
         <div class="table-wrap"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Учёт</th><th>Факт</th><th>Примечание</th><th>Дата</th></tr></thead><tbody>
         ${discList.map(r => `<tr>
           <td>${esc(r.item_name || '')}</td>
-          <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name || '')}</td>
+          <td style="color:var(--text3)">${esc(r.warehouse_name || '')}</td>
           <td>${fmtNum(r.expected_qty)}</td>
           <td>${fmtNum(r.actual_qty)}</td>
-          <td style="font-size:11px;color:var(--text2);max-width:200px;white-space:normal">${r.notes ? esc(r.notes) : '—'}</td>
-          <td style="font-size:11px;color:var(--text3)">${r.completed_at ? new Date(r.completed_at).toLocaleDateString('ru-RU') : '—'}</td>
+          <td style="color:var(--text2);max-width:200px;white-space:normal">${r.notes ? esc(r.notes) : '—'}</td>
+          <td style="color:var(--text3)">${r.completed_at ? new Date(r.completed_at).toLocaleDateString('ru-RU') : '—'}</td>
         </tr>`).join('')}
         </tbody></table></div>
       </div>` : '';
@@ -5599,11 +5601,11 @@ async function loadAnalytics() {
     const invSection = invList.length ? `
       <div class="section" style="margin-bottom:12px">
         <div class="section-title">📋 Расхождения по инвентаризации (90 дн.)</div>
-        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Завершённые сессии: строки с фактом ≠ учёту, суммарные расхождения по количеству и оценке.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Завершённые сессии: строки с фактом ≠ учёту, суммарные расхождения по количеству и оценке.</p>
         <div class="table-wrap"><table class="tbl"><thead><tr><th>Склад</th><th>Завершено</th><th>Строк</th><th>Расхождений</th><th>Δ кол-ва</th><th>Оценка Δ ₽</th></tr></thead><tbody>
         ${invList.slice(0, 40).map(r => `<tr>
           <td>${esc(r.warehouse_name || '')}</td>
-          <td style="font-size:11px;color:var(--text3)">${r.completed_at ? new Date(r.completed_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+          <td style="color:var(--text3)">${r.completed_at ? new Date(r.completed_at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
           <td style="color:var(--text3)">${r.lines_count ?? '—'}</td>
           <td style="font-weight:600;color:${parseInt(r.discrepancies, 10) > 0 ? 'var(--rank2)' : 'var(--text3)'}">${r.discrepancies ?? 0}</td>
           <td>${parseFloat(r.total_discrepancy_qty || 0).toLocaleString('ru-RU')}</td>
@@ -5738,7 +5740,7 @@ function renderTechSchedule() {
 
   let html = `<div class="section">
     <div class="section-title">📅 Расписание техотдела
-      ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openTechTaskModal()">+ Задача</button>` : ''}
+      ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openTechTaskModal()">+ Задача</button>` : ''}
     </div>
     <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
       <div class="stat"><div class="stat-num">${planned}</div><div class="stat-lbl">Запланировано</div></div>
@@ -5785,10 +5787,10 @@ function renderTechView() {
 
   const submenuHtml = canManage ? `
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="f-btn ${techView==='calendar'?'active':''}" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
-      <button class="f-btn ${techView==='reports'?'active':''}" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
-      <button class="f-btn ${techView==='heatmap'?'active':''}" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
-      <button class="f-btn ${techView==='payroll'?'active':''}" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+      <button class="f-btn ${techView==='calendar'?'active':''}" onclick="techView='calendar';renderTechView()" style="font-size:12px;padding:4px 12px">📅 Задачи</button>
+      <button class="f-btn ${techView==='reports'?'active':''}" onclick="techView='reports';loadTechReports()" style="font-size:12px;padding:4px 12px">📋 Дневные отчёты</button>
+      <button class="f-btn ${techView==='heatmap'?'active':''}" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:12px;padding:4px 12px">🌡 Загрузка</button>
+      <button class="f-btn ${techView==='payroll'?'active':''}" onclick="techView='payroll';loadTechPayroll()" style="font-size:12px;padding:4px 12px">💰 Зарплата</button>
     </div>
   ` : '';
 
@@ -5815,10 +5817,10 @@ async function loadTechReports() {
     const STATUS_COLORS = { draft:'var(--text3)', submitted:'var(--rank2)', approved:'var(--rank1)', revision_requested:'var(--rank3)' };
     const submenuHtml = `
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
-        <button class="f-btn active" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
-        <button class="f-btn" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
-        <button class="f-btn" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:12px;padding:4px 12px">📅 Задачи</button>
+        <button class="f-btn active" onclick="techView='reports';loadTechReports()" style="font-size:12px;padding:4px 12px">📋 Дневные отчёты</button>
+        <button class="f-btn" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:12px;padding:4px 12px">🌡 Загрузка</button>
+        <button class="f-btn" onclick="techView='payroll';loadTechPayroll()" style="font-size:12px;padding:4px 12px">💰 Зарплата</button>
       </div>`;
 
     const pending = reports.filter(r => r.status === 'submitted');
@@ -5930,10 +5932,10 @@ async function loadTechHeatmap() {
     const data = await api('GET', `/tech-analytics/team-heatmap?from=${from}&to=${to}`);
     const submenuHtml = `
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
-        <button class="f-btn" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
-        <button class="f-btn active" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
-        <button class="f-btn" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:12px;padding:4px 12px">📅 Задачи</button>
+        <button class="f-btn" onclick="techView='reports';loadTechReports()" style="font-size:12px;padding:4px 12px">📋 Дневные отчёты</button>
+        <button class="f-btn active" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:12px;padding:4px 12px">🌡 Загрузка</button>
+        <button class="f-btn" onclick="techView='payroll';loadTechPayroll()" style="font-size:12px;padding:4px 12px">💰 Зарплата</button>
       </div>`;
 
     let html = `<div class="section">${submenuHtml}<div class="section-title">🌡 Загрузка команды · ${['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][mo]} ${y}</div>`;
@@ -5986,10 +5988,10 @@ async function loadTechPayroll() {
     const LABELS = {delivery:'🚚',setup:'🔧',maintenance:'🛠',repair:'⚡',pickup:'📦',travel:'🚗',office:'🏢',meeting:'👥',planning:'📋',development:'💻',other:'⚙️'};
     const submenuHtml = `
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:11px;padding:4px 12px">📅 Задачи</button>
-        <button class="f-btn" onclick="techView='reports';loadTechReports()" style="font-size:11px;padding:4px 12px">📋 Дневные отчёты</button>
-        <button class="f-btn" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:11px;padding:4px 12px">🌡 Загрузка</button>
-        <button class="f-btn active" onclick="techView='payroll';loadTechPayroll()" style="font-size:11px;padding:4px 12px">💰 Зарплата</button>
+        <button class="f-btn" onclick="techView='calendar';renderTechView()" style="font-size:12px;padding:4px 12px">📅 Задачи</button>
+        <button class="f-btn" onclick="techView='reports';loadTechReports()" style="font-size:12px;padding:4px 12px">📋 Дневные отчёты</button>
+        <button class="f-btn" onclick="techView='heatmap';loadTechHeatmap()" style="font-size:12px;padding:4px 12px">🌡 Загрузка</button>
+        <button class="f-btn active" onclick="techView='payroll';loadTechPayroll()" style="font-size:12px;padding:4px 12px">💰 Зарплата</button>
       </div>`;
 
     let html = `<div class="section">${submenuHtml}<div class="section-title">💰 Зарплата техотдела · ${['','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][mo]} ${y}</div>`;
