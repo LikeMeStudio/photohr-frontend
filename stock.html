@@ -1676,15 +1676,20 @@ async function renderAllWarehousesPanel(host) {
       }
       const consArr = [...consByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
 
-      // Группировка оборудования по категориям
+      // Группировка оборудования по категории → подкатегории (единицы)
       const eqByCat = new Map();
       for (const e of eqHere) {
         const catVal = e.item_category || 'other';
         const catLabel = getCategoryLabel('equipment', catVal);
-        if (!eqByCat.has(catVal)) eqByCat.set(catVal, { label: catLabel, items: [] });
-        eqByCat.get(catVal).items.push(e);
+        if (!eqByCat.has(catVal)) eqByCat.set(catVal, { label: catLabel, subcats: new Map() });
+        const catGroup = eqByCat.get(catVal);
+        const scKey = e.subcategory_id ? String(e.subcategory_id) : '__none__';
+        const scLabel = e.subcategory_name || (e.item_name || 'Прочее');
+        const scIcon = e.subcategory_icon || '';
+        if (!catGroup.subcats.has(scKey)) catGroup.subcats.set(scKey, { label: scLabel, icon: scIcon, units: [] });
+        catGroup.subcats.get(scKey).units.push(e);
       }
-      const eqArr = [...eqByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
+      const eqCatArr = [...eqByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
 
       const whBadge = wh.warehouse_type === 'venue' ? `<span style="font-size:9px;color:var(--accent2);font-weight:600">НА ПЛОЩАДКЕ</span>` : `<span style="font-size:9px;color:var(--text3);font-weight:600">${esc(wh.warehouse_type === 'central' ? 'ЦЕНТРАЛЬНЫЙ' : wh.warehouse_type || '')}</span>`;
 
@@ -1722,25 +1727,38 @@ async function renderAllWarehousesPanel(host) {
         html += '</details>';
       }
 
-      // Оборудование
-      if (eqArr.length) {
+      // Оборудование — единицы сгруппированные по категории → подкатегории
+      if (eqCatArr.length) {
         html += `<details open style="margin:8px 0 0 12px">
           <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">🔧 Оборудование (${eqHere.length})</summary>`;
-        for (const [, cat] of eqArr) {
+        for (const [, cat] of eqCatArr) {
+          const catCount = [...cat.subcats.values()].reduce((s, sc) => s + sc.units.length, 0);
           html += `<div style="margin:6px 0 0 8px">
-            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${cat.items.length})</div>
-            <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>SN</th><th>Инв.№</th><th>Статус</th></tr></thead><tbody>
-            ${cat.items.map(e => {
-              const EQ_ST = { active: '🟢', repair: '🔧', written_off: '⚫', lost: '🔴' };
-              return `<tr>
+            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${catCount})</div>`;
+          const scArr = [...cat.subcats.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
+          for (const [scKey, sc] of scArr) {
+            const showScHeader = cat.subcats.size > 1 || scKey !== '__none__';
+            const EQ_ST = { active: '🟢', repair: '🔧', written_off: '⚫', lost: '🔴' };
+            const scTableRows = sc.units.map(e => `<tr>
                 <td>${esc(e.item_name)}</td>
                 <td style="font-size:10px;color:var(--text3)">${esc(e.serial_number || '—')}</td>
                 <td style="font-size:10px;color:var(--accent2)">${esc(e.inventory_number || '—')}</td>
                 <td>${EQ_ST[e.status] || esc(e.status)}</td>
-              </tr>`;
-            }).join('')}
-            </tbody></table></div>
-          </div>`;
+              </tr>`).join('');
+            if (showScHeader) {
+              html += `<details open style="margin:4px 0 0 8px">
+                <summary style="font-size:10px;font-weight:600;color:var(--accent2);letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${sc.units.length})</summary>
+                <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>SN</th><th>Инв.№</th><th>Статус</th></tr></thead><tbody>
+                ${scTableRows}
+                </tbody></table></div>
+              </details>`;
+            } else {
+              html += `<div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>SN</th><th>Инв.№</th><th>Статус</th></tr></thead><tbody>
+                ${scTableRows}
+                </tbody></table></div>`;
+            }
+          }
+          html += '</div>';
         }
         html += '</details>';
       }
@@ -1775,9 +1793,9 @@ async function renderWhStockPanel(whId){
     const wh=warehouses.find(w=>w.id===whId);
     const [stock,equip]=await Promise.all([
       api('GET','/stock?warehouse_id='+encodeURIComponent(whId)),
-      api('GET','/equipment').catch(()=>[]),
+      api('GET','/equipment?warehouse_id='+encodeURIComponent(whId)).catch(()=>[]),
     ]);
-    const eqHere=(equip||[]).filter(e=>String(e.warehouse_id)===String(whId));
+    const eqHere=equip||[];
     let hasCrit=false;
     const canMin=can('tech_director')||can('exec_director')||can('admin');
     const canDnd=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
@@ -1807,49 +1825,54 @@ async function renderWhStockPanel(whId){
         `).join('')}
       </details>`:'';
 
-    const eqByModel=new Map();
-    const itemsForCat=items||[];
-    for(const e of eqHere){
-      const key=String(e.item_id||'_');
-      if(!eqByModel.has(key))eqByModel.set(key,{name:e.item_name,category:null,count:0});
-      eqByModel.get(key).count++;
-      const item=itemsForCat.find(i=>String(i.id)===key);
-      if(item)eqByModel.get(key).category=item.category;
-    }
     const eqByCat=new Map();
-    for(const [,model] of eqByModel){
-      const catVal=model.category||'other';
+    for(const e of eqHere){
+      const catVal=e.item_category||'other';
       const catLabel=getCategoryLabel('equipment',catVal);
-      if(!eqByCat.has(catVal))eqByCat.set(catVal,{label:catLabel,models:[]});
-      eqByCat.get(catVal).models.push(model);
+      if(!eqByCat.has(catVal))eqByCat.set(catVal,{label:catLabel,subcats:new Map()});
+      const catGroup=eqByCat.get(catVal);
+      const scKey=e.subcategory_id?String(e.subcategory_id):'__none__';
+      const scLabel=e.subcategory_name||(e.item_name||'Прочее');
+      const scIcon=e.subcategory_icon||'';
+      if(!catGroup.subcats.has(scKey))catGroup.subcats.set(scKey,{label:scLabel,icon:scIcon,units:[]});
+      catGroup.subcats.get(scKey).units.push(e);
     }
     const eqCatArr=[...eqByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
-    const eqSummaryRows=eqCatArr.map(([catVal,cat])=>{
-      const totalInCat=cat.models.reduce((s,m)=>s+m.count,0);
-      const catRows=cat.models.map(m=>
-        `<tr><td>${esc(m.name)}</td><td style="font-weight:600;text-align:center">${m.count}</td><td style="text-align:center">шт</td><td style="text-align:center">—</td><td style="text-align:center">🟢</td><td style="text-align:center;color:var(--text3)">—</td><td style="text-align:center;color:var(--text3)">—</td></tr>`
-      ).join('');
-      return `
-          <details open style="margin-top:6px">
-            <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${totalInCat})</summary>
-            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
-            ${catRows || '<tr><td colspan="7" style="color:var(--text3)">Нет позиций</td></tr>'}
-            </tbody></table></div>
-          </details>`;
-    }).join('');
-    const eqDetailSection=eqHere.length?`
-          <details open style="margin-top:6px">
-            <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">🔧 Единицы оборудования (${eqHere.length})</summary>
-            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
-            ${whPanelBuildEquipmentTableRows(eqHere,whId,canDnd)}
-            </tbody></table></div>
-          </details>`:'';
-    const eqSection=(eqByModel.size||eqHere.length)?`
+
+    let eqSection='';
+    if(eqHere.length){
+      let eqInner='';
+      for(const [,cat] of eqCatArr){
+        const catCount=[...cat.subcats.values()].reduce((s,sc)=>s+sc.units.length,0);
+        let subcatHtml='';
+        const scArr=[...cat.subcats.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
+        for(const [scKey,sc] of scArr){
+          const showScHeader=cat.subcats.size>1||scKey!=='__none__';
+          const scRows=sc.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
+          if(showScHeader){
+            subcatHtml+=`<details open style="margin-top:4px;margin-left:8px">
+              <summary style="font-size:10px;font-weight:600;color:var(--accent2);letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${sc.units.length})</summary>
+              <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+              ${scRows}
+              </tbody></table></div>
+            </details>`;
+          } else {
+            subcatHtml+=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+              ${scRows}
+              </tbody></table></div>`;
+          }
+        }
+        eqInner+=`<details open style="margin-top:6px">
+          <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${catCount})</summary>
+          ${subcatHtml}
+        </details>`;
+      }
+      eqSection=`
       <details open style="margin-top:12px">
         <summary style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--text3)">▸</span> 🔧 Оборудование (${eqHere.length})</summary>
-        ${eqSummaryRows}
-        ${eqDetailSection}
-      </details>`:'';
+        ${eqInner}
+      </details>`;
+    }
 
     const canEdit=can('tech_director')||can('exec_director')||can('admin');
     const titleEmoji=hasCrit?' 🔴':' 🟢';
