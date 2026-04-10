@@ -249,7 +249,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="modal-title"><span id="item-modal-title">Новая позиция</span><button class="dr-close" onclick="safeCloseModal('item-modal')">×</button></div>
   <input type="hidden" id="item-id"/>
   <div class="field"><div class="fl">Название *</div><input class="fin" id="item-name" placeholder="DNP DS 40, Бумага 10x15..."/></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:10px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="field"><div class="fl">Тип *</div>
       <select class="fselect" id="item-type" onchange="updateCategorySelect()">
         <option value="consumable">📦 Расходник</option>
@@ -257,12 +257,18 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
       </select>
     </div>
     <div class="field"><div class="fl">Категория *</div>
-      <select class="fselect" id="item-category"></select>
+      <select class="fselect" id="item-category" onchange="updateSubcategorySelect()"></select>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 80px;gap:10px">
+    <div class="field"><div class="fl">Подкатегория</div>
+      <select class="fselect" id="item-subcategory" onchange="onSubcategoryChange()"></select>
     </div>
     <div class="field"><div class="fl">Сокр.</div>
       <input class="fin" id="item-prefix" placeholder="P" maxlength="4" style="text-transform:uppercase;text-align:center"/>
     </div>
   </div>
+  <input type="hidden" id="item-subcategory-id"/>
   <div class="field"><div class="fl">Единица измерения</div>
     <select class="fselect" id="item-unit" onchange="onItemUnitChange()">
       <option value="Штука">🔹 Штука</option>
@@ -605,7 +611,10 @@ function getCategoriesForType(type){return type==='equipment'?EQUIPMENT_CATEGORI
 function getCategoryLabel(type,value){
   const all=[...EQUIPMENT_CATEGORIES,...CONSUMABLE_CATEGORIES];
   const found=all.find(c=>c.value===value);
-  return found?found.label:(value||'—');
+  if(found) return found.label;
+  const sc=allSubcategories.find(s=>s.parent_category===value);
+  if(sc) return `${sc.icon} ${sc.name}`;
+  return value||'—';
 }
 function getCategoryPrefix(type,value){
   const cats=getCategoriesForType(type);
@@ -623,12 +632,20 @@ async function loadCategoriesFromApi() {
       CONSUMABLE_CATEGORIES.length = 0;
       data.consumable.forEach(c => CONSUMABLE_CATEGORIES.push(c));
     }
+    if (data && data.all_subcategories) {
+      allSubcategories = data.all_subcategories;
+    }
   } catch (e) {
     console.warn('Categories API fallback to hardcoded:', e.message);
   }
 }
 let venues=[],users=[];
 let equipmentListCache=[];
+let allSubcategories=[];
+let itemsFilterType='all';
+let itemsFilterCat='';
+let itemsFilterSubcat='';
+let itemsSearchQuery='';
 let refreshLock=null;
 let lastForecastRows=[];
 let matrixProblemsOnly=false;
@@ -1926,34 +1943,121 @@ async function reactivateWarehouse(id) {
 async function loadItems() {
   try {
     items = await api('GET', '/inventory-items');
-    const items_all = items;
-    const c = document.getElementById('content');
-    const canEdit = can('tech_director') || can('exec_director') || can('admin');
-    const TYPE_LABELS = { consumable: '📦 Расходник', equipment: '🔧 Оборудование' };
-    c.innerHTML = `
-      <div class="section">
-        <div class="section-title">📋 Справочник позиций
-          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
-        </div>
-        ${items_all.length ? `<div class="table-wrap"><table class="tbl">
-          <thead><tr><th style="width:36px"></th><th>Название</th><th>Тип</th><th>Категория</th><th style="width:50px">Сокр.</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
-          <tbody>
-          ${items_all.map(it => `<tr style="${it.is_active ? '' : 'opacity:.4'}">
-            <td style="width:36px;padding:4px">${it.photo_url ? `<img src="${API_ROOT}${it.photo_url}" data-lightbox="${esc(API_ROOT + it.photo_url)}" onclick="event.stopPropagation();openLightbox(this.getAttribute('data-lightbox'))" style="cursor:zoom-in;width:32px;height:32px;border-radius:6px;object-fit:cover"/>` : `<span style="display:inline-block;width:32px;height:32px;border-radius:6px;background:var(--bg3)"></span>`}</td>
-            <td>${esc(it.name)}</td>
-            <td style="font-size:11px">${TYPE_LABELS[it.item_type] || it.item_type}</td>
-            <td style="font-size:11px">${getCategoryLabel(it.item_type, it.category)}</td>
-            <td style="text-align:center;font-size:11px;font-weight:600;color:var(--accent2)">${esc(it.category_prefix || '')}</td>
-            <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
-            <td style="color:var(--text3)">${esc(it.unit || 'шт')}${it.units_per_pack ? `<div style="font-size:9px;color:var(--accent2)">${it.units_per_pack}/${esc(it.pack_unit||'упак.')}</div>` : ''}</td>
-            <td>${it.reorder_point > 0 ? fmtNum(it.reorder_point) : '—'}</td>
-            <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
-            <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it)})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}</td>
-          </tr>`).join('')}
-          </tbody>
-        </table></div>` : '<div style="color:var(--text3)">Нет позиций. Добавьте первую.</div>'}
-      </div>`;
+    renderItemsCatalog();
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
+}
+
+function renderItemsCatalog() {
+  const c = document.getElementById('content');
+  const canEdit = can('tech_director') || can('exec_director') || can('admin');
+
+  let filtered = items.filter(it => {
+    if (itemsFilterType !== 'all' && it.item_type !== itemsFilterType) return false;
+    if (itemsFilterCat && it.category !== itemsFilterCat) return false;
+    if (itemsFilterSubcat && String(it.subcategory_id || '') !== itemsFilterSubcat) return false;
+    if (itemsSearchQuery) {
+      const q = itemsSearchQuery.toLowerCase();
+      const nameMatch = (it.name || '').toLowerCase().includes(q);
+      const supplierMatch = (it.supplier || '').toLowerCase().includes(q);
+      const catMatch = (it.subcategory_name || it.category || '').toLowerCase().includes(q);
+      if (!nameMatch && !supplierMatch && !catMatch) return false;
+    }
+    return true;
+  });
+
+  const typeForCats = itemsFilterType !== 'all' ? itemsFilterType : null;
+  const catsForFilter = [...new Set(items.filter(i => !typeForCats || i.item_type === typeForCats).map(i => i.category).filter(Boolean))];
+  const catOptions = catsForFilter.map(cv => {
+    const lbl = getCategoryLabel(null, cv);
+    return `<option value="${esc(cv)}" ${itemsFilterCat === cv ? 'selected' : ''}>${esc(lbl)}</option>`;
+  }).join('');
+
+  const subcatsForFilter = itemsFilterCat
+    ? allSubcategories.filter(s => s.parent_category === itemsFilterCat && (!typeForCats || s.item_type === typeForCats))
+    : [];
+  const subcatOptions = subcatsForFilter.map(s =>
+    `<option value="${s.id}" ${itemsFilterSubcat === s.id ? 'selected' : ''}>${esc(s.icon)} ${esc(s.name)}</option>`
+  ).join('');
+
+  const groups = new Map();
+  for (const it of filtered) {
+    const typeKey = it.item_type || 'consumable';
+    if (!groups.has(typeKey)) groups.set(typeKey, new Map());
+    const catKey = it.category || 'other';
+    if (!groups.get(typeKey).has(catKey)) groups.get(typeKey).set(catKey, []);
+    groups.get(typeKey).get(catKey).push(it);
+  }
+
+  const renderRow = (it) => `<tr style="${it.is_active ? '' : 'opacity:.4'}">
+    <td style="width:36px;padding:4px">${it.photo_url ? `<img src="${API_ROOT}${it.photo_url}" data-lightbox="${esc(API_ROOT + it.photo_url)}" onclick="event.stopPropagation();openLightbox(this.getAttribute('data-lightbox'))" style="cursor:zoom-in;width:32px;height:32px;border-radius:6px;object-fit:cover"/>` : `<span style="display:inline-block;width:32px;height:32px;border-radius:6px;background:var(--bg3)"></span>`}</td>
+    <td>${esc(it.name)}${it.subcategory_name ? `<div style="font-size:9px;color:var(--text3)">${esc(it.subcategory_icon||'')} ${esc(it.subcategory_name)}</div>` : ''}</td>
+    <td style="text-align:center;font-size:11px;font-weight:600;color:var(--accent2)">${esc(it.category_prefix || it.subcategory_prefix || '')}</td>
+    <td style="color:var(--text3);font-size:11px">${esc(it.supplier || '—')}</td>
+    <td style="color:var(--text3)">${esc(it.unit || 'шт')}${it.units_per_pack ? `<div style="font-size:9px;color:var(--accent2)">${it.units_per_pack}/${esc(it.pack_unit||'упак.')}</div>` : ''}</td>
+    <td>${it.reorder_point > 0 ? fmtNum(it.reorder_point) : '—'}</td>
+    <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
+    <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}</td>
+  </tr>`;
+
+  let tablesHtml = '';
+  const typeOrder = ['consumable', 'equipment'];
+  for (const typeKey of typeOrder) {
+    const catMap = groups.get(typeKey);
+    if (!catMap) continue;
+    const typeLabel = typeKey === 'consumable' ? '📦 Расходники' : '🔧 Оборудование';
+    const typeCount = [...catMap.values()].reduce((s, arr) => s + arr.length, 0);
+
+    tablesHtml += `<details class="eq-group" open style="margin-bottom:16px">
+      <summary class="eq-group-summary" style="font-size:14px;font-weight:700;padding:10px 14px;cursor:pointer">
+        ${typeLabel} <span style="color:var(--text3);font-weight:400;font-size:12px">(${typeCount})</span>
+        <span class="eq-group-chevron" style="float:right">▸</span>
+      </summary>
+      <div style="padding:4px 0">`;
+
+    const catEntries = [...catMap.entries()].sort((a, b) => getCategoryLabel(typeKey, a[0]).localeCompare(getCategoryLabel(typeKey, b[0]), 'ru'));
+
+    for (const [catKey, catItems] of catEntries) {
+      const catLabel = getCategoryLabel(typeKey, catKey);
+      tablesHtml += `<details style="margin-bottom:8px" open>
+        <summary style="font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;padding:6px 0;border-bottom:1px solid var(--border)">
+          ${catLabel} <span style="color:var(--text3);font-weight:400;font-size:11px">(${catItems.length})</span>
+        </summary>
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th style="width:36px"></th><th>Название</th><th style="width:50px">Сокр.</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
+          <tbody>${catItems.map(renderRow).join('')}</tbody>
+        </table></div>
+      </details>`;
+    }
+
+    tablesHtml += '</div></details>';
+  }
+
+  c.innerHTML = `
+    <div class="section">
+      <div class="section-title" style="flex-wrap:wrap;gap:8px">
+        <span>📋 Справочник позиций</span>
+        <span style="color:var(--text3);font-size:11px;font-weight:400">(${filtered.length} из ${items.length})</span>
+        ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <input class="fin" type="text" placeholder="🔍 Поиск по названию..." value="${esc(itemsSearchQuery)}" oninput="itemsSearchQuery=this.value;renderItemsCatalog()" style="width:200px;font-size:11px"/>
+        <select class="fselect" style="width:auto;font-size:11px" onchange="itemsFilterType=this.value;itemsFilterCat='';itemsFilterSubcat='';renderItemsCatalog()">
+          <option value="all" ${itemsFilterType==='all'?'selected':''}>Все типы</option>
+          <option value="consumable" ${itemsFilterType==='consumable'?'selected':''}>📦 Расходники</option>
+          <option value="equipment" ${itemsFilterType==='equipment'?'selected':''}>🔧 Оборудование</option>
+        </select>
+        <select class="fselect" style="width:auto;font-size:11px" onchange="itemsFilterCat=this.value;itemsFilterSubcat='';renderItemsCatalog()">
+          <option value="">Все категории</option>
+          ${catOptions}
+        </select>
+        ${subcatOptions ? `<select class="fselect" style="width:auto;font-size:11px" onchange="itemsFilterSubcat=this.value;renderItemsCatalog()">
+          <option value="">Все подкатегории</option>
+          ${subcatOptions}
+        </select>` : ''}
+        ${(itemsFilterCat || itemsFilterSubcat || itemsSearchQuery) ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="itemsFilterType='all';itemsFilterCat='';itemsFilterSubcat='';itemsSearchQuery='';renderItemsCatalog()">✕ Сбросить</button>` : ''}
+      </div>
+      ${filtered.length ? tablesHtml : '<div style="color:var(--text3);padding:20px;text-align:center">Нет позиций' + (itemsSearchQuery || itemsFilterCat ? ' по заданным фильтрам' : '. Добавьте первую.') + '</div>'}
+    </div>`;
 }
 
 function onItemPhotoSelected(input) {
@@ -1985,6 +2089,7 @@ function openItemModal(it) {
   document.getElementById('item-type').value = it?.item_type || 'consumable';
   document.getElementById('item-unit').value = (it?.unit === 'Упаковка') ? 'Упаковка' : 'Штука';
   document.getElementById('item-prefix').value = '';
+  document.getElementById('item-subcategory-id').value = '';
   updateCategorySelect();
   const catVal = it?.category || '';
   document.getElementById('item-supplier').setAttribute('data-current', it?.supplier || '');
@@ -1994,12 +2099,15 @@ function openItemModal(it) {
       const opt = document.createElement('option');
       opt.value = catVal;
       opt.textContent = getCategoryLabel(it?.item_type || 'consumable', catVal);
-      const customOpt = sel.querySelector('option[value="__custom__"]');
-      if (customOpt) sel.insertBefore(opt, customOpt);
-      else sel.appendChild(opt);
+      sel.appendChild(opt);
     }
     sel.value = catVal;
-    document.getElementById('item-prefix').value = it?.category_prefix || getCategoryPrefix(it?.item_type || 'consumable', catVal) || '';
+    updateSubcategorySelect();
+    if (it?.subcategory_id) {
+      document.getElementById('item-subcategory').value = it.subcategory_id;
+      document.getElementById('item-subcategory-id').value = it.subcategory_id;
+    }
+    document.getElementById('item-prefix').value = it?.category_prefix || it?.subcategory_prefix || getCategoryPrefix(it?.item_type || 'consumable', catVal) || '';
   }, 0);
   document.getElementById('item-pack-unit').value = it?.pack_unit || '';
   document.getElementById('item-consumption-unit').value = it?.consumption_unit || '';
@@ -2021,7 +2129,7 @@ function openItemModal(it) {
     preview.innerHTML = '<span style="font-size:11px;color:var(--text3)">Нет фото</span>';
   }
   // Сбросить красную подсветку с прошлого раза
-  ['item-name','item-type','item-category','item-prefix','item-unit','item-desc','item-supplier','item-reorder','item-price','item-pack-unit','item-consumption-unit','item-units-per-pack'].forEach(fid => {
+  ['item-name','item-type','item-category','item-subcategory','item-prefix','item-unit','item-desc','item-supplier','item-reorder','item-price','item-pack-unit','item-consumption-unit','item-units-per-pack'].forEach(fid => {
     const el = document.getElementById(fid);
     if (el) el.style.borderColor = '';
   });
@@ -2036,6 +2144,53 @@ function onItemUnitChange() {
   if (packFields) packFields.style.display = (type === 'consumable' && unitVal === 'Упаковка') ? 'block' : 'none';
 }
 
+function updateSubcategorySelect() {
+  const type = document.getElementById('item-type').value;
+  const catVal = document.getElementById('item-category').value;
+  const sel = document.getElementById('item-subcategory');
+  if (!catVal) { sel.innerHTML = '<option value="">— сначала выберите категорию —</option>'; return; }
+  const subs = allSubcategories.filter(s => s.item_type === type && s.parent_category === catVal);
+  sel.innerHTML = (subs.length > 1 ? '<option value="">— выберите подкатегорию —</option>' : '') +
+    subs.map(s => `<option value="${s.id}" data-prefix="${esc(s.prefix)}">${esc(s.icon)} ${esc(s.name)}</option>`).join('') +
+    '<option value="__new__">+ Добавить подкатегорию...</option>';
+  if (subs.length === 1) {
+    sel.value = subs[0].id;
+    onSubcategoryChange();
+  }
+}
+
+function onSubcategoryChange() {
+  const sel = document.getElementById('item-subcategory');
+  if (sel.value === '__new__') {
+    const name = prompt('Название новой подкатегории:');
+    if (!name || !name.trim()) { sel.value = ''; return; }
+    const prefix = prompt('Сокращение (2-4 буквы, для инвентарных номеров):', name.trim().slice(0, 3).toUpperCase());
+    if (!prefix || !prefix.trim()) { sel.value = ''; return; }
+    const icon = prompt('Иконка (emoji):', '📦') || '📦';
+    const type = document.getElementById('item-type').value;
+    const catVal = document.getElementById('item-category').value;
+    api('POST', '/inventory-subcategories', {
+      item_type: type,
+      parent_category: catVal,
+      name: name.trim(),
+      prefix: prefix.trim().toUpperCase(),
+      icon: icon.trim(),
+    }).then(sc => {
+      allSubcategories.push({ id: sc.id, item_type: sc.item_type, parent_category: sc.parent_category, name: sc.name, icon: sc.icon, prefix: sc.prefix, unit: sc.unit, sort_order: sc.sort_order });
+      updateSubcategorySelect();
+      sel.value = sc.id;
+      onSubcategoryChange();
+      showToast('Подкатегория создана');
+    }).catch(e => { showToast(e.message, true); sel.value = ''; });
+    return;
+  }
+  const opt = sel.selectedOptions[0];
+  if (opt && opt.dataset.prefix) {
+    document.getElementById('item-prefix').value = opt.dataset.prefix;
+  }
+  document.getElementById('item-subcategory-id').value = sel.value || '';
+}
+
 function updateCategorySelect() {
   const type = document.getElementById('item-type').value;
   const packFields = document.getElementById('item-pack-fields');
@@ -2046,29 +2201,11 @@ function updateCategorySelect() {
   const sel = document.getElementById('item-category');
   const cats = getCategoriesForType(type);
   sel.innerHTML = '<option value="">— выберите категорию —</option>' +
-    cats.map(c => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('') +
-    '<option value="__custom__">+ Добавить свою...</option>';
+    cats.map(c => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('');
   sel.onchange = function () {
-    if (this.value === '__custom__') {
-      const name = prompt('Введите название новой категории.\n\nРекомендуем использовать существующие категории, чтобы не раздувать список.');
-      if (name && name.trim()) {
-        const val = name.trim().toLowerCase().replace(/[^a-zа-яё0-9]/gi, '_');
-        const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = name.trim();
-        const endOpt = sel.querySelector('option[value="__custom__"]');
-        if (endOpt) sel.insertBefore(opt, endOpt);
-        else sel.appendChild(opt);
-        sel.value = val;
-      } else {
-        sel.value = '';
-      }
-    }
-    if (this.value && this.value !== '__custom__' && this.value !== '') {
-      const cat = getCategoriesForType(document.getElementById('item-type').value).find(c => c.value === this.value);
-      if (cat && !document.getElementById('item-prefix').value) document.getElementById('item-prefix').value = cat.prefix;
-    }
+    updateSubcategorySelect();
   };
+  updateSubcategorySelect();
 }
 
 async function loadSuppliersList() {
@@ -2133,6 +2270,7 @@ async function saveItem() {
     item_type: document.getElementById('item-type').value,
     unit: document.getElementById('item-unit').value || 'Штука',
     category: document.getElementById('item-category').value || null,
+    subcategory_id: document.getElementById('item-subcategory-id').value || null,
     category_prefix: document.getElementById('item-prefix').value.trim().toUpperCase() || null,
     description: document.getElementById('item-desc').value.trim() || null,
     supplier: document.getElementById('item-supplier').value.trim() || null,
