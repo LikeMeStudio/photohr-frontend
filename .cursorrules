@@ -1,94 +1,122 @@
 # PhotoHR — Frontend (.cursorrules)
-# Фронтенд HR-системы для LikeMe Studio
+# Обновлено: 10.04.2026 — сгенерировано по коду HTML/JS в `frontend/`
 
-## ОБЯЗАТЕЛЬНО ПЕРЕД ЛЮБОЙ ЗАДАЧЕЙ
+## ОБЯЗАТЕЛЬНО ПЕРЕД ЗАДАЧЕЙ
 
-Прочитай `frontend/MASTER_CONTEXT.md`.
-Это единственный актуальный контекст для фронтенда.
-Архивные ТЗ и старые контексты использовать только как историческую справку.
+1. Прочитай **`../backend/MASTER_CONTEXT.md`** — стек, API, роли, модули.
+2. Открой целевую страницу `*.html` и найди блок `<script>` с `api`, `hasAnyRole`, навигацией — паттерны дублируются между страницами с мелкими отличиями.
 
-## СТЕК
-- Vanilla JS (без фреймворков — осознанное решение)
-- Несколько HTML-страниц на GitHub Pages (не SPA)
-- Shared auth через localStorage (fhr_access, fhr_refresh)
-- Тёмная тема: CSS переменные --bg, --accent, --rank1/2/3
-- Шрифты: Unbounded (заголовки) + Golos Text (тело)
+## АРХИТЕКТУРА
 
-## ДЕПЛОЙ
-- GitHub Pages: https://likemestudio.github.io/photohr-frontend/
-- Репо: LikeMeStudio/photohr-frontend
-- Auto-deploy при push в main
-- Бэкенд API: https://fotohr-server-production.up.railway.app/api
+Один файл = одна страница. **15 HTML** (строки по `wc -l`, 10.04.2026):
 
-## СТРАНИЦЫ (10 файлов)
-1. `index.html` (~4402) — Главная: карточки сотрудников, drawer, фильтры, админка
-2. `recruiting.html` (~1362) — Канбан рекрутинга
-3. `venue.html` (~2263) — Интерфейс площадки
-4. `calendar.html` (~620) — Календарь мероприятий
-5. `schedule.html` (~667) — Расписание/планирование
-6. `stock.html` (~1324) — Склад
-7. `team.html` (~2062) — Команда
-8. `aquagrim.html` (~1285) — Аквагрим направление
-9. `my.html` (~314) — ЛК фотографа
-10. `checkin.html` (~346) — Мобильный QR-сканер
+| Файл | Строк | Назначение |
+|------|------:|------------|
+| `index.html` | 660 | Логин / регистрация / Google, редирект после успеха |
+| `admin.html` | 2999 | Пользователи, роли, площадки, аналитика, модалки (в т.ч. iframe) |
+| `photographers.html` | 4035 | Сетка карточек сотрудников, фильтры, drawer, комментарии |
+| `schedule.html` | 3093 | Расписание v2 (вкладки) |
+| `stock.html` | 4441 | Склад: табы, таблицы, модалки, drawer, DnD |
+| `venue.html` | 3247 | Площадка: смены, отчёты, live-shift, бонусы |
+| `team.html` | 2246 | Управленческая команда |
+| `aquagrim.html` | 1371 | Аквагрим |
+| `my.html` | 1597 | ЛК сотрудника |
+| `recruiting.html` | 1398 | Рекрутинг, канбан |
+| `shift.html` | 1133 | Рабочая смена (live shift, цифровые продажи) |
+| `calendar.html` | 621 | Календарь / архивный сценарий |
+| `checkin.html` | 511 | QR-чекин |
+| `accounting.html` | 1290 | Управленческий учёт (`/mgmt/*`) |
+| `guest.html` | 172 | Публичная страница гостя (фото/заказы) |
 
-## АВТОРИЗАЦИЯ
-- Login только через index.html (email+password или Google OAuth)
-- accessToken сохраняется в localStorage('fhr_access')
-- refreshToken в localStorage('fhr_refresh')
-- Все страницы при загрузке: если нет токенов → redirect на index.html
-- При 401 → auto-refresh → retry
-- Google OAuth redirect_uri всегда без index.html (фикс redirect_uri_mismatch)
+**Сумма:** 28814 строк HTML. Стили и логика — **инлайн** в том же файле (нет сборщика).
 
-## НАВИГАЦИЯ
-- Единая на всех страницах: Сотрудники / Рекрутинг / Площадка / Склад / Календарь
-- index.html — динамическая по ролям (recruiter видит только Рекрутинг и т.д.)
-- Остальные — статичная (все ссылки)
-- my.html добавляет "📷 Мой профиль"
+## ОБЩИЕ ПАТТЕРНЫ
 
-## CSS ПЕРЕМЕННЫЕ (единые для всех страниц)
-```css
---bg:#0f0f13; --bg2:#16161d; --bg3:#1e1e28;
---card:#1a1a23; --card-h:#1f1f2a;
---border:#2e2e3d; --border2:#3a3a4f;
---text:#e8e8f0; --text2:#9090a8; --text3:#5a5a72;
---accent:#7c6cff; --accent2:#9b8dff;
---rank1:#3ecf8e; --rank2:#f5a623; --rank3:#f25555;
-```
+### API base
+Типично (см. `index.html`):
 
-## ROLE_LABELS / ROLE_COLORS (11 ролей)
 ```js
-const ROLE_LABELS = {
-  viewer:'Линейный менеджер', manager:'Менеджер', editor:'Редактор',
-  hr_director:'HR-директор', admin:'Администратор', venue_admin:'Админ площадки',
-  print_operator:'Оператор печати', stock_manager:'Складской менеджер',
-  controller:'Контролёр', photographer_user:'Фотограф', recruiter:'Рекрутер'
-};
+const API = window.location.hostname === 'localhost'
+  ? 'http://localhost:3001/api'
+  : 'https://fotohr-server-production.up.railway.app/api';
 ```
+
+На части страниц переменная называется иначе, но паттерн **localhost → :3001** vs **production Railway** тот же. Запросы: `fetch(API + path, …)`.
+
+### Auth и токены
+- `localStorage.getItem('fhr_access')` — access JWT  
+- `localStorage.getItem('fhr_refresh')` — refresh  
+- Заголовок: `Authorization: 'Bearer ' + accessToken`  
+- **401:** попытка `POST .../auth/refresh` с телом `{ refreshToken }`, обновление обоих ключей в `localStorage`, повтор исходного запроса (часто через `refreshLock`, чтобы не дублировать refresh).  
+- Логаут: удалить оба ключа, редирект на `index.html`.
+
+### `api(method, path, body)`
+Повторяется на страницах (с лёгкими вариациями): JSON body, парсинг ошибок, refresh при 401.
+
+### `esc(s)`
+Экранирование для вставки в HTML (замена `<`, `>` и т.д.) — **все пользовательские строки** перед интерполяцией в шаблоны.
+
+### `toast(msg, isError?)` / `showToast`
+Уведомления внизу экрана; класс `.toast`, иногда `.error`.
+
+### `hasAnyRole(rolesArray)` vs `hasAnyRoleNav(rolesArray)`
+- **`hasAnyRole`** — основная проверка по `currentUser.role` (после загрузки профиля): кнопки внутри страницы, опасные действия, табы.
+- **`hasAnyRoleNav`** — встречается на отдельных страницах (например `aquagrim.html`) для **построения верхней навигации** до или без полного совпадения с остальными файлами.  
+При добавлении пункта меню **копируй тот же хелпер, что уже есть на этой странице**, не смешивай произвольно.
+
+### Навигация (`setupNav`)
+Паттерн: массив ссылок, «Мой профиль» → `my.html`, «Команда» → `photographers.html`, условно `recruiting`, `venue`, `stock`, `schedule`, `accounting` если `mgmtNavHasAccess` или роль подходит. Активная вкладка подсвечивается классом `f-btn active`.
+
+## РОЛЕВАЯ НАВИГАЦИЯ (типовые пороги из кода)
+- **Рекрутинг:** часто `recruiter`, `hr_manager`, `hr_director`, `exec_director`, `admin`
+- **Отчёты площадки (`venue.html`):** `photographer_user`, `hr_manager`, `cashier`, `hr_director`, `tech_director`, `site_specialist`, `exec_director`, `admin`
+- **Склад:** часто `tech_director`, `hr_director`, `exec_director`, `admin`
+- **Расписание:** часто `hr_manager`, `hr_director`, `exec_director`, `admin`
+- **Учёт (`accounting.html`):** флаг `mgmtNavHasAccess` после запроса к API доступа mgmt (не только глобальная роль)
+- **Админ-функции паспортов / схем:** часто `hr_director`, `exec_director`, `admin`
+
+Точные списки смотри в `setupNav` и условиях `display` на конкретной странице.
+
+## CSS / СТИЛИ
+
+Две основные палитры:
+- **«Golos» страницы:** `:root` с `--bg`, `--bg2`, `--bg3`, `--card`, `--border`, `--text`, `--text2`, `--accent`, `--rank1/2/3`
+- **«Inter» страницы** (`guest.html`, `shift.html`): `--bg1`, `--bg2`, `--bg3`, `--text1`, `--border`, `--accent`, `--radius`
+
+Тёмная тема, `color-scheme: dark` где указано. Адаптив: `@media (max-width: 768px)`, safe-area для iOS. Шрифты: Google Fonts **Unbounded** + **Golos Text** или **Inter**.
+
+## UI КОМПОНЕНТЫ (паттерны в CSS-классах)
+- **Drawer:** боковая панель `.drawer` + `.drawer-backdrop`
+- **Modal / overlay:** `.overlay`, `.modal`, `.dr-close`
+- **Табы:** `.tabs` / `.tab` или `#admin-tabs`
+- **Таблицы:** `.tbl`, `.table-wrap`, горизонтальный скролл на мобильных
+- **DnD (склад и др.):** классы `dnd-over`, `dnd-source`, `dnd-dragging`; перенос строк — **data-*** атрибуты, без `onclick` с сырыми UUID в inline HTML для перетаскиваемых элементов
+- **Lightbox / превью фото:** `.lightbox` на страницах с медиа
+- **admin iframe:** `.admin-overlay`, `.admin-iframe` (~960px на десктопе)
+
+## СВЯЗЬ С API (ориентиры)
+- Auth: `/auth/login`, `/auth/register`, `/auth/refresh`, Google callback — на `index.html`
+- Сотрудники: `/photographers`, комментарии, менторство — `photographers.html`
+- Расписание: `/events`, `/schedule-*`, staffing — `schedule.html`
+- Склад: `/warehouses`, `/stock-*`, `/equipment-*`, `/purchase-*` — `stock.html`
+- Площадка: смены, отчёты, чекины — `venue.html`
+- Чекин: `/shifts/:id/generate-qr`, submit checkin — `checkin.html`
+- Mgmt: `/mgmt/*` — `accounting.html`
+- Live shift / продажи в смене — `shift.html` + `live-shift.js` / `digital-sales` эндпоинты на бэке
 
 ## ПРАВИЛА
-1. Один файл = одна страница (не разбивать на компоненты)
-2. Все стили инлайн в <style> (не выносить в CSS файлы)
-3. Все скрипты инлайн в <script> (не выносить в JS файлы)
-4. Toast для уведомлений: showToast(msg, isError)
-5. API функция единая на каждой странице с auto-refresh
-6. Минимум внешних зависимостей (только qrcode.js и html5-qrcode)
-
-## КЛЮЧЕВЫЕ ПАТТЕРНЫ
-- Drawer (боковая панель): index.html и recruiting.html
-- Modal (модальные окна): overlay.open/close через classList
-- Kanban: CSS grid/flex с drag-and-drop (HTML5 native)
-- Таблицы: <table> с input[type=number] и авторасчётом итогов
-
-## БРЕНД
-- Проект: PhotoHR (не FotoHR)
-- Компания: LikeMe Studio
-- Логотип: Photo<span style="color:accent">HR</span>
+1. **Без фреймворков** — только ванильный JS внутри HTML.
+2. Не выносить общий JS в отдельные файлы без отдельной задачи (сейчас всё инлайн).
+3. **`hasAnyRole` vs `hasAnyRoleNav`** — не путать; на новой странице согласовать с соседними файлами.
+4. Любой текст пользователя / с сервера в DOM — через **`esc()`**.
+5. Не использовать `innerHTML` с неэкранированными данными.
+6. **DnD:** идентификаторы в `data-*`, обработчики `dragstart`/`drop` на контейнерах — избегать небезопасных inline-обработчиков с динамическими id.
+7. Новые страницы — сохранить паттерн `API`, refresh при 401, `doLogout`, `setupNav`.
+8. CORS и хост API уже настроены на бэке; для локальной разработки использовать `localhost:3001`.
 
 ## НЕ ДЕЛАТЬ
-- Не использовать React/Vue/Angular
-- Не выносить в отдельные JS/CSS файлы
-- Не менять CSS переменные
-- Не менять формат токенов в localStorage
-- Не менять API URL константу
-- Не убирать auto-refresh логику
+- Не подключать React/Vue/сборщик без миграционного решения.
+- Не хардкодить секреты и токены в HTML.
+- Не ослаблять экранирование (`esc`) ради «быстрого» UI.
+- Не ломать ключи `localStorage` (`fhr_access`, `fhr_refresh`) — мобильное приложение и страницы завязаны на них.
+- Не удалять ветки refresh при 401 без замены на эквивалент.
