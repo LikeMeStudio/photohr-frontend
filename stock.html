@@ -1809,10 +1809,15 @@ async function renderAllWarehousesPanel(host) {
             const modelArr2 = [...byModel2.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
             let modelHtml2 = '';
             for (const mdl of modelArr2) {
+              const mdlRows2 = mdl.units.map(e => whPanelBuildEquipmentTableRows([e], wh.id, canDnd)).join('');
               if (modelArr2.length > 1) {
-                modelHtml2 += `<tr><td colspan="4" style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;border:none">${esc(mdl.name)} (${mdl.units.length})</td></tr>`;
+                modelHtml2 += `<tr><td colspan="4" style="border:none;padding:0"><details open>
+                  <summary style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
+                  <table class="tbl" style="font-size:11px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows2}</tbody></table>
+                </details></td></tr>`;
+              } else {
+                modelHtml2 += mdlRows2;
               }
-              modelHtml2 += mdl.units.map(e => whPanelBuildEquipmentTableRows([e], wh.id, canDnd)).join('');
             }
             const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th>Позиция</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${modelHtml2}</tbody></table></div>`;
             if (showScHeader) {
@@ -1824,7 +1829,7 @@ async function renderAllWarehousesPanel(host) {
               const scColor = isDeficit ? 'var(--rank3)' : 'var(--accent2)';
               const scCountLbl = scMin > 0 ? `${activeCount} из ${scMin}` : `${activeCount}`;
               const threshBadge = scId && canMin
-                ? ` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(wh.id)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh.name)}" onclick="event.stopPropagation();setEqSubcatThresholdFromCell(this)">мин:${scMin > 0 ? scMin : '—'} ✏️</span>`
+                ? ` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(wh.id)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh.name)}" onclick="setEqSubcatThresholdFromCell(this,event)">мин:${scMin > 0 ? scMin : '—'} ✏️</span>`
                 : (scMin > 0 ? ` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>` : '');
               html += `<details open style="margin:4px 0 0 8px">
                 <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLbl})${threshBadge}</summary>
@@ -1937,10 +1942,15 @@ async function renderWhStockPanel(whId){
           const modelArr=[...byModel.values()].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
           let modelHtml='';
           for(const mdl of modelArr){
+            const mdlRows=mdl.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
             if(modelArr.length>1){
-              modelHtml+=`<tr><td colspan="4" style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;border:none">${esc(mdl.name)} (${mdl.units.length})</td></tr>`;
+              modelHtml+=`<tr><td colspan="4" style="border:none;padding:0"><details open>
+                <summary style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
+                <table class="tbl" style="font-size:11px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows}</tbody></table>
+              </details></td></tr>`;
+            } else {
+              modelHtml+=mdlRows;
             }
-            modelHtml+=mdl.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
           }
           const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th>Позиция</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${modelHtml}</tbody></table></div>`;
           if(showScHeader){
@@ -1952,7 +1962,7 @@ async function renderWhStockPanel(whId){
             const scColor=isDeficit?'var(--rank3)':'var(--accent2)';
             const scCountLabel=scMin>0?`${activeCount} из ${scMin}`:`${activeCount}`;
             const threshBadge=scId&&canMin
-              ?` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(whId)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh?.name||whId)}" onclick="event.stopPropagation();setEqSubcatThresholdFromCell(this)">мин:${scMin>0?scMin:'—'} ✏️</span>`
+              ?` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(whId)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh?.name||whId)}" onclick="setEqSubcatThresholdFromCell(this,event)">мин:${scMin>0?scMin:'—'} ✏️</span>`
               :(scMin>0?` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>`:'');
             subcatHtml+=`<details open style="margin-top:4px;margin-left:8px">
               <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLabel})${threshBadge}</summary>
@@ -3437,7 +3447,7 @@ async function buildEquipmentMatrix(cityFilter) {
 
         const whName = warehouses.find(w => String(w.id) === String(wid))?.name || '';
         const editThreshAttr = canEdit
-          ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" data-sc-id="${esc(sc.id)}" data-wh-id="${esc(wid)}" data-min="${String(minQ)}" data-sc-name="${esc(sc.name)}" data-wh-name="${esc(whName)}" onclick="setEqSubcatThresholdFromCell(this)"`
+          ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" data-sc-id="${esc(sc.id)}" data-wh-id="${esc(wid)}" data-min="${String(minQ)}" data-sc-name="${esc(sc.name)}" data-wh-name="${esc(whName)}" onclick="setEqSubcatThresholdFromCell(this,event)"`
           : ` style="${cellStyle};text-align:center;font-size:11px"`;
 
         return `<td class="matrix-wh-cell"${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
@@ -3519,7 +3529,8 @@ async function buildEquipmentMatrix(cityFilter) {
   }
 }
 
-function setEqSubcatThresholdFromCell(el) {
+function setEqSubcatThresholdFromCell(el, ev) {
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
   const scId = el.dataset.scId;
   const whId = el.dataset.whId;
   const currentMin = parseFloat(el.dataset.min) || 0;
@@ -4894,6 +4905,20 @@ function closeEqDrawer() {
   document.getElementById('eq-drawer-backdrop').classList.remove('open');
   document.getElementById('eq-drawer').classList.remove('open');
 }
+
+// ESC закрывает модалки и drawer
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  const drBd = document.getElementById('eq-drawer-backdrop');
+  if (drBd && drBd.classList.contains('open')) { closeEqDrawer(); return; }
+  const overlays = document.querySelectorAll('.overlay.open');
+  if (overlays.length) {
+    const last = overlays[overlays.length - 1];
+    last.classList.remove('open');
+    if (last.id && (last.id.endsWith('-modal') || last.id === 'thresh-edit-modal' || last.id === 'dnd-qty-modal')) last.remove();
+    return;
+  }
+});
 
 function openWriteoffModal(eqId) {
   const eq = (equipmentListCache || []).find(e => String(e.id) === String(eqId));
