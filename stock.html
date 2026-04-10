@@ -1667,8 +1667,8 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     return `<tr${drag} onclick="if(this.dataset.suppressEqClick==='1')return;openEqDrawer('${e.id}')" style="${canDnd ? 'cursor:grab;' : 'cursor:pointer;'}touch-action:none;user-select:none;-webkit-user-select:none">
       <td>${esc(e.item_name)}</td>
       <td style="text-align:center">${st}</td>
-      <td style="text-align:center;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
-      <td style="text-align:center;color:var(--accent2);font-size:11px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
+      <td style="text-align:center;color:var(--text3);font-size:12px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
+      <td style="text-align:center;color:var(--accent2);font-size:12px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
     </tr>`;
   }).join('');
 }
@@ -1679,7 +1679,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const st = whStockStatusEmoji(q, mnNum > 0 ? mnNum : mn);
   const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? fmtNum(mn) + ' уп.' : fmtNum(mn)) : '—';
   const minCell = canMin
-    ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:11px">${minVal} <span style="font-size:9px;color:var(--accent2)">✏️</span></span>`
+    ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:12px">${minVal} <span style="font-size:10px;color:var(--accent2)">✏️</span></span>`
     : `<span>${minVal}</span>`;
   const qMax = parseFloat(s.quantity) || 0;
   const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
@@ -1736,7 +1736,7 @@ async function renderAllWarehousesPanel(host) {
     for (const t of (thresholdsRaw || [])) threshMap.set(`${t.subcategory_id}_${t.warehouse_id}`, parseFloat(t.min_quantity) || 0);
 
     let html = `<div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
-      <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">📋 Все склады — сводка</div>`;
+      <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">📋 Все склады — сводка</div>`;
 
     for (const { wh, stock } of allStock) {
       const eqHere = (allEquip || []).filter(e => String(e.warehouse_id) === String(wh.id));
@@ -1770,33 +1770,33 @@ async function renderAllWarehousesPanel(host) {
       const whBadge = wh.warehouse_type === 'venue' ? `<span style="font-size:9px;color:var(--accent2);font-weight:600">НА ПЛОЩАДКЕ</span>` : `<span style="font-size:9px;color:var(--text3);font-weight:600">${esc(wh.warehouse_type === 'central' ? 'ЦЕНТРАЛЬНЫЙ' : wh.warehouse_type || '')}</span>`;
 
       html += `<details open style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-        <summary style="font-size:13px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px">
-          <span style="font-size:10px;color:var(--text3)">▸</span>
+        <summary style="font-size:15px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text3)">▸</span>
           🏢 ${esc(wh.name)} ${whBadge}
-          <span style="font-size:10px;color:var(--text3);margin-left:auto">${consumables.length} расх. · ${eqHere.length} обор.</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:auto">${consumables.length} расх. · ${eqHere.length} обор.</span>
         </summary>`;
 
       if (consArr.length) {
-        html += `<details open style="margin:8px 0 0 12px">
-          <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})</summary>`;
+        html += `<details open style="margin:10px 0 0 12px">
+          <summary style="font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})</summary>`;
         for (const [, cat] of consArr) {
-          html += `<div style="margin:6px 0 0 8px">
-            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${cat.items.length})</div>
-            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+          html += `<details open style="margin:8px 0 0 10px">
+            <summary style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})</summary>
+            <div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Кол-во</th><th style="font-size:11px">Ед.</th><th style="font-size:11px">Мин.</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>
             ${cat.items.map(s => whPanelBuildStockRow(s, wh.id, canMin, canDnd)).join('')}
             </tbody></table></div>
-          </div>`;
+          </details>`;
         }
         html += '</details>';
       }
 
       if (eqCatArr.length) {
-        html += `<details open style="margin:8px 0 0 12px">
-          <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">🔧 Оборудование (${eqHere.length})</summary>`;
+        html += `<details open style="margin:10px 0 0 12px">
+          <summary style="font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">🔧 Оборудование (${eqHere.length})</summary>`;
         for (const [, cat] of eqCatArr) {
           const catCount = [...cat.subcats.values()].reduce((s, sc) => s + sc.units.length, 0);
-          html += `<div style="margin:6px 0 0 8px">
-            <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${catCount})</div>`;
+          html += `<details open style="margin:8px 0 0 10px">
+            <summary style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${catCount})</summary>`;
           const scArr = [...cat.subcats.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
           for (const [scKey, sc] of scArr) {
             const showScHeader = cat.subcats.size > 1 || scKey !== '__none__';
@@ -1812,14 +1812,14 @@ async function renderAllWarehousesPanel(host) {
               const mdlRows2 = mdl.units.map(e => whPanelBuildEquipmentTableRows([e], wh.id, canDnd)).join('');
               if (modelArr2.length > 1) {
                 modelHtml2 += `<tr><td colspan="4" style="border:none;padding:0"><details open>
-                  <summary style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
-                  <table class="tbl" style="font-size:11px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows2}</tbody></table>
+                  <summary style="font-size:12px;font-weight:600;color:var(--text3);padding:8px 4px 3px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
+                  <table class="tbl" style="font-size:12px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows2}</tbody></table>
                 </details></td></tr>`;
               } else {
                 modelHtml2 += mdlRows2;
               }
             }
-            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th>Позиция</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${modelHtml2}</tbody></table></div>`;
+            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>${modelHtml2}</tbody></table></div>`;
             if (showScHeader) {
               const scId = sc.id;
               const threshKey = scId ? `${scId}_${wh.id}` : null;
@@ -1829,17 +1829,17 @@ async function renderAllWarehousesPanel(host) {
               const scColor = isDeficit ? 'var(--rank3)' : 'var(--accent2)';
               const scCountLbl = scMin > 0 ? `${activeCount} из ${scMin}` : `${activeCount}`;
               const threshBadge = scId && canMin
-                ? ` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(wh.id)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh.name)}" onclick="setEqSubcatThresholdFromCell(this,event)">мин:${scMin > 0 ? scMin : '—'} ✏️</span>`
-                : (scMin > 0 ? ` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>` : '');
-              html += `<details open style="margin:4px 0 0 8px">
-                <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLbl})${threshBadge}</summary>
+                ? ` <span style="font-size:10px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 5px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(wh.id)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh.name)}" onclick="setEqSubcatThresholdFromCell(this,event)">мин:${scMin > 0 ? scMin : '—'} ✏️</span>`
+                : (scMin > 0 ? ` <span style="font-size:10px;color:var(--text3)">мин:${scMin}</span>` : '');
+              html += `<details open style="margin:6px 0 0 10px">
+                <summary style="font-size:12px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLbl})${threshBadge}</summary>
                 ${tblWrap}
               </details>`;
             } else {
               html += tblWrap;
             }
           }
-          html += '</div>';
+          html += '</details>';
         }
         html += '</details>';
       }
@@ -1899,11 +1899,11 @@ async function renderWhStockPanel(whId){
     const consArr=[...consByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
     const consSection=consumables.length?`
       <details open style="margin-top:12px">
-        <summary style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--text3)">▸</span> 📦 Расходники (${consumables.length})</summary>
+        <summary style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text3)">▸</span> 📦 Расходники (${consumables.length})</summary>
         ${consArr.map(([catVal,cat])=>`
           <details open style="margin-top:6px">
-            <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})</summary>
-            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+            <summary style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})</summary>
+            <div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Кол-во</th><th style="font-size:11px">Ед.</th><th style="font-size:11px">Мин.</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>
             ${cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join('')}
             </tbody></table></div>
           </details>
@@ -1945,14 +1945,14 @@ async function renderWhStockPanel(whId){
             const mdlRows=mdl.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
             if(modelArr.length>1){
               modelHtml+=`<tr><td colspan="4" style="border:none;padding:0"><details open>
-                <summary style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
-                <table class="tbl" style="font-size:11px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows}</tbody></table>
+                <summary style="font-size:12px;font-weight:600;color:var(--text3);padding:8px 4px 3px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
+                <table class="tbl" style="font-size:12px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows}</tbody></table>
               </details></td></tr>`;
             } else {
               modelHtml+=mdlRows;
             }
           }
-          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th>Позиция</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${modelHtml}</tbody></table></div>`;
+          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>${modelHtml}</tbody></table></div>`;
           if(showScHeader){
             const scId=sc.id;
             const threshKey=scId?`${scId}_${whId}`:null;
@@ -1962,10 +1962,10 @@ async function renderWhStockPanel(whId){
             const scColor=isDeficit?'var(--rank3)':'var(--accent2)';
             const scCountLabel=scMin>0?`${activeCount} из ${scMin}`:`${activeCount}`;
             const threshBadge=scId&&canMin
-              ?` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(whId)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh?.name||whId)}" onclick="setEqSubcatThresholdFromCell(this,event)">мин:${scMin>0?scMin:'—'} ✏️</span>`
-              :(scMin>0?` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>`:'');
+              ?` <span style="font-size:10px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 5px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(whId)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh?.name||whId)}" onclick="setEqSubcatThresholdFromCell(this,event)">мин:${scMin>0?scMin:'—'} ✏️</span>`
+              :(scMin>0?` <span style="font-size:10px;color:var(--text3)">мин:${scMin}</span>`:'');
             subcatHtml+=`<details open style="margin-top:4px;margin-left:8px">
-              <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLabel})${threshBadge}</summary>
+              <summary style="font-size:12px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLabel})${threshBadge}</summary>
               ${tblWrap}
             </details>`;
           } else {
@@ -1973,13 +1973,13 @@ async function renderWhStockPanel(whId){
           }
         }
         eqInner+=`<details open style="margin-top:6px">
-          <summary style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${catCount})</summary>
+          <summary style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${catCount})</summary>
           ${subcatHtml}
         </details>`;
       }
       eqSection=`
       <details open style="margin-top:12px">
-        <summary style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--text3)">▸</span> 🔧 Оборудование (${eqHere.length})</summary>
+        <summary style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text3)">▸</span> 🔧 Оборудование (${eqHere.length})</summary>
         ${eqInner}
       </details>`;
     }
@@ -1989,7 +1989,7 @@ async function renderWhStockPanel(whId){
     const stockBlocks=[consSection,eqSection].filter(Boolean).join('');
     host.innerHTML=`
       <div class="wh-detail-panel" style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
-        <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Склад: ${esc(wh?.name||whId)}${titleEmoji}</div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Склад: ${esc(wh?.name||whId)}${titleEmoji}</div>
         ${stockBlocks}
         ${canEdit?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
           <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="startInventoryForWarehouse('${whId}')">📊 Инвентаризация</button>
