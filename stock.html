@@ -960,6 +960,7 @@ function whVenueBadgeHtml(w) {
 let touchDndData=null;
 let touchGhostEl=null;
 let touchStartTimer=null;
+let touchDndSourceRow=null;
 
 function touchDndStart(ev){
   if(ev.touches.length!==1)return;
@@ -978,6 +979,7 @@ function touchDndStart(ev){
       touchDndData={kind:'equipment',unit_id:eqId,from_warehouse_id:whId,equipment_name:name,serial_number:el.getAttribute('data-equipment-serial')||''};
     }else return;
 
+    touchDndSourceRow=el;
     el.classList.add('dnd-dragging');
     document.querySelectorAll('.wh-card-compact,.wh-mini').forEach(c=>{
       if(String(c.getAttribute('data-wh-id')||'')===String(whId||'')) c.classList.add('dnd-source');
@@ -1019,7 +1021,10 @@ function touchDndMove(ev){
 function touchDndEnd(ev){
   clearTimeout(touchStartTimer);
   touchStartTimer=null;
-  if(!touchDndData){return;}
+  if(!touchDndData){
+    touchDndSourceRow=null;
+    return;
+  }
   const touch=ev.changedTouches[0];
   if(touchGhostEl)touchGhostEl.style.display='none';
   const target=document.elementFromPoint(touch.clientX,touch.clientY);
@@ -1035,6 +1040,12 @@ function touchDndEnd(ev){
       dndOnDropWh(fakeEv,toWhId);
     }
   }
+  const srcRow = touchDndSourceRow;
+  touchDndSourceRow = null;
+  if (srcRow) {
+    srcRow.dataset.suppressEqClick = '1';
+    setTimeout(() => { delete srcRow.dataset.suppressEqClick; }, 0);
+  }
   touchDndData=null;
 }
 
@@ -1043,7 +1054,13 @@ function touchDndCancel(){
   touchStartTimer=null;
   if(touchGhostEl){touchGhostEl.remove();touchGhostEl=null;}
   document.querySelectorAll('.dnd-dragging,.dnd-source,.dnd-over').forEach(c=>{c.classList.remove('dnd-dragging');c.classList.remove('dnd-source');c.classList.remove('dnd-over');});
+  if (touchDndData && touchDndSourceRow) {
+    const srcRow = touchDndSourceRow;
+    srcRow.dataset.suppressEqClick = '1';
+    setTimeout(() => { delete srcRow.dataset.suppressEqClick; }, 0);
+  }
   touchDndData=null;
+  touchDndSourceRow=null;
 }
 
 function dndAllowDrop(ev){ev.preventDefault();const t=ev.currentTarget;if(t&&!t.classList.contains('dnd-over'))t.classList.add('dnd-over');}
@@ -1228,6 +1245,8 @@ function dndEquipmentRowDragStart(ev){
     if(String(c.getAttribute('data-wh-id')||'')===String(fromWh||'')) c.classList.add('dnd-source');
   });
   el.addEventListener('dragend',()=>{
+    el.dataset.suppressEqClick = '1';
+    setTimeout(() => { delete el.dataset.suppressEqClick; }, 0);
     el.classList.remove('dnd-dragging');
     document.querySelectorAll('.dnd-source').forEach(c=>c.classList.remove('dnd-source'));
     document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
@@ -1583,20 +1602,21 @@ function eqUnitStatusEmoji(st) {
   const m = { active: '🟢', repair: '🟡', written_off: '⚫', lost: '🔴' };
   return m[st] || '🟢';
 }
+/** Строки панели складов: openEqDrawer по клику (whPanelBuildEquipmentTableRows). */
 function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
   return eqHere.map(e => {
     const st = eqUnitStatusEmoji(e.status);
     const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
-    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none"` : '';
-    return `<tr${drag}>
+    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()"` : '';
+    return `<tr${drag} onclick="if(this.dataset.suppressEqClick==='1')return;openEqDrawer('${e.id}')" style="${canDnd ? 'cursor:grab;' : 'cursor:pointer;'}touch-action:none;user-select:none;-webkit-user-select:none">
       <td>${esc(e.item_name)}</td>
       <td style="font-weight:600;text-align:center">1</td>
       <td style="text-align:center;color:var(--text3)">шт</td>
       <td style="text-align:center">—</td>
       <td style="text-align:center">${st}</td>
       <td style="text-align:center;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
-      <td style="text-align:center;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
+      <td style="text-align:center;color:var(--accent2);font-size:11px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
     </tr>`;
   }).join('');
 }
@@ -1652,10 +1672,16 @@ function onWhCardClick(id,ev){
 async function renderAllWarehousesPanel(host) {
   try {
     const activeWh = warehouses.filter(w => w.is_active);
-    const [allStock, allEquip] = await Promise.all([
+    const canMin = can('tech_director') || can('exec_director') || can('admin');
+    const canDnd = can('tech_director') || can('hr_manager') || can('exec_director') || can('admin');
+
+    const [allStock, allEquip, thresholdsRaw] = await Promise.all([
       Promise.all(activeWh.map(w => api('GET', '/stock?warehouse_id=' + encodeURIComponent(w.id)).then(data => ({ wh: w, stock: data })).catch(() => ({ wh: w, stock: [] })))),
       api('GET', '/equipment').catch(() => []),
+      api('GET', '/subcategory-thresholds').catch(() => []),
     ]);
+    const threshMap = new Map();
+    for (const t of (thresholdsRaw || [])) threshMap.set(`${t.subcategory_id}_${t.warehouse_id}`, parseFloat(t.min_quantity) || 0);
 
     let html = `<div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
       <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">📋 Все склады — сводка</div>`;
@@ -1666,7 +1692,6 @@ async function renderAllWarehousesPanel(host) {
 
       if (!consumables.length && !eqHere.length) continue;
 
-      // Группировка расходников по категориям
       const consByCat = new Map();
       for (const s of consumables) {
         const catVal = s.item_category || 'other';
@@ -1676,7 +1701,6 @@ async function renderAllWarehousesPanel(host) {
       }
       const consArr = [...consByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
 
-      // Группировка оборудования по категории → подкатегории (единицы)
       const eqByCat = new Map();
       for (const e of eqHere) {
         const catVal = e.item_category || 'other';
@@ -1686,7 +1710,7 @@ async function renderAllWarehousesPanel(host) {
         const scKey = e.subcategory_id ? String(e.subcategory_id) : '__none__';
         const scLabel = e.subcategory_name || (e.item_name || 'Прочее');
         const scIcon = e.subcategory_icon || '';
-        if (!catGroup.subcats.has(scKey)) catGroup.subcats.set(scKey, { label: scLabel, icon: scIcon, units: [] });
+        if (!catGroup.subcats.has(scKey)) catGroup.subcats.set(scKey, { label: scLabel, icon: scIcon, id: e.subcategory_id, units: [] });
         catGroup.subcats.get(scKey).units.push(e);
       }
       const eqCatArr = [...eqByCat.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
@@ -1700,34 +1724,20 @@ async function renderAllWarehousesPanel(host) {
           <span style="font-size:10px;color:var(--text3);margin-left:auto">${consumables.length} расх. · ${eqHere.length} обор.</span>
         </summary>`;
 
-      // Расходники
       if (consArr.length) {
         html += `<details open style="margin:8px 0 0 12px">
           <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})</summary>`;
         for (const [, cat] of consArr) {
           html += `<div style="margin:6px 0 0 8px">
             <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${esc(cat.label)} (${cat.items.length})</div>
-            <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th></tr></thead><tbody>
-            ${cat.items.map(s => {
-              const q = parseFloat(s.quantity) || 0;
-              const mn = parseFloat(s.min_quantity) || 0;
-              const isCrit = mn > 0 && q <= mn;
-              const qDisp = s.units_per_pack ? `${q} уп. (${Math.round(q * parseFloat(s.units_per_pack))} ${esc(s.consumption_unit || 'шт')})` : fmtNum(q);
-              return `<tr>
-                <td>${esc(s.item_name)}</td>
-                <td style="font-weight:600;${isCrit ? 'color:var(--rank3)' : ''}">${qDisp}</td>
-                <td>${esc(s.consumption_unit || s.unit || 'шт')}</td>
-                <td>${mn > 0 ? fmtNum(mn) : '—'}</td>
-                <td>${isCrit ? '<span style="color:var(--rank3)">🔴</span>' : '<span style="color:var(--rank1)">🟢</span>'}</td>
-              </tr>`;
-            }).join('')}
+            <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
+            ${cat.items.map(s => whPanelBuildStockRow(s, wh.id, canMin, canDnd)).join('')}
             </tbody></table></div>
           </div>`;
         }
         html += '</details>';
       }
 
-      // Оборудование — единицы сгруппированные по категории → подкатегории
       if (eqCatArr.length) {
         html += `<details open style="margin:8px 0 0 12px">
           <summary style="font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">🔧 Оборудование (${eqHere.length})</summary>`;
@@ -1738,24 +1748,24 @@ async function renderAllWarehousesPanel(host) {
           const scArr = [...cat.subcats.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
           for (const [scKey, sc] of scArr) {
             const showScHeader = cat.subcats.size > 1 || scKey !== '__none__';
-            const EQ_ST = { active: '🟢', repair: '🔧', written_off: '⚫', lost: '🔴' };
-            const scTableRows = sc.units.map(e => `<tr>
-                <td>${esc(e.item_name)}</td>
-                <td style="font-size:10px;color:var(--text3)">${esc(e.serial_number || '—')}</td>
-                <td style="font-size:10px;color:var(--accent2)">${esc(e.inventory_number || '—')}</td>
-                <td>${EQ_ST[e.status] || esc(e.status)}</td>
-              </tr>`).join('');
+            const scRows = sc.units.map(e => whPanelBuildEquipmentTableRows([e], wh.id, canDnd)).join('');
+            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${scRows}</tbody></table></div>`;
             if (showScHeader) {
+              const scId = sc.id;
+              const threshKey = scId ? `${scId}_${wh.id}` : null;
+              const scMin = threshKey ? (threshMap.get(threshKey) || 0) : 0;
+              const activeCount = sc.units.filter(u => u.status === 'active').length;
+              const isDeficit = scMin > 0 && activeCount < scMin;
+              const scColor = isDeficit ? 'var(--rank3)' : 'var(--accent2)';
+              const threshBadge = scId && canMin
+                ? ` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(wh.id)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh.name)}" onclick="event.stopPropagation();setEqSubcatThresholdFromCell(this)">мин:${scMin > 0 ? scMin : '—'} ✏️</span>`
+                : (scMin > 0 ? ` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>` : '');
               html += `<details open style="margin:4px 0 0 8px">
-                <summary style="font-size:10px;font-weight:600;color:var(--accent2);letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${sc.units.length})</summary>
-                <div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>SN</th><th>Инв.№</th><th>Статус</th></tr></thead><tbody>
-                ${scTableRows}
-                </tbody></table></div>
+                <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${activeCount}/${sc.units.length})${threshBadge}</summary>
+                ${tblWrap}
               </details>`;
             } else {
-              html += `<div class="table-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Позиция</th><th>SN</th><th>Инв.№</th><th>Статус</th></tr></thead><tbody>
-                ${scTableRows}
-                </tbody></table></div>`;
+              html += tblWrap;
             }
           }
           html += '</div>';
@@ -1766,7 +1776,6 @@ async function renderAllWarehousesPanel(host) {
       html += '</details>';
     }
 
-    // Пустые склады
     const emptyWh = allStock.filter(({ stock, wh }) => {
       const eqCount = (allEquip || []).filter(e => String(e.warehouse_id) === String(wh.id)).length;
       return !(stock || []).length && !eqCount;
@@ -1791,11 +1800,17 @@ async function renderWhStockPanel(whId){
   if (whId === '__all__') { return renderAllWarehousesPanel(host); }
   try{
     const wh=warehouses.find(w=>w.id===whId);
-    const [stock,equip]=await Promise.all([
+    const [stock,equip,thresholdsRaw]=await Promise.all([
       api('GET','/stock?warehouse_id='+encodeURIComponent(whId)),
       api('GET','/equipment?warehouse_id='+encodeURIComponent(whId)).catch(()=>[]),
+      api('GET','/subcategory-thresholds').catch(()=>[]),
     ]);
     const eqHere=equip||[];
+    const threshMap=new Map();
+    for(const t of (thresholdsRaw||[])){
+      if(String(t.warehouse_id)!==String(whId))continue;
+      threshMap.set(`${t.subcategory_id}_${t.warehouse_id}`,parseFloat(t.min_quantity)||0);
+    }
     let hasCrit=false;
     const canMin=can('tech_director')||can('exec_director')||can('admin');
     const canDnd=can('tech_director')||can('hr_manager')||can('exec_director')||can('admin');
@@ -1808,8 +1823,7 @@ async function renderWhStockPanel(whId){
       if(!consByCat.has(catVal))consByCat.set(catVal,{label:catLabel,items:[]});
       consByCat.get(catVal).items.push(s);
       const q=parseFloat(s.quantity)||0,mn=s.min_quantity;
-      const thr=parseFloat(mn||0);
-      if(mn>0&&q<=thr)hasCrit=true;
+      if(mn>0&&q<=parseFloat(mn||0))hasCrit=true;
     }
     const consArr=[...consByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
     const consSection=consumables.length?`
@@ -1834,7 +1848,7 @@ async function renderWhStockPanel(whId){
       const scKey=e.subcategory_id?String(e.subcategory_id):'__none__';
       const scLabel=e.subcategory_name||(e.item_name||'Прочее');
       const scIcon=e.subcategory_icon||'';
-      if(!catGroup.subcats.has(scKey))catGroup.subcats.set(scKey,{label:scLabel,icon:scIcon,units:[]});
+      if(!catGroup.subcats.has(scKey))catGroup.subcats.set(scKey,{label:scLabel,icon:scIcon,id:e.subcategory_id,units:[]});
       catGroup.subcats.get(scKey).units.push(e);
     }
     const eqCatArr=[...eqByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
@@ -1849,17 +1863,23 @@ async function renderWhStockPanel(whId){
         for(const [scKey,sc] of scArr){
           const showScHeader=cat.subcats.size>1||scKey!=='__none__';
           const scRows=sc.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
+          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${scRows}</tbody></table></div>`;
           if(showScHeader){
+            const scId=sc.id;
+            const threshKey=scId?`${scId}_${whId}`:null;
+            const scMin=threshKey?(threshMap.get(threshKey)||0):0;
+            const activeCount=sc.units.filter(u=>u.status==='active').length;
+            const isDeficit=scMin>0&&activeCount<scMin;
+            const scColor=isDeficit?'var(--rank3)':'var(--accent2)';
+            const threshBadge=scId&&canMin
+              ?` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(whId)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh?.name||whId)}" onclick="event.stopPropagation();setEqSubcatThresholdFromCell(this)">мин:${scMin>0?scMin:'—'} ✏️</span>`
+              :(scMin>0?` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>`:'');
             subcatHtml+=`<details open style="margin-top:4px;margin-left:8px">
-              <summary style="font-size:10px;font-weight:600;color:var(--accent2);letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${sc.units.length})</summary>
-              <div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
-              ${scRows}
-              </tbody></table></div>
+              <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${activeCount}/${sc.units.length})${threshBadge}</summary>
+              ${tblWrap}
             </details>`;
           } else {
-            subcatHtml+=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>
-              ${scRows}
-              </tbody></table></div>`;
+            subcatHtml+=tblWrap;
           }
         }
         eqInner+=`<details open style="margin-top:6px">
@@ -3442,6 +3462,13 @@ async function setEqSubcatThreshold(subcatId, warehouseId, currentMin, subcatNam
     }
     showToast('Порог сохранён');
     loadStockForecast();
+    if (selectedWarehouseId === warehouseId || selectedWarehouseId === '__all__') {
+      const host = document.getElementById('wh-stock-panel');
+      if (host) {
+        if (selectedWarehouseId === '__all__') renderAllWarehousesPanel(host);
+        else renderWhStockPanel(warehouseId);
+      }
+    }
   } catch (e) { showToast(e.message, true); }
 }
 
