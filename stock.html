@@ -51,18 +51,17 @@ a{color:inherit;text-decoration:none}
 .matrix-wrap{overflow:auto;max-height:55vh;margin-top:10px;border:1px solid var(--border);border-radius:10px}
 .matrix-wrap table.tbl{min-width:520px;font-size:10px}
 .matrix-wrap .tbl th,.matrix-wrap .tbl td{padding:4px 6px;white-space:nowrap}
-.matrix-wrap .tbl th:not(.matrix-sticky-col){
-  writing-mode:vertical-lr;
-  text-orientation:mixed;
-  white-space:nowrap;
-  max-width:36px;
-  min-width:36px;
-  height:100px;
-  vertical-align:bottom;
-  padding:4px 2px;
-  font-size:10px;
-}
+.matrix-wrap thead th{position:sticky;top:0;z-index:2;background:var(--bg2);vertical-align:bottom;box-shadow:0 1px 0 var(--border)}
+.matrix-wrap thead th.matrix-sticky-col{z-index:3;left:0;box-shadow:1px 1px 0 var(--border)}
+.matrix-wh-head{max-width:40px;min-width:36px;padding:4px 2px!important;text-align:center!important}
+.matrix-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;font-size:9px;font-weight:700;color:#fff;line-height:1}
 .matrix-sticky-col{position:sticky;left:0;background:var(--bg2);z-index:1;box-shadow:2px 0 6px rgba(0,0,0,.15)}
+.matrix-cat-row td{background:var(--bg3);font-weight:600;font-size:11px;padding:6px 8px!important;color:var(--accent2);white-space:normal}
+.matrix-eq-cat > summary{list-style:none;cursor:pointer}
+.matrix-eq-cat > summary::-webkit-details-marker{display:none}
+.matrix-eq-cat .matrix-eq-sum::before{content:'▶';display:inline-block;margin-right:6px;font-size:10px;transition:transform .15s}
+.matrix-eq-cat[open] .matrix-eq-sum::before{transform:rotate(90deg)}
+.matrix-inner .matrix-sticky-col{z-index:1}
 .modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
 .modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
 .dr-close{width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
@@ -112,9 +111,9 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .fin{font-size:14px;padding:10px 12px}
   .fselect{font-size:14px;padding:10px 12px}
   .fl{font-size:11px}
-  .card-grid{gap:8px}
-  .wh-card-compact{padding:12px 40px 12px 12px}
-  .wh-card-compact .wh-type{font-size:10px}
+  .card-grid{gap:6px}
+  .wh-card-compact{padding:8px 10px}
+  .wh-card-compact .wh-type{font-size:8px;padding:1px 4px}
   /* Компактные sticky склады на мобильном */
   .wh-mobile-bar{background:var(--bg);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
   .wh-mobile-bar::-webkit-scrollbar{display:none}
@@ -122,15 +121,18 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .wh-mini.active{border-width:2px}
 }
 
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:4px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:4px}
 .wh-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
 .wh-card:hover{border-color:var(--accent)}
-.wh-card-compact{padding:8px 30px 8px 8px;position:relative;cursor:pointer}
+.wh-card-compact{padding:8px 10px;cursor:pointer}
 .wh-card-compact.wh-card-active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.wh-card-gear{position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px}
-.wh-card-gear:hover{color:var(--text);border-color:var(--accent2)}
+.wh-card-compact .wh-name{font-size:12px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.wh-card-compact .wh-meta{font-size:9px;color:var(--text3)}
+.wh-card-compact .wh-type{font-size:8px;padding:1px 4px;margin-bottom:4px}
+.wh-card-compact .wh-card-gear{font-size:10px;padding:1px 4px;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:4px;line-height:1}
+.wh-card-compact .wh-card-gear:hover{color:var(--text);background:var(--bg2)}
 .fc-wh-btn{margin:2px}
-.wh-type{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.wh-type{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;line-height:1.2}
 .wh-type-central{background:#2a1f60;color:#9b8dff}
 .wh-type-venue{background:#1a2a20;color:#3ecf8e}
 .wh-type-mobile{background:#2a2200;color:#f5a623}
@@ -181,7 +183,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 <div class="header">
   <a href="index.html" class="logo" style="text-decoration:none;color:inherit">Photo<span>HR</span></a>
   <div class="nav-links" id="nav-links"></div>
-  <div class="header-stats" id="hstats"></div>
+  <div class="header-stats" id="hstats" style="display:none"></div>
   <div class="header-right">
     <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
@@ -491,6 +493,24 @@ function fmtNum(val) {
   return n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 }
 
+const SHORT_UNIT_MAP = {
+  отпечаток: 'отп', отпечатки: 'отп', отпечатков: 'отп',
+  упаковка: 'уп', упаковки: 'уп', упаковок: 'уп',
+  штука: 'шт', штуки: 'шт', штук: 'шт',
+  лист: 'лист', листа: 'лист', листов: 'лист',
+  метр: 'м', метра: 'м', метров: 'м',
+  килограмм: 'кг', грамм: 'г',
+};
+function shortUnit(u) {
+  if (u == null || u === '') return '';
+  const s = String(u).trim().toLowerCase();
+  if (SHORT_UNIT_MAP[s]) return SHORT_UNIT_MAP[s];
+  if (s.includes('отпечат')) return 'отп';
+  if (s.includes('упаков')) return 'уп';
+  if (s.length <= 4) return String(u).trim();
+  return String(u).trim().slice(0, 3) + '.';
+}
+
 // quantity хранится в единицах хранения (упаковках или штуках).
 // Для unit='Упаковка' — «1½ уп. (1200 отпечатков)»; для 'Штука' — число.
 function fmtStockQty(quantity, item) {
@@ -515,7 +535,8 @@ function fmtStockQty(quantity, item) {
   else if (fracStr) packsPart = `${whole}${fracStr} уп.`;
   else packsPart = `${whole} уп.`;
   const consumptionQty = Math.round(q * upp);
-  return `${packsPart} (${consumptionQty.toLocaleString('ru-RU')} ${cu})`;
+  const cuShort = shortUnit(cu) || cu;
+  return `${packsPart} (${consumptionQty.toLocaleString('ru-RU')} ${cuShort})`;
 }
 
 const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
@@ -693,17 +714,40 @@ let equipmentListCache=[];
 let allSubcategories=[];
 let allCategories=[];
 const EMOJI_PICKER_LIST = [
+  // Техника/электроника
   '🖨','💻','🖥','📱','⌨','🖱','🔋','💡','📷','🎥','🖲','💾','📀','🔌','📺','📠','🎧','🎤','🔊',
-  '📸','🎞','🔦','💥','🎬','📹','🔍','🔎',
-  '🪑','🛋','🪞','🚪','🪟','🗄','🗂','📁','🧳','💼','🗃','🔐','🗝',
-  '💰','💳','🏷','🧾','💵','🪙','📊',
-  '🎨','🖼','🎪','🎭','🎀','🎈','🎊','🪅','✨','🌟','🎠','🎡',
-  '🔧','⚙','🛠','🔩','🪛','🧰','📐','🔑','🔒','⛏','🪚',
-  '📄','📦','🧴','🧹','🪣','🧽','🗑','📎','✂','📏','🖊','✏','📝','🖋','📌','📍',
-  '👕','👔','🧤','🧢','👟','🦺','🥼','🧣','🧥',
-  '🍽','🧃','☕','🏥','💊','🩺','🩹','🧼','🧻',
-  '🖌','👑','💅','🪄','🎯','🎨','✨',
-  '🎁','🔬','🧲','🧪','📡','🔭','🏗','🪣','🛒','🧯','🪜','⚡','🌡','🧊',
+  // Фото/видео оборудование
+  '📸','🎞','🔦','💥','🎬','📹','🔍','🔎','🔭',
+  // Мониторы/экраны
+  '🖥','📺','🪟',
+  // Периферия/провода/кабели
+  '🔌','🪫','🔋','💿','📡','🧲','⚡','🔗','🪢',
+  // Мебель офисная
+  '🪑','🛋','🪞','🚪','🗄','🗂','📁','🧳','💼','🗃','🗑','📥','📤','🗳',
+  // Мебель/интерьер
+  '🛏','🪟','🪞','🚿','🧴','🛁',
+  // Сейфы/хранение
+  '🔐','🗝','🔒','🔑','🛡',
+  // Декорации/оформление
+  '🎨','🖼','🎪','🎭','🎀','🎈','🎊','🪅','✨','🌟','🎠','🎡','🎆','🎇','🪩','🏮','🎏','🎐','🪔','🕯','🧸','🪆','🎋','🎍','🪻','🌺','🌸','🌼','💐','🌈',
+  // Финансы/касса
+  '💰','💳','🏷','🧾','💵','🪙','📊','💹',
+  // Инструменты
+  '🔧','⚙','🛠','🔩','🪛','🧰','📐','⛏','🪚','🪓','🪠',
+  // Расходники/канцелярия
+  '📄','📦','📎','✂','📏','🖊','✏','📝','🖋','📌','📍','🗒','📓','📔','📒',
+  // Уборка/гигиена
+  '🧹','🪣','🧽','🗑','🧴','🧻','🧼','🧯',
+  // Одежда/форма
+  '👕','👔','🧤','🧢','👟','🦺','🥼','🧣','🧥','👗','👒',
+  // Еда/медицина
+  '🍽','🧃','☕','🏥','💊','🩺','🩹','🩻','🌡',
+  // Аквагрим/арт
+  '🖌','👑','💅','🪄','🎯','🎨','✨','🎭',
+  // Свет/студия
+  '💡','🔦','🕯','🪔','🔆','☀','🌤',
+  // Прочее
+  '🎁','🔬','🧪','🏗','🛒','🪜','🧊','📦','🏋','⚽','🎲','🧩','🪁','🛞',
 ];
 let itemsFilterType='all';
 let itemsFilterCat='';
@@ -896,10 +940,10 @@ const WH_TYPE_LABELS_MAP = { central: 'Центральный', venue: 'На п�
 function whVenueBadgeHtml(w) {
   if (w.warehouse_type !== 'venue' || !w.venue_id) return '';
   const v = venues.find(x => x.id === w.venue_id);
-  if (!v) return w.venue_name ? `<span style="font-size:10px;color:var(--text3)">${esc(w.venue_name)}</span>` : '';
+  if (!v) return w.venue_name ? `<span style="font-size:9px;color:var(--text3)">${esc(w.venue_name)}</span>` : '';
   const color = venuePickColor(v);
   const abbr = esc(venueShortLabel(v));
-  return `<span title="${esc(v.name)}" style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;background:${color};margin-left:6px">${abbr}</span>`;
+  return `<span title="${esc(v.name)}" style="display:inline-flex;align-items:center;justify-content:center;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;background:${color};margin-left:4px;line-height:1.2">${abbr}</span>`;
 }
 
 // ═══════ TOUCH DND (mobile) ═══════
@@ -1474,6 +1518,7 @@ async function loadSummary() {
       ${(s.equipment_deficit || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.equipment_deficit}</div><div class="stat-lbl">дефицит оборуд.</div></div>` : ''}
       ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">действий</div></div>` : ''}
     `;
+    el.style.display = '';
     updateStickyTop();
     loadAlertsBadge();
     loadStockTabBadges();
@@ -1879,21 +1924,21 @@ async function loadWarehouses() {
         ${!isMobile() && list.length ? `<div class="card-grid">
         <div class="wh-card wh-card-compact ${sel==='__all__'?'wh-card-active':''}" data-wh-id="__all__" onclick="onWhCardClick('__all__',event)" style="border-style:dashed;min-width:80px">
           <div style="display:flex;align-items:center;gap:4px">
-            <span class="wh-type" style="background:var(--accent);color:#fff;font-size:8px">ВСЕ</span>
+            <span class="wh-type" style="background:var(--accent);color:#fff">ВСЕ</span>
           </div>
-          <div style="font-weight:600;margin-top:6px;font-size:13px">Все склады</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${activeList.length} складов</div>
+          <div class="wh-name" style="margin-top:4px">Все склады</div>
+          <div class="wh-meta" style="margin-top:2px">${activeList.length} складов</div>
         </div>
           ${list.map(w => `
             <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondragleave="dndDragLeave(event)" ondrop="dndDrop(event);dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
-              ${canEdit ? `<button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Редактировать">⚙</button>` : ''}
               <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
                 <span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span>
                 ${whVenueBadgeHtml(w)}
               </div>
-              <div style="font-weight:600;margin-top:4px;font-size:12px">${esc(w.name)}</div>
-              <div style="font-size:9px;color:var(--text3);margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '')}</div>
-              <div style="font-size:9px;color:var(--text3);margin-top:2px">👤 ${esc(w.responsible_name || '—')}</div>
+              <div class="wh-name">${esc(w.name)}</div>
+              <div class="wh-meta" style="margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '')}</div>
+              <div class="wh-meta" style="margin-top:2px">👤 ${esc(w.responsible_name || '—')}</div>
+              ${canEdit ? `<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Редактировать">⚙</button></div>` : ''}
             </div>
           `).join('')}
         </div>` : (!isMobile() ? `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>` : '')}
@@ -1904,11 +1949,11 @@ async function loadWarehouses() {
             <div class="wh-card wh-card-compact" style="opacity:0.5;border-style:dashed">
               <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
                 <span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span>
-                <span style="font-size:9px;color:var(--rank3);font-weight:600">НЕАКТИВЕН</span>
+                <span style="font-size:8px;color:var(--rank3);font-weight:600;padding:1px 4px">НЕАКТИВЕН</span>
                 ${whVenueBadgeHtml(w)}
               </div>
-              <div style="font-weight:600;margin-top:6px;font-size:13px">${esc(w.name)}</div>
-              <div style="font-size:10px;color:var(--text3);margin-top:2px">${w.city ? esc(w.city) : ''}</div>
+              <div class="wh-name" style="margin-top:4px">${esc(w.name)}</div>
+              <div class="wh-meta" style="margin-top:2px">${w.city ? esc(w.city) : ''}</div>
               ${canEdit ? `<button class="btn btn-ghost" style="font-size:11px;margin-top:8px;color:var(--rank1);border-color:var(--rank1)" onclick="event.stopPropagation();reactivateWarehouse('${w.id}')">▶ Активировать</button>` : ''}
             </div>
           `).join('')}
@@ -2028,6 +2073,7 @@ function renderItemsCatalog() {
   const c = document.getElementById('content');
   const canEdit = can('tech_director') || can('exec_director') || can('admin');
   const isSuperAdmin = can('super_admin');
+  const canManageCategories = can('tech_director') || can('exec_director') || can('admin');
 
   let filtered = items.filter(it => {
     if (itemsFilterType !== 'all' && it.item_type !== itemsFilterType) return false;
@@ -2088,7 +2134,7 @@ function renderItemsCatalog() {
     <td style="color:var(--text3)">${esc(it.unit || 'шт')}${it.units_per_pack ? `<div style="font-size:9px;color:var(--accent2)">${it.units_per_pack}/${esc(it.pack_unit||'упак.')}</div>` : ''}</td>
     <td>${it.reorder_point > 0 ? fmtNum(it.reorder_point) : '—'}</td>
     <td style="color:var(--text3)">${it.last_purchase_price ? it.last_purchase_price.toLocaleString('ru-RU') + ' ₽' : '—'}</td>
-    <td>${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}</td>
+    <td style="white-space:nowrap">${canEdit ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick='openItemModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>✏️</button><button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--rank3)" onclick="deleteItem('${it.id}','${esc(it.name)}')">🗑</button>` : ''}${isSuperAdmin && it.is_active ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--text3)" onclick="archiveItem('${it.id}')" title="Архивировать">📁</button>` : ''}</td>
   </tr>`;
 
   let tablesHtml = '';
@@ -2133,7 +2179,7 @@ function renderItemsCatalog() {
         <div class="section-title" style="flex-wrap:wrap;gap:8px">
           <span>📋 Справочник позиций</span>
           <span id="items-count" style="color:var(--text3);font-size:11px;font-weight:400">(${filtered.length} из ${items.length})</span>
-          ${isSuperAdmin ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="openSubcatManager()">⚙ Категории</button>` : ''}
+          ${canManageCategories ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="openSubcatManager()">⚙ Категории</button>` : ''}
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
         </div>
         <div id="items-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -2501,6 +2547,18 @@ async function deleteItem(itemId, itemName) {
   } catch (e) {
     showToast(e.message, true);
   }
+}
+
+async function archiveItem(itemId) {
+  const it = items.find(i => String(i.id) === String(itemId));
+  const itemName = it?.name || String(itemId);
+  if (!confirm(`Архивировать «${itemName}»?\n\nПозиция исчезнет из остатков и матриц, но останется в истории.`)) return;
+  try {
+    await api('PATCH', `/inventory-items/${itemId}`, { is_active: false });
+    showToast('Позиция архивирована');
+    loadItems();
+    loadSummary();
+  } catch (e) { showToast(e.message, true); }
 }
 
 function openMergeModal(sourceId, sourceName, usageText) {
@@ -3062,6 +3120,25 @@ function matrixRowSigmaReorderStyles(total, rp) {
   }
   return { sum: '', thresh: '' };
 }
+function matrixWarehouseBadgeTh(w) {
+  const v = w.venue_id ? venues.find(x => String(x.id) === String(w.venue_id)) : null;
+  let color = 'var(--text3)';
+  let shortLbl = '?';
+  if (v) {
+    color = venuePickColor(v);
+    shortLbl = String(venueShortLabel(v) || '?').slice(0, 4);
+  } else if (w.venue_color) {
+    color = normalizeVenueDisplayColor(w.venue_color) || w.venue_color;
+    shortLbl = String(w.venue_short || w.name || '?').slice(0, 4);
+  } else if (w.warehouse_type === 'central') {
+    color = '#7c6cff';
+    shortLbl = String(w.name || 'Центр').slice(0, 3);
+  } else {
+    shortLbl = String(w.name || '?').slice(0, 3);
+  }
+  const fullName = esc((w.name || '') + (w.city ? ', ' + w.city : ''));
+  return `<th class="matrix-wh-head" title="${fullName}"><span class="matrix-badge" style="background:${color}">${esc(shortLbl)}</span></th>`;
+}
 function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
   const balMap = new Map();
   for (const b of matrix.balances || []) {
@@ -3101,11 +3178,9 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
     return (a.name || '').localeCompare(b.name || '', 'ru');
   });
   if (problemsOnly) itemRows = itemRows.filter(it => rowSeverity(it) < 2);
-  const thead = `<th class="matrix-sticky-col">Позиция</th><th>Σ</th><th>Порог</th>${whCols.map(w => {
-    const colTitle = esc((w.name || '') + (w.city ? ', ' + w.city : ''));
-    return `<th title="${colTitle}" style="max-width:80px">${esc((w.name || '').length > 14 ? (w.name || '').slice(0, 14) + '…' : (w.name || ''))}</th>`;
-  }).join('')}`;
-  const tbody = itemRows.map(it => {
+  const colSpan = 3 + whIds.length;
+  const thead = `<th class="matrix-sticky-col">Позиция</th><th>Σ</th><th>Порог</th>${whCols.map(w => matrixWarehouseBadgeTh(w)).join('')}`;
+  function consumableItemRow(it) {
     let total = 0;
     const cells = whIds.map(wid => {
       const b = balMap.get(`${it.id}_${wid}`);
@@ -3121,7 +3196,7 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
     }).join('');
     const rp = parseFloat(it.reorder_point) || 0;
     const rs = matrixRowSigmaReorderStyles(total, rp);
-    const rpCu = it.consumption_unit ? (it.consumption_unit.length > 4 ? it.consumption_unit.slice(0, 3) + '.' : it.consumption_unit) : '';
+    const rpCu = it.consumption_unit ? shortUnit(it.consumption_unit) : '';
     const rpCell = `<td style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? fmtNum(rp) + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
     return `<tr>
       <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
@@ -3129,7 +3204,33 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
       ${rpCell}
       ${cells}
     </tr>`;
-  }).join('');
+  }
+  const byCat = new Map();
+  for (const it of itemRows) {
+    const k = it.category != null && String(it.category).trim() !== '' ? it.category : '';
+    if (!byCat.has(k)) byCat.set(k, []);
+    byCat.get(k).push(it);
+  }
+  const catKeys = [...byCat.keys()].sort((a, b) => {
+    if (a === '' && b !== '') return 1;
+    if (b === '' && a !== '') return -1;
+    return getCategoryLabel('consumable', a).localeCompare(getCategoryLabel('consumable', b), 'ru');
+  });
+  for (const k of catKeys) {
+    byCat.get(k).sort((a, b) => {
+      const sa = rowSeverity(a);
+      const sb = rowSeverity(b);
+      if (sa !== sb) return sa - sb;
+      return (a.name || '').localeCompare(b.name || '', 'ru');
+    });
+  }
+  let tbody = '';
+  for (const k of catKeys) {
+    const group = byCat.get(k);
+    if (!group.length) continue;
+    tbody += `<tr class="matrix-cat-row"><td colspan="${colSpan}">${esc(k === '' ? 'Прочее' : getCategoryLabel('consumable', k))}</td></tr>`;
+    for (const it of group) tbody += consumableItemRow(it);
+  }
   if (!itemRows.length) {
     return '<div style="color:var(--text3);margin-top:8px">Нет строк (снимите фильтр «только проблемные» или добавьте позиции).</div>';
   }
@@ -3138,6 +3239,9 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
 
 async function buildEquipmentMatrix(cityFilter) {
   try {
+    if (!venues || !venues.length) {
+      try { venues = await api('GET', '/venues'); } catch (_) { venues = []; }
+    }
     const data = await api('GET', '/stock/equipment-matrix' + (cityFilter ? '?city=' + encodeURIComponent(cityFilter) : ''));
     const { subcategories, warehouses, counts, thresholds } = data;
     if (!subcategories.length || !warehouses.length) {
@@ -3150,12 +3254,10 @@ async function buildEquipmentMatrix(cityFilter) {
     for (const t of thresholds) threshMap.set(`${t.subcategory_id}_${t.warehouse_id}`, parseFloat(t.min_quantity) || 0);
 
     const whIds = warehouses.map(w => w.id);
+    const colCount = 3 + whIds.length;
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
 
-    const thead = `<th class="matrix-sticky-col">Подкатегория</th><th>Σ</th><th>Мин Σ</th>${warehouses.map(w => {
-      const colTitle = esc((w.name || '') + (w.city ? ', ' + w.city : ''));
-      return `<th title="${colTitle}" style="max-width:80px">${esc((w.name || '').length > 14 ? (w.name || '').slice(0, 14) + '…' : (w.name || ''))}</th>`;
-    }).join('')}`;
+    const thead = `<th class="matrix-sticky-col">Подкатегория</th><th>Σ</th><th>Мин Σ</th>${warehouses.map(w => matrixWarehouseBadgeTh(w)).join('')}`;
 
     const catGrouped = new Map();
     for (const sc of subcategories) {
@@ -3163,45 +3265,88 @@ async function buildEquipmentMatrix(cityFilter) {
       catGrouped.get(sc.parent_category).push(sc);
     }
 
+    function equipmentSubcatRow(sc) {
+      let total = 0;
+      let totalMin = 0;
+      const cells = whIds.map(wid => {
+        const cnt = countMap.get(`${sc.id}_${wid}`) || 0;
+        const minQ = threshMap.get(`${sc.id}_${wid}`) || 0;
+        total += cnt;
+        totalMin += minQ;
+
+        let cellStyle = 'background:rgba(62,207,142,.12)';
+        if (minQ > 0 && cnt < minQ) cellStyle = 'background:rgba(242,85,85,.15)';
+        else if (minQ > 0 && cnt < minQ * 1.5) cellStyle = 'background:rgba(245,166,35,.18)';
+
+        const whName = warehouses.find(w => String(w.id) === String(wid))?.name || '';
+        const editThreshAttr = canEdit
+          ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" data-sc-id="${esc(sc.id)}" data-wh-id="${esc(wid)}" data-min="${String(minQ)}" data-sc-name="${esc(sc.name)}" data-wh-name="${esc(whName)}" onclick="setEqSubcatThresholdFromCell(this)"`
+          : ` style="${cellStyle};text-align:center;font-size:11px"`;
+
+        return `<td${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
+      }).join('');
+
+      const sigmaStyle = totalMin > 0 && total < totalMin ? 'color:var(--rank3);font-weight:700' : totalMin > 0 && total < totalMin * 1.5 ? 'color:var(--rank2);font-weight:600' : '';
+
+      return `<tr>
+        <td class="matrix-sticky-col" style="font-weight:500;font-size:10px;white-space:normal">${esc(sc.icon)} ${esc(sc.name)}</td>
+        <td style="text-align:center;font-weight:600;${sigmaStyle}">${total}</td>
+        <td style="text-align:center;font-size:11px;color:var(--text3)">${totalMin > 0 ? totalMin : '—'}</td>
+        ${cells}
+      </tr>`;
+    }
+
     let tbody = '';
     let hasAnyThreshold = false;
 
     for (const [catVal, subs] of [...catGrouped.entries()].sort((a, b) => getCategoryLabel('equipment', a[0]).localeCompare(getCategoryLabel('equipment', b[0]), 'ru'))) {
       const catLabel = getCategoryLabel('equipment', catVal);
-      tbody += `<tr><td colspan="${3 + whIds.length}" style="background:var(--bg3);font-weight:600;font-size:11px;padding:6px 8px;color:var(--accent2)">${catLabel}</td></tr>`;
+      const catWhCnt = Object.fromEntries(whIds.map(wid => [wid, 0]));
+      const catWhMin = Object.fromEntries(whIds.map(wid => [wid, 0]));
+      let catTotalUnits = 0;
+      let hasProblem = false;
 
       for (const sc of subs) {
-        let total = 0;
-        let totalMin = 0;
-
-        const cells = whIds.map(wid => {
+        for (const wid of whIds) {
           const cnt = countMap.get(`${sc.id}_${wid}`) || 0;
           const minQ = threshMap.get(`${sc.id}_${wid}`) || 0;
-          total += cnt;
-          totalMin += minQ;
+          catTotalUnits += cnt;
+          catWhCnt[wid] += cnt;
+          catWhMin[wid] += minQ;
           if (minQ > 0) hasAnyThreshold = true;
-
-          let cellStyle = 'background:rgba(62,207,142,.12)';
-          if (minQ > 0 && cnt < minQ) cellStyle = 'background:rgba(242,85,85,.15)';
-          else if (minQ > 0 && cnt < minQ * 1.5) cellStyle = 'background:rgba(245,166,35,.18)';
-
-          const whName = warehouses.find(w => String(w.id) === String(wid))?.name || '';
-          const editThreshAttr = canEdit
-            ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" data-sc-id="${esc(sc.id)}" data-wh-id="${esc(wid)}" data-min="${String(minQ)}" data-sc-name="${esc(sc.name)}" data-wh-name="${esc(whName)}" onclick="setEqSubcatThresholdFromCell(this)"`
-            : ` style="${cellStyle};text-align:center;font-size:11px"`;
-
-          return `<td${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
-        }).join('');
-
-        const sigmaStyle = totalMin > 0 && total < totalMin ? 'color:var(--rank3);font-weight:700' : totalMin > 0 && total < totalMin * 1.5 ? 'color:var(--rank2);font-weight:600' : '';
-
-        tbody += `<tr>
-          <td class="matrix-sticky-col" style="font-weight:500;font-size:10px;white-space:normal">${esc(sc.icon)} ${esc(sc.name)}</td>
-          <td style="text-align:center;font-weight:600;${sigmaStyle}">${total}</td>
-          <td style="text-align:center;font-size:11px;color:var(--text3)">${totalMin > 0 ? totalMin : '—'}</td>
-          ${cells}
-        </tr>`;
+          if (minQ > 0 && cnt < minQ) hasProblem = true;
+        }
       }
+
+      const catMinSumTotal = whIds.reduce((s, wid) => s + catWhMin[wid], 0);
+      let catSigmaStyle = '';
+      if (catMinSumTotal > 0 && catTotalUnits < catMinSumTotal) catSigmaStyle = 'color:var(--rank3);font-weight:700';
+      else if (catMinSumTotal > 0 && catTotalUnits < catMinSumTotal * 1.5) catSigmaStyle = 'color:var(--rank2);font-weight:600';
+
+      const catRowCells = whIds.map(wid => {
+        const c = catWhCnt[wid];
+        const m = catWhMin[wid];
+        const st = matrixCellStyle(c, m);
+        return `<td style="${st};text-align:center;font-size:11px">${c}${m > 0 ? `<span style="font-size:9px;color:var(--text3)">/${m}</span>` : ''}</td>`;
+      }).join('');
+
+      const innerBody = `<tr style="background:var(--card);font-size:10px;color:var(--text2)">
+        <td class="matrix-sticky-col" style="font-weight:600;padding:4px 6px">Σ категории</td>
+        <td style="text-align:center;font-weight:600;${catSigmaStyle}">${catTotalUnits}</td>
+        <td style="text-align:center;font-size:11px;color:var(--text3)">${catMinSumTotal > 0 ? catMinSumTotal : '—'}</td>
+        ${catRowCells}
+      </tr>${subs.map(sc => equipmentSubcatRow(sc)).join('')}`;
+
+      tbody += `<tr><td colspan="${colCount}" style="padding:0;vertical-align:top;border-bottom:1px solid var(--border);background:var(--bg3)">
+        <details class="matrix-eq-cat"${hasProblem ? ' open' : ''}>
+          <summary class="matrix-eq-sum" style="padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:var(--accent2)">
+            <span>${esc(catLabel)}</span><span style="color:var(--text3);font-weight:400">(${catTotalUnits} ед.)</span>
+          </summary>
+          <table class="tbl matrix-inner" style="width:100%;font-size:10px;border-collapse:collapse;margin:0;border-top:1px solid var(--border)">
+            <tbody>${innerBody}</tbody>
+          </table>
+        </details>
+      </td></tr>`;
     }
 
     if (!hasAnyThreshold) {
@@ -3258,7 +3403,8 @@ async function loadStockForecast() {
       api('GET', '/venues').catch(() => []),
       api('GET', '/stock/matrix').catch(() => ({ items: [], warehouses: [], balances: [] })),
     ]);
-    const cities = [...new Set((vens || []).map(v => v.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+    venues = vens || [];
+    const cities = [...new Set((venues || []).map(v => v.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
     const fcAll = [...(fcData.forecast || [])];
     let fcRows = fcAll.filter(r => {
       if (!detailFcWhIds || !detailFcWhIds.length) return true;
@@ -3441,7 +3587,6 @@ async function loadEquipment() {
     if (!items.length) items = await api('GET', '/inventory-items').catch(() => []);
     const c = document.getElementById('content');
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
-    const isSuperAdmin = can('super_admin');
     const STATUS = {
       active: { label: 'Активно', color: 'var(--rank1)', icon: '🟢' },
       repair: { label: 'Ремонт', color: 'var(--rank2)', icon: '🟡' },
@@ -3505,9 +3650,8 @@ async function loadEquipment() {
 
     let html = `<div class="section">
       <div class="section-title" style="flex-wrap:wrap;gap:8px">
-        <span>🖨 Оборудование (${equip.length})</span>
-        ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openEqModal()">+ Добавить</button>` : ''}
-        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;font-size:11px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
+        <span style="flex:1;min-width:0">🖨 Оборудование (${equip.length})</span>
+        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;margin-left:auto;font-size:11px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>`;
 
     if (!catArr.length) {
@@ -3776,6 +3920,11 @@ async function deleteInventoryCategory(catId) {
         if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
       } catch (e) { showToast(e.message, true); }
     };
+    return;
+  }
+
+  if (!can('super_admin')) {
+    showToast('Объединение категории с переносом данных доступно только суперадминистратору.', true);
     return;
   }
 
@@ -4197,6 +4346,11 @@ async function deleteSubcatWithMerge(scId) {
       return;
     }
 
+    if (!can('super_admin')) {
+      showToast('Объединение подкатегории с переносом данных доступно только суперадминистратору.', true);
+      return;
+    }
+
     const sc = scRec || allSubcategories.find(s => s.id === scId);
     if (!sc) { showToast('Подкатегория не найдена', true); return; }
     const candidates = allSubcategories.filter(s => s.id !== scId && s.item_type === sc.item_type && s.is_active !== false);
@@ -4481,6 +4635,7 @@ async function openEqDrawer(id) {
     const drawerItem = items.find(i => String(i.id) === String(eq.item_id));
     const showCounters = drawerItem?.category === 'printers' || drawerItem?.category === 'photoinventory';
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
+    const canRequestWriteoff = can('tech_director') || can('hr_manager') || can('exec_director') || can('admin') || can('super_admin');
     const STATUS = { active: '🟢 Активно', repair: '🟡 В ремонте', written_off: '⚫ Списано', lost: '🔴 Утеряно' };
     const totalP = history.total_printed != null ? parseFloat(history.total_printed) : 0;
     const resourcePct = eq.resource_limit && totalP >= 0 ? Math.min(100, Math.round(totalP / parseFloat(eq.resource_limit) * 100)) : null;
@@ -4539,6 +4694,8 @@ async function openEqDrawer(id) {
       <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
         ${canEdit ? `<button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="openEqModalFromDrawer()">✏️ Редактировать</button>` : ''}
         <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="downloadEqLabel('${eq.id}')">🏷 Этикетка</button>
+        ${canRequestWriteoff && eq.status !== 'written_off' ? `<button type="button" class="btn btn-ghost" style="width:100%;margin-top:4px;font-size:13px;color:var(--rank3);border-color:rgba(242,85,85,.3)" onclick="openWriteoffModal('${eq.id}')">📋 Списать</button>` : ''}
+        ${eq.status === 'written_off' ? '<div style="text-align:center;color:var(--rank3);font-size:12px;margin-top:4px">⚫ Списано</div>' : ''}
       </div>
     `;
   } catch(e) { document.getElementById('eq-drawer-body').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`; }
@@ -4547,6 +4704,98 @@ async function openEqDrawer(id) {
 function closeEqDrawer() {
   document.getElementById('eq-drawer-backdrop').classList.remove('open');
   document.getElementById('eq-drawer').classList.remove('open');
+}
+
+function openWriteoffModal(eqId) {
+  const eq = (equipmentListCache || []).find(e => String(e.id) === String(eqId));
+  const itemName = eq?.item_name || 'Оборудование';
+  const invNumber = eq?.inventory_number || '';
+
+  const old = document.getElementById('writeoff-modal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'writeoff-modal';
+  modal.className = 'overlay open';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+  const autoHint = can('tech_director') || can('exec_director') || can('admin') || can('super_admin')
+    ? '✅ Списание будет подтверждено автоматически (ваша роль позволяет).'
+    : '⏳ Списание будет отправлено на подтверждение тех. директору.';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:460px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>📋 Списание оборудования</span><button type="button" class="dr-close" onclick="document.getElementById('writeoff-modal')?.remove()">×</button></div>
+      <div style="background:rgba(242,85,85,.08);border:1px solid rgba(242,85,85,.2);border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px">
+        <div style="font-weight:600">${esc(itemName)}</div>
+        ${invNumber ? `<div style="color:var(--text3)">Инв. №: ${esc(invNumber)}</div>` : ''}
+      </div>
+      <div class="field"><div class="fl">Причина списания *</div>
+        <select class="fselect" id="wo-reason-select">
+          <option value="">— выберите —</option>
+          <option value="Поломка без возможности ремонта">Поломка без возможности ремонта</option>
+          <option value="Износ (выработка ресурса)">Износ (выработка ресурса)</option>
+          <option value="Моральное устаревание">Моральное устаревание</option>
+          <option value="Утеря">Утеря</option>
+          <option value="Кража">Кража</option>
+          <option value="Другое">Другое</option>
+        </select>
+      </div>
+      <div class="field"><div class="fl">Дополнительное описание</div>
+        <textarea class="fin" id="wo-notes" rows="2" placeholder="Подробности..." style="min-height:56px;resize:vertical"></textarea>
+      </div>
+      <div class="field"><div class="fl">Ссылка на документ / акт</div>
+        <input class="fin" id="wo-doc-ref" placeholder="Номер акта, ссылка на документ..."/>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px">${autoHint}</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('writeoff-modal')?.remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" style="background:var(--rank3)" onclick="submitWriteoff('${eqId}')">Списать</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function submitWriteoff(eqId) {
+  const reasonSel = document.getElementById('wo-reason-select')?.value || '';
+  const notes = document.getElementById('wo-notes')?.value.trim() || '';
+  const docRef = document.getElementById('wo-doc-ref')?.value.trim() || '';
+
+  const reason = reasonSel === 'Другое' ? (notes || 'Другое') : reasonSel;
+  if (!reason) { showToast('Выберите причину списания', true); return; }
+
+  try {
+    await api('POST', '/equipment-writeoffs', {
+      equipment_unit_id: eqId,
+      reason,
+      document_ref: docRef || null,
+      notes: notes || null,
+    });
+    document.getElementById('writeoff-modal')?.remove();
+    showToast('Списание оформлено');
+    closeEqDrawer();
+    loadEquipment();
+    loadSummary();
+    if (typeof currentTabIdx === 'number' && currentTabIdx === 8) loadAnalytics();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function confirmEquipmentWriteoff(id) {
+  try {
+    await api('POST', `/equipment-writeoffs/${encodeURIComponent(id)}/confirm`);
+    showToast('Списание подтверждено');
+    loadAnalytics();
+    loadEquipment();
+    loadSummary();
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function rejectEquipmentWriteoff(id) {
+  const reason = prompt('Причина отклонения (необязательно):');
+  if (reason === null) return;
+  try {
+    await api('POST', `/equipment-writeoffs/${encodeURIComponent(id)}/reject`, { rejection_reason: reason || null });
+    showToast('Списание отклонено');
+    loadAnalytics();
+  } catch (e) { showToast(e.message, true); }
 }
 
 // ── БЛОК 3: Инвентаризация ──
@@ -4694,7 +4943,10 @@ async function openInvSession(id, readOnly = false) {
     document.getElementById('inv-session-info').textContent = `Позиций: ${sess.lines?.length || 0} · Создал: ${sess.created_by_name || '—'} · Статус: ${sess.status}`;
 
     const lines = sess.lines || [];
-    document.getElementById('inv-lines-body').innerHTML = lines.map(l => {
+    const consumableLines = lines.filter(l => (l.item_type || 'consumable') !== 'equipment');
+    const equipmentLines = lines.filter(l => l.item_type === 'equipment');
+
+    let tbody = consumableLines.map(l => {
       const expected = parseFloat(l.expected_qty) || 0;
       const actual = l.actual_qty != null ? parseFloat(l.actual_qty) : null;
       const delta = actual != null ? actual - expected : null;
@@ -4721,6 +4973,36 @@ async function openInvSession(id, readOnly = false) {
       </tr>`;
     }).join('');
 
+    if (equipmentLines.length) {
+      tbody += `<tr><td colspan="6" style="background:var(--bg3);font-weight:600;font-size:11px;padding:8px;color:var(--accent2)">
+    🔧 Оборудование (${equipmentLines.length})
+  </td></tr>`;
+      tbody += `<tr><th>Позиция</th><th>Инв. №</th><th>SN</th><th>На месте?</th><th></th><th>Заметка</th></tr>`;
+      for (const l of equipmentLines) {
+        const found = l.equipment_found;
+        const selOpen = readOnly || sess.status !== 'open'
+          ? `<span style="font-size:11px;color:${found === true ? 'var(--rank1)' : found === false ? 'var(--rank3)' : 'var(--text3)'}">${found === true ? '✅ На месте' : found === false ? '❌ Не найдено' : '❓ Не проверено'}</span>`
+          : `<select class="fselect" style="font-size:11px;width:auto;max-width:160px" data-eq-line-id="${l.id}" onchange="markEqInventoryFound(this)">
+          <option value="" ${found === null || found === undefined ? 'selected' : ''}>❓ Не проверено</option>
+          <option value="true" ${found === true ? 'selected' : ''}>✅ На месте</option>
+          <option value="false" ${found === false ? 'selected' : ''}>❌ Не найдено</option>
+        </select>`;
+        const noteCell = readOnly || sess.status !== 'open'
+          ? `<span style="color:var(--text3);font-size:11px">${esc(l.notes || '')}</span>`
+          : `<input class="fin" style="font-size:11px;width:100%" value="${esc(l.notes || '')}" data-eq-note-line="${l.id}" onblur="saveEqInventoryNote(this)"/>`;
+        tbody += `<tr>
+      <td>${esc(l.item_name)}</td>
+      <td style="font-weight:600;font-size:11px">${esc(l.eq_inventory_number || '—')}</td>
+      <td style="font-size:10px;color:var(--text3)">${esc(l.eq_serial_number || '—')}</td>
+      <td style="text-align:center">${selOpen}</td>
+      <td></td>
+      <td>${noteCell}</td>
+    </tr>`;
+      }
+    }
+
+    document.getElementById('inv-lines-body').innerHTML = tbody;
+
     const btnSave = document.getElementById('inv-btn-save');
     const btnComplete = document.getElementById('inv-btn-complete');
     const btnAbort = document.getElementById('inv-btn-abort');
@@ -4731,6 +5013,27 @@ async function openInvSession(id, readOnly = false) {
 
     document.getElementById('inv-modal').classList.add('open');
   } catch(e) { showToast(e.message, true); }
+}
+
+async function markEqInventoryFound(sel) {
+  const lineId = sel.dataset.eqLineId;
+  const val = sel.value === 'true' ? true : sel.value === 'false' ? false : null;
+  const sessionId = document.getElementById('inv-session-id').value;
+  try {
+    await api('PATCH', `/inventory-sessions/${sessionId}/lines`, {
+      lines: [{ line_id: lineId, equipment_found: val }],
+    });
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function saveEqInventoryNote(input) {
+  const lineId = input.dataset.eqNoteLine;
+  const sessionId = document.getElementById('inv-session-id').value;
+  try {
+    await api('PATCH', `/inventory-sessions/${sessionId}/lines`, {
+      lines: [{ line_id: lineId, notes: input.value.trim() }],
+    });
+  } catch (e) { /* тихо */ }
 }
 
 function updateInvDelta(lineId, expected) {
@@ -4760,7 +5063,7 @@ async function completeInvSession() {
   if (lines.length) {
     await api('PATCH', `/inventory-sessions/${id}/lines`, { lines }).catch(() => {});
   }
-  if (!confirm('Завершить инвентаризацию? Все расхождения будут скорректированы в складских остатках.')) return;
+  if (!confirm('Завершить инвентаризацию? Расхождения по расходникам будут скорректированы в остатках. Единицы оборудования, отмеченные как «не найдено», получат статус «утеряно» и запись в движениях.')) return;
   try {
     const result = await api('POST', `/inventory-sessions/${id}/complete`);
     document.getElementById('inv-modal').classList.remove('open');
@@ -4790,10 +5093,12 @@ async function loadAnalytics() {
   c.innerHTML = '<div class="loading">Загрузка аналитики...</div>';
   try {
     const fromInv = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
-    const [analytics, alerts, invSessions] = await Promise.all([
+    const [analytics, alerts, invSessions, allWriteoffsList, invDiscLines] = await Promise.all([
       api('GET', '/stock/analytics'),
       api('GET', '/stock/alerts'),
       api('GET', '/stock/analytics/inventory?from=' + encodeURIComponent(fromInv)).catch(() => []),
+      api('GET', '/equipment-writeoffs?limit=40').catch(() => []),
+      api('GET', '/stock/analytics/inventory-discrepancies?from=' + encodeURIComponent(fromInv) + '&limit=40').catch(() => []),
     ]);
 
     function barChart(items, valueKey, labelKey, unitKey, maxItems = 8, colorVar = 'var(--accent)') {
@@ -4856,6 +5161,59 @@ async function loadAnalytics() {
             </div>`).join('')}` : ''}
       </div>` : '';
 
+    const woAll = Array.isArray(allWriteoffsList) ? allWriteoffsList : [];
+    const woPend = woAll.filter(w => w.status === 'pending');
+    const woConfirmedRecent = woAll.filter(w => w.status === 'confirmed').slice(0, 10);
+    const canConfirmWriteoff = can('tech_director') || can('exec_director') || can('admin') || can('super_admin');
+    const writeoffPendingSection = woPend.length ? `
+      <div class="section" style="margin-bottom:12px;border-color:rgba(242,85,85,.3)">
+        <div class="section-title" style="color:var(--rank3)">📋 Ожидают подтверждения списания (${woPend.length})</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Запросы от HR/менеджеров — подтверждает тех. директор, исп. директор или админ.</p>
+        ${woPend.map(w => `
+          <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:12px">
+            <div style="font-weight:600">${esc(w.item_name || '')}</div>
+            <div style="color:var(--text3);font-size:11px;margin-top:2px">${esc(w.warehouse_name || '—')}${w.inventory_number ? ' · инв. ' + esc(w.inventory_number) : ''}</div>
+            <div style="margin-top:6px;color:var(--text2)">${esc(w.reason || '')}</div>
+            ${w.notes ? `<div style="margin-top:4px;font-size:11px;color:var(--text3)">${esc(w.notes)}</div>` : ''}
+            ${w.document_ref ? `<div style="margin-top:4px;font-size:11px;color:var(--accent2)">Док: ${esc(w.document_ref)}</div>` : ''}
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">Запросил: ${esc(w.requested_by_name || '—')}</div>
+            ${canConfirmWriteoff ? `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+              <button type="button" class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="confirmEquipmentWriteoff('${w.id}')">✅ Подтвердить</button>
+              <button type="button" class="btn btn-ghost" style="font-size:11px;padding:4px 12px;color:var(--rank3)" onclick="rejectEquipmentWriteoff('${w.id}')">❌ Отклонить</button>
+            </div>` : ''}
+          </div>`).join('')}
+      </div>` : '';
+
+    const writeoffConfirmedSection = woConfirmedRecent.length ? `
+      <div class="section" style="margin-bottom:12px">
+        <div class="section-title">📋 Последние списания оборудования</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Подтверждённые заявки: причина, документ, кто подтвердил.</p>
+        ${woConfirmedRecent.map(w => `
+          <div style="font-size:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <b>${esc(w.item_name || '')}</b>${w.inventory_number ? ` (${esc(w.inventory_number)})` : ''}
+            — ${esc(w.reason || '')}
+            ${w.document_ref ? ` <span style="color:var(--accent2)">[${esc(w.document_ref)}]</span>` : ''}
+            <div style="color:var(--text3);font-size:10px;margin-top:4px">${w.confirmed_at ? new Date(w.confirmed_at).toLocaleDateString('ru-RU') : (w.created_at ? new Date(w.created_at).toLocaleDateString('ru-RU') : '')}${w.confirmed_by_name ? ' · ' + esc(w.confirmed_by_name) : ''}</div>
+          </div>`).join('')}
+      </div>` : '';
+
+    const discList = Array.isArray(invDiscLines) ? invDiscLines : [];
+    const invDiscSection = discList.length ? `
+      <div class="section" style="margin-bottom:12px">
+        <div class="section-title">📌 Расхождения инвентаризации (строки с пояснениями)</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">За 90 дн.: факт ≠ учёт, примечания из строк сессии.</p>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Позиция</th><th>Склад</th><th>Учёт</th><th>Факт</th><th>Примечание</th><th>Дата</th></tr></thead><tbody>
+        ${discList.map(r => `<tr>
+          <td>${esc(r.item_name || '')}</td>
+          <td style="font-size:11px;color:var(--text3)">${esc(r.warehouse_name || '')}</td>
+          <td>${fmtNum(r.expected_qty)}</td>
+          <td>${fmtNum(r.actual_qty)}</td>
+          <td style="font-size:11px;color:var(--text2);max-width:200px;white-space:normal">${r.notes ? esc(r.notes) : '—'}</td>
+          <td style="font-size:11px;color:var(--text3)">${r.completed_at ? new Date(r.completed_at).toLocaleDateString('ru-RU') : '—'}</td>
+        </tr>`).join('')}
+        </tbody></table></div>
+      </div>` : '';
+
     const invList = Array.isArray(invSessions) ? invSessions : [];
     const invByMonth = {};
     for (const r of invList) {
@@ -4896,7 +5254,10 @@ async function loadAnalytics() {
 
     c.innerHTML = `
       ${alertsSection}
+      ${writeoffPendingSection}
+      ${writeoffConfirmedSection}
       ${invSection}
+      ${invDiscSection}
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px">
         <div class="section">
