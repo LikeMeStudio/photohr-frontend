@@ -1968,11 +1968,23 @@ function renderItemsCatalog() {
   });
 
   const typeForCats = itemsFilterType !== 'all' ? itemsFilterType : null;
-  const catsForFilter = [...new Set(items.filter(i => !typeForCats || i.item_type === typeForCats).map(i => i.category).filter(Boolean))];
-  const catOptions = catsForFilter.map(cv => {
-    const lbl = getCategoryLabel(null, cv);
-    return `<option value="${esc(cv)}" ${itemsFilterCat === cv ? 'selected' : ''}>${esc(lbl)}</option>`;
-  }).join('');
+  const catSet = new Map();
+  for (const sc of allSubcategories) {
+    if (typeForCats && sc.item_type !== typeForCats) continue;
+    if (!catSet.has(sc.parent_category)) {
+      catSet.set(sc.parent_category, `${sc.icon} ${sc.name}`);
+    }
+  }
+  for (const it of items) {
+    if (typeForCats && it.item_type !== typeForCats) continue;
+    if (it.category && !catSet.has(it.category)) {
+      catSet.set(it.category, getCategoryLabel(null, it.category));
+    }
+  }
+  const catOptions = [...catSet.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
+    .map(([cv, lbl]) => `<option value="${esc(cv)}" ${itemsFilterCat === cv ? 'selected' : ''}>${esc(lbl)}</option>`)
+    .join('');
 
   const allSubcatsForFilter = allSubcategories.filter(s => {
     if (typeForCats && s.item_type !== typeForCats) return false;
