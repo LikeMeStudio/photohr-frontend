@@ -655,6 +655,19 @@ let venues=[],users=[];
 let equipmentListCache=[];
 let allSubcategories=[];
 let allCategories=[];
+const EMOJI_PICKER_LIST = [
+  '🖨','💻','🖥','📱','⌨','🖱','🔋','💡','📷','🎥','🖲','💾','📀','🔌','📺','📠','🎧','🎤','🔊',
+  '📸','🎞','🔦','💥','🎬','📹','🔍','🔎',
+  '🪑','🛋','🪞','🚪','🪟','🗄','🗂','📁','🧳','💼','🗃','🔐','🗝',
+  '💰','💳','🏷','🧾','💵','🪙','📊',
+  '🎨','🖼','🎪','🎭','🎀','🎈','🎊','🪅','✨','🌟','🎠','🎡',
+  '🔧','⚙','🛠','🔩','🪛','🧰','📐','🔑','🔒','⛏','🪚',
+  '📄','📦','🧴','🧹','🪣','🧽','🗑','📎','✂','📏','🖊','✏','📝','🖋','📌','📍',
+  '👕','👔','🧤','🧢','👟','🦺','🥼','🧣','🧥',
+  '🍽','🧃','☕','🏥','💊','🩺','🩹','🧼','🧻',
+  '🖌','👑','💅','🪄','🎯','🎨','✨',
+  '🎁','🔬','🧲','🧪','📡','🔭','🏗','🪣','🛒','🧯','🪜','⚡','🌡','🧊',
+];
 let itemsFilterType='all';
 let itemsFilterCat='';
 let itemsFilterSubcat='';
@@ -3600,9 +3613,6 @@ function openAddCategoryForm(itemType) {
       <div class="field"><div class="fl">Название *</div>
         <input class="fin" id="aic-name" placeholder="Например, Сканеры"/>
       </div>
-      <div class="field"><div class="fl">Slug (идентификатор)</div>
-        <input class="fin" id="aic-slug" placeholder="Авто из названия"/>
-      </div>
       <div class="field"><div class="fl">Иконка</div>
         <div style="display:flex;gap:8px;align-items:center">
           <span id="aic-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('aic-icon','aic-icon-preview')">📦</span>
@@ -3615,20 +3625,12 @@ function openAddCategoryForm(itemType) {
       </div>
     </div>`;
   document.body.appendChild(wrap);
-  const nameEl = document.getElementById('aic-name');
-  const slugEl = document.getElementById('aic-slug');
-  nameEl.addEventListener('input', function () {
-    if (!slugEl.dataset.manual) {
-      slugEl.value = (this.value || '').trim().toLowerCase().replace(/[^a-zа-яё0-9]/gi, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-    }
-  });
-  slugEl.addEventListener('input', function () { this.dataset.manual = '1'; });
   document.getElementById('aic-save').onclick = async () => {
     const name = (document.getElementById('aic-name').value || '').trim();
-    let slug = (document.getElementById('aic-slug').value || '').trim();
     const icon = (document.getElementById('aic-icon').value || '').trim() || '📦';
     if (!name) { showToast('Введите название', true); return; }
-    if (!slug) slug = name.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'category';
+    let slug = name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-zа-яё0-9_]/gi, '');
+    if (!slug) slug = 'category';
     try {
       const row = await api('POST', '/inventory-categories-manage', { item_type: itemType, slug, name, icon });
       allCategories.push({ id: row.id, item_type: row.item_type, slug: row.slug, name: row.name, icon: row.icon, sort_order: row.sort_order });
@@ -3795,7 +3797,11 @@ async function openSubcatManager() {
       const cat = catsArr.find(c => c.slug === slug);
       const subs = subsByParent(itemType, slug);
       const icon = cat ? cat.icon : getCategoryIcon(itemType, slug);
-      const title = getCategoryLabel(itemType, slug);
+      let titleText = cat ? cat.name : getCategoryLabel(itemType, slug);
+      if (!cat) {
+        const full = getCategoryLabel(itemType, slug);
+        if (full.startsWith(icon)) titleText = full.slice(icon.length).trim() || slug;
+      }
       const catBtns = cat
         ? `<button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="event.stopPropagation();editInventoryCategory('${cat.id}')">✏️</button>
            <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--rank3)" onclick="event.stopPropagation();deleteInventoryCategory('${cat.id}')">🗑</button>`
@@ -3806,7 +3812,7 @@ async function openSubcatManager() {
       secHtml += `<details style="margin-bottom:4px" open>
         <summary style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);user-select:none">
           <span style="font-size:14px;cursor:pointer" title="Иконка категории" onclick="${iconClk}">${esc(icon)}</span>
-          <span style="flex:1">${esc(title)}</span>
+          <span style="flex:1">${esc(titleText)}</span>
           ${catBtns}
           <span style="color:var(--text3);font-weight:400;font-size:10px">${subs.length} подкат.</span>
           <span class="eq-group-chevron" style="font-size:10px;color:var(--text3)">▸</span>
@@ -3823,6 +3829,7 @@ async function openSubcatManager() {
   const modal = document.createElement('div');
   modal.id = 'subcat-mgr-modal';
   modal.className = 'overlay open';
+  modal.style.zIndex = '300';
   modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
   modal.innerHTML = `
     <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
@@ -3868,7 +3875,7 @@ function openAddSubcatForm(itemType) {
   const modal = document.createElement('div');
   modal.id = 'add-subcat-form-modal';
   modal.className = 'overlay open';
-  modal.style.zIndex = '310';
+  modal.style.zIndex = '320';
   modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
   modal.innerHTML = `
     <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
@@ -3894,7 +3901,7 @@ function openAddSubcatForm(itemType) {
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-subcat-form-modal').remove()">Отмена</button>
-        <button type="button" class="btn btn-primary" onclick="submitAddSubcat(${JSON.stringify(itemType)})">Создать</button>
+        <button type="button" class="btn btn-primary" id="asc-submit-btn">Создать</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -3908,15 +3915,36 @@ function openAddSubcatForm(itemType) {
   document.getElementById('asc-prefix').addEventListener('input', function() {
     this.dataset.manual = '1';
   });
+  document.getElementById('asc-submit-btn').addEventListener('click', () => { void submitAddSubcat(itemType); });
 }
 
 async function submitAddSubcat(itemType) {
-  const parentCat = document.getElementById('asc-parent-cat').value;
-  const name = document.getElementById('asc-name').value.trim();
-  const icon = document.getElementById('asc-icon').value.trim() || '📦';
-  const prefix = document.getElementById('asc-prefix').value.trim().toUpperCase();
+  const parentCatEl = document.getElementById('asc-parent-cat');
+  const nameEl = document.getElementById('asc-name');
+  const iconEl = document.getElementById('asc-icon');
+  const prefixEl = document.getElementById('asc-prefix');
 
-  if (!parentCat) { showToast('Выберите или создайте родительскую категорию', true); return; }
+  if (!parentCatEl || !nameEl || !prefixEl) {
+    console.error('submitAddSubcat: missing DOM elements', { parentCatEl, nameEl, prefixEl });
+    showToast('Ошибка формы — элементы не найдены', true);
+    return;
+  }
+
+  let parentCat = parentCatEl.value;
+  if (!parentCat && parentCatEl.options.length) {
+    const first = parentCatEl.options[0];
+    if (first && first.value) parentCat = first.value;
+  }
+
+  const name = nameEl.value.trim();
+  const icon = (iconEl ? iconEl.value.trim() : '') || '📦';
+  const prefix = prefixEl.value.trim().toUpperCase();
+
+  if (!parentCat) {
+    console.error('submitAddSubcat: empty parent_category');
+    showToast('Выберите родительскую категорию', true);
+    return;
+  }
   if (!name) { showToast('Введите название', true); return; }
   if (!prefix) { showToast('Введите сокращение', true); return; }
 
@@ -3924,15 +3952,23 @@ async function submitAddSubcat(itemType) {
     const sc = await api('POST', '/inventory-subcategories', {
       item_type: itemType,
       parent_category: parentCat,
-      name, icon, prefix,
+      name: name,
+      icon: icon,
+      prefix: prefix,
     });
-    allSubcategories.push(sc);
+    allSubcategories.push({
+      id: sc.id, item_type: sc.item_type, parent_category: sc.parent_category,
+      name: sc.name, icon: sc.icon, prefix: sc.prefix, unit: sc.unit, sort_order: sc.sort_order,
+    });
     showToast('Подкатегория создана');
     document.getElementById('add-subcat-form-modal')?.remove();
     document.getElementById('subcat-mgr-modal')?.remove();
     openSubcatManager();
     await loadCategoriesFromApi();
-  } catch (e) { showToast(e.message, true); }
+  } catch (e) {
+    console.error('submitAddSubcat error:', e);
+    showToast(e.message || 'Ошибка создания', true);
+  }
 }
 
 function pickEmojiForField(inputId, previewId) {
@@ -3960,32 +3996,19 @@ function restoreSubcatIconApply() {
 }
 
 async function changeSubcatIcon(scId) {
-  const POPULAR_EMOJI = [
-    '🖨','💻','🖥','📱','⌨','🖱','🔋','💡','📷','🎥','🖲','💾','📀','🔌','📺','📠','🎧','🎤',
-    '🪑','🛋','🪞','🚪','🪟','🗄','🗂','📁','🧳','💼',
-    '💰','💳','🏷','🧾','💵','🪙','📊',
-    '🎨','🖼','🎪','🎭','🎀','🎈','🎊','🪅','✨','🌟',
-    '🔧','⚙','🛠','🔩','🪛','🧰','📐','🔑','🔒',
-    '📄','📦','🧴','🧹','🪣','🧽','🗑','📎','✂','📏','🖊','✏',
-    '👕','👔','🧤','🧢','👟','🦺','🥼',
-    '🍽','🧃','☕','🏥','💊','🩺','🩹','🧼',
-    '🖌','👑','💅','🪄','🎯',
-    '🎁','🔬','🧲','🧪','📡','🔭','🏗','🪣',
-  ];
-
   const old = document.getElementById('emoji-picker-modal');
   if (old) old.remove();
 
   const modal = document.createElement('div');
   modal.id = 'emoji-picker-modal';
   modal.className = 'overlay open';
-  modal.style.zIndex = '310';
+  modal.style.zIndex = '350';
   modal.onclick = (ev) => { if (ev.target === modal) { restoreSubcatIconApply(); modal.remove(); } };
   modal.innerHTML = `
     <div class="modal" style="max-width:360px" onclick="event.stopPropagation()">
       <div class="modal-title"><span>Выберите иконку</span><button type="button" class="dr-close" onclick="restoreSubcatIconApply();document.getElementById('emoji-picker-modal').remove()">×</button></div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center">
-        ${POPULAR_EMOJI.map(e => `<button type="button" style="font-size:24px;padding:6px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--bg3)'" onclick='applySubcatIcon("${scId}",${JSON.stringify(e)})'>${e}</button>`).join('')}
+        ${EMOJI_PICKER_LIST.map(e => `<button type="button" style="font-size:24px;padding:6px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--bg3)'" onclick='applySubcatIcon("${scId}",${JSON.stringify(e)})'>${e}</button>`).join('')}
       </div>
       <div style="margin-top:8px">
         <input class="fin" id="emoji-custom-input" placeholder="Или введите свой emoji..." style="text-align:center;font-size:18px"/>
@@ -4015,6 +4038,13 @@ async function applySubcatIcon(scId, icon) {
 function editSubcatInline(scId) {
   const sc = allSubcategories.find(s => s.id === scId);
   if (!sc) return;
+  let parentOpts = allCategories.filter(c => c.item_type === sc.item_type).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  if (!parentOpts.length) {
+    parentOpts = getCategoriesForType(sc.item_type).map(c => ({ slug: c.value, name: c.label, icon: '' }));
+  }
+  const parentSelectOpts = parentOpts.map(c =>
+    `<option value="${esc(c.slug)}"${c.slug === sc.parent_category ? ' selected' : ''}>${c.icon ? esc(c.icon) + ' ' : ''}${esc(c.name)}</option>`
+  ).join('');
   const old = document.getElementById('edit-subcat-modal');
   if (old) old.remove();
   const wrap = document.createElement('div');
@@ -4025,6 +4055,9 @@ function editSubcatInline(scId) {
   wrap.innerHTML = `
     <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
       <div class="modal-title"><span>Подкатегория</span><button type="button" class="dr-close" onclick="document.getElementById('edit-subcat-modal').remove()">×</button></div>
+      <div class="field"><div class="fl">Родительская категория</div>
+        <select class="fselect" id="esc-parent">${parentSelectOpts}</select>
+      </div>
       <div class="field"><div class="fl">Иконка</div>
         <div style="display:flex;gap:8px;align-items:center">
           <span id="esc-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('esc-icon','esc-icon-preview')">${esc(sc.icon)}</span>
@@ -4044,18 +4077,23 @@ function editSubcatInline(scId) {
     </div>`;
   document.body.appendChild(wrap);
   document.getElementById('esc-save').onclick = async () => {
+    const newParent = (document.getElementById('esc-parent').value || '').trim();
     const name = (document.getElementById('esc-name').value || '').trim();
     const prefix = (document.getElementById('esc-prefix').value || '').trim().toUpperCase();
     const icon = (document.getElementById('esc-icon').value || '').trim() || '📦';
+    if (!newParent) { showToast('Выберите родительскую категорию', true); return; }
     if (!name) { showToast('Введите название', true); return; }
     if (!prefix) { showToast('Введите сокращение', true); return; }
+    const body = { name, prefix, icon };
+    if (newParent !== sc.parent_category) body.parent_category = newParent;
     try {
-      await api('PATCH', `/inventory-subcategories/${scId}`, { name, prefix, icon });
+      await api('PATCH', `/inventory-subcategories/${scId}`, body);
       const idx = allSubcategories.findIndex(s => s.id === scId);
       if (idx >= 0) {
         allSubcategories[idx].name = name;
         allSubcategories[idx].prefix = prefix;
         allSubcategories[idx].icon = icon;
+        if (body.parent_category) allSubcategories[idx].parent_category = newParent;
       }
       showToast('Подкатегория обновлена');
       wrap.remove();
