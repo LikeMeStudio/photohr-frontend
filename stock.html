@@ -51,6 +51,17 @@ a{color:inherit;text-decoration:none}
 .matrix-wrap{overflow:auto;max-height:55vh;margin-top:10px;border:1px solid var(--border);border-radius:10px}
 .matrix-wrap table.tbl{min-width:520px;font-size:10px}
 .matrix-wrap .tbl th,.matrix-wrap .tbl td{padding:4px 6px;white-space:nowrap}
+.matrix-wrap .tbl th:not(.matrix-sticky-col){
+  writing-mode:vertical-lr;
+  text-orientation:mixed;
+  white-space:nowrap;
+  max-width:36px;
+  min-width:36px;
+  height:100px;
+  vertical-align:bottom;
+  padding:4px 2px;
+  font-size:10px;
+}
 .matrix-sticky-col{position:sticky;left:0;background:var(--bg2);z-index:1;box-shadow:2px 0 6px rgba(0,0,0,.15)}
 .modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
 .modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
@@ -637,6 +648,20 @@ function stripLabelDuplicateIcon(name, icon) {
 function latinPrefixFilter(v) {
   return String(v || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
 }
+function transliterate(text) {
+  const map = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e', 'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y',
+    'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f',
+    'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+    'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E', 'Ж': 'ZH', 'З': 'Z', 'И': 'I', 'Й': 'Y',
+    'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
+    'Х': 'H', 'Ц': 'TS', 'Ч': 'CH', 'Ш': 'SH', 'Щ': 'SCH', 'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'YU', 'Я': 'YA',
+  };
+  return String(text || '').split('').map(c => map[c] || c).join('');
+}
+function prefixFromName(name) {
+  return latinPrefixFilter(transliterate(String(name || '').trim()).slice(0, 3));
+}
 function getCategoryPrefix(type,value){
   const cats=getCategoriesForType(type);
   const found=cats.find(c=>c.value===value);
@@ -827,7 +852,8 @@ function safeCloseInvModal() {
       switchTab(7);
       setTimeout(() => openEqDrawer(_qrEq), 1500);
     } else {
-      switchTab(0);
+      const savedTab = parseInt(localStorage.getItem('fhr_stock_tab'), 10);
+      switchTab(Number.isFinite(savedTab) && savedTab >= 0 && savedTab <= 9 ? savedTab : 0);
     }
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
@@ -857,6 +883,7 @@ function setupMgmtButton() {
 
 function switchTab(idx){
   currentTabIdx=idx;
+  try { localStorage.setItem('fhr_stock_tab', String(idx)); } catch (_) {}
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
   const fns=[loadStockForecast,loadWarehouses,loadItems,loadPurchaseOrders,loadStockTransfers,loadMovements,loadInventory,loadEquipment,loadAnalytics,loadTechSchedule];
   if(fns[idx]) fns[idx]();
@@ -2000,6 +2027,7 @@ async function loadItems() {
 function renderItemsCatalog() {
   const c = document.getElementById('content');
   const canEdit = can('tech_director') || can('exec_director') || can('admin');
+  const isSuperAdmin = can('super_admin');
 
   let filtered = items.filter(it => {
     if (itemsFilterType !== 'all' && it.item_type !== itemsFilterType) return false;
@@ -2105,6 +2133,7 @@ function renderItemsCatalog() {
         <div class="section-title" style="flex-wrap:wrap;gap:8px">
           <span>📋 Справочник позиций</span>
           <span id="items-count" style="color:var(--text3);font-size:11px;font-weight:400">(${filtered.length} из ${items.length})</span>
+          ${isSuperAdmin ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="openSubcatManager()">⚙ Категории</button>` : ''}
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
         </div>
         <div id="items-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -2259,7 +2288,7 @@ function onSubcategoryChange() {
   if (sel.value === '__new__') {
     const name = prompt('Название новой подкатегории:');
     if (!name || !name.trim()) { sel.value = ''; return; }
-    const defaultPfx = latinPrefixFilter(name.trim().slice(0, 3));
+    const defaultPfx = prefixFromName(name) || 'XX';
     const prefix = prompt('Сокращение (латиница/цифры, 2–4 символа):', defaultPfx || 'XX');
     if (!prefix || !prefix.trim()) { sel.value = ''; return; }
     const icon = prompt('Иконка (emoji):', '📦') || '📦';
@@ -3158,7 +3187,7 @@ async function buildEquipmentMatrix(cityFilter) {
 
           const whName = warehouses.find(w => String(w.id) === String(wid))?.name || '';
           const editThreshAttr = canEdit
-            ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" onclick="setEqSubcatThreshold(${JSON.stringify(sc.id)},${JSON.stringify(wid)},${minQ},${JSON.stringify(sc.name)},${JSON.stringify(whName)})"`
+            ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" data-sc-id="${esc(sc.id)}" data-wh-id="${esc(wid)}" data-min="${String(minQ)}" data-sc-name="${esc(sc.name)}" data-wh-name="${esc(whName)}" onclick="setEqSubcatThresholdFromCell(this)"`
             : ` style="${cellStyle};text-align:center;font-size:11px"`;
 
           return `<td${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
@@ -3186,6 +3215,15 @@ async function buildEquipmentMatrix(cityFilter) {
   } catch (e) {
     return `<div style="color:var(--rank3);font-size:11px;margin-top:8px">${esc(e.message)}</div>`;
   }
+}
+
+function setEqSubcatThresholdFromCell(el) {
+  const scId = el.dataset.scId;
+  const whId = el.dataset.whId;
+  const currentMin = parseFloat(el.dataset.min) || 0;
+  const scName = el.dataset.scName;
+  const whName = el.dataset.whName;
+  setEqSubcatThreshold(scId, whId, currentMin, scName, whName);
 }
 
 async function setEqSubcatThreshold(subcatId, warehouseId, currentMin, subcatName, whName) {
@@ -3468,7 +3506,6 @@ async function loadEquipment() {
     let html = `<div class="section">
       <div class="section-title" style="flex-wrap:wrap;gap:8px">
         <span>🖨 Оборудование (${equip.length})</span>
-        ${isSuperAdmin ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="openSubcatManager()">⚙ Подкатегории</button>` : ''}
         ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openEqModal()">+ Добавить</button>` : ''}
         <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;font-size:11px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>`;
@@ -3923,7 +3960,7 @@ function openAddSubcatForm(itemType) {
   document.getElementById('asc-name').addEventListener('input', function() {
     const pfxEl = document.getElementById('asc-prefix');
     if (!pfxEl.dataset.manual) {
-      pfxEl.value = latinPrefixFilter(this.value.trim().slice(0, 3));
+      pfxEl.value = prefixFromName(this.value);
     }
   });
   document.getElementById('asc-prefix').addEventListener('input', function() {
