@@ -49,12 +49,19 @@ a{color:inherit;text-decoration:none}
 .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
 .modal.modal-wh-detail{max-width:min(920px,96vw)}
 .matrix-wrap{overflow:auto;max-height:55vh;margin-top:10px;border:1px solid var(--border);border-radius:10px}
-.matrix-wrap table.tbl{min-width:520px;font-size:10px}
+.matrix-wrap table.tbl{min-width:520px;font-size:10px;table-layout:fixed}
 .matrix-wrap .tbl th,.matrix-wrap .tbl td{padding:4px 6px;white-space:nowrap}
+.matrix-wrap .tbl th.matrix-wh-col,
+.matrix-wrap .tbl td.matrix-wh-cell{width:46px;min-width:46px;max-width:46px;text-align:center;padding:3px 2px;font-size:10px;white-space:nowrap;box-sizing:border-box}
 .matrix-wrap thead th{position:sticky;top:0;z-index:2;background:var(--bg2);vertical-align:bottom;box-shadow:0 1px 0 var(--border)}
 .matrix-wrap thead th.matrix-sticky-col{z-index:3;left:0;box-shadow:1px 1px 0 var(--border)}
-.matrix-wh-head{max-width:40px;min-width:36px;padding:4px 2px!important;text-align:center!important}
-.matrix-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;font-size:9px;font-weight:700;color:#fff;line-height:1}
+.matrix-wrap .tbl th.matrix-sticky-col,
+.matrix-wrap .tbl td.matrix-sticky-col{width:140px;min-width:140px;max-width:140px;box-sizing:border-box}
+.matrix-wrap .tbl th.matrix-sigma-col,
+.matrix-wrap .tbl td.matrix-sigma-col{width:50px;min-width:50px;max-width:50px;text-align:center;box-sizing:border-box}
+.matrix-wrap .tbl th.matrix-thresh-col,
+.matrix-wrap .tbl td.matrix-thresh-col{width:50px;min-width:50px;max-width:50px;text-align:center;box-sizing:border-box}
+.matrix-badge{display:inline-block;padding:2px 3px;border-radius:4px;font-size:8px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42px;line-height:1.2;vertical-align:middle;box-sizing:border-box}
 .matrix-sticky-col{position:sticky;left:0;background:var(--bg2);z-index:1;box-shadow:2px 0 6px rgba(0,0,0,.15)}
 .matrix-cat-row td{background:var(--bg3);font-weight:600;font-size:11px;padding:6px 8px!important;color:var(--accent2);white-space:normal}
 .matrix-eq-cat > summary{list-style:none;cursor:pointer}
@@ -112,7 +119,7 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .fselect{font-size:14px;padding:10px 12px}
   .fl{font-size:11px}
   .card-grid{gap:6px}
-  .wh-card-compact{padding:8px 10px}
+  .wh-card-compact{padding:6px 10px;min-height:auto}
   .wh-card-compact .wh-type{font-size:8px;padding:1px 4px}
   /* Компактные sticky склады на мобильном */
   .wh-mobile-bar{background:var(--bg);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
@@ -124,13 +131,16 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:4px}
 .wh-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
 .wh-card:hover{border-color:var(--accent)}
-.wh-card-compact{padding:8px 10px;cursor:pointer}
+.wh-card-compact{padding:6px 10px;min-height:auto;cursor:pointer}
 .wh-card-compact.wh-card-active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.wh-card-compact .wh-name{font-size:12px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.wh-card-compact .wh-name{font-size:12px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
 .wh-card-compact .wh-meta{font-size:9px;color:var(--text3)}
-.wh-card-compact .wh-type{font-size:8px;padding:1px 4px;margin-bottom:4px}
-.wh-card-compact .wh-card-gear{font-size:10px;padding:1px 4px;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:4px;line-height:1}
+.wh-card-compact .wh-type{font-size:8px;padding:1px 4px;margin-bottom:3px}
+.wh-card-compact .wh-card-gear{font-size:10px;padding:1px 4px;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:4px;line-height:1;flex-shrink:0}
 .wh-card-compact .wh-card-gear:hover{color:var(--text);background:var(--bg2)}
+#wh-stock-panel [draggable="true"],.wh-detail-panel [draggable="true"]{user-select:none;-webkit-user-select:none;cursor:grab}
+#wh-stock-panel [draggable="true"]:active,.wh-detail-panel [draggable="true"]:active{cursor:grabbing}
+[draggable="true"]{user-select:none;-webkit-user-select:none}
 .fc-wh-btn{margin:2px}
 .wh-type{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;line-height:1.2}
 .wh-type-central{background:#2a1f60;color:#9b8dff}
@@ -1578,7 +1588,7 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     const st = eqUnitStatusEmoji(e.status);
     const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
-    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none"` : '';
+    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none"` : '';
     return `<tr${drag}>
       <td>${esc(e.item_name)}</td>
       <td style="font-weight:600;text-align:center">1</td>
@@ -1602,7 +1612,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const qMax = parseFloat(s.quantity) || 0;
   const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
   const un = esc(s.unit || '').replace(/"/g, '&quot;');
-  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none"` : '';
+  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none"` : '';
   return `<tr${drag}>
     <td>${esc(s.item_name)}</td>
     <td style="font-weight:600;text-align:center" title="${esc(fmtStockQty(q, s))}">${fmtStockQty(q, s)}</td>
@@ -1845,7 +1855,7 @@ async function renderWhStockPanel(whId){
     const titleEmoji=hasCrit?' 🔴':' 🟢';
     const stockBlocks=[consSection,eqSection].filter(Boolean).join('');
     host.innerHTML=`
-      <div style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+      <div class="wh-detail-panel" style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
         <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Склад: ${esc(wh?.name||whId)}${titleEmoji}</div>
         ${stockBlocks}
         ${canEdit?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
@@ -1937,8 +1947,10 @@ async function loadWarehouses() {
               </div>
               <div class="wh-name">${esc(w.name)}</div>
               <div class="wh-meta" style="margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '')}</div>
-              <div class="wh-meta" style="margin-top:2px">👤 ${esc(w.responsible_name || '—')}</div>
-              ${canEdit ? `<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Редактировать">⚙</button></div>` : ''}
+              ${canEdit ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;gap:4px;width:100%;min-width:0;box-sizing:border-box">
+                <span class="wh-meta" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">👤 ${esc(w.responsible_name || '—')}</span>
+                <button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Настройки">⚙</button>
+              </div>` : `<div class="wh-meta" style="margin-top:2px">👤 ${esc(w.responsible_name || '—')}</div>`}
             </div>
           `).join('')}
         </div>` : (!isMobile() ? `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>` : '')}
@@ -2588,20 +2600,38 @@ function openMergeModal(sourceId, sourceName, usageText) {
             <option value="">— Выберите позицию —</option>
             ${candidates.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.category || '—')}, ${esc(c.unit || 'шт')})</option>`).join('')}
           </select>
-          <div style="display:flex;gap:8px;justify-content:flex-end">
+          <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;width:100%">
+            ${can('super_admin') ? `<button type="button" class="btn btn-ghost" style="color:var(--rank3);border-color:rgba(242,85,85,.3);font-size:12px" onclick="forceDeleteItem('${sourceId}', ${JSON.stringify(sourceName)})">🗑 Списать и удалить</button>` : '<span></span>'}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-ghost" onclick="document.getElementById('merge-modal').remove()">Отмена</button>
             <button class="btn btn-primary" style="background:var(--rank3)" onclick="executeMerge('${sourceId}')">Объединить и удалить</button>
+            </div>
           </div>
         ` : `
           <div style="color:var(--text3);font-size:12px;margin-bottom:16px">Нет подходящих позиций того же типа для слияния. Создайте целевую позицию сначала.</div>
-          <div style="display:flex;gap:8px;justify-content:flex-end">
+          <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;width:100%">
+            ${can('super_admin') ? `<button type="button" class="btn btn-ghost" style="color:var(--rank3);border-color:rgba(242,85,85,.3);font-size:12px" onclick="forceDeleteItem('${sourceId}', ${JSON.stringify(sourceName)})">🗑 Списать и удалить</button>` : '<span></span>'}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-ghost" onclick="document.getElementById('merge-modal').remove()">Закрыть</button>
+            </div>
           </div>
         `}
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+}
+
+async function forceDeleteItem(itemId, itemName) {
+  const reason = prompt(`Причина полного списания «${itemName}»:\n\nВсё оборудование будет списано, остатки обнулены, позиция деактивирована.`);
+  if (reason === null) return;
+  if (!confirm(`⚠️ НЕОБРАТИМО!\n\nСписать ВСЁ оборудование и деактивировать позицию «${itemName}»?`)) return;
+  try {
+    const result = await api('DELETE', `/inventory-items/${itemId}/force`, { reason: (reason && String(reason).trim()) || 'удаление позиции' });
+    showToast(`Списано ${result.written_off_units} ед., позиция деактивирована`);
+    document.getElementById('merge-modal')?.remove();
+    loadItems(); loadSummary(); loadEquipment();
+  } catch (e) { showToast(e.message, true); }
 }
 
 async function executeMerge(sourceId) {
@@ -3137,7 +3167,7 @@ function matrixWarehouseBadgeTh(w) {
     shortLbl = String(w.name || '?').slice(0, 3);
   }
   const fullName = esc((w.name || '') + (w.city ? ', ' + w.city : ''));
-  return `<th class="matrix-wh-head" title="${fullName}"><span class="matrix-badge" style="background:${color}">${esc(shortLbl)}</span></th>`;
+  return `<th class="matrix-wh-col" title="${fullName}"><span class="matrix-badge" style="background:${color}">${esc(shortLbl)}</span></th>`;
 }
 function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
   const balMap = new Map();
@@ -3179,7 +3209,7 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
   });
   if (problemsOnly) itemRows = itemRows.filter(it => rowSeverity(it) < 2);
   const colSpan = 3 + whIds.length;
-  const thead = `<th class="matrix-sticky-col">Позиция</th><th>Σ</th><th>Порог</th>${whCols.map(w => matrixWarehouseBadgeTh(w)).join('')}`;
+  const thead = `<th class="matrix-sticky-col">Позиция</th><th class="matrix-sigma-col">Σ</th><th class="matrix-thresh-col">Порог</th>${whCols.map(w => matrixWarehouseBadgeTh(w)).join('')}`;
   function consumableItemRow(it) {
     let total = 0;
     const cells = whIds.map(wid => {
@@ -3192,15 +3222,15 @@ function buildMatrixSection(matrix, fcRows, cityFilter, problemsOnly) {
       const st = matrixCellStyle(q, minThr);
       const show = q > 0 || b;
       const cellDisp = show ? fmtStockQty(q, it) : '—';
-      return `<td title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums;font-size:11px">${cellDisp}</td>`;
+      return `<td class="matrix-wh-cell" title="${esc(tip)}" style="${st};text-align:center;font-variant-numeric:tabular-nums;font-size:11px">${cellDisp}</td>`;
     }).join('');
     const rp = parseFloat(it.reorder_point) || 0;
     const rs = matrixRowSigmaReorderStyles(total, rp);
     const rpCu = it.consumption_unit ? shortUnit(it.consumption_unit) : '';
-    const rpCell = `<td style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? fmtNum(rp) + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
+    const rpCell = `<td class="matrix-thresh-col" style="text-align:center;font-size:11px;${rs.thresh}" title="Порог пополнения (только просмотр в матрице)">${rp > 0 ? fmtNum(rp) + (rpCu ? ' ' + esc(rpCu) : '') : '—'}</td>`;
     return `<tr>
-      <td class="matrix-sticky-col" style="font-weight:500;max-width:160px;white-space:normal;font-size:10px">${esc(it.name)}</td>
-      <td style="text-align:center;font-weight:600;${rs.sum}">${fmtStockQty(total, it)}</td>
+      <td class="matrix-sticky-col" style="font-weight:500;white-space:normal;font-size:10px;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</td>
+      <td class="matrix-sigma-col" style="text-align:center;font-weight:600;${rs.sum}">${fmtStockQty(total, it)}</td>
       ${rpCell}
       ${cells}
     </tr>`;
@@ -3257,7 +3287,7 @@ async function buildEquipmentMatrix(cityFilter) {
     const colCount = 3 + whIds.length;
     const canEdit = can('tech_director') || can('exec_director') || can('admin');
 
-    const thead = `<th class="matrix-sticky-col">Подкатегория</th><th>Σ</th><th>Мин Σ</th>${warehouses.map(w => matrixWarehouseBadgeTh(w)).join('')}`;
+    const thead = `<th class="matrix-sticky-col">Подкатегория</th><th class="matrix-sigma-col">Σ</th><th class="matrix-thresh-col">Мин Σ</th>${warehouses.map(w => matrixWarehouseBadgeTh(w)).join('')}`;
 
     const catGrouped = new Map();
     for (const sc of subcategories) {
@@ -3283,15 +3313,15 @@ async function buildEquipmentMatrix(cityFilter) {
           ? ` style="cursor:pointer;${cellStyle};text-align:center;font-size:11px" title="Клик — изменить порог" data-sc-id="${esc(sc.id)}" data-wh-id="${esc(wid)}" data-min="${String(minQ)}" data-sc-name="${esc(sc.name)}" data-wh-name="${esc(whName)}" onclick="setEqSubcatThresholdFromCell(this)"`
           : ` style="${cellStyle};text-align:center;font-size:11px"`;
 
-        return `<td${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
+        return `<td class="matrix-wh-cell"${editThreshAttr}>${cnt}${minQ > 0 ? `<span style="font-size:9px;color:var(--text3)">/${minQ}</span>` : ''}</td>`;
       }).join('');
 
       const sigmaStyle = totalMin > 0 && total < totalMin ? 'color:var(--rank3);font-weight:700' : totalMin > 0 && total < totalMin * 1.5 ? 'color:var(--rank2);font-weight:600' : '';
 
       return `<tr>
-        <td class="matrix-sticky-col" style="font-weight:500;font-size:10px;white-space:normal">${esc(sc.icon)} ${esc(sc.name)}</td>
-        <td style="text-align:center;font-weight:600;${sigmaStyle}">${total}</td>
-        <td style="text-align:center;font-size:11px;color:var(--text3)">${totalMin > 0 ? totalMin : '—'}</td>
+        <td class="matrix-sticky-col" style="font-weight:500;font-size:10px;white-space:normal;overflow:hidden;text-overflow:ellipsis">${esc(sc.icon)} ${esc(sc.name)}</td>
+        <td class="matrix-sigma-col" style="text-align:center;font-weight:600;${sigmaStyle}">${total}</td>
+        <td class="matrix-thresh-col" style="text-align:center;font-size:11px;color:var(--text3)">${totalMin > 0 ? totalMin : '—'}</td>
         ${cells}
       </tr>`;
     }
@@ -3327,13 +3357,13 @@ async function buildEquipmentMatrix(cityFilter) {
         const c = catWhCnt[wid];
         const m = catWhMin[wid];
         const st = matrixCellStyle(c, m);
-        return `<td style="${st};text-align:center;font-size:11px">${c}${m > 0 ? `<span style="font-size:9px;color:var(--text3)">/${m}</span>` : ''}</td>`;
+        return `<td class="matrix-wh-cell" style="${st};text-align:center;font-size:11px">${c}${m > 0 ? `<span style="font-size:9px;color:var(--text3)">/${m}</span>` : ''}</td>`;
       }).join('');
 
       const innerBody = `<tr style="background:var(--card);font-size:10px;color:var(--text2)">
         <td class="matrix-sticky-col" style="font-weight:600;padding:4px 6px">Σ категории</td>
-        <td style="text-align:center;font-weight:600;${catSigmaStyle}">${catTotalUnits}</td>
-        <td style="text-align:center;font-size:11px;color:var(--text3)">${catMinSumTotal > 0 ? catMinSumTotal : '—'}</td>
+        <td class="matrix-sigma-col" style="text-align:center;font-weight:600;${catSigmaStyle}">${catTotalUnits}</td>
+        <td class="matrix-thresh-col" style="text-align:center;font-size:11px;color:var(--text3)">${catMinSumTotal > 0 ? catMinSumTotal : '—'}</td>
         ${catRowCells}
       </tr>${subs.map(sc => equipmentSubcatRow(sc)).join('')}`;
 
