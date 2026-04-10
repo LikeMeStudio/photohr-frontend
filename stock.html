@@ -609,12 +609,21 @@ const EQ_CATEGORY_FIELDS={
 function getExtraFieldsForCategory(catValue){return EQ_CATEGORY_FIELDS[catValue]||[];}
 function getCategoriesForType(type){return type==='equipment'?EQUIPMENT_CATEGORIES:CONSUMABLE_CATEGORIES;}
 function getCategoryLabel(type,value){
+  const cat = allCategories.find(c => c.slug === value && (!type || c.item_type === type));
+  if (cat) return `${cat.icon} ${cat.name}`;
   const all=[...EQUIPMENT_CATEGORIES,...CONSUMABLE_CATEGORIES];
   const found=all.find(c=>c.value===value);
   if(found) return found.label;
   const sc=allSubcategories.find(s=>s.parent_category===value);
   if(sc) return `${sc.icon} ${sc.name}`;
   return value||'—';
+}
+function getCategoryIcon(type,value){
+  const cat = allCategories.find(c => c.slug === value && (!type || c.item_type === type));
+  if (cat) return cat.icon;
+  const sc = allSubcategories.find(s => s.parent_category === value);
+  if (sc) return sc.icon;
+  return '📦';
 }
 function getCategoryPrefix(type,value){
   const cats=getCategoriesForType(type);
@@ -635,6 +644,9 @@ async function loadCategoriesFromApi() {
     if (data && data.all_subcategories) {
       allSubcategories = data.all_subcategories;
     }
+    if (data && data.all_categories) {
+      allCategories = data.all_categories;
+    }
   } catch (e) {
     console.warn('Categories API fallback to hardcoded:', e.message);
   }
@@ -642,6 +654,7 @@ async function loadCategoriesFromApi() {
 let venues=[],users=[];
 let equipmentListCache=[];
 let allSubcategories=[];
+let allCategories=[];
 let itemsFilterType='all';
 let itemsFilterCat='';
 let itemsFilterSubcat='';
@@ -3534,48 +3547,267 @@ function toggleModelChecks(master) {
   updateBulkLabelBtn();
 }
 
+function invCatOrderedSlugs(itemType, catsArr, subcatsArr) {
+  const slugOrder = new Map();
+  catsArr.forEach((c, i) => slugOrder.set(c.slug, c.sort_order ?? i));
+  const slugSet = new Set(catsArr.map(c => c.slug));
+  for (const s of subcatsArr) slugSet.add(s.parent_category);
+  return [...slugSet].sort((a, b) => {
+    const ao = slugOrder.has(a) ? slugOrder.get(a) : 999999;
+    const bo = slugOrder.has(b) ? slugOrder.get(b) : 999999;
+    if (ao !== bo) return ao - bo;
+    return getCategoryLabel(itemType, a).localeCompare(getCategoryLabel(itemType, b), 'ru');
+  });
+}
+
+function pickInvCategoryIcon(catId) {
+  if (!window._origApplySubcatIcon) window._origApplySubcatIcon = applySubcatIcon;
+  const origApply = window._origApplySubcatIcon;
+  const token = '__inv_cat__' + catId;
+  window.applySubcatIcon = async function (scId, icon) {
+    if (scId === token) {
+      document.getElementById('emoji-picker-modal')?.remove();
+      window.applySubcatIcon = origApply;
+      try {
+        await api('PATCH', `/inventory-categories-manage/${catId}`, { icon });
+        const idx = allCategories.findIndex(c => c.id === catId);
+        if (idx >= 0) allCategories[idx].icon = icon;
+        showToast('Иконка категории обновлена');
+        document.getElementById('subcat-mgr-modal')?.remove();
+        openSubcatManager();
+        await loadCategoriesFromApi();
+        if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
+      } catch (e) { showToast(e.message, true); }
+      return;
+    }
+    return origApply.call(this, scId, icon);
+  };
+  changeSubcatIcon(token);
+}
+
+function openAddCategoryForm(itemType) {
+  const old = document.getElementById('add-inv-cat-modal');
+  if (old) old.remove();
+  const typeLabel = itemType === 'equipment' ? '🔧 Оборудование' : '📦 Расходник';
+  const wrap = document.createElement('div');
+  wrap.id = 'add-inv-cat-modal';
+  wrap.className = 'overlay open';
+  wrap.style.zIndex = '320';
+  wrap.onclick = (ev) => { if (ev.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Новая категория (${typeLabel})</span><button type="button" class="dr-close" onclick="document.getElementById('add-inv-cat-modal').remove()">×</button></div>
+      <div class="field"><div class="fl">Название *</div>
+        <input class="fin" id="aic-name" placeholder="Например, Сканеры"/>
+      </div>
+      <div class="field"><div class="fl">Slug (идентификатор)</div>
+        <input class="fin" id="aic-slug" placeholder="Авто из названия"/>
+      </div>
+      <div class="field"><div class="fl">Иконка</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="aic-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('aic-icon','aic-icon-preview')">📦</span>
+          <input class="fin" id="aic-icon" value="📦" style="width:56px;text-align:center;font-size:16px"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-inv-cat-modal').remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="aic-save">Создать</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const nameEl = document.getElementById('aic-name');
+  const slugEl = document.getElementById('aic-slug');
+  nameEl.addEventListener('input', function () {
+    if (!slugEl.dataset.manual) {
+      slugEl.value = (this.value || '').trim().toLowerCase().replace(/[^a-zа-яё0-9]/gi, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    }
+  });
+  slugEl.addEventListener('input', function () { this.dataset.manual = '1'; });
+  document.getElementById('aic-save').onclick = async () => {
+    const name = (document.getElementById('aic-name').value || '').trim();
+    let slug = (document.getElementById('aic-slug').value || '').trim();
+    const icon = (document.getElementById('aic-icon').value || '').trim() || '📦';
+    if (!name) { showToast('Введите название', true); return; }
+    if (!slug) slug = name.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'category';
+    try {
+      const row = await api('POST', '/inventory-categories-manage', { item_type: itemType, slug, name, icon });
+      allCategories.push({ id: row.id, item_type: row.item_type, slug: row.slug, name: row.name, icon: row.icon, sort_order: row.sort_order });
+      showToast('Категория создана');
+      wrap.remove();
+      document.getElementById('subcat-mgr-modal')?.remove();
+      await loadCategoriesFromApi();
+      openSubcatManager();
+      if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
+    } catch (e) { showToast(e.message, true); }
+  };
+}
+
+function editInventoryCategory(catId) {
+  const cat = allCategories.find(c => c.id === catId);
+  if (!cat) return;
+  const old = document.getElementById('edit-inv-cat-modal');
+  if (old) old.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'edit-inv-cat-modal';
+  wrap.className = 'overlay open';
+  wrap.style.zIndex = '320';
+  wrap.onclick = (ev) => { if (ev.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Категория</span><button type="button" class="dr-close" onclick="document.getElementById('edit-inv-cat-modal').remove()">×</button></div>
+      <div class="field"><div class="fl">Иконка</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="eic-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('eic-icon','eic-icon-preview')">${esc(cat.icon)}</span>
+          <input class="fin" id="eic-icon" value="${esc(cat.icon)}" style="width:56px;text-align:center;font-size:16px"/>
+        </div>
+      </div>
+      <div class="field"><div class="fl">Название *</div>
+        <input class="fin" id="eic-name" value="${esc(cat.name)}"/>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-inv-cat-modal').remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="eic-save">Сохранить</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  document.getElementById('eic-save').onclick = async () => {
+    const name = (document.getElementById('eic-name').value || '').trim();
+    const icon = (document.getElementById('eic-icon').value || '').trim() || '📦';
+    if (!name) { showToast('Введите название', true); return; }
+    try {
+      await api('PATCH', `/inventory-categories-manage/${catId}`, { name, icon });
+      const idx = allCategories.findIndex(c => c.id === catId);
+      if (idx >= 0) { allCategories[idx].name = name; allCategories[idx].icon = icon; }
+      showToast('Категория обновлена');
+      wrap.remove();
+      document.getElementById('subcat-mgr-modal')?.remove();
+      await loadCategoriesFromApi();
+      openSubcatManager();
+      if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
+    } catch (e) { showToast(e.message, true); }
+  };
+}
+
+async function deleteInventoryCategory(catId) {
+  const cat = allCategories.find(c => c.id === catId);
+  if (!cat) return;
+  let usage;
+  try {
+    usage = await api('GET', `/inventory-categories-manage/${catId}/usage`);
+  } catch (e) { showToast(e.message, true); return; }
+
+  if (!usage.has_usage) {
+    const wrap = document.createElement('div');
+    wrap.id = 'del-inv-cat-modal';
+    wrap.className = 'overlay open';
+    wrap.style.zIndex = '320';
+    wrap.onclick = (ev) => { if (ev.target === wrap) wrap.remove(); };
+    wrap.innerHTML = `
+      <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+        <div class="modal-title"><span>Удалить категорию</span><button type="button" class="dr-close" onclick="document.getElementById('del-inv-cat-modal').remove()">×</button></div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.45">Деактивировать «${esc(cat.name)}»? Подкатегорий и позиций с этой категорией нет.</p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('del-inv-cat-modal').remove()">Отмена</button>
+          <button type="button" class="btn btn-primary" id="dic-ok">Деактивировать</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    document.getElementById('dic-ok').onclick = async () => {
+      try {
+        await api('PATCH', `/inventory-categories-manage/${catId}`, { is_active: false });
+        allCategories = allCategories.filter(c => c.id !== catId);
+        showToast('Категория деактивирована');
+        wrap.remove();
+        document.getElementById('subcat-mgr-modal')?.remove();
+        await loadCategoriesFromApi();
+        openSubcatManager();
+        if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
+      } catch (e) { showToast(e.message, true); }
+    };
+    return;
+  }
+
+  const targets = allCategories.filter(c => c.id !== catId && c.item_type === cat.item_type);
+  if (!targets.length) { showToast('Нет другой категории для объединения', true); return; }
+
+  const wrap2 = document.createElement('div');
+  wrap2.id = 'merge-inv-cat-modal';
+  wrap2.className = 'overlay open';
+  wrap2.style.zIndex = '320';
+  wrap2.onclick = (ev) => { if (ev.target === wrap2) wrap2.remove(); };
+  wrap2.innerHTML = `
+    <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Объединение категории</span><button type="button" class="dr-close" onclick="document.getElementById('merge-inv-cat-modal').remove()">×</button></div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:10px">«${esc(cat.name)}» используется (${usage.subcategories_count} подкат., ${usage.items_count} поз.). Выберите категорию, куда перенести данные.</p>
+      <div class="field"><div class="fl">Целевая категория</div>
+        <select class="fselect" id="mic-target">${targets.map(t => `<option value="${esc(t.id)}">${esc(t.icon)} ${esc(t.name)}</option>`).join('')}</select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('merge-inv-cat-modal').remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="mic-ok">Объединить</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap2);
+  document.getElementById('mic-ok').onclick = async () => {
+    const target_id = document.getElementById('mic-target').value;
+    try {
+      const result = await api('DELETE', `/inventory-categories-manage/${catId}/merge`, { target_id });
+      showToast(`Объединено: подкат. ${result.moved_subcategories ?? 0}, позиций ${result.moved_items ?? 0}`);
+      wrap2.remove();
+      document.getElementById('subcat-mgr-modal')?.remove();
+      await loadCategoriesFromApi();
+      openSubcatManager();
+      if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
+    } catch (e) { showToast(e.message, true); }
+  };
+}
+
 async function openSubcatManager() {
+  try { await loadCategoriesFromApi(); } catch (_) {}
   const old = document.getElementById('subcat-mgr-modal');
   if (old) old.remove();
 
-  const eqSubcats = allSubcategories.filter(s => s.item_type === 'equipment');
-  const conSubcats = allSubcategories.filter(s => s.item_type === 'consumable');
+  const eqCats = allCategories.filter(c => c.item_type === 'equipment').sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const conCats = allCategories.filter(c => c.item_type === 'consumable').sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const eqSubcats = allSubcategories.filter(s => s.item_type === 'equipment' && s.is_active !== false);
+  const conSubcats = allSubcategories.filter(s => s.item_type === 'consumable' && s.is_active !== false);
+
+  function subsByParent(itemType, slug) {
+    const arr = itemType === 'equipment' ? eqSubcats : conSubcats;
+    return arr.filter(s => s.parent_category === slug).sort((a, b) =>
+      (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.name || '').localeCompare(b.name || '', 'ru'));
+  }
 
   function renderSubcatRow(s) {
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px" data-sc-id="${s.id}">
-      <span style="font-size:16px;cursor:pointer" title="Изменить иконку" onclick="changeSubcatIcon('${s.id}')">${esc(s.icon)}</span>
+      <span style="font-size:16px;cursor:pointer" title="Иконка" onclick="changeSubcatIcon('${s.id}')">${esc(s.icon)}</span>
       <span style="flex:1;font-weight:500">${esc(s.name)}</span>
       <span style="color:var(--accent2);font-weight:600;min-width:30px;text-align:center">${esc(s.prefix)}</span>
-      <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="editSubcatInline('${s.id}')">✏️</button>
-      <button class="btn btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--rank3)" onclick="deleteSubcatWithMerge('${s.id}')">🗑</button>
+      <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="editSubcatInline('${s.id}')">✏️</button>
+      <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--rank3)" onclick="deleteSubcatWithMerge('${s.id}')">🗑</button>
     </div>`;
   }
 
-  function renderSection(title, itemType, subcats) {
-    const cats = getCategoriesForType(itemType);
-    const grouped = new Map();
-    for (const s of subcats) {
-      if (!grouped.has(s.parent_category)) grouped.set(s.parent_category, []);
-      grouped.get(s.parent_category).push(s);
-    }
-    for (const c of cats) {
-      if (!grouped.has(c.value)) grouped.set(c.value, []);
-    }
-
+  function renderTypeSection(itemType, catsArr, subcatsArr) {
+    const slugs = invCatOrderedSlugs(itemType, catsArr, subcatsArr);
     let secHtml = '';
-    const sortedEntries = [...grouped.entries()].sort((a, b) => {
-      const la = getCategoryLabel(itemType, a[0]);
-      const lb = getCategoryLabel(itemType, b[0]);
-      return la.localeCompare(lb, 'ru');
-    });
-
-    for (const [pc, subs] of sortedEntries) {
-      const pcLabel = getCategoryLabel(itemType, pc);
-      const pcIcon = subs.length > 0 ? subs[0].icon : ((cats.find(c => c.value === pc)?.label || '').split(' ')[0] || '📦');
-      secHtml += `<details style="margin-bottom:2px" open>
+    for (const slug of slugs) {
+      const cat = catsArr.find(c => c.slug === slug);
+      const subs = subsByParent(itemType, slug);
+      const icon = cat ? cat.icon : getCategoryIcon(itemType, slug);
+      const title = getCategoryLabel(itemType, slug);
+      const catBtns = cat
+        ? `<button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px" onclick="event.stopPropagation();editInventoryCategory('${cat.id}')">✏️</button>
+           <button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:10px;color:var(--rank3)" onclick="event.stopPropagation();deleteInventoryCategory('${cat.id}')">🗑</button>`
+        : '';
+      const iconClk = cat
+        ? `event.stopPropagation();pickInvCategoryIcon('${cat.id}')`
+        : 'event.stopPropagation()';
+      secHtml += `<details style="margin-bottom:4px" open>
         <summary style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);user-select:none">
-          <span style="font-size:14px;cursor:pointer" title="Иконка категории (все подкатегории)" onclick="event.stopPropagation();changeCategoryIcon(${JSON.stringify(pc)},${JSON.stringify(itemType)})">${esc(pcIcon)}</span>
-          <span style="flex:1">${esc(pcLabel)}</span>
+          <span style="font-size:14px;cursor:pointer" title="Иконка категории" onclick="${iconClk}">${esc(icon)}</span>
+          <span style="flex:1">${esc(title)}</span>
+          ${catBtns}
           <span style="color:var(--text3);font-weight:400;font-size:10px">${subs.length} подкат.</span>
           <span class="eq-group-chevron" style="font-size:10px;color:var(--text3)">▸</span>
         </summary>
@@ -3594,27 +3826,29 @@ async function openSubcatManager() {
   modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
   modal.innerHTML = `
     <div class="modal" style="max-width:640px;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
-      <div class="modal-title"><span>⚙ Управление категориями и подкатегориями</span><button class="dr-close" onclick="document.getElementById('subcat-mgr-modal').remove()">×</button></div>
+      <div class="modal-title"><span>⚙ Категории и подкатегории</span><button class="dr-close" onclick="document.getElementById('subcat-mgr-modal').remove()">×</button></div>
 
       <details open style="margin-bottom:16px">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:6px">
-          🔧 Оборудование <span style="color:var(--text3);font-weight:400;font-size:11px">(${eqSubcats.length})</span>
-          <button type="button" class="btn btn-primary" style="font-size:10px;padding:3px 10px;margin-left:auto" onclick="event.stopPropagation();openAddSubcatForm('equipment')">+ Подкатегория</button>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>🔧 Оборудование</span><span style="color:var(--text3);font-weight:400;font-size:11px">(${eqSubcats.length} подкат.)</span>
+          <button type="button" class="btn btn-primary" style="font-size:10px;padding:3px 10px;margin-left:auto" onclick="event.stopPropagation();openAddCategoryForm('equipment')">+ Категория</button>
+          <button type="button" class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="event.stopPropagation();openAddSubcatForm('equipment')">+ Подкатегория</button>
           <span class="eq-group-chevron" style="font-size:10px;color:var(--text3)">▸</span>
         </summary>
         <div style="padding:8px 0">
-          ${renderSection('Оборудование', 'equipment', eqSubcats)}
+          ${renderTypeSection('equipment', eqCats, eqSubcats)}
         </div>
       </details>
 
       <details open style="margin-bottom:16px">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:6px">
-          📦 Расходники <span style="color:var(--text3);font-weight:400;font-size:11px">(${conSubcats.length})</span>
-          <button type="button" class="btn btn-primary" style="font-size:10px;padding:3px 10px;margin-left:auto" onclick="event.stopPropagation();openAddSubcatForm('consumable')">+ Подкатегория</button>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--border);user-select:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>📦 Расходники</span><span style="color:var(--text3);font-weight:400;font-size:11px">(${conSubcats.length} подкат.)</span>
+          <button type="button" class="btn btn-primary" style="font-size:10px;padding:3px 10px;margin-left:auto" onclick="event.stopPropagation();openAddCategoryForm('consumable')">+ Категория</button>
+          <button type="button" class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="event.stopPropagation();openAddSubcatForm('consumable')">+ Подкатегория</button>
           <span class="eq-group-chevron" style="font-size:10px;color:var(--text3)">▸</span>
         </summary>
         <div style="padding:8px 0">
-          ${renderSection('Расходники', 'consumable', conSubcats)}
+          ${renderTypeSection('consumable', conCats, conSubcats)}
         </div>
       </details>
     </div>`;
@@ -3625,7 +3859,10 @@ function openAddSubcatForm(itemType) {
   const old = document.getElementById('add-subcat-form-modal');
   if (old) old.remove();
 
-  const cats = getCategoriesForType(itemType);
+  let catOptions = allCategories.filter(c => c.item_type === itemType).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  if (!catOptions.length) {
+    catOptions = getCategoriesForType(itemType).map(c => ({ slug: c.value, name: c.label, icon: '' }));
+  }
   const typeLabel = itemType === 'equipment' ? '🔧 Оборудование' : '📦 Расходник';
 
   const modal = document.createElement('div');
@@ -3638,7 +3875,7 @@ function openAddSubcatForm(itemType) {
       <div class="modal-title"><span>Новая подкатегория (${typeLabel})</span><button type="button" class="dr-close" onclick="document.getElementById('add-subcat-form-modal').remove()">×</button></div>
       <div class="field"><div class="fl">Родительская категория *</div>
         <select class="fselect" id="asc-parent-cat">
-          ${cats.map(c => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('')}
+          ${catOptions.length ? catOptions.map(c => `<option value="${esc(c.slug)}">${c.icon ? esc(c.icon) + ' ' : ''}${esc(c.name)}</option>`).join('') : '<option value="">— Сначала создайте категорию —</option>'}
         </select>
       </div>
       <div class="field"><div class="fl">Название подкатегории *</div>
@@ -3679,6 +3916,7 @@ async function submitAddSubcat(itemType) {
   const icon = document.getElementById('asc-icon').value.trim() || '📦';
   const prefix = document.getElementById('asc-prefix').value.trim().toUpperCase();
 
+  if (!parentCat) { showToast('Выберите или создайте родительскую категорию', true); return; }
   if (!name) { showToast('Введите название', true); return; }
   if (!prefix) { showToast('Введите сокращение', true); return; }
 
@@ -3713,35 +3951,6 @@ function pickEmojiForField(inputId, previewId) {
     return origApply.call(this, scId, icon);
   };
   changeSubcatIcon('__field__');
-}
-
-async function changeCategoryIcon(parentCategory, itemType) {
-  const subs = allSubcategories.filter(s => s.parent_category === parentCategory && s.item_type === itemType);
-  if (!subs.length) { showToast('Нет подкатегорий в этой категории', true); return; }
-
-  if (!window._origApplySubcatIcon) window._origApplySubcatIcon = applySubcatIcon;
-  const origApply = window._origApplySubcatIcon;
-  window.applySubcatIcon = async function(scId, icon) {
-    if (scId === '__cat_icon__') {
-      document.getElementById('emoji-picker-modal')?.remove();
-      window.applySubcatIcon = origApply;
-      try {
-        for (const s of subs) {
-          await api('PATCH', `/inventory-subcategories/${s.id}`, { icon });
-          const idx = allSubcategories.findIndex(x => x.id === s.id);
-          if (idx >= 0) allSubcategories[idx].icon = icon;
-        }
-        showToast('Иконка категории обновлена');
-        document.getElementById('subcat-mgr-modal')?.remove();
-        openSubcatManager();
-        await loadCategoriesFromApi();
-        if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
-      } catch (e) { showToast(e.message, true); }
-      return;
-    }
-    return origApply.call(this, scId, icon);
-  };
-  changeSubcatIcon('__cat_icon__');
 }
 
 function restoreSubcatIconApply() {
@@ -3789,7 +3998,8 @@ async function changeSubcatIcon(scId) {
 
 async function applySubcatIcon(scId, icon) {
   if (!icon) { showToast('Выберите иконку', true); return; }
-  if (scId === '__field__' || scId === '__cat_icon__') return;
+  if (scId === '__field__') return;
+  if (String(scId).startsWith('__inv_cat__')) return;
   try {
     await api('PATCH', `/inventory-subcategories/${scId}`, { icon });
     const idx = allSubcategories.findIndex(s => s.id === scId);
@@ -3802,29 +4012,59 @@ async function applySubcatIcon(scId, icon) {
   } catch (e) { showToast(e.message, true); }
 }
 
-async function editSubcatInline(scId) {
+function editSubcatInline(scId) {
   const sc = allSubcategories.find(s => s.id === scId);
   if (!sc) return;
-  const newName = prompt('Название:', sc.name);
-  if (newName === null) return;
-  const newPrefix = prompt('Сокращение:', sc.prefix);
-  if (newPrefix === null) return;
-  try {
-    await api('PATCH', `/inventory-subcategories/${scId}`, {
-      name: newName.trim() || sc.name,
-      prefix: (newPrefix.trim() || sc.prefix).toUpperCase(),
-    });
-    const idx = allSubcategories.findIndex(s => s.id === scId);
-    if (idx >= 0) {
-      allSubcategories[idx].name = newName.trim() || sc.name;
-      allSubcategories[idx].prefix = (newPrefix.trim() || sc.prefix).toUpperCase();
-    }
-    showToast('Подкатегория обновлена');
-    document.getElementById('subcat-mgr-modal')?.remove();
-    openSubcatManager();
-    await loadCategoriesFromApi();
-    if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
-  } catch (e) { showToast(e.message, true); }
+  const old = document.getElementById('edit-subcat-modal');
+  if (old) old.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'edit-subcat-modal';
+  wrap.className = 'overlay open';
+  wrap.style.zIndex = '320';
+  wrap.onclick = (ev) => { if (ev.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Подкатегория</span><button type="button" class="dr-close" onclick="document.getElementById('edit-subcat-modal').remove()">×</button></div>
+      <div class="field"><div class="fl">Иконка</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="esc-icon-preview" style="font-size:22px;cursor:pointer" onclick="pickEmojiForField('esc-icon','esc-icon-preview')">${esc(sc.icon)}</span>
+          <input class="fin" id="esc-icon" value="${esc(sc.icon)}" style="width:56px;text-align:center;font-size:16px"/>
+        </div>
+      </div>
+      <div class="field"><div class="fl">Название *</div>
+        <input class="fin" id="esc-name" value="${esc(sc.name)}"/>
+      </div>
+      <div class="field"><div class="fl">Сокращение *</div>
+        <input class="fin" id="esc-prefix" value="${esc(sc.prefix)}" maxlength="4" style="text-transform:uppercase;text-align:center"/>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-subcat-modal').remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="esc-save">Сохранить</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  document.getElementById('esc-save').onclick = async () => {
+    const name = (document.getElementById('esc-name').value || '').trim();
+    const prefix = (document.getElementById('esc-prefix').value || '').trim().toUpperCase();
+    const icon = (document.getElementById('esc-icon').value || '').trim() || '📦';
+    if (!name) { showToast('Введите название', true); return; }
+    if (!prefix) { showToast('Введите сокращение', true); return; }
+    try {
+      await api('PATCH', `/inventory-subcategories/${scId}`, { name, prefix, icon });
+      const idx = allSubcategories.findIndex(s => s.id === scId);
+      if (idx >= 0) {
+        allSubcategories[idx].name = name;
+        allSubcategories[idx].prefix = prefix;
+        allSubcategories[idx].icon = icon;
+      }
+      showToast('Подкатегория обновлена');
+      wrap.remove();
+      document.getElementById('subcat-mgr-modal')?.remove();
+      await loadCategoriesFromApi();
+      openSubcatManager();
+      if (typeof currentTabIdx === 'number' && currentTabIdx === 7) loadEquipment();
+    } catch (e) { showToast(e.message, true); }
+  };
 }
 
 async function deleteSubcatWithMerge(scId) {
@@ -3833,13 +4073,32 @@ async function deleteSubcatWithMerge(scId) {
   try {
     const usage = await api('GET', `/inventory-subcategories/${scId}/usage`);
     if (!usage.has_usage) {
-      if (!confirm(`Удалить подкатегорию «${scName}»?\n\nОна не используется и будет деактивирована.`)) return;
-      await api('PATCH', `/inventory-subcategories/${scId}`, { is_active: false });
-      allSubcategories = allSubcategories.filter(s => s.id !== scId);
-      showToast('Подкатегория деактивирована');
-      document.getElementById('subcat-mgr-modal')?.remove();
-      openSubcatManager();
-      await loadCategoriesFromApi();
+      const wrap = document.createElement('div');
+      wrap.id = 'del-subcat-confirm';
+      wrap.className = 'overlay open';
+      wrap.style.zIndex = '320';
+      wrap.onclick = (ev) => { if (ev.target === wrap) wrap.remove(); };
+      wrap.innerHTML = `
+        <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+          <div class="modal-title"><span>Удаление подкатегории</span><button type="button" class="dr-close" onclick="document.getElementById('del-subcat-confirm').remove()">×</button></div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.45">Деактивировать «${esc(scName)}»? Не используется в позициях и оборудовании.</p>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('del-subcat-confirm').remove()">Отмена</button>
+            <button type="button" class="btn btn-primary" id="dsc-ok">Деактивировать</button>
+          </div>
+        </div>`;
+      document.body.appendChild(wrap);
+      document.getElementById('dsc-ok').onclick = async () => {
+        try {
+          await api('PATCH', `/inventory-subcategories/${scId}`, { is_active: false });
+          allSubcategories = allSubcategories.filter(s => s.id !== scId);
+          showToast('Подкатегория деактивирована');
+          wrap.remove();
+          document.getElementById('subcat-mgr-modal')?.remove();
+          await loadCategoriesFromApi();
+          openSubcatManager();
+        } catch (e) { showToast(e.message, true); }
+      };
       return;
     }
 
@@ -3848,25 +4107,38 @@ async function deleteSubcatWithMerge(scId) {
     const candidates = allSubcategories.filter(s => s.id !== scId && s.item_type === sc.item_type && s.is_active !== false);
     if (!candidates.length) { showToast('Нет других подкатегорий для объединения', true); return; }
 
-    const targetId = prompt(
-      `Подкатегория «${scName}» используется (${usage.items_count} поз., ${usage.equipment_count} ед. оборуд.).\n\nВыберите подкатегорию для объединения:\n\n` +
-      candidates.map((c, i) => `${i + 1}. ${c.icon} ${c.name} (${c.prefix})`).join('\n') +
-      '\n\nВведите номер:'
-    );
-    if (!targetId) return;
-    const idx = parseInt(targetId, 10) - 1;
-    if (idx < 0 || idx >= candidates.length) { showToast('Неверный номер', true); return; }
-    const target = candidates[idx];
-
-    if (!confirm(`Объединить «${scName}» → «${target.name}»?\n\nВсе позиции и оборудование будут перенесены. Инвентарные номера перебьются на ${target.prefix}-XXXX.`)) return;
-
-    const result = await api('DELETE', `/inventory-subcategories/${scId}/merge`, { target_id: target.id });
-    allSubcategories = allSubcategories.filter(s => s.id !== scId);
-    showToast(`Объединено: ${result.moved_items} поз., ${result.renamed_units} ед. перенумеровано`);
-    document.getElementById('subcat-mgr-modal')?.remove();
-    openSubcatManager();
-    await loadCategoriesFromApi();
-    loadEquipment();
+    const wrap2 = document.createElement('div');
+    wrap2.id = 'merge-subcat-modal';
+    wrap2.className = 'overlay open';
+    wrap2.style.zIndex = '320';
+    wrap2.onclick = (ev) => { if (ev.target === wrap2) wrap2.remove(); };
+    wrap2.innerHTML = `
+      <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+        <div class="modal-title"><span>Объединение подкатегории</span><button type="button" class="dr-close" onclick="document.getElementById('merge-subcat-modal').remove()">×</button></div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px">«${esc(scName)}» используется (${usage.items_count} поз., ${usage.equipment_count} ед.). Выберите подкатегорию для переноса.</p>
+        <div class="field"><div class="fl">Целевая подкатегория</div>
+          <select class="fselect" id="msc-target">${candidates.map(t => `<option value="${esc(t.id)}">${esc(t.icon)} ${esc(t.name)} (${esc(t.prefix)})</option>`).join('')}</select>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">Инвентарные номера перенумеруются под префикс цели.</p>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('merge-subcat-modal').remove()">Отмена</button>
+          <button type="button" class="btn btn-primary" id="msc-ok">Объединить</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap2);
+    document.getElementById('msc-ok').onclick = async () => {
+      const target_id = document.getElementById('msc-target').value;
+      try {
+        const result = await api('DELETE', `/inventory-subcategories/${scId}/merge`, { target_id });
+        allSubcategories = allSubcategories.filter(s => s.id !== scId);
+        showToast(`Объединено: ${result.moved_items} поз., ${result.renamed_units ?? 0} ед. перенумеровано`);
+        wrap2.remove();
+        document.getElementById('subcat-mgr-modal')?.remove();
+        await loadCategoriesFromApi();
+        openSubcatManager();
+        loadEquipment();
+      } catch (e) { showToast(e.message, true); }
+    };
   } catch (e) { showToast(e.message, true); }
 }
 
