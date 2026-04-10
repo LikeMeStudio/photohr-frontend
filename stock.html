@@ -973,10 +973,10 @@ function touchDndStart(ev){
     const eqId=el.getAttribute('data-equipment-id');
     const name=el.getAttribute('data-item-name')||el.getAttribute('data-equipment-name')||'';
 
-    if(itemId){
+    if(eqId){
+      touchDndData={kind:'equipment',unit_id:eqId,item_id:itemId||'',from_warehouse_id:whId,equipment_name:name,serial_number:el.getAttribute('data-equipment-serial')||''};
+    }else if(itemId){
       touchDndData={kind:'stock-item',item_id:itemId,item_name:name,unit:el.getAttribute('data-item-unit')||'',from_warehouse_id:whId,max_qty:parseFloat(el.getAttribute('data-max-qty'))||0};
-    }else if(eqId){
-      touchDndData={kind:'equipment',unit_id:eqId,from_warehouse_id:whId,equipment_name:name,serial_number:el.getAttribute('data-equipment-serial')||''};
     }else return;
 
     touchDndSourceRow=el;
@@ -1092,6 +1092,7 @@ function dndOnDropWh(ev,toWhId){
     if(g.items.some(l=>String(l.equipment_id)===String(eqId))){showToast('Уже в корзине',true);return;}
     g.items.push({
       equipment_id:eqId,
+      item_id:data.item_id||null,
       name:(data.equipment_name||data.label||'Оборудование').replace(/</g,''),
       serial:String(data.serial_number||'').trim(),
       qty:1,
@@ -1109,24 +1110,57 @@ function dndOnDropWh(ev,toWhId){
   const _dndPu = _dndItem?.pack_unit;
   const _dndUnit = _dndPu || data.unit || 'шт';
   const defQ = Math.min(1, maxQ);
-  const qtyStr = prompt(`Кол-во «${data.item_name}» в ${_dndUnit} (макс ${maxQ}):`, String(defQ));
-  const qty = parseFloat(qtyStr);
-  if (!Number.isFinite(qty) || qty <= 0) return;
-  if(qty>maxQ){showToast('Больше доступного остатка',true);return;}
-  const fromName=warehouses.find(w=>w.id===data.from_warehouse_id)?.name||data.from_warehouse_id;
-  const toName=warehouses.find(w=>w.id===toWhId)?.name||toWhId;
-  let g=dndFindStockGroup(data.from_warehouse_id,toWhId);
-  if(!g){
-    g={kind:'stock-item',from_id:data.from_warehouse_id,to_id:toWhId,from_name:fromName,to_name:toName,items:[]};
-    dndTransferGroups.push(g);
-  }
-  const ex=g.items.find(l=>String(l.item_id)===String(data.item_id));
-  const cap=parseFloat(ex?.max_qty)||maxQ;
-  if(ex){ex.quantity=Math.min(cap,(parseFloat(ex.quantity)||0)+qty);}else{
-    g.items.push({item_id:data.item_id,name:data.item_name,unit:data.unit||'',quantity:qty,max_qty:maxQ});
-  }
-  updateDndCartUI();
-  showToast('Добавлено в корзину',false);
+  const _dndFromName=warehouses.find(w=>w.id===data.from_warehouse_id)?.name||data.from_warehouse_id;
+  const _dndToName=warehouses.find(w=>w.id===toWhId)?.name||toWhId;
+  const _dndItemName=data.item_name;
+  const _dndMaxQ=maxQ;
+  const _dndItemId=data.item_id;
+  const _dndFromId=data.from_warehouse_id;
+  const _dndToId=toWhId;
+  const _dndItemUnit=data.unit||'';
+  const oldQm=document.getElementById('dnd-qty-modal');
+  if(oldQm)oldQm.remove();
+  const qm=document.createElement('div');
+  qm.id='dnd-qty-modal';
+  qm.className='overlay open';
+  qm.style.zIndex='320';
+  qm.onclick=(ev)=>{if(ev.target===qm)qm.remove();};
+  qm.innerHTML=`
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Перемещение расходника</span><button type="button" class="dr-close" onclick="document.getElementById('dnd-qty-modal').remove()">×</button></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:4px">«${esc(_dndItemName)}»</p>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:12px">${esc(_dndFromName)} → ${esc(_dndToName)}</p>
+      <div class="field"><div class="fl">Количество (макс ${_dndMaxQ} ${esc(_dndUnit)})</div>
+        <input class="fin" type="number" id="dnd-qty-val" value="${defQ}" min="0.01" max="${_dndMaxQ}" step="0.01" style="width:100%"/>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('dnd-qty-modal').remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="dnd-qty-ok">Добавить в корзину</button>
+      </div>
+    </div>`;
+  document.body.appendChild(qm);
+  const _qmInp=document.getElementById('dnd-qty-val');
+  _qmInp.focus();
+  _qmInp.select();
+  document.getElementById('dnd-qty-ok').onclick=()=>{
+    const qty=parseFloat(_qmInp.value);
+    if(!Number.isFinite(qty)||qty<=0){showToast('Некорректное число',true);return;}
+    if(qty>_dndMaxQ){showToast('Больше доступного остатка',true);return;}
+    qm.remove();
+    let g=dndFindStockGroup(_dndFromId,_dndToId);
+    if(!g){
+      g={kind:'stock-item',from_id:_dndFromId,to_id:_dndToId,from_name:_dndFromName,to_name:_dndToName,items:[]};
+      dndTransferGroups.push(g);
+    }
+    const ex=g.items.find(l=>String(l.item_id)===String(_dndItemId));
+    const cap=parseFloat(ex?.max_qty)||_dndMaxQ;
+    if(ex){ex.quantity=Math.min(cap,(parseFloat(ex.quantity)||0)+qty);}else{
+      g.items.push({item_id:_dndItemId,name:_dndItemName,unit:_dndItemUnit,quantity:qty,max_qty:_dndMaxQ});
+    }
+    updateDndCartUI();
+    showToast('Добавлено в корзину',false);
+  };
+  _qmInp.addEventListener('keydown',(e)=>{if(e.key==='Enter')document.getElementById('dnd-qty-ok')?.click();});
 }
 function clearDndCart(){dndTransferGroups=[];updateDndCartUI();}
 function dndRemoveGroupLine(gi,ii){
@@ -1183,11 +1217,29 @@ async function submitDndTransferFromCart(){
     for(const g of dndTransferGroups){
       if(!g.items.length)continue;
       if(g.kind==='equipment'){
-        for(const it of g.items){
-          const sn=it.serial?` SN:${it.serial}`:'';
-          if(!confirm(`Переместить оборудование? ${it.name}${sn} → ${g.to_name}`))return;
-          await api('PATCH',`/equipment/${it.equipment_id}`,{warehouse_id:g.to_id});
-          eqN++;
+        const eqLines=g.items.map(it=>({
+          item_id:it.item_id||null,
+          quantity:1,
+          equipment_unit_id:it.equipment_id,
+        }));
+        let eqList=null;
+        for(const ln of eqLines){
+          if(!ln.item_id){
+            if(!eqList)eqList=await api('GET','/equipment').catch(()=>[]);
+            const found=(eqList||[]).find(e=>String(e.id)===String(ln.equipment_unit_id));
+            if(found)ln.item_id=found.item_id;
+          }
+        }
+        const validLines=eqLines.filter(l=>l.item_id);
+        if(g.items.length&&!validLines.length){showToast('Не удалось создать заявку по оборудованию: нет привязки к карточке товара',true);continue;}
+        if(validLines.length){
+          await api('POST','/stock-transfers',{
+            from_warehouse_id:g.from_id,
+            to_warehouse_id:g.to_id,
+            notes:'Перемещение оборудования (DnD)',
+            lines:validLines,
+          });
+          eqN+=validLines.length;
         }
       }else{
         await api('POST','/stock-transfers',{
@@ -1200,13 +1252,14 @@ async function submitDndTransferFromCart(){
       }
     }
     const parts=[];
-    if(stockN)parts.push(`заявок: ${stockN}`);
-    if(eqN)parts.push(`оборудования: ${eqN}`);
-    showToast(parts.length?`Готово (${parts.join(', ')})`:'Готово');
+    if(stockN)parts.push(`${stockN} заявок расходников`);
+    if(eqN)parts.push(`${eqN} ед. оборудования`);
+    showToast(parts.length?`Заявки на перемещение созданы: ${parts.join(', ')}`:'Заявки созданы');
     clearDndCart();
     loadWarehouses();
     loadSummary();
     if(selectedWarehouseId)await renderWhStockPanel(selectedWarehouseId);
+    if(currentTabIdx===4)loadStockTransfers();
     if(currentTabIdx===7)loadEquipment();
   }catch(e){showToast(e.message,true);}
 }
@@ -1252,11 +1305,13 @@ function dndEquipmentRowDragStart(ev){
     document.querySelectorAll('.dnd-over').forEach(c=>c.classList.remove('dnd-over'));
   },{once:true});
   const id=el.getAttribute('data-equipment-id');
+  const itemId=el.getAttribute('data-item-id')||'';
   const name=el.getAttribute('data-equipment-name')||'';
   const serial=el.getAttribute('data-equipment-serial')||'';
   ev.dataTransfer.setData('application/json',JSON.stringify({
     kind:'equipment',
     unit_id:id,
+    item_id:itemId,
     from_warehouse_id:fromWh||null,
     equipment_name:name,
     serial_number:serial,
@@ -1608,12 +1663,9 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     const st = eqUnitStatusEmoji(e.status);
     const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
-    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()"` : '';
+    const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-item-id="${e.item_id || ''}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()"` : '';
     return `<tr${drag} onclick="if(this.dataset.suppressEqClick==='1')return;openEqDrawer('${e.id}')" style="${canDnd ? 'cursor:grab;' : 'cursor:pointer;'}touch-action:none;user-select:none;-webkit-user-select:none">
       <td>${esc(e.item_name)}</td>
-      <td style="font-weight:600;text-align:center">1</td>
-      <td style="text-align:center;color:var(--text3)">шт</td>
-      <td style="text-align:center">—</td>
       <td style="text-align:center">${st}</td>
       <td style="text-align:center;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
       <td style="text-align:center;color:var(--accent2);font-size:11px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
@@ -1748,8 +1800,21 @@ async function renderAllWarehousesPanel(host) {
           const scArr = [...cat.subcats.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, 'ru'));
           for (const [scKey, sc] of scArr) {
             const showScHeader = cat.subcats.size > 1 || scKey !== '__none__';
-            const scRows = sc.units.map(e => whPanelBuildEquipmentTableRows([e], wh.id, canDnd)).join('');
-            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${scRows}</tbody></table></div>`;
+            const byModel2 = new Map();
+            for (const e of sc.units) {
+              const mk = String(e.item_id || '_');
+              if (!byModel2.has(mk)) byModel2.set(mk, { name: e.item_name || '', units: [] });
+              byModel2.get(mk).units.push(e);
+            }
+            const modelArr2 = [...byModel2.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+            let modelHtml2 = '';
+            for (const mdl of modelArr2) {
+              if (modelArr2.length > 1) {
+                modelHtml2 += `<tr><td colspan="4" style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;border:none">${esc(mdl.name)} (${mdl.units.length})</td></tr>`;
+              }
+              modelHtml2 += mdl.units.map(e => whPanelBuildEquipmentTableRows([e], wh.id, canDnd)).join('');
+            }
+            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th>Позиция</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${modelHtml2}</tbody></table></div>`;
             if (showScHeader) {
               const scId = sc.id;
               const threshKey = scId ? `${scId}_${wh.id}` : null;
@@ -1757,11 +1822,12 @@ async function renderAllWarehousesPanel(host) {
               const activeCount = sc.units.filter(u => u.status === 'active').length;
               const isDeficit = scMin > 0 && activeCount < scMin;
               const scColor = isDeficit ? 'var(--rank3)' : 'var(--accent2)';
+              const scCountLbl = scMin > 0 ? `${activeCount} из ${scMin}` : `${activeCount}`;
               const threshBadge = scId && canMin
                 ? ` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(wh.id)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh.name)}" onclick="event.stopPropagation();setEqSubcatThresholdFromCell(this)">мин:${scMin > 0 ? scMin : '—'} ✏️</span>`
                 : (scMin > 0 ? ` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>` : '');
               html += `<details open style="margin:4px 0 0 8px">
-                <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${activeCount}/${sc.units.length})${threshBadge}</summary>
+                <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLbl})${threshBadge}</summary>
                 ${tblWrap}
               </details>`;
             } else {
@@ -1862,8 +1928,21 @@ async function renderWhStockPanel(whId){
         const scArr=[...cat.subcats.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
         for(const [scKey,sc] of scArr){
           const showScHeader=cat.subcats.size>1||scKey!=='__none__';
-          const scRows=sc.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
-          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th>Позиция</th><th>Кол-во</th><th>Ед.</th><th>Мин.</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${scRows}</tbody></table></div>`;
+          const byModel=new Map();
+          for(const e of sc.units){
+            const mk=String(e.item_id||'_');
+            if(!byModel.has(mk))byModel.set(mk,{name:e.item_name||'',units:[]});
+            byModel.get(mk).units.push(e);
+          }
+          const modelArr=[...byModel.values()].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+          let modelHtml='';
+          for(const mdl of modelArr){
+            if(modelArr.length>1){
+              modelHtml+=`<tr><td colspan="4" style="font-size:10px;font-weight:600;color:var(--text3);padding:6px 4px 2px;border:none">${esc(mdl.name)} (${mdl.units.length})</td></tr>`;
+            }
+            modelHtml+=mdl.units.map(e=>whPanelBuildEquipmentTableRows([e],whId,canDnd)).join('');
+          }
+          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:11px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th>Позиция</th><th>Статус</th><th>SN</th><th>ИНВ.</th></tr></thead><tbody>${modelHtml}</tbody></table></div>`;
           if(showScHeader){
             const scId=sc.id;
             const threshKey=scId?`${scId}_${whId}`:null;
@@ -1871,11 +1950,12 @@ async function renderWhStockPanel(whId){
             const activeCount=sc.units.filter(u=>u.status==='active').length;
             const isDeficit=scMin>0&&activeCount<scMin;
             const scColor=isDeficit?'var(--rank3)':'var(--accent2)';
+            const scCountLabel=scMin>0?`${activeCount} из ${scMin}`:`${activeCount}`;
             const threshBadge=scId&&canMin
               ?` <span style="font-size:9px;color:var(--text3);cursor:pointer;border:1px dashed var(--border);border-radius:4px;padding:1px 4px;margin-left:4px" title="Мин. кол-во на складе" data-sc-id="${esc(scId)}" data-wh-id="${esc(whId)}" data-min="${scMin}" data-sc-name="${esc(sc.label)}" data-wh-name="${esc(wh?.name||whId)}" onclick="event.stopPropagation();setEqSubcatThresholdFromCell(this)">мин:${scMin>0?scMin:'—'} ✏️</span>`
               :(scMin>0?` <span style="font-size:9px;color:var(--text3)">мин:${scMin}</span>`:'');
             subcatHtml+=`<details open style="margin-top:4px;margin-left:8px">
-              <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${activeCount}/${sc.units.length})${threshBadge}</summary>
+              <summary style="font-size:10px;font-weight:600;color:${scColor};letter-spacing:.3px;margin-bottom:3px;cursor:pointer;user-select:none;list-style:none">${esc(sc.icon)} ${esc(sc.label)} (${scCountLabel})${threshBadge}</summary>
               ${tblWrap}
             </details>`;
           } else {
@@ -3449,27 +3529,52 @@ function setEqSubcatThresholdFromCell(el) {
 }
 
 async function setEqSubcatThreshold(subcatId, warehouseId, currentMin, subcatName, whName) {
-  const v = prompt(`Минимум «${subcatName}» на «${whName}»:`, String(currentMin || 0));
-  if (v === null) return;
-  const qty = parseFloat(v);
-  if (!Number.isFinite(qty) || qty < 0) { showToast('Некорректное число', true); return; }
-  try {
-    if (qty > 0) {
-      await api('POST', '/subcategory-thresholds', { subcategory_id: subcatId, warehouse_id: warehouseId, min_quantity: qty });
-    } else {
-      const existing = await api('GET', `/subcategory-thresholds?subcategory_id=${encodeURIComponent(subcatId)}&warehouse_id=${encodeURIComponent(warehouseId)}`);
-      if (Array.isArray(existing) && existing.length) await api('DELETE', `/subcategory-thresholds/${existing[0].id}`);
-    }
-    showToast('Порог сохранён');
-    loadStockForecast();
-    if (selectedWarehouseId === warehouseId || selectedWarehouseId === '__all__') {
-      const host = document.getElementById('wh-stock-panel');
-      if (host) {
-        if (selectedWarehouseId === '__all__') renderAllWarehousesPanel(host);
-        else renderWhStockPanel(warehouseId);
+  const old = document.getElementById('thresh-edit-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'thresh-edit-modal';
+  modal.className = 'overlay open';
+  modal.style.zIndex = '320';
+  modal.onclick = (ev) => { if (ev.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <div class="modal-title"><span>Минимум оборудования</span><button type="button" class="dr-close" onclick="document.getElementById('thresh-edit-modal').remove()">×</button></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">«${esc(subcatName)}» на «${esc(whName)}»</p>
+      <div class="field"><div class="fl">Минимальное количество</div>
+        <input class="fin" type="number" id="thresh-edit-val" value="${currentMin || 0}" min="0" step="1" style="width:100%"/>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-top:4px">0 = порог не задан (убрать)</p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('thresh-edit-modal').remove()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="thresh-edit-save">Сохранить</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const inp = document.getElementById('thresh-edit-val');
+  inp.focus();
+  inp.select();
+  document.getElementById('thresh-edit-save').onclick = async () => {
+    const qty = parseFloat(inp.value);
+    if (!Number.isFinite(qty) || qty < 0) { showToast('Некорректное число', true); return; }
+    try {
+      if (qty > 0) {
+        await api('POST', '/subcategory-thresholds', { subcategory_id: subcatId, warehouse_id: warehouseId, min_quantity: qty });
+      } else {
+        const existing = await api('GET', `/subcategory-thresholds?subcategory_id=${encodeURIComponent(subcatId)}&warehouse_id=${encodeURIComponent(warehouseId)}`);
+        if (Array.isArray(existing) && existing.length) await api('DELETE', `/subcategory-thresholds/${existing[0].id}`);
       }
-    }
-  } catch (e) { showToast(e.message, true); }
+      showToast('Порог сохранён');
+      modal.remove();
+      if (selectedWarehouseId) {
+        if (selectedWarehouseId === '__all__') {
+          const host = document.getElementById('wh-stock-panel');
+          if (host) renderAllWarehousesPanel(host);
+        } else renderWhStockPanel(selectedWarehouseId);
+      }
+      if (currentTabIdx === 0) loadStockForecast();
+    } catch (e) { showToast(e.message, true); }
+  };
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('thresh-edit-save')?.click(); });
 }
 
 function onDetailFcCityChange() {
