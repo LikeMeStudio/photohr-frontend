@@ -1943,6 +1943,8 @@ async function reactivateWarehouse(id) {
 async function loadItems() {
   try {
     items = await api('GET', '/inventory-items');
+    const toolbar = document.getElementById('items-toolbar');
+    if (toolbar) toolbar.remove();
     renderItemsCatalog();
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
@@ -1972,11 +1974,13 @@ function renderItemsCatalog() {
     return `<option value="${esc(cv)}" ${itemsFilterCat === cv ? 'selected' : ''}>${esc(lbl)}</option>`;
   }).join('');
 
-  const subcatsForFilter = itemsFilterCat
-    ? allSubcategories.filter(s => s.parent_category === itemsFilterCat && (!typeForCats || s.item_type === typeForCats))
-    : [];
-  const subcatOptions = subcatsForFilter.map(s =>
-    `<option value="${s.id}" ${itemsFilterSubcat === s.id ? 'selected' : ''}>${esc(s.icon)} ${esc(s.name)}</option>`
+  const allSubcatsForFilter = allSubcategories.filter(s => {
+    if (typeForCats && s.item_type !== typeForCats) return false;
+    if (itemsFilterCat && s.parent_category !== itemsFilterCat) return false;
+    return true;
+  });
+  const subcatFilterOptions = allSubcatsForFilter.map(s =>
+    `<option value="${s.id}" ${String(itemsFilterSubcat) === String(s.id) ? 'selected' : ''}>${esc(s.icon)} ${esc(s.name)}</option>`
   ).join('');
 
   const groups = new Map();
@@ -2032,32 +2036,63 @@ function renderItemsCatalog() {
     tablesHtml += '</div></details>';
   }
 
-  c.innerHTML = `
-    <div class="section">
-      <div class="section-title" style="flex-wrap:wrap;gap:8px">
-        <span>📋 Справочник позиций</span>
-        <span style="color:var(--text3);font-size:11px;font-weight:400">(${filtered.length} из ${items.length})</span>
-        ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-        <input class="fin" type="text" placeholder="🔍 Поиск по названию..." value="${esc(itemsSearchQuery)}" oninput="itemsSearchQuery=this.value;renderItemsCatalog()" style="width:200px;font-size:11px"/>
-        <select class="fselect" style="width:auto;font-size:11px" onchange="itemsFilterType=this.value;itemsFilterCat='';itemsFilterSubcat='';renderItemsCatalog()">
-          <option value="all" ${itemsFilterType==='all'?'selected':''}>Все типы</option>
-          <option value="consumable" ${itemsFilterType==='consumable'?'selected':''}>📦 Расходники</option>
-          <option value="equipment" ${itemsFilterType==='equipment'?'selected':''}>🔧 Оборудование</option>
-        </select>
-        <select class="fselect" style="width:auto;font-size:11px" onchange="itemsFilterCat=this.value;itemsFilterSubcat='';renderItemsCatalog()">
-          <option value="">Все категории</option>
-          ${catOptions}
-        </select>
-        ${subcatOptions ? `<select class="fselect" style="width:auto;font-size:11px" onchange="itemsFilterSubcat=this.value;renderItemsCatalog()">
-          <option value="">Все подкатегории</option>
-          ${subcatOptions}
-        </select>` : ''}
-        ${(itemsFilterCat || itemsFilterSubcat || itemsSearchQuery) ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="itemsFilterType='all';itemsFilterCat='';itemsFilterSubcat='';itemsSearchQuery='';renderItemsCatalog()">✕ Сбросить</button>` : ''}
-      </div>
-      ${filtered.length ? tablesHtml : '<div style="color:var(--text3);padding:20px;text-align:center">Нет позиций' + (itemsSearchQuery || itemsFilterCat ? ' по заданным фильтрам' : '. Добавьте первую.') + '</div>'}
-    </div>`;
+  let toolbar = document.getElementById('items-toolbar');
+  let contentDiv = document.getElementById('items-content');
+
+  if (!toolbar) {
+    c.innerHTML = `
+      <div class="section">
+        <div class="section-title" style="flex-wrap:wrap;gap:8px">
+          <span>📋 Справочник позиций</span>
+          <span id="items-count" style="color:var(--text3);font-size:11px;font-weight:400">(${filtered.length} из ${items.length})</span>
+          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:11px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
+        </div>
+        <div id="items-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <input class="fin" type="text" id="items-search-input" placeholder="🔍 Поиск по названию..." value="${esc(itemsSearchQuery)}" oninput="itemsSearchQuery=this.value;renderItemsCatalog()" style="width:200px;font-size:11px"/>
+          <select class="fselect" id="items-type-filter" style="width:auto;font-size:11px" onchange="itemsFilterType=this.value;itemsFilterCat='';itemsFilterSubcat='';renderItemsCatalog()">
+            <option value="all" ${itemsFilterType==='all'?'selected':''}>Все типы</option>
+            <option value="consumable" ${itemsFilterType==='consumable'?'selected':''}>📦 Расходники</option>
+            <option value="equipment" ${itemsFilterType==='equipment'?'selected':''}>🔧 Оборудование</option>
+          </select>
+          <select class="fselect" id="items-cat-filter" style="width:auto;font-size:11px" onchange="itemsFilterCat=this.value;itemsFilterSubcat='';renderItemsCatalog()">
+            <option value="">Все категории</option>
+            ${catOptions}
+          </select>
+          <select class="fselect" id="items-subcat-filter" style="width:auto;font-size:11px${!subcatFilterOptions ? ';display:none' : ''}" onchange="itemsFilterSubcat=this.value;renderItemsCatalog()">
+            <option value="">Все подкатегории</option>
+            ${subcatFilterOptions}
+          </select>
+          <span id="items-reset-wrap">${(itemsFilterCat || itemsFilterSubcat || itemsSearchQuery) ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="itemsFilterType='all';itemsFilterCat='';itemsFilterSubcat='';itemsSearchQuery='';const si=document.getElementById('items-search-input');if(si)si.value='';renderItemsCatalog()">✕ Сбросить</button>` : ''}</span>
+        </div>
+        <div id="items-content"></div>
+      </div>`;
+    contentDiv = document.getElementById('items-content');
+  } else {
+    const countEl = document.getElementById('items-count');
+    if (countEl) countEl.textContent = `(${filtered.length} из ${items.length})`;
+
+    const typeFilter = document.getElementById('items-type-filter');
+    if (typeFilter) typeFilter.value = itemsFilterType;
+
+    const catFilter = document.getElementById('items-cat-filter');
+    if (catFilter) { catFilter.innerHTML = '<option value="">Все категории</option>' + catOptions; catFilter.value = itemsFilterCat; }
+
+    const subcatFilter = document.getElementById('items-subcat-filter');
+    if (subcatFilter) {
+      subcatFilter.innerHTML = '<option value="">Все подкатегории</option>' + subcatFilterOptions;
+      subcatFilter.value = itemsFilterSubcat;
+      subcatFilter.style.display = subcatFilterOptions ? '' : 'none';
+    }
+
+    const resetWrap = document.getElementById('items-reset-wrap');
+    if (resetWrap) resetWrap.innerHTML = (itemsFilterCat || itemsFilterSubcat || itemsSearchQuery) ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="itemsFilterType='all';itemsFilterCat='';itemsFilterSubcat='';itemsSearchQuery='';const si=document.getElementById('items-search-input');if(si)si.value='';renderItemsCatalog()">✕ Сбросить</button>` : '';
+
+    contentDiv = document.getElementById('items-content');
+  }
+
+  if (contentDiv) {
+    contentDiv.innerHTML = filtered.length ? tablesHtml : '<div style="color:var(--text3);padding:20px;text-align:center">Нет позиций' + (itemsSearchQuery || itemsFilterCat ? ' по заданным фильтрам' : '. Добавьте первую.') + '</div>';
+  }
 }
 
 function onItemPhotoSelected(input) {
