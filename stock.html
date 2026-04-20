@@ -2451,8 +2451,8 @@ function renderItemsCatalog() {
 
   if (!toolbar) {
     c.innerHTML = `
-      <div class="section">
-        <div id="items-sticky-header" style="position:sticky;top:0;z-index:10;background:var(--bg2);margin:-18px -18px 0;padding:14px 18px 10px;border-radius:14px 14px 0 0;border-bottom:1px solid var(--border)">
+      <div style="position:sticky;top:0;z-index:15;background:var(--bg);padding:8px 0 6px;margin-bottom:0">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 18px">
         <div class="section-title" style="flex-wrap:wrap;gap:8px;margin-bottom:8px">
           <span>📋 Справочник позиций</span>
           <span id="items-count" style="color:var(--text3);font-size:12px;font-weight:400">(${filtered.length} из ${items.length})</span>
@@ -2477,7 +2477,9 @@ function renderItemsCatalog() {
           <span id="items-reset-wrap">${(itemsFilterCat || itemsFilterSubcat || itemsSearchQuery) ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="itemsFilterType='all';itemsFilterCat='';itemsFilterSubcat='';itemsSearchQuery='';const si=document.getElementById('items-search-input');if(si)si.value='';renderItemsCatalog()">✕ Сбросить</button>` : ''}</span>
         </div>
         </div>
-        <div id="items-content" style="padding-top:10px"></div>
+      </div>
+      <div class="section" style="margin-top:0;border-radius:0 0 14px 14px">
+        <div id="items-content"></div>
       </div>`;
     contentDiv = document.getElementById('items-content');
   } else {
