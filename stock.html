@@ -2144,7 +2144,7 @@ async function whPanelCommitMin(itemId,whId,qty,inp){
   }catch(e){showToast(e.message,true);renderWhStockPanel(whId);}
 }
 
-function isMobile(){return Math.min(screen.width,screen.height)<=500||(('ontouchstart' in window)&&Math.min(screen.width,screen.height)<=768);}
+function isMobile(){return window.innerWidth<=768||Math.min(screen.width,screen.height)<=500||(('ontouchstart' in window)&&Math.min(screen.width,screen.height)<=768);}
 
 async function loadWarehouses() {
   try {
@@ -6295,6 +6295,11 @@ async function createMovement(){
 
 window.addEventListener('orientationchange', () => {
   setTimeout(() => { if (currentTabIdx === 1) loadWarehouses(); }, 300);
+});
+let _lastIsMobile = isMobile();
+window.addEventListener('resize', () => {
+  const now = isMobile();
+  if (now !== _lastIsMobile) { _lastIsMobile = now; if (currentTabIdx === 1) loadWarehouses(); }
 });
 </script>
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
