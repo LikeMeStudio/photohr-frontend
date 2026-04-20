@@ -610,8 +610,6 @@ function renderAvailabilityEditor(){
     <span class="avail-dot"><i style="background:rgba(62,207,142,.8)"></i>🟢 Свободен</span>
     <span class="avail-dot"><i style="background:rgba(242,85,85,.85)"></i>🔴 Занят</span>
     <span class="avail-dot"><i style="background:rgba(245,166,35,.85)"></i>🟡 Под вопросом</span>
-    <span class="avail-dot"><i style="background:rgba(78,166,232,.85)"></i>🔵 Утро</span>
-    <span class="avail-dot"><i style="background:rgba(155,141,255,.85)"></i>🟣 Вечер</span>
   </div>`;
   const premium=isPremiumSchedule()?'<div class="premium-note">Выберите 2 выходных дня. Остальные автоматически считаются рабочими.</div>':'';
   const actionLabel=isPremiumSchedule()?'Подтвердить':(availEditor.submitted?'Скорректировать':'Отправить заявку');
@@ -622,9 +620,6 @@ function renderAvailabilityEditor(){
       <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'available_full')">🟢 Свободен весь день</button>
       <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'unavailable')">🔴 Занят</button>
       <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'day_off')">🟡 Под вопросом</button>
-      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'available_morning')">🔵 Свободен утром</button>
-      <button class="opt" onclick="setAvailabilityStatus(availEditor.selectedDate,'available_evening')">🟣 Свободен вечером</button>
-      <div class="row"><span style="font-size:11px;color:var(--text3)">с</span><input type="time" id="dm-from"><span style="font-size:11px;color:var(--text3)">по</span><input type="time" id="dm-to"><button class="btn btn-ghost" style="padding:4px 8px" onclick="applyDayTime()">OK</button></div>
       <div style="margin-top:8px;text-align:right"><button class="btn btn-ghost" style="padding:4px 8px" onclick="closeDayMenu()">Закрыть</button></div>
     </div>`;
 }

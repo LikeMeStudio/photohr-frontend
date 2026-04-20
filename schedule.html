@@ -338,7 +338,8 @@ a{color:inherit;text-decoration:none}
       <button class="btn btn-primary" style="margin-top:8px" onclick="openPeriodModal()">Открыть новый период</button>
     </div>
     <div class="section">
-      <div class="section-title">Заявки <select class="fselect" id="sub-period" onchange="loadSubmissions()"></select></div>
+      <div class="section-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">Заявки <select class="fselect" id="sub-period" onchange="loadSubmissions()"></select>
+      <button class="btn btn-primary" style="margin-left:8px;font-size:12px;padding:4px 10px" onclick="openApplyAvailabilityModal()" title="Автоматически расставить сотрудников по их заявкам">🎯 Расставить по заявкам</button></div>
       <div id="submissions-wrap"><div class="loading">Выберите период</div></div>
     </div>
   </div>
@@ -453,6 +454,16 @@ a{color:inherit;text-decoration:none}
     <button class="btn btn-ghost" style="font-size:11px" onclick="addSingleRole('helper')">+ Помощник</button>
   </div>
   <div style="margin-top:8px"><div class="section-title">Название мероприятия</div><input class="fin" id="c-name" placeholder="Опционально" style="width:100%"></div>
+  <div style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">🕐 Метка времени (опционально)</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" data-single-planning-slot="" onclick="selectSinglePlanningSlot(this,'')" style="font-size:12px;padding:4px 10px">Без метки</button>
+      <button type="button" class="btn btn-ghost" data-single-planning-slot="morning" onclick="selectSinglePlanningSlot(this,'morning')" style="font-size:12px;padding:4px 10px">🌅 Утро</button>
+      <button type="button" class="btn btn-ghost" data-single-planning-slot="afternoon" onclick="selectSinglePlanningSlot(this,'afternoon')" style="font-size:12px;padding:4px 10px">☀️ День</button>
+      <button type="button" class="btn btn-ghost" data-single-planning-slot="evening" onclick="selectSinglePlanningSlot(this,'evening')" style="font-size:12px;padding:4px 10px">🌆 Вечер</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px">Точное время берётся из дефолтов площадки. Метка — подсказка для планирования.</div>
+  </div>
   <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
     <button class="btn btn-ghost" onclick="document.getElementById('create-modal').classList.remove('open')">Отмена</button>
     <button class="btn btn-primary" onclick="createSingleEvent()">Создать</button>
@@ -518,6 +529,16 @@ a{color:inherit;text-decoration:none}
   <div style="margin-top:10px;font-size:12px">Выбрано: <b id="bulk-count">0</b> дат</div>
   <div style="margin-top:8px"><div class="section-title">Название мероприятия</div><input class="fin" id="bulk-name" placeholder="Опционально" style="width:100%"></div>
   <div id="bulk-preview-box" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+  <div style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">🕐 Метка времени (опционально)</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" data-bulk-planning-slot="" onclick="selectBulkPlanningSlot(this,'')" style="font-size:12px;padding:4px 10px">Без метки</button>
+      <button type="button" class="btn btn-ghost" data-bulk-planning-slot="morning" onclick="selectBulkPlanningSlot(this,'morning')" style="font-size:12px;padding:4px 10px">🌅 Утро</button>
+      <button type="button" class="btn btn-ghost" data-bulk-planning-slot="afternoon" onclick="selectBulkPlanningSlot(this,'afternoon')" style="font-size:12px;padding:4px 10px">☀️ День</button>
+      <button type="button" class="btn btn-ghost" data-bulk-planning-slot="evening" onclick="selectBulkPlanningSlot(this,'evening')" style="font-size:12px;padding:4px 10px">🌆 Вечер</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px">Точное время берётся из дефолтов площадки. Метка — подсказка для планирования.</div>
+  </div>
   <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;align-items:center">
     <button class="btn btn-ghost" onclick="document.getElementById('bulk-modal').classList.remove('open')">Отмена</button>
     <button class="btn btn-ghost" onclick="doBulkCreateAction(true)">Предпросмотр</button>
@@ -625,6 +646,8 @@ let accessToken=localStorage.getItem('fhr_access')||null,refreshToken=localStora
 let accCtx=null,__submCtx=null;
 let refreshLock=null,schMonth=new Date().getMonth(),schYear=new Date().getFullYear(),venuesList=[],calDataCache=null,dragVenueId=null;
 let bulkState={venueId:null,selectedDates:new Set(),existingDates:new Set(),existingMap:{},pendingDeleteDates:new Set()};
+let bulkPlanningSlot='';
+let singlePlanningSlot='';
 let singleCreateState={venueId:null,date:''};
 let singleShiftsConfig={};
 let bulkShiftCfg={weekday:[],weekend:[]};
@@ -749,7 +772,11 @@ function renderCalGrid(data){
       const ok=(pAsg+aAsg+mAsg)>=(pReq+aReq+mReq);
       const onlyPh=aReq+mReq===0;
       const statLine=onlyPh?`📸${pAsg}/${pReq}`:`📸${pAsg}/${pReq} 🖨${aAsg}/${aReq} 👔${mAsg}/${mReq}`;
-      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}" onclick="event.stopPropagation()"><div class="ev-pill-name">${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
+      const pn=e.planning_note;
+      const slotMap={morning:'🌅',afternoon:'☀️',evening:'🌆'};
+      const slotTitle={morning:'Утро',afternoon:'День',evening:'Вечер'};
+      const slotBadge=pn&&slotMap[pn]?`<span style="display:inline-block;padding:1px 4px;border-radius:3px;background:var(--bg3);font-size:9px;margin-right:3px" title="${esc(slotTitle[pn]||'')}">${slotMap[pn]}</span>`:'';
+      return`<div class="ev-pill cat-${cat}" draggable="true" data-ev="${e.id}" title="${esc(e.venue_name||'')}" onclick="event.stopPropagation()"><div class="ev-pill-name">${slotBadge}${esc(e.venue_name||'')}</div><div style="color:${ok?'var(--rank1)':'var(--rank3)'}">${esc(statLine)}</div></div>`;
     }).join('');
     cells+=`<div class="cal-cell" data-date="${ds}" onclick="dayCalCellClick(event,'${ds}')" ondragover="event.preventDefault();this.classList.add('drop-over')" ondragleave="this.classList.remove('drop-over')" ondrop="dropVenueOnDate(event,'${ds}')"><div class="cal-num">${d} ${hol}</div>${list}</div>`;
     d++;
@@ -780,6 +807,7 @@ function openDayDetail(dateStr){
     const adm=Number(e.required_admins??e.need_admin??0)||0;
     const st=(e.schedule_status==='confirmed')?'confirmed':'draft';
     const stLabel=st==='confirmed'?'✅ утверждено':'📝 черновик';
+    const pnSlot=String(e.planning_note||'');
     const idJs=JSON.stringify(String(e.id));
     cards+=`<div class="dd-event-card" data-dd-ev="${esc(e.id)}">
       <div class="dd-event-head">
@@ -808,6 +836,14 @@ function openDayDetail(dateStr){
             <select class="fselect" id="dd_${sid}_st">
               <option value="draft" ${st==='draft'?'selected':''}>черновик</option>
               <option value="confirmed" ${st==='confirmed'?'selected':''}>утверждено</option>
+            </select>
+          </div>
+          <div class="dd-field"><label>Метка планирования</label>
+            <select class="fselect" id="dd_${sid}_pn">
+              <option value="" ${!pnSlot?'selected':''}>Без метки</option>
+              <option value="morning" ${pnSlot==='morning'?'selected':''}>🌅 Утро</option>
+              <option value="afternoon" ${pnSlot==='afternoon'?'selected':''}>☀️ День</option>
+              <option value="evening" ${pnSlot==='evening'?'selected':''}>🌆 Вечер</option>
             </select>
           </div>
         </div>
@@ -840,7 +876,8 @@ async function saveDayEvent(rawId){
     required_photographers:parseInt(document.getElementById(`dd_${sid}_ph`).value,10)||0,
     required_operators:parseInt(document.getElementById(`dd_${sid}_op`).value,10)||0,
     required_admins:parseInt(document.getElementById(`dd_${sid}_ad`).value,10)||0,
-    schedule_status:(document.getElementById(`dd_${sid}_st`)?.value)||'draft'
+    schedule_status:(document.getElementById(`dd_${sid}_st`)?.value)||'draft',
+    planning_note:(document.getElementById(`dd_${sid}_pn`)?.value)||null
   };
   try{
     await api('PATCH',`/events/${rawId}`,body);
@@ -1010,6 +1047,29 @@ function addSingleShift(role){ if(!singleShiftsConfig[role]) singleShiftsConfig[
 function addSingleRole(role){ if(singleShiftsConfig[role]?.length) return; addSingleShift(role); }
 function removeSingleShift(role,idx){ if(!singleShiftsConfig[role]) return; singleShiftsConfig[role].splice(idx,1); if(!singleShiftsConfig[role].length) delete singleShiftsConfig[role]; renderSingleShiftSections(); }
 
+function selectBulkPlanningSlot(btn, slot){
+  bulkPlanningSlot=slot||'';
+  document.querySelectorAll('[data-bulk-planning-slot]').forEach(b=>{
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-ghost');
+  });
+  if(btn){
+    btn.classList.add('btn-primary');
+    btn.classList.remove('btn-ghost');
+  }
+}
+function selectSinglePlanningSlot(btn, slot){
+  singlePlanningSlot=slot||'';
+  document.querySelectorAll('[data-single-planning-slot]').forEach(b=>{
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-ghost');
+  });
+  if(btn){
+    btn.classList.add('btn-primary');
+    btn.classList.remove('btn-ghost');
+  }
+}
+
 function openSingleCreate(venueId,dateStr){
   const venue=getVenueById(venueId); if(!venue){showToast('Площадка не найдена',true);return;}
   singleCreateState={venueId,date:dateStr};
@@ -1032,6 +1092,11 @@ function openSingleCreate(venueId,dateStr){
   document.getElementById('c-end').value=def.event_end;
   document.getElementById('c-name').value='';
   renderSingleShiftSections();
+  singlePlanningSlot='';
+  setTimeout(()=>{
+    const b=document.querySelector('[data-single-planning-slot=""]');
+    if(b) selectSinglePlanningSlot(b,'');
+  },0);
   document.getElementById('create-modal').classList.add('open');
 }
 
@@ -1041,6 +1106,16 @@ function dropVenueOnDate(ev,ds){
   const vid=dragVenueId; if(!vid)return;
   dragVenueId=null;
   endVenueDrag();
+  const dsNorm=String(ds).slice(0,10);
+  const existing=(calDataCache?.events||[]).find(e=>String(e.venue_id)===String(vid)&&String(e.event_date).slice(0,10)===dsNorm);
+  if(existing){
+    if(typeof openDayDetail==='function'){
+      openDayDetail(dsNorm);
+      return;
+    }
+    showToast(`Мероприятие «${getVenueById(vid)?.name||''}» на ${fmtDate(dsNorm)} уже есть — откройте день для редактирования`, false);
+    return;
+  }
   openSingleCreate(vid,ds);
 }
 
@@ -1054,6 +1129,7 @@ async function createSingleEvent(){
     event_name:(document.getElementById('c-name').value||'').trim()||null,
     schedule_status:scheduleViewStatus,
     shifts_config:singleShiftsConfig,
+    planning_note:singlePlanningSlot||null,
     preview:false
   };
   try{
@@ -1065,6 +1141,7 @@ async function createSingleEvent(){
       guest_start:document.getElementById('c-guest').value||null,
       event_end:document.getElementById('c-end').value||null,
       shifts_config:singleShiftsConfig,
+      planning_note:singlePlanningSlot||null,
     });
     document.getElementById('create-modal').classList.remove('open');
     showToast(`Создано: ${venue.name} → ${new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}`);
@@ -1092,6 +1169,11 @@ function openBulkForVenue(venueId){
   document.getElementById('bulk-title').textContent=`Массовое создание: ${venue.name}`;
   document.getElementById('bulk-name').value='';
   document.getElementById('bulk-preview-box').textContent='';
+  bulkPlanningSlot='';
+  setTimeout(()=>{
+    const b=document.querySelector('[data-bulk-planning-slot=""]');
+    if(b) selectBulkPlanningSlot(b,'');
+  },0);
   const wd=getVenueDefaults(venue,'weekday');
   const we=getVenueDefaults(venue,'weekend');
   setBulkTimes('bw', wd);
@@ -1126,7 +1208,9 @@ function renderBulkMini(){
     if(ex&&pend) cls+=' ex ex-pending-del';
     else if(ex) cls+=' ex';
     else if(sel) cls+=' sel';
-    h+=`<div class="${cls}" onclick="toggleBulkDate('${ds}')">${d}</div>`;
+    const titleAttr=ex?' title="Уже есть мероприятие"':'';
+    const exStyle=ex?'opacity:.75;outline:1px dashed var(--rank2)':'';
+    h+=`<div class="${cls}" style="${exStyle}"${titleAttr} onclick="toggleBulkDate('${ds}')">${d}</div>`;
   }
   h+='</div>';
   document.getElementById('bulk-mini').innerHTML=h;
@@ -1229,13 +1313,21 @@ async function doBulkCreateAction(preview){
       weekday_shifts_config:{photographer:weekdayShifts},
       weekend_shifts_config:{photographer:weekendShifts},
       schedule_status:scheduleViewStatus,
+      planning_note:bulkPlanningSlot||null,
       preview
     });
     if(preview){
       const items=r.items||[];
       const exists=items.filter(i=>i.already_exists).length;
       const create=items.length-exists;
-      document.getElementById('bulk-preview-box').textContent=`Предпросмотр: будет создано ${create}, уже существует ${exists}.`;
+      const existsDates=items.filter(i=>i.already_exists).map(i=>String(i.date).slice(0,10));
+      const box=document.getElementById('bulk-preview-box');
+      let msg=`Будет создано: ${create}. Уже существует: ${exists}.`;
+      if(exists>0){
+        msg+=`\nПропущенные даты: ${existsDates.map(d=>fmtDate(d)).join(', ')}`;
+      }
+      box.textContent=msg;
+      box.style.whiteSpace='pre-wrap';
       return;
     }
     document.getElementById('bulk-modal').classList.remove('open');
@@ -1256,6 +1348,29 @@ async function confirmSchedulePeriod(){
     const r=await api('POST','/events/confirm-schedule',{date_from:from,date_to:to,city});
     showToast(`Утверждено: ${r.confirmed||0}`);
     await loadTab0();
+  }catch(e){showToast(e.message,true);}
+}
+
+async function openApplyAvailabilityModal(){
+  const pid=document.getElementById('sub-period').value;
+  if(!pid){showToast('Сначала выберите период',true);return;}
+  const meta=currentPeriodMeta;
+  if(!meta){showToast('Загрузите заявки',true);return;}
+  const from=String(meta.period_start||'').slice(0,10);
+  const to=String(meta.period_end||'').slice(0,10);
+  const city=meta.city||'';
+  if(!confirm(`Запустить предпросмотр авторасстановки?\n\nПериод: ${fmtDate(from)} → ${fmtDate(to)}${city?`\nГород: ${city}`:''}\n\nБудет показан список предлагаемых назначений. Применение — отдельным действием.`)) return;
+  try{
+    const r=await api('POST','/staffing/auto-assign',{date_from:from,date_to:to,city,dry_run:true,include_without_availability:false});
+    const assigned=(r.assignments||[]).length;
+    const unres=(r.unresolved||[]).length;
+    const warn=(r.warnings||[]).length;
+    const lines=(r.assignments||[]).slice(0,50).map((a,i)=>`${i+1}. ${fmtDate(a.date)} · ${a.venue_name||''} · ${a.shift_name||''} → ${a.photographer_name||''}${a.forced?' (без заявки)':''}`).join('\n');
+    const apply=confirm(`Предпросмотр:\n• Предлагается назначить: ${assigned}\n• Не удалось заполнить: ${unres}\n• Предупреждений: ${warn}\n\nПервые 50 строк:\n${lines}\n\nПрименить эти назначения?`);
+    if(!apply) return;
+    const r2=await api('POST','/staffing/auto-assign',{date_from:from,date_to:to,city,dry_run:false,include_without_availability:false});
+    showToast(`Назначено: ${r2.applied||0}`);
+    await loadSubmissions();
   }catch(e){showToast(e.message,true);}
 }
 

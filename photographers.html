@@ -1957,6 +1957,21 @@ function clearVenueFilter(){
 
 function updateVenueFilterBtn(){}
 
+// ── TERMINATE (мягкое увольнение) ──
+async function terminatePhotographer(id, name){
+  if(!confirm(`Уволить сотрудника «${name}»?\n\nЧто произойдёт:\n• Сотрудник станет неактивным\n• hire_status = terminated\n• Связанный аккаунт пользователя будет архивирован\n• Токены будут отозваны\n\nДанные (паспорт, фото, комментарии, история смен) остаются в системе.`)) return;
+  const reason = prompt('Причина увольнения (необязательно):') || '';
+  try{
+    await api('POST', `/photographers/${id}/terminate`, { reason });
+    await loadPhotographers();
+    render();
+    closeDrawer();
+    showToast('Сотрудник уволен');
+  }catch(e){
+    showToast(e.message, true);
+  }
+}
+
 // ── TOGGLE ACTIVE ──
 async function togglePhotographerActive(id, active){
   try {
@@ -2591,7 +2606,8 @@ function renderInfoTab(ph){
     <button class="btn-save-float" onclick="saveCard()">Сохранить изменения</button>
     ${canPassport() ? `<button onclick="togglePhotographerActive('${ph.id}',${!ph.is_active})" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid ${ph.is_active?'rgba(242,85,85,.3)':'rgba(62,207,142,.3)'};background:transparent;color:${ph.is_active?'var(--rank3)':'var(--rank1)'};font-family:'Golos Text',sans-serif;font-size:14px;cursor:pointer">
       ${ph.is_active ? '⏸ Деактивировать сотрудника' : '▶ Активировать сотрудника'}
-    </button>` : ''}`;
+    </button>` : ''}
+    ${hasAnyRole(['hr_director','exec_director','admin']) && ph.is_active !== false ? `<button type="button" class="btn btn-danger" style="width:100%;margin-top:8px" onclick="terminatePhotographer('${esc(String(ph.id||''))}', ${JSON.stringify(ph.name||'')})">🚪 Уволить</button>` : ''}`;
 }
 
 function toggleVenueGroup(id){
