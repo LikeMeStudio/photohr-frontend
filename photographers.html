@@ -2607,7 +2607,7 @@ function renderInfoTab(ph){
     ${canPassport() ? `<button onclick="togglePhotographerActive('${ph.id}',${!ph.is_active})" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid ${ph.is_active?'rgba(242,85,85,.3)':'rgba(62,207,142,.3)'};background:transparent;color:${ph.is_active?'var(--rank3)':'var(--rank1)'};font-family:'Golos Text',sans-serif;font-size:14px;cursor:pointer">
       ${ph.is_active ? '⏸ Деактивировать сотрудника' : '▶ Активировать сотрудника'}
     </button>` : ''}
-    ${hasAnyRole(['hr_director','exec_director','admin']) && ph.is_active !== false ? `<button type="button" class="btn btn-danger" style="width:100%;margin-top:8px" onclick="terminatePhotographer('${esc(String(ph.id||''))}', ${JSON.stringify(ph.name||'')})">🚪 Уволить</button>` : ''}`;
+    ${hasAnyRole(['hr_director','exec_director','admin']) && ph.is_active !== false ? `<button type="button" class="btn btn-danger" style="width:100%;margin-top:8px" data-pid="${esc(String(ph.id||''))}" data-pname="${esc(ph.name||'')}" onclick="terminatePhotographer(this.dataset.pid, this.dataset.pname)">🚪 Уволить</button>` : ''}`;
 }
 
 function toggleVenueGroup(id){
