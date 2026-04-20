@@ -646,6 +646,41 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </div>
 </div>
 
+<!-- ── REINSTATE MODAL ── -->
+<div class="overlay" id="reinstate-modal" onclick="if(event.target===this)closeReinstateModal()">
+<div class="modal" style="max-width:520px">
+  <div class="modal-title">
+    <span>↩ Восстановление сотрудника</span>
+    <button type="button" class="dr-close" onclick="closeReinstateModal()">×</button>
+  </div>
+
+  <div style="font-size:14px;color:var(--text);margin-bottom:16px">
+    Восстановление сотрудника <b id="rm-name">—</b>
+  </div>
+
+  <div style="background:rgba(62,207,142,.08);border-left:3px solid var(--rank1);padding:10px 12px;border-radius:6px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.5">
+    <b style="color:var(--rank1)">Что произойдёт:</b><br>
+    • Статус сотрудника → <code>active</code><br>
+    • Связанный аккаунт пользователя активируется<br>
+    • Роль пользователя будет установлена как <code>photographer_user</code><br>
+    • Сотрудник сможет залогиниться и получать смены<br>
+    <br>
+    <b style="color:var(--rank2)">⚠ Внимание:</b><br>
+    Если сотрудник ранее был менеджером, кассиром или другой ролью — её нужно вернуть вручную через <b>Админку → Пользователи</b>. Данные увольнения (дата, причина) сохранятся в истории.
+  </div>
+
+  <div class="field" style="margin-bottom:16px">
+    <div class="fl">Комментарий <span style="color:var(--text3);font-weight:400">(необязательно)</span></div>
+    <textarea class="fin" id="rm-comment" rows="3" style="width:100%;resize:vertical" placeholder="Почему возвращаем..."></textarea>
+  </div>
+
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button type="button" class="btn btn-ghost" onclick="closeReinstateModal()">Отмена</button>
+    <button type="button" class="btn btn-primary" id="rm-submit" onclick="submitReinstate()" style="background:var(--rank1);border-color:var(--rank1)">↩ Восстановить</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ── CONFIG ──
 // Замените на URL вашего сервера после деплоя
@@ -2080,6 +2115,41 @@ function terminatePhotographer(id, name){
   openTerminateModal(id, name);
 }
 
+// ── REINSTATE (восстановление уволенного) ──
+let reinstateState = { id: null, name: null };
+
+function openReinstateModal(id, name){
+  reinstateState = { id, name };
+  document.getElementById('rm-name').textContent = name || '—';
+  document.getElementById('rm-comment').value = '';
+  document.getElementById('reinstate-modal').classList.add('open');
+}
+
+function closeReinstateModal(){
+  document.getElementById('reinstate-modal').classList.remove('open');
+  reinstateState = { id: null, name: null };
+}
+
+async function submitReinstate(){
+  const { id, name } = reinstateState;
+  if(!id) return;
+  const comment = document.getElementById('rm-comment').value.trim() || null;
+  try{
+    await api('POST', `/photographers/${id}/reinstate`, { comment });
+    closeReinstateModal();
+    await loadPhotographers();
+    render();
+    closeDrawer();
+    showToast(`Сотрудник «${name}» восстановлен. Роль установлена как photographer_user.`);
+  }catch(e){
+    showToast(e.message, true);
+  }
+}
+
+function reinstatePhotographer(id, name){
+  openReinstateModal(id, name);
+}
+
 // ── TOGGLE ACTIVE ──
 async function togglePhotographerActive(id, active){
   try {
@@ -2363,6 +2433,22 @@ function renderInfoTab(ph){
       <div style="color:var(--text2)">Дата: ${ph.terminated_at ? esc(String(ph.terminated_at).slice(0,10)) : '—'}</div>
       ${ph.termination_reason ? `<div style="color:var(--text2)">Причина: ${esc(ruTerminationReason(ph.termination_reason))}</div>` : ''}
       ${ph.termination_comment ? `<div style="color:var(--text3);margin-top:4px;font-size:12px;line-height:1.4">${esc(ph.termination_comment)}</div>` : ''}
+      ${hasAnyRole(['hr_director','exec_director','admin']) ? `
+        <button type="button" data-pid="${esc(String(ph.id||''))}" data-pname="${esc(ph.name||'')}" onclick="reinstatePhotographer(this.dataset.pid, this.dataset.pname)" style="width:100%;margin-top:10px;padding:8px;border-radius:8px;border:1px solid var(--rank1);background:rgba(62,207,142,.08);color:var(--rank1);font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s">
+          ↩ Восстановить сотрудника
+        </button>
+      ` : ''}
+    </div>
+    ${(Number(ph.reinstated_count) || 0) > 0 && ph.reinstated_at ? `
+      <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+        <b style="color:var(--rank1)">История восстановлений:</b> ${Number(ph.reinstated_count)} раз${Number(ph.reinstated_count) === 1 ? '' : Number(ph.reinstated_count) < 5 ? 'а' : ''}${ph.reinstated_at ? `, последний — ${esc(String(ph.reinstated_at).slice(0,10))}` : ''}
+        ${ph.reinstate_comment ? `<div style="color:var(--text3);margin-top:4px;font-size:12px">${esc(ph.reinstate_comment)}</div>` : ''}
+      </div>
+    ` : ''}
+  ` : (Number(ph.reinstated_count) || 0) > 0 && ph.reinstated_at ? `
+    <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      <b style="color:var(--rank1)">↩ Восстановлен</b> · ${esc(String(ph.reinstated_at).slice(0,10))}${(Number(ph.reinstated_count) || 0) > 1 ? ` (всего раз: ${Number(ph.reinstated_count)})` : ''}
+      ${ph.reinstate_comment ? `<div style="color:var(--text3);margin-top:4px">${esc(ph.reinstate_comment)}</div>` : ''}
     </div>
   ` : '';
 
