@@ -587,6 +587,65 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 </div>
 </div>
 
+<!-- ── TERMINATION MODAL ── -->
+<div class="overlay" id="terminate-modal" onclick="if(event.target===this)closeTerminateModal()">
+<div class="modal" style="max-width:520px">
+  <div class="modal-title">
+    <span>🚪 Увольнение сотрудника</span>
+    <button type="button" class="dr-close" onclick="closeTerminateModal()">×</button>
+  </div>
+
+  <div style="font-size:14px;color:var(--text);margin-bottom:16px">
+    Увольнение сотрудника <b id="tm-name">—</b>
+  </div>
+
+  <div style="background:rgba(242,85,85,.08);border-left:3px solid var(--rank3);padding:10px 12px;border-radius:6px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.5">
+    <b style="color:var(--rank3)">Что произойдёт:</b><br>
+    • Статус сотрудника → <code>terminated</code><br>
+    • Связанный аккаунт пользователя будет архивирован<br>
+    • Токены доступа будут отозваны<br>
+    • Сотрудник больше не сможет войти в систему<br>
+    <br>
+    <b>Данные сохраняются</b> (паспорт, фото, комментарии, история смен, выплаты).
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <div class="fl">Дата увольнения</div>
+    <input type="date" class="fin" id="tm-date" style="width:100%">
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <div class="fl">Причина</div>
+    <select class="fselect" id="tm-reason" style="width:100%">
+      <option value="">— выберите —</option>
+      <option value="own_will">По собственному желанию</option>
+      <option value="company_init">Инициатива компании</option>
+      <option value="contract_end">Окончание срока договора</option>
+      <option value="another_company">Переход в другую компанию</option>
+      <option value="probation_failed">Не прошёл испытательный срок</option>
+      <option value="disciplinary">Дисциплинарное</option>
+      <option value="relocation">Переезд</option>
+      <option value="other">Другое</option>
+    </select>
+  </div>
+
+  <div class="field" style="margin-bottom:16px">
+    <div class="fl">Комментарий <span style="color:var(--text3);font-weight:400">(необязательно)</span></div>
+    <textarea class="fin" id="tm-comment" rows="3" style="width:100%;resize:vertical" placeholder="Дополнительные детали..."></textarea>
+  </div>
+
+  <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;cursor:pointer;font-size:12px;color:var(--text2);line-height:1.4">
+    <input type="checkbox" id="tm-confirm" style="margin-top:2px;flex-shrink:0" onchange="updateTerminateBtn()">
+    <span>Я понимаю, что возврат сотрудника потребует ручного восстановления роли пользователя и активации в админке.</span>
+  </label>
+
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button type="button" class="btn btn-ghost" onclick="closeTerminateModal()">Отмена</button>
+    <button type="button" class="btn btn-danger" id="tm-submit" onclick="submitTerminate()" disabled style="opacity:.5">🚪 Уволить</button>
+  </div>
+</div>
+</div>
+
 <script>
 // ── CONFIG ──
 // Замените на URL вашего сервера после деплоя
@@ -1957,19 +2016,68 @@ function clearVenueFilter(){
 
 function updateVenueFilterBtn(){}
 
+function ruTerminationReason(code){
+  const map = {
+    own_will: 'По собственному желанию',
+    company_init: 'Инициатива компании',
+    contract_end: 'Окончание срока договора',
+    another_company: 'Переход в другую компанию',
+    probation_failed: 'Не прошёл испытательный срок',
+    disciplinary: 'Дисциплинарное',
+    relocation: 'Переезд',
+    other: 'Другое',
+  };
+  return map[code] || code;
+}
+
 // ── TERMINATE (мягкое увольнение) ──
-async function terminatePhotographer(id, name){
-  if(!confirm(`Уволить сотрудника «${name}»?\n\nЧто произойдёт:\n• Сотрудник станет неактивным\n• hire_status = terminated\n• Связанный аккаунт пользователя будет архивирован\n• Токены будут отозваны\n\nДанные (паспорт, фото, комментарии, история смен) остаются в системе.`)) return;
-  const reason = prompt('Причина увольнения (необязательно):') || '';
+let terminateState = { id: null, name: null };
+
+function openTerminateModal(id, name){
+  terminateState = { id, name };
+  document.getElementById('tm-name').textContent = name || '—';
+  document.getElementById('tm-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('tm-reason').value = '';
+  document.getElementById('tm-comment').value = '';
+  document.getElementById('tm-confirm').checked = false;
+  updateTerminateBtn();
+  document.getElementById('terminate-modal').classList.add('open');
+}
+
+function closeTerminateModal(){
+  document.getElementById('terminate-modal').classList.remove('open');
+  terminateState = { id: null, name: null };
+}
+
+function updateTerminateBtn(){
+  const btn = document.getElementById('tm-submit');
+  const checked = document.getElementById('tm-confirm').checked;
+  if(btn){
+    btn.disabled = !checked;
+    btn.style.opacity = checked ? '1' : '.5';
+  }
+}
+
+async function submitTerminate(){
+  const { id, name } = terminateState;
+  if(!id) return;
+  const terminated_at = document.getElementById('tm-date').value || null;
+  const reason = document.getElementById('tm-reason').value || null;
+  const comment = document.getElementById('tm-comment').value.trim() || null;
   try{
-    await api('POST', `/photographers/${id}/terminate`, { reason });
+    await api('POST', `/photographers/${id}/terminate`, { terminated_at, reason, comment });
+    closeTerminateModal();
     await loadPhotographers();
     render();
     closeDrawer();
-    showToast('Сотрудник уволен');
+    showToast(`Сотрудник «${name}» уволен`);
   }catch(e){
     showToast(e.message, true);
   }
+}
+
+function terminatePhotographer(id, name){
+  openTerminateModal(id, name);
 }
 
 // ── TOGGLE ACTIVE ──
@@ -2249,6 +2357,15 @@ function renderInfoTab(ph){
   const RANK_DESC  = {1:'Работает только на отдельных', 2:'Может на любых', 3:'Любит все площадки'};
   const isManager = canManageComments();
 
+  const terminatedBadge = (ph.is_active === false && ph.hire_status === 'terminated') ? `
+    <div style="background:rgba(242,85,85,.1);border:1px solid rgba(242,85,85,.3);border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px">
+      <div style="color:var(--rank3);font-weight:600;margin-bottom:4px">🚪 Уволен</div>
+      <div style="color:var(--text2)">Дата: ${ph.terminated_at ? esc(String(ph.terminated_at).slice(0,10)) : '—'}</div>
+      ${ph.termination_reason ? `<div style="color:var(--text2)">Причина: ${esc(ruTerminationReason(ph.termination_reason))}</div>` : ''}
+      ${ph.termination_comment ? `<div style="color:var(--text3);margin-top:4px;font-size:12px;line-height:1.4">${esc(ph.termination_comment)}</div>` : ''}
+    </div>
+  ` : '';
+
   // Звёзды только для чтения
   function readStars(val){
     if(!val) return '<span style="font-size:13px;color:var(--text3)">не оценено</span>';
@@ -2341,6 +2458,7 @@ function renderInfoTab(ph){
   const addVenueBtn = '';
 
   if(!isEditor) return `
+    ${terminatedBadge}
     ${photoBlock}
     <div class="field-row" style="margin-bottom:12px">
           <div class="field"><div class="fl">Имя</div><div class="fv">${esc(ph.name)}</div></div>
@@ -2387,6 +2505,7 @@ function renderInfoTab(ph){
     </div>`;
 
   return `
+    ${terminatedBadge}
     ${photoBlock}
     <div style="margin-bottom:14px">
       <div class="fl" style="margin-bottom:6px">Имя и фамилия</div>
@@ -2604,10 +2723,22 @@ function renderInfoTab(ph){
       ${addVenueBtn}
     </div>
     <button class="btn-save-float" onclick="saveCard()">Сохранить изменения</button>
-    ${canPassport() ? `<button onclick="togglePhotographerActive('${ph.id}',${!ph.is_active})" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid ${ph.is_active?'rgba(242,85,85,.3)':'rgba(62,207,142,.3)'};background:transparent;color:${ph.is_active?'var(--rank3)':'var(--rank1)'};font-family:'Golos Text',sans-serif;font-size:14px;cursor:pointer">
-      ${ph.is_active ? '⏸ Деактивировать сотрудника' : '▶ Активировать сотрудника'}
-    </button>` : ''}
-    ${hasAnyRole(['hr_director','exec_director','admin']) && ph.is_active !== false ? `<button type="button" class="btn btn-danger" style="width:100%;margin-top:8px" data-pid="${esc(String(ph.id||''))}" data-pname="${esc(ph.name||'')}" onclick="terminatePhotographer(this.dataset.pid, this.dataset.pname)">🚪 Уволить</button>` : ''}`;
+    ${canPassport() ? `
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+        <button onclick="togglePhotographerActive('${ph.id}',${!ph.is_active})" style="width:100%;padding:10px;border-radius:10px;border:1px solid ${ph.is_active?'rgba(245,166,35,.35)':'rgba(62,207,142,.3)'};background:${ph.is_active?'rgba(245,166,35,.08)':'transparent'};color:${ph.is_active?'var(--rank2)':'var(--rank1)'};font-family:'Golos Text',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s">
+          ${ph.is_active ? '⏸ Деактивировать' : '▶ Активировать'}
+        </button>
+        ${ph.is_active ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4">Временная пауза. Логин работает, смены не приходят. Можно вернуть одним кликом.</div>` : `<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4">Сотрудник сейчас неактивен. Нажмите чтобы вернуть в строй.</div>`}
+      </div>
+    ` : ''}
+    ${hasAnyRole(['hr_director','exec_director','admin']) && ph.is_active !== false ? `
+      <div style="margin-top:12px">
+        <button type="button" data-pid="${esc(String(ph.id||''))}" data-pname="${esc(ph.name||'')}" onclick="terminatePhotographer(this.dataset.pid, this.dataset.pname)" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(242,85,85,.4);background:rgba(242,85,85,.08);color:var(--rank3);font-family:'Golos Text',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s">
+          🚪 Уволить
+        </button>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4">Окончательный уход: блок логина, отзыв токенов, hire_status = terminated. Данные остаются в системе.</div>
+      </div>
+    ` : ''}`;
 }
 
 function toggleVenueGroup(id){
