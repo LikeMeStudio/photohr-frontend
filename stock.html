@@ -26,6 +26,7 @@ a{color:inherit;text-decoration:none}
 .main{max-width:1200px;margin:0 auto;padding:0 24px 20px}
 .tabs{position:sticky;top:0;z-index:20;background:var(--bg);padding:6px 0;display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid var(--border)}
 .tab{padding:6px 14px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
+.tab .tab-short{display:none}
 .tab.active{background:var(--accent);color:#fff}
 .section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
 .section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -98,6 +99,8 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
   .tabs::-webkit-scrollbar{display:none}
   .tabs .tab{flex-shrink:0}
+  .tab .tab-full{display:none}
+  .tab .tab-short{display:inline}
   .card-grid{grid-template-columns:1fr!important}
   .table-wrap,#tab-content,#wh-stock-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table.tbl{min-width:600px}
@@ -131,7 +134,7 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   /* landscape fix: sticky bar компактнее, контент скроллится */
   @media(orientation:landscape){
     .header{padding:6px 14px;gap:4px}
-    .tabs button,.tabs .tab{min-height:32px;padding:6px 10px;font-size:11px}
+    .tabs button,.tabs .tab{min-height:28px;padding:4px 8px;font-size:10px}
     #wh-cards-sticky{padding:4px 0!important}
     .wh-mobile-bar{padding:4px 0}
     .wh-mini{padding:4px 8px;font-size:10px}
@@ -227,16 +230,16 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 </div>
 <div class="main">
   <div class="tabs">
-    <button class="tab active" onclick="switchTab(0)" id="tab-forecast">📦 Остатки и прогноз</button>
-    <button class="tab" onclick="switchTab(1)">🏢 Склады</button>
-    <button class="tab" onclick="switchTab(2)">📋 Справочник</button>
-    <button class="tab" onclick="switchTab(3)" id="tab-purchases">🛒 Закупки</button>
-    <button class="tab" onclick="switchTab(4)" id="tab-transfers">🔄 Перемещения</button>
-    <button class="tab" onclick="switchTab(5)">📊 Движения</button>
-    <button class="tab" onclick="switchTab(6)">📋 Инвентаризация</button>
-    <button class="tab" onclick="switchTab(7)">🖨 Оборудование</button>
-    <button class="tab" onclick="switchTab(8)" id="tab-alerts">📈 Аналитика</button>
-    <button class="tab" onclick="switchTab(9)" id="tab-schedule">📅 Расписание</button>
+    <button class="tab active" onclick="switchTab(0)" id="tab-forecast"><span class="tab-full">📦 Остатки и прогноз</span><span class="tab-short">📦 Остатки</span></button>
+    <button class="tab" onclick="switchTab(1)"><span class="tab-full">🏢 Склады</span><span class="tab-short">🏢 Склады</span></button>
+    <button class="tab" onclick="switchTab(2)"><span class="tab-full">📋 Справочник</span><span class="tab-short">📋 Справ.</span></button>
+    <button class="tab" onclick="switchTab(3)" id="tab-purchases"><span class="tab-full">🛒 Закупки</span><span class="tab-short">🛒 Закуп.</span></button>
+    <button class="tab" onclick="switchTab(4)" id="tab-transfers"><span class="tab-full">🔄 Перемещения</span><span class="tab-short">🔄 Перем.</span></button>
+    <button class="tab" onclick="switchTab(5)"><span class="tab-full">📊 Движения</span><span class="tab-short">📊 Движ.</span></button>
+    <button class="tab" onclick="switchTab(6)"><span class="tab-full">📋 Инвентаризация</span><span class="tab-short">📋 Инвент.</span></button>
+    <button class="tab" onclick="switchTab(7)"><span class="tab-full">🖨 Оборудование</span><span class="tab-short">🖨 Обор.</span></button>
+    <button class="tab" onclick="switchTab(8)" id="tab-alerts"><span class="tab-full">📈 Аналитика</span><span class="tab-short">📈 Аналит.</span></button>
+    <button class="tab" onclick="switchTab(9)" id="tab-schedule"><span class="tab-full">📅 Расписание</span><span class="tab-short">📅 Распис.</span></button>
     <button class="tab" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--accent2)" onclick="exportStockExcel()">📥 Excel</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
