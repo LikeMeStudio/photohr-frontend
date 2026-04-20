@@ -103,9 +103,9 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .tabs .tab{flex-shrink:0}
   .tab .tab-full{display:none}
   .tab .tab-short{display:none}
-  .tab .tab-compact{display:flex;flex-direction:column;align-items:center;gap:1px}
-  .tab .tab-icon{font-size:18px;line-height:1}
-  .tab .tab-label{font-size:9px;line-height:1.1;white-space:nowrap}
+  .tab .tab-compact{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .tab .tab-icon{font-size:20px;line-height:1}
+  .tab .tab-label{font-size:10px;line-height:1.1;white-space:nowrap}
   .card-grid{grid-template-columns:1fr!important}
   .table-wrap,#tab-content,#wh-stock-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table.tbl{min-width:600px}
@@ -154,16 +154,18 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 @media(pointer:coarse){
   .tab .tab-full{display:none}
   .tab .tab-short{display:none}
-  .tab .tab-compact{display:flex;flex-direction:column;align-items:center;gap:1px}
-  .tab .tab-icon{font-size:20px;line-height:1}
-  .tab .tab-label{font-size:9px;line-height:1.1;white-space:nowrap}
-  .tabs button,.tabs .tab{padding:4px 8px;min-height:auto}
+  .tab .tab-compact{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .tab .tab-icon{font-size:22px;line-height:1}
+  .tab .tab-label{font-size:10px;line-height:1.1;white-space:nowrap}
+  .tabs button,.tabs .tab{padding:5px 8px;min-height:auto}
 }
 @media(pointer:coarse) and (orientation:landscape){
-  .tab .tab-icon{font-size:16px}
-  .tab .tab-label{font-size:8px}
+  .tab .tab-compact{gap:2px}
+  .tab .tab-icon{font-size:18px}
+  .tab .tab-label{font-size:9px}
   .tabs button,.tabs .tab{padding:3px 6px}
-  .header{padding:6px 14px;gap:4px}
+  .tabs{justify-content:center;padding-left:max(6px,env(safe-area-inset-left));padding-right:max(6px,env(safe-area-inset-right))}
+  .header{padding:6px max(14px,env(safe-area-inset-left));gap:4px}
 }
 .wh-mobile-bar{background:var(--bg2);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 .wh-mobile-bar::-webkit-scrollbar{display:none}
