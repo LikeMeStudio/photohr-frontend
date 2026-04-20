@@ -813,8 +813,8 @@ function openDayDetail(dateStr){
       <div class="dd-event-head">
         <div class="dd-event-title">${vn}</div>
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:14px" onclick="ddToggleEdit(${idJs})" title="Редактирование">⚙️</button>
-          <button type="button" class="btn btn-ghost" style="padding:2px 8px;color:var(--rank3)" onclick="deleteDayEvent(${idJs})" title="Удалить">✕</button>
+          <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:14px" onclick='ddToggleEdit(${idJs})' title="Редактирование">⚙️</button>
+          <button type="button" class="btn btn-ghost" style="padding:2px 8px;color:var(--rank3)" onclick='deleteDayEvent(${idJs})' title="Удалить">✕</button>
         </div>
       </div>
       <div class="dd-summary" id="dd-sum-${sid}">
