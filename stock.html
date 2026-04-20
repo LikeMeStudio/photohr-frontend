@@ -990,6 +990,7 @@ function touchDndStart(ev){
   const touch=ev.touches[0];
   touchStartTimer=setTimeout(()=>{
     ev.preventDefault();
+    el.style.touchAction='none';
     const whId=el.getAttribute('data-from-wh');
     const itemId=el.getAttribute('data-item-id');
     const eqId=el.getAttribute('data-equipment-id');
@@ -1065,6 +1066,7 @@ function touchDndEnd(ev){
   const srcRow = touchDndSourceRow;
   touchDndSourceRow = null;
   if (srcRow) {
+    srcRow.style.touchAction='auto';
     srcRow.dataset.suppressEqClick = '1';
     setTimeout(() => { delete srcRow.dataset.suppressEqClick; }, 0);
   }
@@ -1078,6 +1080,7 @@ function touchDndCancel(){
   document.querySelectorAll('.dnd-dragging,.dnd-source,.dnd-over').forEach(c=>{c.classList.remove('dnd-dragging');c.classList.remove('dnd-source');c.classList.remove('dnd-over');});
   if (touchDndData && touchDndSourceRow) {
     const srcRow = touchDndSourceRow;
+    srcRow.style.touchAction='auto';
     srcRow.dataset.suppressEqClick = '1';
     setTimeout(() => { delete srcRow.dataset.suppressEqClick; }, 0);
   }
@@ -1778,7 +1781,7 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     const nmAttr = esc(e.item_name || '').replace(/"/g, '&quot;');
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
     const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-item-id="${e.item_id || ''}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()"` : '';
-    return `<tr${drag} onclick="if(this.dataset.suppressEqClick==='1')return;openEqDrawer('${e.id}')" style="${canDnd ? 'cursor:grab;' : 'cursor:pointer;'}touch-action:none;user-select:none;-webkit-user-select:none">
+    return `<tr${drag} onclick="if(this.dataset.suppressEqClick==='1')return;openEqDrawer('${e.id}')" style="${canDnd ? 'cursor:grab;' : 'cursor:pointer;'}touch-action:auto;user-select:none;-webkit-user-select:none">
       <td>${esc(e.item_name)}</td>
       <td style="text-align:center">${st}</td>
       <td style="text-align:center;color:var(--text3);font-size:12px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
@@ -1798,7 +1801,7 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const qMax = parseFloat(s.quantity) || 0;
   const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
   const un = esc(s.unit || '').replace(/"/g, '&quot;');
-  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none"` : '';
+  const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:auto;user-select:none;-webkit-user-select:none"` : '';
   return `<tr${drag}>
     <td>${esc(s.item_name)}</td>
     <td style="font-weight:600;text-align:center" title="${esc(fmtStockQty(q, s))}">${fmtStockQty(q, s)}</td>
