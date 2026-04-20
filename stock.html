@@ -27,6 +27,8 @@ a{color:inherit;text-decoration:none}
 .tabs{position:sticky;top:0;z-index:20;background:var(--bg);padding:6px 0;display:flex;gap:4px;margin-bottom:8px;border-bottom:1px solid var(--border)}
 .tab{padding:6px 14px;border-radius:8px;border:none;background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
 .tab .tab-short{display:none}
+.tab .tab-compact{display:none}
+.tab .tab-icon{position:relative;display:inline-block}
 .tab.active{background:var(--accent);color:#fff}
 .section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
 .section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -100,7 +102,10 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .tabs::-webkit-scrollbar{display:none}
   .tabs .tab{flex-shrink:0}
   .tab .tab-full{display:none}
-  .tab .tab-short{display:inline}
+  .tab .tab-short{display:none}
+  .tab .tab-compact{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .tab .tab-icon{font-size:18px;line-height:1}
+  .tab .tab-label{font-size:9px;line-height:1.1;white-space:nowrap}
   .card-grid{grid-template-columns:1fr!important}
   .table-wrap,#tab-content,#wh-stock-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table.tbl{min-width:600px}
@@ -113,7 +118,7 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .header{padding-top:max(10px, env(safe-area-inset-top))}
   .toast{bottom:max(20px, env(safe-area-inset-bottom))}
   body{padding-bottom:env(safe-area-inset-bottom)}
-  .tabs button,.tabs .tab{font-size:12px;padding:8px 12px;min-height:40px}
+  .tabs button,.tabs .tab{padding:4px 8px;min-height:auto}
   .stat-num{font-size:18px}
   .stat-lbl{font-size:11px}
   .section-title{font-size:15px}
@@ -145,14 +150,19 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   }
 }
 
-/* Touch-устройства в любой ориентации — короткие названия вкладок */
+/* Touch-устройства в любой ориентации — двухстрочные вкладки (иконка + подпись) */
 @media(pointer:coarse){
   .tab .tab-full{display:none}
-  .tab .tab-short{display:inline}
-  .tabs button,.tabs .tab{font-size:11px;padding:6px 10px;min-height:34px}
+  .tab .tab-short{display:none}
+  .tab .tab-compact{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .tab .tab-icon{font-size:20px;line-height:1}
+  .tab .tab-label{font-size:9px;line-height:1.1;white-space:nowrap}
+  .tabs button,.tabs .tab{padding:4px 8px;min-height:auto}
 }
 @media(pointer:coarse) and (orientation:landscape){
-  .tabs button,.tabs .tab{min-height:28px;padding:4px 8px;font-size:10px}
+  .tab .tab-icon{font-size:16px}
+  .tab .tab-label{font-size:8px}
+  .tabs button,.tabs .tab{padding:3px 6px}
   .header{padding:6px 14px;gap:4px}
 }
 .wh-mobile-bar{background:var(--bg2);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
@@ -240,16 +250,16 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 </div>
 <div class="main">
   <div class="tabs">
-    <button class="tab active" onclick="switchTab(0)" id="tab-forecast"><span class="tab-full">📦 Остатки и прогноз</span><span class="tab-short">📦 Остатки</span></button>
-    <button class="tab" onclick="switchTab(1)"><span class="tab-full">🏢 Склады</span><span class="tab-short">🏢 Склады</span></button>
-    <button class="tab" onclick="switchTab(2)"><span class="tab-full">📋 Справочник</span><span class="tab-short">📋 Справ.</span></button>
-    <button class="tab" onclick="switchTab(3)" id="tab-purchases"><span class="tab-full">🛒 Закупки</span><span class="tab-short">🛒 Закуп.</span></button>
-    <button class="tab" onclick="switchTab(4)" id="tab-transfers"><span class="tab-full">🔄 Перемещения</span><span class="tab-short">🔄 Перем.</span></button>
-    <button class="tab" onclick="switchTab(5)"><span class="tab-full">📊 Движения</span><span class="tab-short">📊 Движ.</span></button>
-    <button class="tab" onclick="switchTab(6)"><span class="tab-full">📋 Инвентаризация</span><span class="tab-short">📋 Инвент.</span></button>
-    <button class="tab" onclick="switchTab(7)"><span class="tab-full">🖨 Оборудование</span><span class="tab-short">🖨 Обор.</span></button>
-    <button class="tab" onclick="switchTab(8)" id="tab-alerts"><span class="tab-full">📈 Аналитика</span><span class="tab-short">📈 Аналит.</span></button>
-    <button class="tab" onclick="switchTab(9)" id="tab-schedule"><span class="tab-full">📅 Расписание</span><span class="tab-short">📅 Распис.</span></button>
+    <button class="tab active" onclick="switchTab(0)" id="tab-forecast"><span class="tab-full">📦 Остатки и прогноз</span><span class="tab-compact"><span class="tab-icon">📦</span><span class="tab-label">Остатки</span></span></button>
+    <button class="tab" onclick="switchTab(1)"><span class="tab-full">🏢 Склады</span><span class="tab-compact"><span class="tab-icon">🏢</span><span class="tab-label">Склады</span></span></button>
+    <button class="tab" onclick="switchTab(2)"><span class="tab-full">📋 Справочник</span><span class="tab-compact"><span class="tab-icon">📋</span><span class="tab-label">Справочник</span></span></button>
+    <button class="tab" onclick="switchTab(3)" id="tab-purchases"><span class="tab-full">🛒 Закупки</span><span class="tab-compact"><span class="tab-icon">🛒</span><span class="tab-label">Закупки</span></span></button>
+    <button class="tab" onclick="switchTab(4)" id="tab-transfers"><span class="tab-full">🔄 Перемещения</span><span class="tab-compact"><span class="tab-icon">🔄</span><span class="tab-label">Перемещения</span></span></button>
+    <button class="tab" onclick="switchTab(5)"><span class="tab-full">📊 Движения</span><span class="tab-compact"><span class="tab-icon">📊</span><span class="tab-label">Движения</span></span></button>
+    <button class="tab" onclick="switchTab(6)"><span class="tab-full">📋 Инвентаризация</span><span class="tab-compact"><span class="tab-icon">📋</span><span class="tab-label">Инвентаризация</span></span></button>
+    <button class="tab" onclick="switchTab(7)"><span class="tab-full">🖨 Оборудование</span><span class="tab-compact"><span class="tab-icon">🖨</span><span class="tab-label">Оборудование</span></span></button>
+    <button class="tab" onclick="switchTab(8)" id="tab-alerts"><span class="tab-full">📈 Аналитика</span><span class="tab-compact"><span class="tab-icon">📈</span><span class="tab-label">Аналитика</span></span></button>
+    <button class="tab" onclick="switchTab(9)" id="tab-schedule"><span class="tab-full">📅 Расписание</span><span class="tab-compact"><span class="tab-icon">📅</span><span class="tab-label">Расписание</span></span></button>
     <button class="tab" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--accent2)" onclick="exportStockExcel()">📥 Excel</button>
   </div>
   <div id="content"><div class="loading">Загрузка...</div></div>
@@ -1643,10 +1653,11 @@ async function loadAlertsBadge() {
     const total = alerts.total || 0;
     const tabEl = document.getElementById('tab-alerts');
     if (!tabEl) return;
+    const badgeOnIcon = (bg, n) => `<span style="position:absolute;top:-4px;right:-8px;background:${bg};color:#fff;border-radius:8px;padding:0 4px;font-size:8px;font-weight:700;line-height:14px;min-width:14px;text-align:center">${n}</span>`;
     if (total > 0) {
-      tabEl.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${total}</span></span>📈 Аналитика`;
+      tabEl.innerHTML = `<span class="tab-full"><span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${total}</span> 📈 Аналитика</span><span class="tab-compact"><span class="tab-icon">📈${badgeOnIcon('var(--rank3)', total)}</span><span class="tab-label">Аналитика</span></span>`;
     } else {
-      tabEl.textContent = '📈 Аналитика';
+      tabEl.innerHTML = '<span class="tab-full">📈 Аналитика</span><span class="tab-compact"><span class="tab-icon">📈</span><span class="tab-label">Аналитика</span></span>';
     }
   } catch(e) { /* не критично */ }
 }
@@ -1690,26 +1701,27 @@ async function loadStockTabBadges() {
     } catch (_) {}
     const fcN = critItems.size;
     const pend = Array.isArray(trList) ? trList.length : 0;
+    const badgeOnIcon = (bg, n) => `<span style="position:absolute;top:-4px;right:-8px;background:${bg};color:#fff;border-radius:8px;padding:0 4px;font-size:8px;font-weight:700;line-height:14px;min-width:14px;text-align:center">${n}</span>`;
     if (tabFc) {
       if (fcN > 0) {
-        tabFc.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${fcN}</span></span>📦 Остатки и прогноз`;
+        tabFc.innerHTML = `<span class="tab-full"><span style="background:var(--rank3);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${fcN}</span> 📦 Остатки и прогноз</span><span class="tab-compact"><span class="tab-icon">📦${badgeOnIcon('var(--rank3)', fcN)}</span><span class="tab-label">Остатки</span></span>`;
       } else {
-        tabFc.textContent = '📦 Остатки и прогноз';
+        tabFc.innerHTML = '<span class="tab-full">📦 Остатки и прогноз</span><span class="tab-compact"><span class="tab-icon">📦</span><span class="tab-label">Остатки</span></span>';
       }
     }
     if (tabTr) {
       if (pend > 0) {
-        tabTr.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${pend}</span></span>🔄 Перемещения`;
+        tabTr.innerHTML = `<span class="tab-full"><span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${pend}</span> 🔄 Перемещения</span><span class="tab-compact"><span class="tab-icon">🔄${badgeOnIcon('var(--accent)', pend)}</span><span class="tab-label">Перемещения</span></span>`;
       } else {
-        tabTr.textContent = '🔄 Перемещения';
+        tabTr.innerHTML = '<span class="tab-full">🔄 Перемещения</span><span class="tab-compact"><span class="tab-icon">🔄</span><span class="tab-label">Перемещения</span></span>';
       }
     }
     const draftCount = Array.isArray(poDrafts) ? poDrafts.length : 0;
     if (tabPo) {
       if (draftCount > 0) {
-        tabPo.innerHTML = `<span style="display:block;text-align:center"><span style="background:var(--rank2);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${draftCount}</span></span>🛒 Закупки`;
+        tabPo.innerHTML = `<span class="tab-full"><span style="background:var(--rank2);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">${draftCount}</span> 🛒 Закупки</span><span class="tab-compact"><span class="tab-icon">🛒${badgeOnIcon('var(--rank2)', draftCount)}</span><span class="tab-label">Закупки</span></span>`;
       } else {
-        tabPo.textContent = '🛒 Закупки';
+        tabPo.innerHTML = '<span class="tab-full">🛒 Закупки</span><span class="tab-compact"><span class="tab-icon">🛒</span><span class="tab-label">Закупки</span></span>';
       }
     }
   } catch (e) { /* не критично */ }
