@@ -2430,8 +2430,9 @@ function renderItemsCatalog() {
         <summary style="font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;padding:6px 0;border-bottom:1px solid var(--border)">
           ${catLabel} <span style="color:var(--text3);font-weight:400;font-size:12px">(${catItems.length})</span>
         </summary>
-        <div class="table-wrap"><table class="tbl">
-          <thead><tr><th style="width:36px"></th><th>Название</th><th style="width:50px">Сокр.</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
+        <div class="table-wrap"><table class="tbl" style="table-layout:fixed;width:100%">
+          <colgroup><col style="width:36px"/><col/><col style="width:56px"/><col style="width:140px"/><col style="width:56px"/><col style="width:60px"/><col style="width:70px"/><col style="width:80px"/></colgroup>
+          <thead><tr><th></th><th>Название</th><th>Сокр.</th><th>Поставщик</th><th>Ед.</th><th>Порог</th><th>Цена</th><th></th></tr></thead>
           <tbody>${catItems.map(renderRow).join('')}</tbody>
         </table></div>
       </details>`;
