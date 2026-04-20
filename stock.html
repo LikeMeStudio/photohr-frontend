@@ -2447,13 +2447,14 @@ function renderItemsCatalog() {
   if (!toolbar) {
     c.innerHTML = `
       <div class="section">
+        <div style="position:sticky;top:0;z-index:10;background:var(--bg2);padding-bottom:8px;margin:-18px -18px 0;padding:12px 18px 8px;border-radius:14px 14px 0 0">
         <div class="section-title" style="flex-wrap:wrap;gap:8px">
           <span>📋 Справочник позиций</span>
           <span id="items-count" style="color:var(--text3);font-size:12px;font-weight:400">(${filtered.length} из ${items.length})</span>
           ${canManageCategories ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 10px" onclick="openSubcatManager()">⚙ Категории</button>` : ''}
           ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openItemModal()">+ Позиция</button>` : ''}
         </div>
-        <div id="items-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <div id="items-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:0">
           <input class="fin" type="text" id="items-search-input" placeholder="🔍 Поиск по названию..." value="${esc(itemsSearchQuery)}" oninput="itemsSearchQuery=this.value;renderItemsCatalog()" style="width:200px;font-size:12px"/>
           <select class="fselect" id="items-type-filter" style="width:auto;font-size:12px" onchange="itemsFilterType=this.value;itemsFilterCat='';itemsFilterSubcat='';renderItemsCatalog()">
             <option value="all" ${itemsFilterType==='all'?'selected':''}>Все типы</option>
@@ -2469,6 +2470,7 @@ function renderItemsCatalog() {
             ${subcatFilterOptions}
           </select>
           <span id="items-reset-wrap">${(itemsFilterCat || itemsFilterSubcat || itemsSearchQuery) ? `<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="itemsFilterType='all';itemsFilterCat='';itemsFilterSubcat='';itemsSearchQuery='';const si=document.getElementById('items-search-input');if(si)si.value='';renderItemsCatalog()">✕ Сбросить</button>` : ''}</span>
+        </div>
         </div>
         <div id="items-content"></div>
       </div>`;
