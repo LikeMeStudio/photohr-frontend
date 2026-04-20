@@ -2112,7 +2112,7 @@ async function renderWhStockPanel(whId){
       <div class="wh-detail-panel" style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
         <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
           <span>Склад: ${esc(wh?.name||whId)}${titleEmoji}</span>
-          ${canEdit?`<button type="button" class="btn btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:14px" onclick="event.stopPropagation();openWhModalById('${whId}')" title="Настройки склада">⚙</button>`:''}
+          ${canEdit?`<button type="button" class="btn btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:14px" onclick="event.stopPropagation();openWhModalById('${whId}')" title="Настройки склада">⚙️</button>`:''}
         </div>
         ${stockBlocks}
         ${canEdit?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
@@ -2200,16 +2200,20 @@ async function loadWarehouses() {
           <div class="wh-name" style="margin-top:4px">Все склады</div>
           <div class="wh-meta" style="margin-top:2px">${activeList.length} складов</div>
         </div>
-          ${list.map(w => `
+          ${list.map(w => {
+            const v = venues.find(x => x.id === w.venue_id);
+            const abbr = v ? venueShortLabel(v) : (w.name||'').slice(0,3).toUpperCase();
+            const abbrColor = v ? venuePickColor(v) : (w.warehouse_type === 'central' ? '#7c6cff' : 'var(--text3)');
+            return `
             <div class="wh-card wh-card-compact ${sel===w.id?'wh-card-active':''}" data-wh-id="${w.id}" ${canDnd ? `ondragover="dndAllowDrop(event)" ondragleave="dndDragLeave(event)" ondrop="dndDrop(event);dndOnDropWh(event,'${w.id}')"` : ''} onclick="onWhCardClick('${w.id}',event)">
-              <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-                <span class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</span>
-                ${whVenueBadgeHtml(w)}
-              </div>
+              <div class="wh-type ${TYPE_CLS[w.warehouse_type] || 'wh-type-central'}" style="margin-bottom:2px">${TYPE_LABELS[w.warehouse_type] || w.warehouse_type}</div>
               <div class="wh-name">${esc(w.name)}</div>
-              <div class="wh-meta" style="margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' + esc(w.venue_name) : ''}</div>
-            </div>
-          `).join('')}
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;gap:4px">
+                <span class="wh-meta">${w.city ? esc(w.city) : ''}</span>
+                <span style="padding:1px 5px;border-radius:4px;font-size:8px;font-weight:700;color:#fff;background:${abbrColor};line-height:1.3;flex-shrink:0">${esc(String(abbr).slice(0,4))}</span>
+              </div>
+            </div>`;
+          }).join('')}
         </div>` : (!isMobile() ? `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>` : '')}
         </div>
         ${inactiveList.length ? `<details id="wh-inactive-details" style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:var(--text3);user-select:none;padding:8px 0">Деактивированные склады (${inactiveList.length})</summary>
