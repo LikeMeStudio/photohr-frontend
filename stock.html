@@ -146,7 +146,7 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 .wh-mobile-bar::-webkit-scrollbar{display:none}
 .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
 .wh-mini.active{border-width:2px}
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:4px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:4px}
 .wh-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
 .wh-card:hover{border-color:var(--accent)}
 .wh-card-compact{padding:6px 10px;min-height:auto;cursor:pointer}
@@ -2110,7 +2110,10 @@ async function renderWhStockPanel(whId){
     const stockBlocks=[consSection,eqSection].filter(Boolean).join('');
     host.innerHTML=`
       <div class="wh-detail-panel" style="margin-top:16px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
-        <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Склад: ${esc(wh?.name||whId)}${titleEmoji}</div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <span>Склад: ${esc(wh?.name||whId)}${titleEmoji}</span>
+          ${canEdit?`<button type="button" class="btn btn-ghost" style="margin-left:auto;padding:4px 10px;font-size:14px" onclick="event.stopPropagation();openWhModalById('${whId}')" title="Настройки склада">⚙</button>`:''}
+        </div>
         ${stockBlocks}
         ${canEdit?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
           <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="startInventoryForWarehouse('${whId}')">📊 Инвентаризация</button>
@@ -2204,11 +2207,7 @@ async function loadWarehouses() {
                 ${whVenueBadgeHtml(w)}
               </div>
               <div class="wh-name">${esc(w.name)}</div>
-              <div class="wh-meta" style="margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' : ''}${w.warehouse_type === 'venue' ? '' : esc(w.venue_name || '')}</div>
-              ${canEdit ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;gap:4px;width:100%;min-width:0;box-sizing:border-box">
-                <span class="wh-meta" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">👤 ${esc(w.responsible_name || '—')}</span>
-                <button type="button" class="wh-card-gear" onclick="event.stopPropagation();openWhModalById('${w.id}')" title="Настройки">⚙</button>
-              </div>` : `<div class="wh-meta" style="margin-top:2px">👤 ${esc(w.responsible_name || '—')}</div>`}
+              <div class="wh-meta" style="margin-top:1px">${w.city ? esc(w.city) : ''}${w.city && w.warehouse_type !== 'venue' && w.venue_name ? ' · ' + esc(w.venue_name) : ''}</div>
             </div>
           `).join('')}
         </div>` : (!isMobile() ? `<div style="color:var(--text3)">${inactiveList.length ? 'Нет активных складов.' : 'Нет складов. Создайте первый.'}</div>` : '')}
@@ -2233,6 +2232,7 @@ async function loadWarehouses() {
       </div>`;
     updateDndCartUI();
     updateStickyTop();
+    if(!selectedWarehouseId){selectedWarehouseId='__all__';document.querySelectorAll('.wh-card-compact[data-wh-id="__all__"]').forEach(el=>el.classList.add('wh-card-active'));document.querySelectorAll('.wh-mini[data-wh-id="__all__"]').forEach(el=>el.classList.add('active'));}
     if(selectedWarehouseId)renderWhStockPanel(selectedWarehouseId);
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
 }
