@@ -145,6 +145,16 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   }
 }
 
+/* Touch-устройства в любой ориентации — короткие названия вкладок */
+@media(pointer:coarse){
+  .tab .tab-full{display:none}
+  .tab .tab-short{display:inline}
+  .tabs button,.tabs .tab{font-size:11px;padding:6px 10px;min-height:34px}
+}
+@media(pointer:coarse) and (orientation:landscape){
+  .tabs button,.tabs .tab{min-height:28px;padding:4px 8px;font-size:10px}
+  .header{padding:6px 14px;gap:4px}
+}
 .wh-mobile-bar{background:var(--bg2);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 .wh-mobile-bar::-webkit-scrollbar{display:none}
 .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
