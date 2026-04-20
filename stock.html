@@ -99,8 +99,10 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .tabs::-webkit-scrollbar{display:none}
   .tabs .tab{flex-shrink:0}
   .card-grid{grid-template-columns:1fr!important}
-  .table-wrap,#tab-content{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .table-wrap,#tab-content,#wh-stock-panel{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table.tbl{min-width:600px}
+  #wh-stock-panel table.tbl{min-width:480px}
+  #wh-stock-panel .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
   .drawer{width:100%;max-width:100%}
   .admin-iframe{width:100vw!important;max-width:100vw!important;height:100vh!important;border-radius:0!important}
   .admin-overlay{padding:0!important;align-items:stretch!important}
@@ -126,6 +128,18 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .wh-mobile-bar::-webkit-scrollbar{display:none}
   .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
   .wh-mini.active{border-width:2px}
+  /* landscape fix: sticky bar компактнее, контент скроллится */
+  @media(orientation:landscape){
+    .header{padding:6px 14px;gap:4px}
+    .tabs button,.tabs .tab{min-height:32px;padding:6px 10px;font-size:11px}
+    #wh-cards-sticky{padding:4px 0!important}
+    .wh-mobile-bar{padding:4px 0}
+    .wh-mini{padding:4px 8px;font-size:10px}
+    .section{padding:10px}
+    .section-title{font-size:13px;margin-bottom:6px}
+    #wh-stock-panel details summary{font-size:12px;padding:4px 0}
+    #wh-stock-panel .tbl th,#wh-stock-panel .tbl td{padding:4px 4px;font-size:10px}
+  }
 }
 
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:4px}
@@ -1913,13 +1927,13 @@ async function renderAllWarehousesPanel(host) {
               if (modelArr2.length > 1) {
                 modelHtml2 += `<tr><td colspan="4" style="border:none;padding:0"><details open>
                   <summary style="font-size:12px;font-weight:600;color:var(--text3);padding:8px 4px 3px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
-                  <table class="tbl" style="font-size:12px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows2}</tbody></table>
+                  <table class="tbl" style="font-size:12px;width:100%;margin:0"><colgroup><col style="min-width:140px"/><col style="min-width:50px;width:12%"/><col style="min-width:90px;width:20%"/><col style="min-width:80px;width:18%"/></colgroup><tbody>${mdlRows2}</tbody></table>
                 </details></td></tr>`;
               } else {
                 modelHtml2 += mdlRows2;
               }
             }
-            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>${modelHtml2}</tbody></table></div>`;
+            const tblWrap = `<div class="table-wrap"><table class="tbl" style="font-size:12px;width:100%"><colgroup><col style="min-width:140px"/><col style="min-width:50px;width:12%"/><col style="min-width:90px;width:20%"/><col style="min-width:80px;width:18%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>${modelHtml2}</tbody></table></div>`;
             if (showScHeader) {
               const scId = sc.id;
               const threshKey = scId ? `${scId}_${wh.id}` : null;
@@ -2046,13 +2060,13 @@ async function renderWhStockPanel(whId){
             if(modelArr.length>1){
               modelHtml+=`<tr><td colspan="4" style="border:none;padding:0"><details open>
                 <summary style="font-size:12px;font-weight:600;color:var(--text3);padding:8px 4px 3px;cursor:pointer;user-select:none;list-style:none">${esc(mdl.name)} <span style="color:var(--accent);font-weight:700">(${mdl.units.length})</span></summary>
-                <table class="tbl" style="font-size:12px;table-layout:fixed;width:100%;margin:0"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><tbody>${mdlRows}</tbody></table>
+                <table class="tbl" style="font-size:12px;width:100%;margin:0"><colgroup><col style="min-width:140px"/><col style="min-width:50px;width:12%"/><col style="min-width:90px;width:20%"/><col style="min-width:80px;width:18%"/></colgroup><tbody>${mdlRows}</tbody></table>
               </details></td></tr>`;
             } else {
               modelHtml+=mdlRows;
             }
           }
-          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:50%"/><col style="width:12%"/><col style="width:20%"/><col style="width:18%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>${modelHtml}</tbody></table></div>`;
+          const tblWrap=`<div class="table-wrap"><table class="tbl" style="font-size:12px;width:100%"><colgroup><col style="min-width:140px"/><col style="min-width:50px;width:12%"/><col style="min-width:90px;width:20%"/><col style="min-width:80px;width:18%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>${modelHtml}</tbody></table></div>`;
           if(showScHeader){
             const scId=sc.id;
             const threshKey=scId?`${scId}_${whId}`:null;
@@ -2140,6 +2154,10 @@ async function loadWarehouses() {
     if(sel&&sel!=='__all__'&&!list.find(w=>w.id===sel))selectedWarehouseId=null;
 
     const mobileBar = isMobile() ? `<div class="wh-mobile-bar" id="wh-mobile-bar">
+      <div class="wh-mini ${sel==='__all__'?'active':''}" data-wh-id="__all__" onclick="onWhCardClick('__all__',event)" style="border-color:var(--accent);${sel==='__all__'?'background:var(--accent)22;color:var(--accent)':'color:var(--text2)'}">
+        <span style="width:18px;height:18px;border-radius:5px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0">ВСЕ</span>
+        Все
+      </div>
       ${list.map(w => {
         const v = venues.find(x => x.id === w.venue_id);
         const color = v ? venuePickColor(v) : (w.warehouse_type === 'central' ? '#7c6cff' : 'var(--text3)');
