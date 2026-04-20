@@ -2134,7 +2134,7 @@ async function whPanelCommitMin(itemId,whId,qty,inp){
   }catch(e){showToast(e.message,true);renderWhStockPanel(whId);}
 }
 
-function isMobile(){return window.innerWidth<=768;}
+function isMobile(){return Math.min(screen.width,screen.height)<=500||(('ontouchstart' in window)&&Math.min(screen.width,screen.height)<=768);}
 
 async function loadWarehouses() {
   try {
@@ -6275,6 +6275,10 @@ async function createMovement(){
     switchTab(currentTabIdx);
   }catch(e){showToast(e.message,true);}
 }
+
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { if (currentTabIdx === 1) loadWarehouses(); }, 300);
+});
 </script>
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
   <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
