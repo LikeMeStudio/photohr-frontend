@@ -169,6 +169,19 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 }
 .wh-mobile-bar{background:var(--bg2);padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 .wh-mobile-bar::-webkit-scrollbar{display:none}
+/* ---- Deficit badges on warehouse chips/cards ---- */
+.wh-chip-badge-host{position:relative;display:inline-flex;flex-shrink:0}
+.wh-chip-badge{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;font-size:10px;font-weight:700;color:#fff;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--bg2);line-height:1;pointer-events:none;z-index:2;font-family:'Golos Text',sans-serif;font-variant-numeric:tabular-nums}
+.wh-chip-badge-crit{background:var(--rank3)}
+.wh-chip-badge-warn{background:var(--rank2)}
+.wh-chip-badge-warn.wh-chip-badge-offset{right:auto;left:-8px}
+/* ---- Stock row deficit tint ---- */
+.wh-stock-row-crit td{background:rgba(239,68,68,0.08)!important}
+.wh-stock-row-warn td{background:rgba(234,179,8,0.06)!important}
+.wh-stock-row-crit td:first-child{box-shadow:inset 3px 0 0 var(--rank3)}
+.wh-stock-row-warn td:first-child{box-shadow:inset 3px 0 0 var(--rank2)}
+/* ---- Header pills ---- */
+.stat.stat-pill .stat-lbl{font-variant-numeric:tabular-nums}
 .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
 .wh-mini.active{border-width:2px}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;margin-top:4px}
@@ -1731,29 +1744,110 @@ async function loadStockTabBadges() {
 
 async function loadSummary() {
   try {
-    const s = await api('GET', '/stock/summary');
     const el = document.getElementById('hstats');
     if (!el) return;
-    let pendingActions = 0;
-    try {
-      const [trPending, invOpen] = await Promise.all([
-        api('GET', '/stock-transfers?status=pending&limit=500').catch(() => []),
-        api('GET', '/inventory-sessions?status=open').catch(() => []),
-      ]);
-      pendingActions = (Array.isArray(trPending) ? trPending.length : 0) + (Array.isArray(invOpen) ? invOpen.length : 0);
-    } catch (_) {}
 
-    el.innerHTML = `
-      ${s.critical_count > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.critical_count}</div><div class="stat-lbl">🔴 критичных</div></div>` : ''}
-      ${(s.warning_count || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.warning_count}</div><div class="stat-lbl">🟡 внимание</div></div>` : ''}
-      ${(s.equipment_deficit || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank3)">${s.equipment_deficit}</div><div class="stat-lbl">дефицит оборуд.</div></div>` : ''}
-      ${(s.equipment_repair || 0) > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.equipment_repair}</div><div class="stat-lbl">🔧 в ремонте</div></div>` : ''}
-      ${pendingActions > 0 ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">⏳ действий</div></div>` : ''}
-    `;
+    // Источники: /stock/summary (repair), /stock/matrix + /stock/equipment-matrix + /warehouses + pending actions
+    const [s, mx, eqMx, whsAll, trPending, invOpen] = await Promise.all([
+      api('GET', '/stock/summary').catch(() => ({})),
+      api('GET', '/stock/matrix').catch(() => ({ items: [], balances: [] })),
+      api('GET', '/stock/equipment-matrix').catch(() => ({ counts: [], thresholds: [] })),
+      api('GET', '/warehouses?include_inactive=true').catch(() => []),
+      api('GET', '/stock-transfers?status=pending&limit=500').catch(() => []),
+      api('GET', '/inventory-sessions?status=open').catch(() => []),
+    ]);
+
+    const whTypeById = new Map();
+    (Array.isArray(whsAll) ? whsAll : []).forEach(w => whTypeById.set(String(w.id), String(w.warehouse_type || '')));
+
+    // --- Локальные (venue) дефициты: consumable min_quantity + equipment sub-thresholds
+    let warehouseCrit = 0, warehouseWarn = 0;
+    const stats = {}; // per-warehouse { crit, warn }
+    (mx.balances || []).forEach(b => {
+      const whId = String(b.warehouse_id);
+      if (!stats[whId]) stats[whId] = { crit: 0, warn: 0 };
+      if (whTypeById.get(whId) !== 'venue') return;
+      const q = parseFloat(b.quantity || 0) || 0;
+      const minQ = parseFloat(b.min_quantity || 0) || 0;
+      if (minQ <= 0) return;
+      if (q <= minQ) { warehouseCrit++; stats[whId].crit++; }
+      else if (q <= minQ * 1.5) { warehouseWarn++; stats[whId].warn++; }
+    });
+    const eqCountMap = new Map();
+    (eqMx.counts || []).forEach(c => eqCountMap.set(`${c.subcategory_id}::${c.warehouse_id}`, c.active_count));
+    (eqMx.thresholds || []).forEach(t => {
+      const whId = String(t.warehouse_id);
+      if (whTypeById.get(whId) !== 'venue') return;
+      const minQ = parseFloat(t.min_quantity || 0) || 0;
+      if (minQ <= 0) return;
+      const active = eqCountMap.get(`${t.subcategory_id}::${t.warehouse_id}`) || 0;
+      if (!stats[whId]) stats[whId] = { crit: 0, warn: 0 };
+      if (active < minQ) { warehouseCrit++; stats[whId].crit++; }
+      else if (active < minQ * 1.5) { warehouseWarn++; stats[whId].warn++; }
+    });
+
+    // --- Глобальные дефициты: суммарный остаток item_id по всем складам vs reorder_point
+    const totals = new Map();
+    (mx.balances || []).forEach(b => {
+      const k = String(b.item_id);
+      totals.set(k, (totals.get(k) || 0) + (parseFloat(b.quantity || 0) || 0));
+    });
+    let globalCrit = 0, globalWarn = 0;
+    (mx.items || []).forEach(it => {
+      const rp = parseFloat(it.reorder_point || 0) || 0;
+      if (rp <= 0) return;
+      const total = totals.get(String(it.id)) || 0;
+      if (total <= rp) globalCrit++;
+      else if (total <= rp * 1.5) globalWarn++;
+    });
+
+    // Глобальные — накинуть на каждый central-склад в stats (бейджи чипов central = глобальные)
+    (Array.isArray(whsAll) ? whsAll : []).forEach(w => {
+      if (w.warehouse_type === 'central') {
+        const whId = String(w.id);
+        if (!stats[whId]) stats[whId] = { crit: 0, warn: 0 };
+        stats[whId].crit += globalCrit;
+        stats[whId].warn += globalWarn;
+      }
+    });
+
+    // Сохраняем для использования в рендерах
+    window._whDeficitStats = stats;
+    const totalsObj = {};
+    totals.forEach((v, k) => { totalsObj[k] = v; });
+    window._itemGlobalTotals = totalsObj;
+
+    const pendingActions = (Array.isArray(trPending) ? trPending.length : 0) + (Array.isArray(invOpen) ? invOpen.length : 0);
+
+    const totalCrit = globalCrit + warehouseCrit;
+    const totalWarn = globalWarn + warehouseWarn;
+    const pillCrit = totalCrit > 0
+      ? `<div class="stat stat-pill" title="🔴 Всего ${totalCrit}: ${globalCrit} глобальных (нужна закупка) + ${warehouseCrit} локальных (нужно перемещение)">
+           <div class="stat-num" style="color:var(--rank3)">${totalCrit}</div>
+           <div class="stat-lbl">🔴 <span style="color:var(--rank3);font-weight:700">${globalCrit}</span><span style="color:var(--text3)">/</span><span style="color:var(--text2)">${warehouseCrit}</span></div>
+         </div>`
+      : '';
+    const pillWarn = totalWarn > 0
+      ? `<div class="stat stat-pill" title="🟡 Всего ${totalWarn}: ${globalWarn} глобальных + ${warehouseWarn} локальных">
+           <div class="stat-num" style="color:var(--rank2)">${totalWarn}</div>
+           <div class="stat-lbl">🟡 <span style="color:var(--rank2);font-weight:700">${globalWarn}</span><span style="color:var(--text3)">/</span><span style="color:var(--text2)">${warehouseWarn}</span></div>
+         </div>`
+      : '';
+    const eqRepair = (s && s.equipment_repair || 0) > 0
+      ? `<div class="stat"><div class="stat-num" style="color:var(--rank2)">${s.equipment_repair}</div><div class="stat-lbl">🔧 в ремонте</div></div>`
+      : '';
+    const pendings = pendingActions > 0
+      ? `<div class="stat"><div class="stat-num" style="color:var(--accent)">${pendingActions}</div><div class="stat-lbl">⏳ действий</div></div>`
+      : '';
+
+    el.innerHTML = pillCrit + pillWarn + eqRepair + pendings;
     el.style.display = '';
     updateStickyTop();
     loadAlertsBadge();
     loadStockTabBadges();
+
+    // Обновить бейджи на уже отрендеренных чипах складов (если находимся на вкладке Склады)
+    if (typeof updateWhChipBadges === 'function') updateWhChipBadges();
   } catch(e) { /* не критично */ }
 }
 
@@ -1779,6 +1873,55 @@ async function exportStockExcel() {
     URL.revokeObjectURL(url);
     showToast('Файл скачан');
   } catch (e) { showToast(e.message, true); }
+}
+
+/* ===== Desktop deficit-logic (port from mobile stock.tsx) ===== */
+// Глобальные тоталы (кол-во каждого item_id суммарно по всем складам).
+// Обновляется в loadSummary() и renderStockTab().
+window._itemGlobalTotals = window._itemGlobalTotals || {};
+// Статусы дефицита по каждому складу: { [whId]: { crit, warn } }
+window._whDeficitStats = window._whDeficitStats || {};
+
+/** Статус дефицита для строки расходника.
+ *  central: по reorder_point (глобальный суммарный остаток).
+ *  venue:   по min_quantity (локальный остаток).
+ */
+function consumableDeficitStatus(row, isCentralWh, globalTotal){
+  const q = parseFloat(row && row.quantity || 0) || 0;
+  if (isCentralWh) {
+    const rp = parseFloat(row && (row.item_reorder_point != null ? row.item_reorder_point : row.reorder_point) || 0) || 0;
+    if (rp <= 0) return 'ok';
+    const total = (typeof globalTotal === 'number') ? globalTotal : q;
+    if (total <= rp) return 'critical';
+    if (total <= rp * 1.5) return 'warning';
+    return 'ok';
+  }
+  const minQ = parseFloat(row && row.min_quantity || 0) || 0;
+  if (minQ <= 0) return 'ok';
+  if (q <= minQ) return 'critical';
+  if (q <= minQ * 1.5) return 'warning';
+  return 'ok';
+}
+function maxDeficitStatus(arr){
+  if (arr.indexOf('critical') >= 0) return 'critical';
+  if (arr.indexOf('warning') >= 0) return 'warning';
+  return 'ok';
+}
+function deficitStatusColor(st){
+  if (st === 'critical') return 'var(--rank3)';
+  if (st === 'warning') return 'var(--rank2)';
+  return 'var(--text2)';
+}
+function deficitStatusEmoji(st){
+  if (st === 'critical') return '🔴';
+  if (st === 'warning') return '🟡';
+  return '🟢';
+}
+/* Фон и border строки расходника по статусу */
+function deficitRowStyle(st){
+  if (st === 'critical') return 'background:rgba(239,68,68,0.08);box-shadow:inset 3px 0 0 var(--rank3)';
+  if (st === 'warning')  return 'background:rgba(234,179,8,0.06);box-shadow:inset 3px 0 0 var(--rank2)';
+  return '';
 }
 
 function whStockStatusEmoji(qty,minQ){
@@ -1820,11 +1963,18 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     </tr>`;
   }).join('');
 }
-function whPanelBuildStockRow(s, whId, canMin, canDnd) {
+function whPanelBuildStockRow(s, whId, canMin, canDnd, deficitCtx) {
   const q = parseFloat(s.quantity) || 0;
   const mn = s.min_quantity;
   const mnNum = parseFloat(mn || 0);
-  const st = whStockStatusEmoji(q, mnNum > 0 ? mnNum : mn);
+  // Статус: если передан deficitCtx (из renderWhStockPanel) — считаем по новой логике (central vs venue),
+  // иначе fallback на старое поведение whStockStatusEmoji.
+  let status = null;
+  if (deficitCtx && typeof deficitCtx === 'object') {
+    status = consumableDeficitStatus(s, !!deficitCtx.isCentralWh, deficitCtx.globalTotal);
+  }
+  const emoji = status ? deficitStatusEmoji(status) : whStockStatusEmoji(q, mnNum > 0 ? mnNum : mn);
+  const rowCls = status === 'critical' ? 'wh-stock-row-crit' : (status === 'warning' ? 'wh-stock-row-warn' : '');
   const minVal = mn != null && parseFloat(mn) > 0 ? (s.pack_unit ? fmtNum(mn) + ' уп.' : fmtNum(mn)) : '—';
   const minCell = canMin
     ? `<span id="whmin-${s.item_id}-${whId}" onclick="whPanelStartMinEdit('${s.item_id}','${whId}',${q},${mn != null && mn !== '' ? parseFloat(mn) : 'null'})" title="Изменить мин. остаток" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:6px;border:1px dashed var(--border);background:var(--bg3);font-size:12px">${minVal} <span style="font-size:10px;color:var(--accent2)">✏️</span></span>`
@@ -1833,12 +1983,12 @@ function whPanelBuildStockRow(s, whId, canMin, canDnd) {
   const nm = esc(s.item_name || '').replace(/"/g, '&quot;');
   const un = esc(s.unit || '').replace(/"/g, '&quot;');
   const drag = canDnd && qMax > 0 ? ` draggable="true" data-item-id="${s.item_id}" data-from-wh="${whId}" data-max-qty="${qMax}" data-item-name="${nm}" data-item-unit="${un}" ondragstart="dndRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()" style="cursor:grab;touch-action:auto;user-select:none;-webkit-user-select:none"` : '';
-  return `<tr${drag}>
+  return `<tr${drag}${rowCls?` class="${rowCls}"`:''}>
     <td>${esc(s.item_name)}</td>
     <td style="font-weight:600;text-align:center" title="${esc(fmtStockQty(q, s))}">${fmtStockQty(q, s)}</td>
     <td style="text-align:center;color:var(--text3)">${esc(s.consumption_unit || s.unit || '')}</td>
     <td style="text-align:center">${minCell}</td>
-    <td style="text-align:center">${st}</td>
+    <td style="text-align:center">${emoji}</td>
     <td style="text-align:center;color:var(--text3)">—</td>
     <td style="text-align:center;color:var(--text3)">—</td>
   </tr>`;
@@ -1867,6 +2017,30 @@ function onWhCardClick(id,ev){
     el.classList.toggle('active',String(el.getAttribute('data-wh-id'))===String(id));
   });
   renderWhStockPanel(id);
+}
+function updateWhChipBadges(){
+  try {
+    const stats = window._whDeficitStats || {};
+    document.querySelectorAll('[data-wh-badge]').forEach(host => {
+      const whId = host.getAttribute('data-wh-badge');
+      // очистить существующие бейджи
+      host.querySelectorAll('.wh-chip-badge').forEach(b => b.remove());
+      const st = stats[whId];
+      if (!st) return;
+      if (st.crit > 0) {
+        const b = document.createElement('span');
+        b.className = 'wh-chip-badge wh-chip-badge-crit';
+        b.textContent = String(st.crit);
+        host.appendChild(b);
+      }
+      if (st.warn > 0) {
+        const b = document.createElement('span');
+        b.className = 'wh-chip-badge wh-chip-badge-warn' + (st.crit > 0 ? ' wh-chip-badge-offset' : '');
+        b.textContent = String(st.warn);
+        host.appendChild(b);
+      }
+    });
+  } catch(_) {}
 }
 
 async function renderAllWarehousesPanel(host) {
@@ -1925,13 +2099,26 @@ async function renderAllWarehousesPanel(host) {
         </summary>`;
 
       if (consArr.length) {
+        const isCentralWh = wh.warehouse_type === 'central';
+        const globalTotals = window._itemGlobalTotals || {};
+        const catStatuses = {};
+        for (const [catVal, cat] of consArr) {
+          const statuses = cat.items.map(it => consumableDeficitStatus(it, isCentralWh, globalTotals[String(it.item_id)]));
+          catStatuses[catVal] = maxDeficitStatus(statuses);
+        }
+        const overallStatus = maxDeficitStatus(Object.values(catStatuses));
+        const anyNonOk = overallStatus !== 'ok';
+        const overallColor = overallStatus === 'ok' ? 'var(--text2)' : deficitStatusColor(overallStatus);
         html += `<details open style="margin:10px 0 0 12px">
-          <summary style="font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})</summary>`;
-        for (const [, cat] of consArr) {
-          html += `<details open style="margin:8px 0 0 10px">
-            <summary style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})</summary>
+          <summary style="font-size:14px;font-weight:600;color:${overallColor};cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})${anyNonOk?' '+deficitStatusEmoji(overallStatus):''}</summary>`;
+        for (const [catVal, cat] of consArr) {
+          const catSt = catStatuses[catVal];
+          const catColor = catSt === 'ok' ? 'var(--text3)' : deficitStatusColor(catSt);
+          const openAttr = (!anyNonOk || catSt !== 'ok') ? 'open' : '';
+          html += `<details ${openAttr} style="margin:8px 0 0 10px">
+            <summary style="font-size:13px;font-weight:600;color:${catColor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})${catSt!=='ok'?' '+deficitStatusEmoji(catSt):''}</summary>
             <div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Кол-во</th><th style="font-size:11px">Ед.</th><th style="font-size:11px">Мин.</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>
-            ${cat.items.map(s => whPanelBuildStockRow(s, wh.id, canMin, canDnd)).join('')}
+            ${cat.items.map(s => whPanelBuildStockRow(s, wh.id, canMin, canDnd, {isCentralWh, globalTotal: globalTotals[String(s.item_id)]})).join('')}
             </tbody></table></div>
           </details>`;
         }
@@ -2045,17 +2232,34 @@ async function renderWhStockPanel(whId){
       if(mn>0&&q<=parseFloat(mn||0))hasCrit=true;
     }
     const consArr=[...consByCat.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,'ru'));
+    // --- Deficit colouring for consumables (port of mobile drilldown)
+    const isCentralWh = wh && wh.warehouse_type === 'central';
+    const globalTotals = window._itemGlobalTotals || {};
+    const catStatuses = {};
+    for (const [catVal, cat] of consArr) {
+      const statuses = cat.items.map(it => consumableDeficitStatus(it, isCentralWh, globalTotals[String(it.item_id)]));
+      catStatuses[catVal] = maxDeficitStatus(statuses);
+    }
+    const overallStatus = maxDeficitStatus(Object.values(catStatuses));
+    const anyNonOk = overallStatus !== 'ok';
+    const overallColor = deficitStatusColor(overallStatus);
     const consSection=consumables.length?`
       <details open style="margin-top:12px">
-        <summary style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text3)">▸</span> 📦 Расходники (${consumables.length})</summary>
-        ${consArr.map(([catVal,cat])=>`
-          <details open style="margin-top:6px">
-            <summary style="font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})</summary>
+        <summary style="font-size:14px;font-weight:600;color:${overallColor};margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text3)">▸</span> 📦 Расходники (${consumables.length})${anyNonOk?' '+deficitStatusEmoji(overallStatus):''}</summary>
+        ${consArr.map(([catVal,cat])=>{
+          const catSt = catStatuses[catVal];
+          const catColor = catSt === 'ok' ? 'var(--text3)' : deficitStatusColor(catSt);
+          // Если в секции есть non-ok категории — ok-категории закрываем, non-ok оставляем open.
+          // Если все ok — оставляем всё открытым (как было).
+          const openAttr = (!anyNonOk || catSt !== 'ok') ? 'open' : '';
+          return `
+          <details ${openAttr} style="margin-top:6px">
+            <summary style="font-size:13px;font-weight:600;color:${catColor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})${catSt!=='ok'?' '+deficitStatusEmoji(catSt):''}</summary>
             <div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Кол-во</th><th style="font-size:11px">Ед.</th><th style="font-size:11px">Мин.</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>
-            ${cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd)).join('')}
+            ${cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd,{isCentralWh,globalTotal:globalTotals[String(s.item_id)]})).join('')}
             </tbody></table></div>
-          </details>
-        `).join('')}
+          </details>`;
+        }).join('')}
       </details>`:'';
 
     const eqByCat=new Map();
@@ -2192,7 +2396,7 @@ async function loadWarehouses() {
 
     const mobileBar = isMobile() ? `<div class="wh-mobile-bar" id="wh-mobile-bar">
       <div class="wh-mini ${sel==='__all__'?'active':''}" data-wh-id="__all__" onclick="onWhCardClick('__all__',event)" style="border-color:var(--accent);${sel==='__all__'?'background:var(--accent)22;color:var(--accent)':'color:var(--text2)'}">
-        <span style="width:18px;height:18px;border-radius:5px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0">ВСЕ</span>
+        <span class="wh-chip-badge-host"><span style="width:18px;height:18px;border-radius:5px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0">ВСЕ</span></span>
         Все
       </div>
       ${list.map(w => {
@@ -2204,7 +2408,7 @@ async function loadWarehouses() {
           data-wh-id="${w.id}"
           onclick="onWhCardClick('${w.id}',event)"
           ${canDnd ? `ondragover="dndAllowDrop(event)" ondragleave="dndDragLeave(event)" ondrop="dndDrop(event);dndOnDropWh(event,'${w.id}')"` : ''}>
-          <span style="width:18px;height:18px;border-radius:5px;background:${color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">${esc(String(abbr).slice(0,3))}</span>
+          <span class="wh-chip-badge-host" data-wh-badge="${w.id}"><span style="width:18px;height:18px;border-radius:5px;background:${color};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">${esc(String(abbr).slice(0,3))}</span></span>
           ${esc(w.name)}
         </div>`;
       }).join('')}
@@ -2238,7 +2442,7 @@ async function loadWarehouses() {
               <div class="wh-name">${esc(w.name)}</div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:4px;gap:6px">
                 <span class="wh-meta">${w.city ? esc(w.city) : ''}</span>
-                <span style="padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;color:#fff;background:${abbrColor};line-height:1.2;flex-shrink:0;min-width:28px;text-align:center">${esc(String(abbr).slice(0,4))}</span>
+                <span class="wh-chip-badge-host" data-wh-badge="${w.id}"><span style="padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;color:#fff;background:${abbrColor};line-height:1.2;flex-shrink:0;min-width:28px;text-align:center;display:inline-block">${esc(String(abbr).slice(0,4))}</span></span>
               </div>
             </div>`;
           }).join('')}
@@ -2264,6 +2468,7 @@ async function loadWarehouses() {
       </div>`;
     updateDndCartUI();
     updateStickyTop();
+    if (typeof updateWhChipBadges === 'function') updateWhChipBadges();
     if(!selectedWarehouseId){selectedWarehouseId='__all__';document.querySelectorAll('.wh-card-compact[data-wh-id="__all__"]').forEach(el=>el.classList.add('wh-card-active'));document.querySelectorAll('.wh-mini[data-wh-id="__all__"]').forEach(el=>el.classList.add('active'));}
     if(selectedWarehouseId)renderWhStockPanel(selectedWarehouseId);
   } catch(e) { document.getElementById('content').innerHTML = `<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`; }
