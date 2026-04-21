@@ -202,9 +202,11 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 .qr-video{width:100%;height:100%;object-fit:cover;display:block}
 .qr-canvas{display:none}
 .qr-reticle{position:absolute;inset:15%;border:2px dashed rgba(255,255,255,0.6);border-radius:14px;pointer-events:none}
-.qr-status{padding:10px 18px 14px;font-size:13px;color:var(--text2);min-height:42px;line-height:1.4}
+.qr-status{padding:10px 18px 6px;font-size:13px;color:var(--text2);min-height:42px;line-height:1.4}
 .qr-status .err{color:var(--rank3)}
 .qr-status .ok{color:var(--rank1)}
+.qr-hint{padding:0 18px 14px;font-size:11px;color:var(--text3);line-height:1.4}
+.qr-hint:empty{display:none}
 .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
 .wh-mini.active{border-width:2px}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;margin-top:4px}
@@ -479,6 +481,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
     </div>
   </div>
   <div id="inv-session-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+  <div id="inv-scan-host"></div>
   <div class="table-wrap">
     <table class="tbl" id="inv-lines-table">
       <thead><tr><th>Позиция</th><th>Ед.</th><th>По системе</th><th>Фактически</th><th>Расхождение</th><th>Заметка</th></tr></thead>
@@ -971,6 +974,12 @@ function safeCloseInvModal() {
     if (!confirm('Закрыть инвентаризацию? Несохранённые данные будут потеряны.')) return;
   }
   document.getElementById('inv-modal').classList.remove('open');
+  // Сбрасываем state continuous-сканера, чтобы скан после закрытия не менял закрытую сессию
+  window._invCurrentSessionId = null;
+  window._invCurrentLines = [];
+  window._invCanEdit = false;
+  const host = document.getElementById('inv-scan-host');
+  if (host) host.innerHTML = '';
 }
 
 (async function init(){
@@ -1000,7 +1009,12 @@ function safeCloseInvModal() {
 })();
 
 /* ===== QR Scanner (equipment QR labels) ===== */
-const QR_SCAN = { stream:null, raf:null, detector:null, jsQRLoading:null, active:false };
+const QR_SCAN = {
+  stream:null, raf:null, detector:null, jsQRLoading:null, active:false,
+  mode:'nav',           // 'nav' (default: close+drawer) | 'continuous' (inventory-like)
+  onMatch:null,         // callback (uuid) => void, only in 'continuous' mode
+  cooling:false,        // 900ms debounce after each successful detection
+};
 
 function ensureQrOverlay(){
   let ov = document.getElementById('qr-overlay');
@@ -1011,7 +1025,7 @@ function ensureQrOverlay(){
   ov.innerHTML = `
     <div class="qr-modal" role="dialog" aria-label="QR-сканер оборудования">
       <div class="qr-modal-head">
-        <div class="qr-modal-title">📷 Сканер QR оборудования</div>
+        <div id="qr-modal-title" class="qr-modal-title">📷 Сканер QR оборудования</div>
         <button class="qr-modal-close" onclick="closeQrScanner()" title="Закрыть">×</button>
       </div>
       <div class="qr-modal-body">
@@ -1020,6 +1034,7 @@ function ensureQrOverlay(){
         <div class="qr-reticle"></div>
       </div>
       <div id="qr-status" class="qr-status">Запрашиваю доступ к камере…</div>
+      <div id="qr-hint" class="qr-hint"></div>
     </div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click', (e) => { if (e.target === ov) closeQrScanner(); });
@@ -1049,17 +1064,38 @@ function loadJsQR(){
   return QR_SCAN.jsQRLoading;
 }
 
-/* Ищет UUID v4 в произвольной строке (подстрока URL /eq/UUID подойдёт) */
+/* Извлекает UUID оборудования из QR-кода.
+ * Форматы (как в мобилке, QRScannerModal.tsx → extractEquipmentId):
+ *   - https://fotohr-server.../eq/UUID
+ *   - https://likemestudio.github.io/photohr-frontend/stock.html?eq=UUID
+ *   - Чистый UUID (36 символов) */
 function extractEquipmentUuid(text){
   if (!text) return null;
-  const m = String(text).match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
-  return m ? m[0].toLowerCase() : null;
+  const trimmed = String(text).trim();
+  const eqMatch = trimmed.match(/\/eq\/([a-f0-9-]{36})/i);
+  if (eqMatch) return eqMatch[1].toLowerCase();
+  const paramMatch = trimmed.match(/[?&]eq=([a-f0-9-]{36})/i);
+  if (paramMatch) return paramMatch[1].toLowerCase();
+  if (/^[a-f0-9-]{36}$/i.test(trimmed)) return trimmed.toLowerCase();
+  return null;
 }
 
-async function openQrScanner(){
+async function openQrScanner(options){
+  const opts = options || {};
+  QR_SCAN.mode = opts.mode === 'continuous' ? 'continuous' : 'nav';
+  QR_SCAN.onMatch = typeof opts.onMatch === 'function' ? opts.onMatch : null;
+  QR_SCAN.cooling = false;
+
   const ov = ensureQrOverlay();
   ov.classList.add('open');
   QR_SCAN.active = true;
+
+  // Обновляем заголовок и подсказку модалки, если переданы
+  const titleEl = document.getElementById('qr-modal-title');
+  if (titleEl) titleEl.textContent = opts.title || '📷 Сканер QR оборудования';
+  const hintEl = document.getElementById('qr-hint');
+  if (hintEl) hintEl.textContent = opts.hint || '';
+
   qrSetStatus('Запрашиваю доступ к камере…');
   const video = document.getElementById('qr-video');
   if (!video) { qrSetStatus('Не удалось создать интерфейс сканера.', 'err'); return; }
@@ -1071,7 +1107,9 @@ async function openQrScanner(){
     QR_SCAN.stream = stream;
     video.srcObject = stream;
     await video.play().catch(() => {});
-    qrSetStatus('Наведите камеру на QR-код наклейки оборудования.');
+    qrSetStatus(QR_SCAN.mode === 'continuous'
+      ? 'Наводите камеру на QR-наклейки оборудования.'
+      : 'Наведите камеру на QR-код наклейки оборудования.');
     // Выбор детектора: BarcodeDetector быстрее и не требует CDN
     if ('BarcodeDetector' in window) {
       try {
@@ -1097,12 +1135,21 @@ function qrLoopNative(){
   if (!QR_SCAN.active) return;
   const video = document.getElementById('qr-video');
   if (!video || !QR_SCAN.detector) return;
+  if (QR_SCAN.cooling) {
+    QR_SCAN.raf = requestAnimationFrame(qrLoopNative);
+    return;
+  }
   QR_SCAN.detector.detect(video).then(codes => {
     if (!QR_SCAN.active) return;
     if (codes && codes.length) {
       const uuid = extractEquipmentUuid(codes[0].rawValue || '');
-      if (uuid) return onQrMatch(uuid, codes[0].rawValue || '');
-      qrSetStatus('Распознан QR, но это не наклейка оборудования.', 'err');
+      if (uuid) {
+        onQrMatch(uuid, codes[0].rawValue || '');
+        if (QR_SCAN.mode === 'continuous' && QR_SCAN.active) {
+          QR_SCAN.raf = requestAnimationFrame(qrLoopNative);
+        }
+        return;
+      }
     }
     QR_SCAN.raf = requestAnimationFrame(qrLoopNative);
   }).catch(() => {
@@ -1118,6 +1165,10 @@ function qrLoopJsQR(){
     QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR);
     return;
   }
+  if (QR_SCAN.cooling) {
+    QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR);
+    return;
+  }
   const w = video.videoWidth, h = video.videoHeight;
   if (!w || !h) { QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR); return; }
   canvas.width = w; canvas.height = h;
@@ -1128,13 +1179,32 @@ function qrLoopJsQR(){
     const code = window.jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
     if (code && code.data) {
       const uuid = extractEquipmentUuid(code.data);
-      if (uuid) return onQrMatch(uuid, code.data);
+      if (uuid) {
+        onQrMatch(uuid, code.data);
+        if (QR_SCAN.mode === 'continuous' && QR_SCAN.active) {
+          QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR);
+        }
+        return;
+      }
     }
   } catch(_) {}
   QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR);
 }
 
 function onQrMatch(uuid, rawText){
+  if (QR_SCAN.mode === 'continuous') {
+    // Continuous mode: callback решает что показать в статусе; модалка не закрывается.
+    // 900ms cooldown — чтобы тот же QR в кадре не триггерился 30 раз в секунду.
+    QR_SCAN.cooling = true;
+    setTimeout(() => { QR_SCAN.cooling = false; }, 900);
+    if (QR_SCAN.onMatch) {
+      Promise.resolve(QR_SCAN.onMatch(uuid)).catch(e => {
+        qrSetStatus('Ошибка: ' + (e && e.message || e), 'err');
+      });
+    }
+    return;
+  }
+  // Default 'nav' mode: close + switch tab + open drawer
   qrSetStatus('Найдено: ' + uuid, 'ok');
   closeQrScanner();
   try {
@@ -5839,7 +5909,8 @@ async function openInvSession(id, readOnly = false) {
         const noteCell = readOnly || sess.status !== 'open'
           ? `<span style="color:var(--text3);font-size:11px">${esc(l.notes || '')}</span>`
           : `<input class="fin" style="font-size:11px;width:100%" value="${esc(l.notes || '')}" data-eq-note-line="${l.id}" onblur="saveEqInventoryNote(this)"/>`;
-        tbody += `<tr>
+        const eqFoundBg = found === true ? 'background:rgba(74,222,128,0.08);box-shadow:inset 3px 0 0 var(--rank1)' : '';
+        tbody += `<tr id="inv-eq-row-${l.id}" data-eq-unit-id="${esc(String(l.equipment_unit_id || ''))}" style="${eqFoundBg}">
       <td>${esc(l.item_name)}</td>
       <td style="font-weight:600">${esc(l.eq_inventory_number || '—')}</td>
       <td style="font-size:10px;color:var(--text3)">${esc(l.eq_serial_number || '—')}</td>
@@ -5861,7 +5932,80 @@ async function openInvSession(id, readOnly = false) {
     if (btnAbort) btnAbort.style.display = isOpenEdit ? '' : 'none';
 
     document.getElementById('inv-modal').classList.add('open');
+    // Сохраняем state для continuous QR-сканера
+    window._invCurrentLines = lines;
+    window._invCurrentSessionId = id;
+    window._invCanEdit = (sess.status === 'open' && !readOnly);
+    updateInvScanUi();
   } catch(e) { showToast(e.message, true); }
+}
+
+/** Перерисовывает блок «сканер + счётчик» в шапке inv-modal. */
+function updateInvScanUi(){
+  const host = document.getElementById('inv-scan-host');
+  if (!host) return;
+  const lines = window._invCurrentLines || [];
+  const eqLines = lines.filter(l => l.item_type === 'equipment');
+  const canEdit = !!window._invCanEdit;
+  if (!eqLines.length || !canEdit) { host.innerHTML = ''; return; }
+  const found = eqLines.filter(l => l.equipment_found === true).length;
+  const total = eqLines.length;
+  host.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">
+      <button type="button" class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="openInvQrScanner()">📷 Сканировать QR</button>
+      <div style="font-size:13px;color:var(--text2);font-variant-numeric:tabular-nums">
+        <span style="color:var(--rank1);font-weight:700">✅ ${found}</span>
+        <span style="color:var(--text3)"> из </span>
+        <span style="font-weight:700">${total}</span>
+        <span style="color:var(--text3)"> найдено</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-left:auto">Сканируйте QR-наклейки одну за другой — камера не закрывается</div>
+    </div>`;
+}
+
+/** Открывает сканер в continuous-режиме для текущей сессии инвентаризации. */
+function openInvQrScanner(){
+  if (!window._invCurrentSessionId) { showToast('Сессия не открыта', true); return; }
+  openQrScanner({
+    mode: 'continuous',
+    title: '📷 Инвентаризация — скан QR',
+    hint: 'Сканируйте QR-наклейки на оборудовании одну за другой. Модалка не закрывается.',
+    onMatch: handleInventoryQrMatch,
+  });
+}
+
+/** Callback при каждом успешном распознавании QR в continuous-режиме инвентаризации.
+ *  Точная копия mobile handleScan (stock.tsx lines 4774–4793). */
+async function handleInventoryQrMatch(uuid){
+  const sessionId = window._invCurrentSessionId;
+  const lines = window._invCurrentLines || [];
+  const line = lines.find(l => l.item_type === 'equipment' && String(l.equipment_unit_id) === String(uuid));
+  if (!line) {
+    qrSetStatus('❌ Не в этой сессии: ' + String(uuid).slice(0, 8) + '…', 'err');
+    return;
+  }
+  if (line.equipment_found === true) {
+    qrSetStatus('⚠️ Уже отмечен: ' + (line.item_name || ''), 'err');
+    return;
+  }
+  try {
+    await api('PATCH', `/inventory-sessions/${sessionId}/lines`, {
+      lines: [{ line_id: line.id, equipment_found: true }],
+    });
+    // локально обновляем state
+    line.equipment_found = true;
+    // перекрашиваем строку в таблице
+    const row = document.getElementById('inv-eq-row-' + line.id);
+    if (row) row.setAttribute('style', 'background:rgba(74,222,128,0.08);box-shadow:inset 3px 0 0 var(--rank1)');
+    // обновляем select внутри строки (если он открыт на редактирование)
+    const sel = document.querySelector('select[data-eq-line-id="' + line.id + '"]');
+    if (sel) sel.value = 'true';
+    // обновляем счётчик в шапке
+    updateInvScanUi();
+    qrSetStatus('✅ ' + (line.item_name || ''), 'ok');
+  } catch (e) {
+    qrSetStatus('❌ Ошибка: ' + (e && e.message || e), 'err');
+  }
 }
 
 async function markEqInventoryFound(sel) {
@@ -5872,6 +6016,15 @@ async function markEqInventoryFound(sel) {
     await api('PATCH', `/inventory-sessions/${sessionId}/lines`, {
       lines: [{ line_id: lineId, equipment_found: val }],
     });
+    // Синхронизируем локальный state + счётчик в шапке (для continuous QR)
+    const lines = window._invCurrentLines || [];
+    const line = lines.find(l => String(l.id) === String(lineId));
+    if (line) line.equipment_found = val;
+    const row = document.getElementById('inv-eq-row-' + lineId);
+    if (row) {
+      row.setAttribute('style', val === true ? 'background:rgba(74,222,128,0.08);box-shadow:inset 3px 0 0 var(--rank1)' : '');
+    }
+    if (typeof updateInvScanUi === 'function') updateInvScanUi();
   } catch (e) { showToast(e.message, true); }
 }
 
