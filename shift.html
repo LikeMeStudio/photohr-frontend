@@ -477,12 +477,27 @@ function changeCartQty(index, delta) {
 async function submitSale() {
   const s = newSaleState;
 
-  const validSeries = s.series.filter(ser => ser.frame_start && ser.frame_end);
+  const validSeries = s.series.filter(ser => ser.frame_start !== '' && ser.frame_end !== '' && ser.frame_start != null && ser.frame_end != null);
   if (!validSeries.length) { toast('Укажите хотя бы одну серию кадров', true); return; }
-  for (const ser of validSeries) {
-    if (parseInt(ser.frame_end, 10) < parseInt(ser.frame_start, 10)) { toast('Конец серии не может быть меньше начала', true); return; }
+  for (let si = 0; si < validSeries.length; si++) {
+    const ser = validSeries[si];
+    const fs = parseInt(ser.frame_start, 10);
+    const fe = parseInt(ser.frame_end, 10);
+    if (!Number.isFinite(fs) || !Number.isFinite(fe)) { toast(`Серия ${si + 1}: номера кадров должны быть числами`, true); return; }
+    if (fe < fs) { toast(`Серия ${si + 1}: конец (${fe}) не может быть меньше начала (${fs})`, true); return; }
   }
   if (s.saleType === 'sale' && !s.items.length) { toast('Добавьте хотя бы один товар', true); return; }
+
+  // Проверка: каждый кадр в item.frames должен попадать в диапазон хотя бы одной серии
+  for (let ii = 0; ii < s.items.length; ii++) {
+    const it = s.items[ii];
+    if (!it.frames || !it.frames.trim()) continue;
+    const frames = it.frames.split(/[,;\s]+/).map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+    for (const fn of frames) {
+      const hit = validSeries.some(ser => fn >= parseInt(ser.frame_start, 10) && fn <= parseInt(ser.frame_end, 10));
+      if (!hit) { toast(`Товар "${it.name}": кадр ${fn} не входит ни в одну серию`, true); return; }
+    }
+  }
 
   const totalAmount = s.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
 
