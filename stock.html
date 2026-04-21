@@ -191,6 +191,20 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
   .stat.stat-pill .stat-ico{font-size:15px}
   .stat.stat-pill .stat-lbl{font-size:12px}
 }
+/* ---- QR Scanner modal ---- */
+.qr-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:none;align-items:center;justify-content:center;padding:16px}
+.qr-overlay.open{display:flex}
+.qr-modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.5)}
+.qr-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.qr-modal-title{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600}
+.qr-modal-close{background:transparent;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:0 6px;line-height:1}
+.qr-modal-body{position:relative;background:#000;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+.qr-video{width:100%;height:100%;object-fit:cover;display:block}
+.qr-canvas{display:none}
+.qr-reticle{position:absolute;inset:15%;border:2px dashed rgba(255,255,255,0.6);border-radius:14px;pointer-events:none}
+.qr-status{padding:10px 18px 14px;font-size:13px;color:var(--text2);min-height:42px;line-height:1.4}
+.qr-status .err{color:var(--rank3)}
+.qr-status .ok{color:var(--rank1)}
 .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
 .wh-mini.active{border-width:2px}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;margin-top:4px}
@@ -267,6 +281,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats" style="display:none"></div>
   <div class="header-right">
+    <button class="btn btn-ghost" id="btn-qr-scan" style="font-size:13px;padding:6px 10px" onclick="openQrScanner()" title="Сканировать QR оборудования">📷 QR</button>
     <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
@@ -984,6 +999,165 @@ function safeCloseInvModal() {
     }
   }catch(e){document.getElementById('content').innerHTML=`<div class="loading" style="color:var(--rank3)">${esc(e.message)}</div>`;}
 })();
+
+/* ===== QR Scanner (equipment QR labels) ===== */
+const QR_SCAN = { stream:null, raf:null, detector:null, jsQRLoading:null, active:false };
+
+function ensureQrOverlay(){
+  let ov = document.getElementById('qr-overlay');
+  if (ov) return ov;
+  ov = document.createElement('div');
+  ov.id = 'qr-overlay';
+  ov.className = 'qr-overlay';
+  ov.innerHTML = `
+    <div class="qr-modal" role="dialog" aria-label="QR-сканер оборудования">
+      <div class="qr-modal-head">
+        <div class="qr-modal-title">📷 Сканер QR оборудования</div>
+        <button class="qr-modal-close" onclick="closeQrScanner()" title="Закрыть">×</button>
+      </div>
+      <div class="qr-modal-body">
+        <video id="qr-video" class="qr-video" playsinline muted autoplay></video>
+        <canvas id="qr-canvas" class="qr-canvas"></canvas>
+        <div class="qr-reticle"></div>
+      </div>
+      <div id="qr-status" class="qr-status">Запрашиваю доступ к камере…</div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', (e) => { if (e.target === ov) closeQrScanner(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && ov.classList.contains('open')) closeQrScanner();
+  });
+  return ov;
+}
+
+function qrSetStatus(text, kind){
+  const el = document.getElementById('qr-status');
+  if (!el) return;
+  const cls = kind === 'err' ? 'err' : (kind === 'ok' ? 'ok' : '');
+  el.innerHTML = cls ? `<span class="${cls}">${esc(String(text))}</span>` : esc(String(text));
+}
+
+function loadJsQR(){
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  if (QR_SCAN.jsQRLoading) return QR_SCAN.jsQRLoading;
+  QR_SCAN.jsQRLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+    s.onload = () => resolve(window.jsQR);
+    s.onerror = () => reject(new Error('Не удалось загрузить jsQR'));
+    document.head.appendChild(s);
+  });
+  return QR_SCAN.jsQRLoading;
+}
+
+/* Ищет UUID v4 в произвольной строке (подстрока URL /eq/UUID подойдёт) */
+function extractEquipmentUuid(text){
+  if (!text) return null;
+  const m = String(text).match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  return m ? m[0].toLowerCase() : null;
+}
+
+async function openQrScanner(){
+  const ov = ensureQrOverlay();
+  ov.classList.add('open');
+  QR_SCAN.active = true;
+  qrSetStatus('Запрашиваю доступ к камере…');
+  const video = document.getElementById('qr-video');
+  if (!video) { qrSetStatus('Не удалось создать интерфейс сканера.', 'err'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false,
+    });
+    QR_SCAN.stream = stream;
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    qrSetStatus('Наведите камеру на QR-код наклейки оборудования.');
+    // Выбор детектора: BarcodeDetector быстрее и не требует CDN
+    if ('BarcodeDetector' in window) {
+      try {
+        QR_SCAN.detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        qrLoopNative();
+        return;
+      } catch(_) { /* fallback */ }
+    }
+    // Fallback: jsQR
+    try {
+      await loadJsQR();
+      qrLoopJsQR();
+    } catch (e) {
+      qrSetStatus('Не удалось инициализировать сканер: ' + e.message, 'err');
+    }
+  } catch (e) {
+    const msg = (e && e.name === 'NotAllowedError') ? 'Доступ к камере отклонён. Разрешите камеру в настройках браузера.' : ('Ошибка камеры: ' + (e && e.message || e));
+    qrSetStatus(msg, 'err');
+  }
+}
+
+function qrLoopNative(){
+  if (!QR_SCAN.active) return;
+  const video = document.getElementById('qr-video');
+  if (!video || !QR_SCAN.detector) return;
+  QR_SCAN.detector.detect(video).then(codes => {
+    if (!QR_SCAN.active) return;
+    if (codes && codes.length) {
+      const uuid = extractEquipmentUuid(codes[0].rawValue || '');
+      if (uuid) return onQrMatch(uuid, codes[0].rawValue || '');
+      qrSetStatus('Распознан QR, но это не наклейка оборудования.', 'err');
+    }
+    QR_SCAN.raf = requestAnimationFrame(qrLoopNative);
+  }).catch(() => {
+    QR_SCAN.raf = requestAnimationFrame(qrLoopNative);
+  });
+}
+
+function qrLoopJsQR(){
+  if (!QR_SCAN.active || !window.jsQR) return;
+  const video = document.getElementById('qr-video');
+  const canvas = document.getElementById('qr-canvas');
+  if (!video || !canvas || video.readyState < 2) {
+    QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR);
+    return;
+  }
+  const w = video.videoWidth, h = video.videoHeight;
+  if (!w || !h) { QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR); return; }
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, w, h);
+  try {
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const code = window.jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+      const uuid = extractEquipmentUuid(code.data);
+      if (uuid) return onQrMatch(uuid, code.data);
+    }
+  } catch(_) {}
+  QR_SCAN.raf = requestAnimationFrame(qrLoopJsQR);
+}
+
+function onQrMatch(uuid, rawText){
+  qrSetStatus('Найдено: ' + uuid, 'ok');
+  closeQrScanner();
+  try {
+    switchTab(7);
+  } catch(_) {}
+  setTimeout(() => {
+    try { openEqDrawer(uuid); } catch(e) { showToast('Не удалось открыть карточку: ' + e.message, true); }
+  }, 300);
+}
+
+function closeQrScanner(){
+  QR_SCAN.active = false;
+  if (QR_SCAN.raf) { cancelAnimationFrame(QR_SCAN.raf); QR_SCAN.raf = null; }
+  if (QR_SCAN.stream) {
+    try { QR_SCAN.stream.getTracks().forEach(t => t.stop()); } catch(_) {}
+    QR_SCAN.stream = null;
+  }
+  const video = document.getElementById('qr-video');
+  if (video) { try { video.pause(); video.srcObject = null; } catch(_) {} }
+  const ov = document.getElementById('qr-overlay');
+  if (ov) ov.classList.remove('open');
+}
 
 function openAdmin() {
   const ov = document.getElementById('admin-overlay');
@@ -1934,6 +2108,17 @@ function deficitRowStyle(st){
   if (st === 'warning')  return 'background:rgba(234,179,8,0.06);box-shadow:inset 3px 0 0 var(--rank2)';
   return '';
 }
+/* Сортировка расходников по critRank (0=critical, 1=warning, 2=ok), вторично — по имени */
+function sortItemsByDeficit(items, isCentralWh, globalTotals){
+  const rank = st => st === 'critical' ? 0 : (st === 'warning' ? 1 : 2);
+  return [...items].sort((a, b) => {
+    const sa = consumableDeficitStatus(a, isCentralWh, (globalTotals||{})[String(a.item_id)]);
+    const sb = consumableDeficitStatus(b, isCentralWh, (globalTotals||{})[String(b.item_id)]);
+    const r = rank(sa) - rank(sb);
+    if (r !== 0) return r;
+    return String(a.item_name||'').localeCompare(String(b.item_name||''), 'ru');
+  });
+}
 
 function whStockStatusEmoji(qty,minQ){
   const q=parseFloat(qty)||0,m=parseFloat(minQ)||0;
@@ -2113,23 +2298,30 @@ async function renderAllWarehousesPanel(host) {
         const isCentralWh = wh.warehouse_type === 'central';
         const globalTotals = window._itemGlobalTotals || {};
         const catStatuses = {};
+        const catProblems = {};
         for (const [catVal, cat] of consArr) {
           const statuses = cat.items.map(it => consumableDeficitStatus(it, isCentralWh, globalTotals[String(it.item_id)]));
           catStatuses[catVal] = maxDeficitStatus(statuses);
+          catProblems[catVal] = statuses.filter(s => s !== 'ok').length;
         }
         const overallStatus = maxDeficitStatus(Object.values(catStatuses));
         const anyNonOk = overallStatus !== 'ok';
         const overallColor = overallStatus === 'ok' ? 'var(--text2)' : deficitStatusColor(overallStatus);
+        const overallProblems = Object.values(catProblems).reduce((a,b)=>a+b, 0);
+        const overallCountLbl = overallProblems > 0 ? `${overallProblems}/${consumables.length}` : `${consumables.length}`;
         html += `<details open style="margin:10px 0 0 12px">
-          <summary style="font-size:14px;font-weight:600;color:${overallColor};cursor:pointer;user-select:none;list-style:none">📦 Расходники (${consumables.length})${anyNonOk?' '+deficitStatusEmoji(overallStatus):''}</summary>`;
+          <summary style="font-size:14px;font-weight:600;color:${overallColor};cursor:pointer;user-select:none;list-style:none">📦 Расходники (${overallCountLbl})${anyNonOk?' '+deficitStatusEmoji(overallStatus):''}</summary>`;
         for (const [catVal, cat] of consArr) {
           const catSt = catStatuses[catVal];
           const catColor = catSt === 'ok' ? 'var(--text3)' : deficitStatusColor(catSt);
+          const catProb = catProblems[catVal] || 0;
+          const catCountLbl = catProb > 0 ? `${catProb}/${cat.items.length}` : `${cat.items.length}`;
           const openAttr = (!anyNonOk || catSt !== 'ok') ? 'open' : '';
+          const sortedItems = sortItemsByDeficit(cat.items, isCentralWh, globalTotals);
           html += `<details ${openAttr} style="margin:8px 0 0 10px">
-            <summary style="font-size:13px;font-weight:600;color:${catColor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})${catSt!=='ok'?' '+deficitStatusEmoji(catSt):''}</summary>
+            <summary style="font-size:13px;font-weight:600;color:${catColor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${catCountLbl})${catSt!=='ok'?' '+deficitStatusEmoji(catSt):''}</summary>
             <div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Кол-во</th><th style="font-size:11px">Ед.</th><th style="font-size:11px">Мин.</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>
-            ${cat.items.map(s => whPanelBuildStockRow(s, wh.id, canMin, canDnd, {isCentralWh, globalTotal: globalTotals[String(s.item_id)]})).join('')}
+            ${sortedItems.map(s => whPanelBuildStockRow(s, wh.id, canMin, canDnd, {isCentralWh, globalTotal: globalTotals[String(s.item_id)]})).join('')}
             </tbody></table></div>
           </details>`;
         }
@@ -2247,27 +2439,34 @@ async function renderWhStockPanel(whId){
     const isCentralWh = wh && wh.warehouse_type === 'central';
     const globalTotals = window._itemGlobalTotals || {};
     const catStatuses = {};
+    const catProblems = {};
     for (const [catVal, cat] of consArr) {
       const statuses = cat.items.map(it => consumableDeficitStatus(it, isCentralWh, globalTotals[String(it.item_id)]));
       catStatuses[catVal] = maxDeficitStatus(statuses);
+      catProblems[catVal] = statuses.filter(s => s !== 'ok').length;
     }
     const overallStatus = maxDeficitStatus(Object.values(catStatuses));
     const anyNonOk = overallStatus !== 'ok';
     const overallColor = deficitStatusColor(overallStatus);
+    const overallProblems = Object.values(catProblems).reduce((a,b)=>a+b, 0);
+    const overallCountLbl = overallProblems > 0 ? `${overallProblems}/${consumables.length}` : `${consumables.length}`;
     const consSection=consumables.length?`
       <details open style="margin-top:12px">
-        <summary style="font-size:14px;font-weight:600;color:${overallColor};margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text3)">▸</span> 📦 Расходники (${consumables.length})${anyNonOk?' '+deficitStatusEmoji(overallStatus):''}</summary>
+        <summary style="font-size:14px;font-weight:600;color:${overallColor};margin-bottom:8px;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text3)">▸</span> 📦 Расходники (${overallCountLbl})${anyNonOk?' '+deficitStatusEmoji(overallStatus):''}</summary>
         ${consArr.map(([catVal,cat])=>{
           const catSt = catStatuses[catVal];
           const catColor = catSt === 'ok' ? 'var(--text3)' : deficitStatusColor(catSt);
+          const catProb = catProblems[catVal] || 0;
+          const catCountLbl = catProb > 0 ? `${catProb}/${cat.items.length}` : `${cat.items.length}`;
           // Если в секции есть non-ok категории — ok-категории закрываем, non-ok оставляем open.
           // Если все ok — оставляем всё открытым (как было).
           const openAttr = (!anyNonOk || catSt !== 'ok') ? 'open' : '';
+          const sortedItems = sortItemsByDeficit(cat.items, isCentralWh, globalTotals);
           return `
           <details ${openAttr} style="margin-top:6px">
-            <summary style="font-size:13px;font-weight:600;color:${catColor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${cat.items.length})${catSt!=='ok'?' '+deficitStatusEmoji(catSt):''}</summary>
+            <summary style="font-size:13px;font-weight:600;color:${catColor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;cursor:pointer;user-select:none;list-style:none">${esc(cat.label)} (${catCountLbl})${catSt!=='ok'?' '+deficitStatusEmoji(catSt):''}</summary>
             <div class="table-wrap"><table class="tbl" style="font-size:12px;table-layout:fixed;width:100%"><colgroup><col style="width:40%"/><col style="width:10%"/><col style="width:8%"/><col style="width:10%"/><col style="width:10%"/><col style="width:11%"/><col style="width:11%"/></colgroup><thead><tr><th style="font-size:11px">Позиция</th><th style="font-size:11px">Кол-во</th><th style="font-size:11px">Ед.</th><th style="font-size:11px">Мин.</th><th style="font-size:11px">Статус</th><th style="font-size:11px">SN</th><th style="font-size:11px">ИНВ.</th></tr></thead><tbody>
-            ${cat.items.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd,{isCentralWh,globalTotal:globalTotals[String(s.item_id)]})).join('')}
+            ${sortedItems.map(s=>whPanelBuildStockRow(s,whId,canMin,canDnd,{isCentralWh,globalTotal:globalTotals[String(s.item_id)]})).join('')}
             </tbody></table></div>
           </details>`;
         }).join('')}
@@ -6542,6 +6741,7 @@ window.addEventListener('resize', () => {
   if (now !== _lastIsMobile) { _lastIsMobile = now; if (currentTabIdx === 1) loadWarehouses(); }
 });
 </script>
+<!-- id="qr-overlay" root is created in ensureQrOverlay() on first scan -->
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
   <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
 </div>
