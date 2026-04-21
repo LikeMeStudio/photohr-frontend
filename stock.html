@@ -180,15 +180,15 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 .wh-stock-row-warn td{background:rgba(234,179,8,0.06)!important}
 .wh-stock-row-crit td:first-child{box-shadow:inset 3px 0 0 var(--rank3)}
 .wh-stock-row-warn td:first-child{box-shadow:inset 3px 0 0 var(--rank2)}
-/* ---- Header pills (large, one-line) ---- */
-.stat.stat-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);text-align:left;line-height:1;min-height:32px;white-space:nowrap}
-.stat.stat-pill .stat-num{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;line-height:1;margin:0}
-.stat.stat-pill .stat-ico{font-size:18px;line-height:1}
-.stat.stat-pill .stat-lbl{font-family:'Golos Text',sans-serif;font-size:14px;font-weight:600;line-height:1;color:var(--text2);text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:1px}
+/* ---- Header pills (compact, one-line) ---- */
+.stat.stat-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);text-align:left;line-height:1;min-height:26px;white-space:nowrap}
+.stat.stat-pill .stat-num{font-family:'Unbounded',sans-serif;font-size:18px;font-weight:700;line-height:1;margin:0}
+.stat.stat-pill .stat-ico{font-size:14px;line-height:1}
+.stat.stat-pill .stat-lbl{font-family:'Golos Text',sans-serif;font-size:13px;font-weight:600;line-height:1;color:var(--text2);text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:1px}
 @media(max-width:640px){
-  .stat.stat-pill{padding:3px 9px;min-height:28px;gap:5px;border-radius:10px}
-  .stat.stat-pill .stat-num{font-size:18px}
-  .stat.stat-pill .stat-ico{font-size:15px}
+  .stat.stat-pill{padding:2px 8px;min-height:24px;gap:4px;border-radius:9px}
+  .stat.stat-pill .stat-num{font-size:16px}
+  .stat.stat-pill .stat-ico{font-size:13px}
   .stat.stat-pill .stat-lbl{font-size:12px}
 }
 /* ---- QR Scanner modal ---- */
@@ -281,7 +281,6 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="nav-links" id="nav-links"></div>
   <div class="header-stats" id="hstats" style="display:none"></div>
   <div class="header-right">
-    <button class="btn btn-ghost" id="btn-qr-scan" style="font-size:13px;padding:6px 10px" onclick="openQrScanner()" title="Сканировать QR оборудования">📷 QR</button>
     <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
     <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
     <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
@@ -2629,7 +2628,8 @@ async function loadWarehouses() {
       <div class="section">
         <div class="section-title" style="margin-bottom:4px">🏢 Склады
           ${canDnd ? `<span style="font-size:10px;color:var(--text3);font-weight:400;font-family:'Golos Text',sans-serif;margin-left:8px">Перетащите позицию на другой склад для перемещения</span>` : ''}
-          ${canEdit ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
+          <button class="btn btn-ghost" id="btn-qr-scan-sklady" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="openQrScanner()" title="Сканировать QR оборудования">📷 QR</button>
+          ${canEdit ? `<button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="openWhModal()">+ Склад</button>` : ''}
         </div>
         <div id="wh-cards-sticky" style="position:sticky;top:0;z-index:10;background:var(--bg2);padding:4px 0;border-radius:0 0 12px 12px">
         ${mobileBar || ''}
@@ -4428,7 +4428,8 @@ async function loadEquipment() {
     let html = `<div class="section">
       <div class="section-title" style="flex-wrap:wrap;gap:8px">
         <span style="flex:1;min-width:0">🖨 Оборудование (${equip.length})</span>
-        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;margin-left:auto;font-size:12px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
+        <button class="btn btn-ghost" id="btn-qr-scan-eq" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="openQrScanner()" title="Сканировать QR оборудования">📷 QR</button>
+        <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;font-size:12px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>`;
 
     if (!catArr.length) {
