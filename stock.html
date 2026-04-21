@@ -12,7 +12,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 a{color:inherit;text-decoration:none}
 .header{padding:18px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}.logo span{color:var(--accent2)}
-.header-stats{display:flex;gap:16px;flex:1}
+.header-stats{display:flex;gap:10px;flex:1;align-items:center;flex-wrap:wrap}
 .stat{text-align:center}
 .stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
 .stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
@@ -180,8 +180,17 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 .wh-stock-row-warn td{background:rgba(234,179,8,0.06)!important}
 .wh-stock-row-crit td:first-child{box-shadow:inset 3px 0 0 var(--rank3)}
 .wh-stock-row-warn td:first-child{box-shadow:inset 3px 0 0 var(--rank2)}
-/* ---- Header pills ---- */
-.stat.stat-pill .stat-lbl{font-variant-numeric:tabular-nums}
+/* ---- Header pills (large, one-line) ---- */
+.stat.stat-pill{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);text-align:left;line-height:1;min-height:32px;white-space:nowrap}
+.stat.stat-pill .stat-num{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;line-height:1;margin:0}
+.stat.stat-pill .stat-ico{font-size:18px;line-height:1}
+.stat.stat-pill .stat-lbl{font-family:'Golos Text',sans-serif;font-size:14px;font-weight:600;line-height:1;color:var(--text2);text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:1px}
+@media(max-width:640px){
+  .stat.stat-pill{padding:3px 9px;min-height:28px;gap:5px;border-radius:10px}
+  .stat.stat-pill .stat-num{font-size:18px}
+  .stat.stat-pill .stat-ico{font-size:15px}
+  .stat.stat-pill .stat-lbl{font-size:12px}
+}
 .wh-mini{padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;transition:border-color .15s}
 .wh-mini.active{border-width:2px}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;margin-top:4px}
@@ -1823,14 +1832,16 @@ async function loadSummary() {
     const totalWarn = globalWarn + warehouseWarn;
     const pillCrit = totalCrit > 0
       ? `<div class="stat stat-pill" title="🔴 Всего ${totalCrit}: ${globalCrit} глобальных (нужна закупка) + ${warehouseCrit} локальных (нужно перемещение)">
-           <div class="stat-num" style="color:var(--rank3)">${totalCrit}</div>
-           <div class="stat-lbl">🔴 <span style="color:var(--rank3);font-weight:700">${globalCrit}</span><span style="color:var(--text3)">/</span><span style="color:var(--text2)">${warehouseCrit}</span></div>
+           <span class="stat-num" style="color:var(--rank3)">${totalCrit}</span>
+           <span class="stat-ico">🔴</span>
+           <span class="stat-lbl"><span style="color:var(--rank3);font-weight:700">${globalCrit}</span><span style="color:var(--text3);margin:0 2px">/</span><span style="color:var(--text2)">${warehouseCrit}</span></span>
          </div>`
       : '';
     const pillWarn = totalWarn > 0
       ? `<div class="stat stat-pill" title="🟡 Всего ${totalWarn}: ${globalWarn} глобальных + ${warehouseWarn} локальных">
-           <div class="stat-num" style="color:var(--rank2)">${totalWarn}</div>
-           <div class="stat-lbl">🟡 <span style="color:var(--rank2);font-weight:700">${globalWarn}</span><span style="color:var(--text3)">/</span><span style="color:var(--text2)">${warehouseWarn}</span></div>
+           <span class="stat-num" style="color:var(--rank2)">${totalWarn}</span>
+           <span class="stat-ico">🟡</span>
+           <span class="stat-lbl"><span style="color:var(--rank2);font-weight:700">${globalWarn}</span><span style="color:var(--text3);margin:0 2px">/</span><span style="color:var(--text2)">${warehouseWarn}</span></span>
          </div>`
       : '';
     const eqRepair = (s && s.equipment_repair || 0) > 0
