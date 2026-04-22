@@ -132,6 +132,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
     </div>
   </div>
   <div id="sales-stats" class="stat-row"></div>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button type="button" class="btn btn-sm" id="sp-today" onclick="setSalesPeriod('today');document.querySelectorAll('[id^=sp-]').forEach(b=>b.classList.remove('btn-primary'));this.classList.add('btn-primary')">Сегодня</button>
+    <button type="button" class="btn btn-sm" id="sp-week" onclick="setSalesPeriod('week');document.querySelectorAll('[id^=sp-]').forEach(b=>b.classList.remove('btn-primary'));this.classList.add('btn-primary')">Неделя</button>
+    <button type="button" class="btn btn-sm" id="sp-all" onclick="setSalesPeriod('all');document.querySelectorAll('[id^=sp-]').forEach(b=>b.classList.remove('btn-primary'));this.classList.add('btn-primary')">Всё</button>
+  </div>
   <div id="sales-list"></div>
 </div>
 
@@ -304,11 +309,29 @@ function renderShiftInfo(shift) {
   `;
 }
 
+let salesPeriod = 'today'; // 'today' | 'week' | 'all'
+
+function setSalesPeriod(p) {
+  salesPeriod = p;
+  loadTodaySales();
+}
+
 async function loadTodaySales() {
-  const today = new Date().toISOString().split('T')[0];
+  const venueId = currentShift?.venue_id;
+  if (!venueId) { todaySales = []; renderSalesStats(); renderSalesList(); return; }
+  let url = `/photo-sales?venue_id=${encodeURIComponent(venueId)}&limit=200`;
+  if (salesPeriod === 'today') {
+    const today = new Date().toISOString().split('T')[0];
+    url += `&date=${encodeURIComponent(today)}`;
+  }
   try {
-    const data = await api('GET', `/photo-sales?date=${encodeURIComponent(today)}&venue_id=${encodeURIComponent(currentShift.venue_id)}`);
-    todaySales = data.sales || [];
+    const data = await api('GET', url);
+    let sales = data.sales || [];
+    if (salesPeriod === 'week') {
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+      sales = sales.filter(s => new Date(s.created_at) >= cutoff);
+    }
+    todaySales = sales;
     renderSalesStats();
     renderSalesList();
   } catch (e) {
@@ -355,77 +378,193 @@ function renderSalesList() {
   }).join('');
 }
 
-let newSaleState = { series: [], items: [], saleType: 'sale', paymentMethod: 'cash', guest: {} };
+let newSaleState = {
+  step: 1, saleType: 'sale',
+  series: [], frames: [],
+  paymentMethod: 'cash',
+  guest: { mode: null, guest_id: null, name: '', email: '', phone: '' },
+};
 let detailSaleForQr = null;
 let detailSaleIdForSeries = null;
+let guestLookupLoading = false;
+let guestLookupResult = null; // { candidates: [...] }
 
 function openNewSale() {
   newSaleState = {
+    step: 1, saleType: 'sale',
     series: [{ camera_prefix: currentUser._cameraPrefix || 'DSC_', frame_start: '', frame_end: '' }],
-    items: [],
-    saleType: 'sale',
+    frames: [],
     paymentMethod: 'cash',
-    guest: {},
+    guest: { mode: null, guest_id: null, name: '', email: '', phone: '' },
   };
+  guestLookupResult = null;
   renderSaleForm();
   document.getElementById('sale-modal').classList.add('open');
 }
 function closeSaleModal() { document.getElementById('sale-modal').classList.remove('open'); }
 
+function wizardGoStep(n) {
+  const s = newSaleState;
+  // Валидация при переходе ВПЕРЁД.
+  if (n > s.step) {
+    if (s.step === 1) {
+      const validSeries = s.series.filter(ser => ser.frame_start !== '' && ser.frame_end !== '');
+      if (!validSeries.length) { toast('Укажите хотя бы одну серию (префикс + от-до)', true); return; }
+      for (let si = 0; si < validSeries.length; si++) {
+        const fs = parseInt(validSeries[si].frame_start, 10);
+        const fe = parseInt(validSeries[si].frame_end, 10);
+        if (!Number.isFinite(fs) || !Number.isFinite(fe)) { toast(`Серия ${si + 1}: номера должны быть числами`, true); return; }
+        if (fe < fs) { toast(`Серия ${si + 1}: конец (${fe}) не может быть меньше начала (${fs})`, true); return; }
+      }
+    }
+    if (s.step === 2 && s.saleType === 'sale') {
+      if (!s.frames.length) { toast('Добавьте хотя бы один кадр с товарами', true); return; }
+      for (let i = 0; i < s.frames.length; i++) {
+        const f = s.frames[i];
+        const fn = parseInt(f.frame_number, 10);
+        if (!Number.isFinite(fn)) { toast(`Кадр ${i + 1}: номер обязателен`, true); return; }
+        const hit = s.series.some(ser => fn >= parseInt(ser.frame_start, 10) && fn <= parseInt(ser.frame_end, 10));
+        if (!hit) { toast(`Кадр ${fn} не входит ни в одну серию`, true); return; }
+        if (!f.items.length) { toast(`Кадр ${fn}: добавьте хотя бы один товар`, true); return; }
+      }
+    }
+  }
+  s.step = n;
+  renderSaleForm();
+}
+
 function renderSaleForm() {
   const s = newSaleState;
   let html = `<div class="section-title">📸 Новая продажа</div>`;
+  // Прогресс-индикатор шагов.
+  const stepLabels = ['Серии', 'Кадры и товары', 'Оплата'];
+  html += `<div style="display:flex;gap:4px;margin-bottom:14px">`;
+  for (let i = 1; i <= 3; i++) {
+    const active = s.step === i;
+    const done = s.step > i;
+    html += `<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;font-size:11px;
+      background:${active ? 'var(--accent)' : done ? 'rgba(62,207,142,.15)' : 'var(--bg2)'};
+      color:${active ? '#fff' : done ? 'var(--rank1)' : 'var(--text3)'};
+      font-weight:${active || done ? '600' : '400'}">${i}. ${stepLabels[i - 1]}${done ? ' ✓' : ''}</div>`;
+  }
+  html += `</div>`;
 
-  html += `<div class="form-group"><label class="form-label">Тип</label>
+  if (s.step === 1) html += renderStep1();
+  if (s.step === 2) html += renderStep2();
+  if (s.step === 3) html += renderStep3();
+
+  // Нижние кнопки «Отмена / Назад / Далее / Провести».
+  html += `<div style="display:flex;gap:8px;margin-top:18px">
+    <button type="button" class="btn btn-ghost" onclick="closeSaleModal()" style="flex:1">Отмена</button>`;
+  if (s.step > 1) {
+    html += `<button type="button" class="btn btn-ghost" onclick="wizardGoStep(${s.step - 1})" style="flex:1">← Назад</button>`;
+  }
+  if (s.step < 3) {
+    html += `<button type="button" class="btn btn-primary" onclick="wizardGoStep(${s.step + 1})" style="flex:2">Далее →</button>`;
+  } else {
+    const canSubmit = s.saleType === 'pre_sale' || s.frames.some(f => f.items.length);
+    html += `<button type="button" class="btn btn-primary" onclick="submitSale()" style="flex:2"${canSubmit ? '' : ' disabled'}>
+      ${s.saleType === 'sale' ? '✅ Провести' : '👁 Создать пред-продажу'}
+    </button>`;
+  }
+  html += `</div>`;
+
+  document.getElementById('sale-modal-content').innerHTML = html;
+}
+
+function renderStep1() {
+  const s = newSaleState;
+  let html = `<div class="form-group"><label class="form-label">Тип</label>
     <div style="display:flex;gap:8px">
       <button type="button" class="btn btn-sm ${s.saleType === 'sale' ? 'btn-primary' : ''}" onclick="newSaleState.saleType='sale';renderSaleForm()">💰 Продажа</button>
       <button type="button" class="btn btn-sm ${s.saleType === 'pre_sale' ? 'btn-primary' : ''}" onclick="newSaleState.saleType='pre_sale';renderSaleForm()">👀 Пред-продажа</button>
     </div></div>`;
 
-  html += `<div class="form-group"><label class="form-label">📷 Серии кадров</label>`;
+  html += `<div class="form-group"><label class="form-label">📷 Серии кадров</label>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Префикс камеры + номера первого и последнего кадра серии</div>`;
   s.series.forEach((ser, si) => {
     html += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <input class="fin" style="width:70px;font-size:12px;padding:8px" placeholder="DSC_" value="${esc(ser.camera_prefix)}" oninput="newSaleState.series[${si}].camera_prefix=this.value">
-      <input class="fin" style="flex:1;font-size:14px;padding:8px" type="number" placeholder="Начало" value="${esc(ser.frame_start)}" oninput="newSaleState.series[${si}].frame_start=this.value" inputmode="numeric">
+      <input class="fin" style="flex:1;font-size:14px;padding:8px" type="number" placeholder="От" value="${esc(ser.frame_start)}" oninput="newSaleState.series[${si}].frame_start=this.value" inputmode="numeric">
       <span style="color:var(--text3)">—</span>
-      <input class="fin" style="flex:1;font-size:14px;padding:8px" type="number" placeholder="Конец" value="${esc(ser.frame_end)}" oninput="newSaleState.series[${si}].frame_end=this.value" inputmode="numeric">
+      <input class="fin" style="flex:1;font-size:14px;padding:8px" type="number" placeholder="До" value="${esc(ser.frame_end)}" oninput="newSaleState.series[${si}].frame_end=this.value" inputmode="numeric">
       ${s.series.length > 1 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.series.splice(${si},1);renderSaleForm()" style="color:var(--rank3);padding:4px">✕</button>` : ''}
     </div>`;
   });
   html += `<button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.series.push({camera_prefix:currentUser._cameraPrefix||'DSC_',frame_start:'',frame_end:''});renderSaleForm()">+ Ещё серия</button></div>`;
+  return html;
+}
 
-  html += `<div class="form-group"><label class="form-label">🛍 Товары</label>`;
-  if (!s.items.length) {
-    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Добавьте товары из списка ниже</div>`;
+function renderStep2() {
+  const s = newSaleState;
+  let html = `<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Добавьте кадры, на которые гость выбрал товары. Для каждого кадра — свой набор товаров и количество.</div>`;
+
+  if (!s.frames.length) {
+    html += `<div style="padding:16px;background:var(--bg2);border-radius:10px;text-align:center;color:var(--text3);font-size:13px;margin-bottom:10px">Нет добавленных кадров</div>`;
   }
-  s.items.forEach((item, ii) => {
-    html += `<div class="cart-item" style="flex-wrap:wrap">
-      <div class="cart-item-name">${esc(item.name)}<br><span style="font-size:11px;color:var(--text3)">${Number(item.unit_price).toLocaleString('ru-RU')}₽</span></div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="changeCartQty(${ii},-1)" style="padding:4px 8px">−</button>
-      <input class="cart-qty" type="number" value="${item.quantity}" min="1" oninput="newSaleState.items[${ii}].quantity=Math.max(1,parseInt(this.value,10)||1);renderSaleForm()" inputmode="numeric">
-      <button type="button" class="btn btn-ghost btn-sm" onclick="changeCartQty(${ii},1)" style="padding:4px 8px">+</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.items.splice(${ii},1);renderSaleForm()" style="color:var(--rank3);padding:4px">✕</button>
-      <div style="width:100%;margin-top:4px">
-        <input class="fin" style="font-size:12px;padding:6px 8px" placeholder="Кадры: 103, 105, 107" value="${esc(item.frames || '')}" oninput="newSaleState.items[${ii}].frames=this.value" inputmode="numeric">
-      </div>
-    </div>`;
+
+  s.frames.forEach((f, fi) => {
+    const frameTotal = f.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
+    html += `<div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:12px;color:var(--text3)">Кадр №</span>
+          <input class="fin" style="width:90px;font-size:14px;padding:6px;font-weight:600" type="number" value="${esc(f.frame_number)}" oninput="newSaleState.frames[${fi}].frame_number=this.value" inputmode="numeric">
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:12px;color:var(--rank1);font-weight:600">${frameTotal.toLocaleString('ru-RU')}₽</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.frames.splice(${fi},1);renderSaleForm()" style="color:var(--rank3);padding:4px">✕</button>
+        </div>
+      </div>`;
+
+    // Строки товаров для этого кадра.
+    if (f.items.length) {
+      f.items.forEach((it, ii) => {
+        html += `<div style="display:flex;gap:6px;align-items:center;padding:6px;background:var(--bg1);border-radius:8px;margin-bottom:4px">
+          <div style="flex:1;font-size:12px">${esc(it.name)}<br><span style="color:var(--text3);font-size:11px">${Number(it.unit_price).toLocaleString('ru-RU')}₽</span></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="changeFrameItemQty(${fi},${ii},-1)" style="padding:2px 8px">−</button>
+          <input class="cart-qty" type="number" value="${it.quantity}" min="1" oninput="newSaleState.frames[${fi}].items[${ii}].quantity=Math.max(1,parseInt(this.value,10)||1);renderSaleForm()" inputmode="numeric" style="width:50px">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="changeFrameItemQty(${fi},${ii},1)" style="padding:2px 8px">+</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="newSaleState.frames[${fi}].items.splice(${ii},1);renderSaleForm()" style="color:var(--rank3);padding:2px 6px">✕</button>
+        </div>`;
+      });
+    } else {
+      html += `<div style="font-size:11px;color:var(--text3);margin-bottom:6px;padding-left:4px">Товары не добавлены</div>`;
+    }
+
+    // Быстрая добавка товара на этот кадр.
+    const usedIds = new Set(f.items.map(it => it.product_id));
+    const availForFrame = (venueProducts || []).filter(vp => !usedIds.has(vp.product_id));
+    if (availForFrame.length) {
+      html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`;
+      availForFrame.forEach(vp => {
+        const pid = String(vp.product_id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        html += `<button type="button" class="btn btn-ghost btn-sm" data-pid="${esc(pid)}" data-frame="${fi}" onclick="addItemToFrame(this)" style="font-size:11px">+ ${esc(vp.name || '')} ${Number(vp.price).toLocaleString('ru-RU')}₽</button>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
   });
 
-  const usedIds = new Set(s.items.map(it => it.product_id));
-  const available = venueProducts.filter(vp => !usedIds.has(vp.product_id));
-  if (available.length) {
-    html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`;
-    available.forEach(vp => {
-      const pid = String(vp.product_id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      const prc = parseFloat(vp.price) || 0;
-      html += `<button type="button" class="btn btn-ghost btn-sm" onclick="addToCartByProductId('${pid}')" style="font-size:11px">+ ${esc(vp.name || '')} ${Number(vp.price).toLocaleString('ru-RU')}₽</button>`;
-    });
-    html += `</div>`;
-  }
-  html += `</div>`;
+  html += `<button type="button" class="btn btn-primary btn-sm" onclick="addEmptyFrame()" style="width:100%;margin-top:6px">+ Добавить кадр</button>`;
 
-  const totalAmount = s.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
-  html += `<div style="font-size:16px;font-weight:700;text-align:right;margin-bottom:14px;color:var(--rank1)">Итого: ${totalAmount.toLocaleString('ru-RU')}₽</div>`;
+  // Итого снизу.
+  const total = s.frames.reduce((sum, f) =>
+    sum + f.items.reduce((x, it) => x + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0), 0);
+  html += `<div style="font-size:16px;font-weight:700;text-align:right;margin-top:12px;color:var(--rank1)">Итого: ${total.toLocaleString('ru-RU')}₽</div>`;
+  return html;
+}
+
+function renderStep3() {
+  const s = newSaleState;
+  const total = s.frames.reduce((sum, f) =>
+    sum + f.items.reduce((x, it) => x + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0), 0);
+
+  let html = `<div style="background:var(--bg2);border-radius:10px;padding:12px;margin-bottom:12px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Итого</div>
+    <div style="font-size:24px;font-weight:700;color:var(--rank1)">${total.toLocaleString('ru-RU')}₽</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">${s.frames.length} кадр(ов), ${s.frames.reduce((n, f) => n + f.items.length, 0)} позиции(й)</div>
+  </div>`;
 
   if (s.saleType === 'sale') {
     html += `<div class="form-group"><label class="form-label">💳 Способ оплаты</label>
@@ -436,91 +575,214 @@ function renderSaleForm() {
       </div></div>`;
   }
 
-  html += `<div class="form-group"><label class="form-label">👤 Контакты гостя (необязательно)</label>
-    <div style="display:grid;gap:6px">
-      <input class="fin" placeholder="Имя" value="${esc(s.guest.name || '')}" oninput="newSaleState.guest.name=this.value" style="font-size:13px;padding:8px">
-      <input class="fin" placeholder="Email" type="email" value="${esc(s.guest.email || '')}" oninput="newSaleState.guest.email=this.value" style="font-size:13px;padding:8px">
-      <input class="fin" placeholder="Телефон" type="tel" value="${esc(s.guest.phone || '')}" oninput="newSaleState.guest.phone=this.value" style="font-size:13px;padding:8px">
-    </div></div>`;
+  // Секция гостя.
+  html += `<div class="form-group"><label class="form-label">👤 Гость</label>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Если гость уже покупал у другого фотографа сегодня — найди его по QR/email/телефону, чтобы бонусы сложились.</div>`;
 
-  html += `<div style="display:flex;gap:8px;margin-top:16px">
-    <button type="button" class="btn btn-ghost" onclick="closeSaleModal()" style="flex:1">Отмена</button>
-    <button type="button" class="btn btn-primary" onclick="submitSale()" style="flex:2">${s.saleType === 'sale' ? '✅ Провести продажу' : '👁 Создать пред-продажу'}</button>
-  </div>`;
+  if (s.guest.guest_id) {
+    html += `<div style="background:rgba(62,207,142,.1);border:1px solid var(--rank1);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:600">✓ ${esc(s.guest.name || 'Гость')} <span style="font-size:11px;color:var(--text3)">(${esc(s.guest._matchInfo || 'связано')})</span></div>
+          <div style="font-size:11px;color:var(--text3)">${s.guest.email ? esc(s.guest.email) : ''}${s.guest.email && s.guest.phone ? ' · ' : ''}${s.guest.phone ? esc(s.guest.phone) : ''}</div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="clearGuestLink()">Отвязать</button>
+      </div>
+    </div>`;
+  } else {
+    html += `<details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:12px;color:var(--accent);padding:6px 0">🔍 Найти существующего гостя (купил у другого фотографа сегодня)</summary>
+      <div style="padding:8px;background:var(--bg2);border-radius:10px;margin-top:4px">
+        <div style="display:grid;gap:6px">
+          <input id="guest-lookup-token" class="fin" placeholder="QR-токен или ссылка гостя" style="font-size:12px;padding:8px">
+          <input id="guest-lookup-email" class="fin" placeholder="Email" type="email" style="font-size:12px;padding:8px">
+          <input id="guest-lookup-phone" class="fin" placeholder="Телефон" type="tel" style="font-size:12px;padding:8px">
+          <button type="button" class="btn btn-primary btn-sm" onclick="guestLookup()">🔍 Найти</button>
+        </div>
+        <div id="guest-lookup-results" style="margin-top:8px"></div>
+      </div>
+    </details>`;
 
-  document.getElementById('sale-modal-content').innerHTML = html;
+    html += `<div style="font-size:11px;color:var(--text3);margin:8px 0 4px">Или заполни контакты нового гостя:</div>
+      <div style="display:grid;gap:6px">
+        <input class="fin" placeholder="Имя" value="${esc(s.guest.name || '')}" oninput="newSaleState.guest.name=this.value" style="font-size:13px;padding:8px">
+        <input class="fin" placeholder="Email" type="email" value="${esc(s.guest.email || '')}" oninput="newSaleState.guest.email=this.value" style="font-size:13px;padding:8px">
+        <input class="fin" placeholder="Телефон" type="tel" value="${esc(s.guest.phone || '')}" oninput="newSaleState.guest.phone=this.value" style="font-size:13px;padding:8px">
+      </div>`;
+  }
+  html += `</div>`;
+  return html;
 }
 
-function addToCartByProductId(productId) {
-  const vp = venueProducts.find((p) => String(p.product_id) === String(productId));
+// Wizard-helpers: добавить пустой кадр (шаг 2).
+function addEmptyFrame() {
+  const s = newSaleState;
+  // Подсказка по следующему номеру — frame_start первой серии или max + 1 существующих кадров.
+  let nextFrame = '';
+  if (s.frames.length) {
+    const maxUsed = Math.max(...s.frames.map(f => parseInt(f.frame_number, 10) || 0));
+    if (maxUsed) nextFrame = String(maxUsed + 1);
+  } else if (s.series.length && s.series[0].frame_start) {
+    nextFrame = String(s.series[0].frame_start);
+  }
+  s.frames.push({ frame_number: nextFrame, items: [] });
+  renderSaleForm();
+}
+
+// Добавить товар на конкретный кадр (шаг 2).
+function addItemToFrame(btn) {
+  const fi = parseInt(btn.dataset.frame, 10);
+  const pid = btn.dataset.pid;
+  const vp = (venueProducts || []).find(p => String(p.product_id) === String(pid));
   if (!vp) { toast('Товар не найден', true); return; }
-  addToCart(vp.product_id, vp.name || 'Товар', parseFloat(vp.price) || 0);
-}
-
-function addToCart(productId, name, price) {
-  const existing = newSaleState.items.find((i) => String(i.product_id) === String(productId));
+  const frame = newSaleState.frames[fi];
+  if (!frame) return;
+  const existing = frame.items.find(i => String(i.product_id) === String(vp.product_id));
   if (existing) {
     existing.quantity = (parseInt(existing.quantity, 10) || 1) + 1;
   } else {
-    newSaleState.items.push({ product_id: productId, name, unit_price: price, quantity: 1, frames: '' });
+    frame.items.push({ product_id: vp.product_id, name: vp.name || 'Товар', unit_price: parseFloat(vp.price) || 0, quantity: 1 });
   }
   renderSaleForm();
 }
 
-function changeCartQty(index, delta) {
-  const item = newSaleState.items[index];
+function changeFrameItemQty(fi, ii, delta) {
+  const item = newSaleState.frames[fi]?.items[ii];
   if (!item) return;
-  item.quantity = Math.max(1, (item.quantity || 1) + delta);
+  item.quantity = Math.max(1, (parseInt(item.quantity, 10) || 1) + delta);
+  renderSaleForm();
+}
+
+// Guest lookup (шаг 3).
+async function guestLookup() {
+  if (guestLookupLoading) return;
+  const tokenRaw = (document.getElementById('guest-lookup-token')?.value || '').trim();
+  const email = (document.getElementById('guest-lookup-email')?.value || '').trim();
+  const phone = (document.getElementById('guest-lookup-phone')?.value || '').trim();
+  if (!tokenRaw && !email && !phone) { toast('Укажите QR, email или телефон', true); return; }
+
+  // Извлечь токен из URL guest.html?t=... если вставили ссылку.
+  let token = tokenRaw;
+  if (token && /guest\.html|[?&]t=/.test(token)) {
+    try {
+      const u = token.startsWith('http') ? new URL(token) : new URL(token.replace(/^\/+/, ''), 'https://p.invalid/');
+      const t = u.searchParams.get('t');
+      if (t) token = t;
+    } catch (e) {
+      const m = token.match(/[?&]t=([^&]+)/);
+      if (m) token = decodeURIComponent(m[1]);
+    }
+  }
+
+  if (!currentShift.event_id) { toast('event_id неизвестен — поиск невозможен', true); return; }
+
+  guestLookupLoading = true;
+  const resEl = document.getElementById('guest-lookup-results');
+  if (resEl) resEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px">Поиск...</div>';
+
+  try {
+    const params = new URLSearchParams();
+    if (token) params.set('qr_token', token);
+    if (email) params.set('email', email);
+    if (phone) params.set('phone', phone);
+    params.set('event_id', currentShift.event_id);
+    const data = await api('GET', `/photo-sales/guest-lookup?${params.toString()}`);
+    guestLookupResult = data;
+    if (!data.candidates || !data.candidates.length) {
+      if (resEl) resEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px">Гость не найден на этом мероприятии</div>';
+    } else {
+      if (resEl) {
+        resEl.innerHTML = data.candidates.map((c, idx) => `
+          <div style="background:var(--bg1);border-radius:8px;padding:8px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:13px;font-weight:600">${esc(c.name || 'Без имени')}</div>
+              <div style="font-size:11px;color:var(--text3)">${c.email ? esc(c.email) + ' · ' : ''}${c.phone ? esc(c.phone) + ' · ' : ''}${c.sales_count} покупка(и) на ${Number(c.total_spent_on_event).toLocaleString('ru-RU')}₽</div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="pickGuestCandidate(${idx})">Выбрать</button>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (e) {
+    if (resEl) resEl.innerHTML = `<div style="color:var(--rank3);font-size:12px;padding:4px">${esc(e.message)}</div>`;
+  } finally {
+    guestLookupLoading = false;
+  }
+}
+
+function pickGuestCandidate(idx) {
+  const c = guestLookupResult?.candidates?.[idx];
+  if (!c) return;
+  newSaleState.guest = {
+    mode: 'existing',
+    guest_id: c.guest_id,
+    name: c.name || '',
+    email: c.email || '',
+    phone: c.phone || '',
+    _matchInfo: `найден по ${c.found_by === 'qr_token' ? 'QR' : c.found_by}`,
+  };
+  renderSaleForm();
+}
+
+function clearGuestLink() {
+  newSaleState.guest = { mode: null, guest_id: null, name: '', email: '', phone: '' };
+  guestLookupResult = null;
   renderSaleForm();
 }
 
 async function submitSale() {
   const s = newSaleState;
-
+  // Повторная валидация серий (дубль проверки шага 1 — на случай редактирования после).
   const validSeries = s.series.filter(ser => ser.frame_start !== '' && ser.frame_end !== '' && ser.frame_start != null && ser.frame_end != null);
   if (!validSeries.length) { toast('Укажите хотя бы одну серию кадров', true); return; }
   for (let si = 0; si < validSeries.length; si++) {
-    const ser = validSeries[si];
-    const fs = parseInt(ser.frame_start, 10);
-    const fe = parseInt(ser.frame_end, 10);
+    const fs = parseInt(validSeries[si].frame_start, 10);
+    const fe = parseInt(validSeries[si].frame_end, 10);
     if (!Number.isFinite(fs) || !Number.isFinite(fe)) { toast(`Серия ${si + 1}: номера кадров должны быть числами`, true); return; }
     if (fe < fs) { toast(`Серия ${si + 1}: конец (${fe}) не может быть меньше начала (${fs})`, true); return; }
   }
-  if (s.saleType === 'sale' && !s.items.length) { toast('Добавьте хотя бы один товар', true); return; }
 
-  // Проверка: каждый кадр в item.frames должен попадать в диапазон хотя бы одной серии
-  for (let ii = 0; ii < s.items.length; ii++) {
-    const it = s.items[ii];
-    if (!it.frames || !it.frames.trim()) continue;
-    const frames = it.frames.split(/[,;\s]+/).map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n) && n > 0);
-    for (const fn of frames) {
-      const hit = validSeries.some(ser => fn >= parseInt(ser.frame_start, 10) && fn <= parseInt(ser.frame_end, 10));
-      if (!hit) { toast(`Товар "${it.name}": кадр ${fn} не входит ни в одну серию`, true); return; }
+  // Собираем items из frames.
+  const itemsForApi = [];
+  if (s.saleType === 'sale') {
+    if (!s.frames.length) { toast('Добавьте хотя бы один кадр', true); return; }
+    for (let fi = 0; fi < s.frames.length; fi++) {
+      const f = s.frames[fi];
+      const fn = parseInt(f.frame_number, 10);
+      if (!Number.isFinite(fn)) { toast(`Кадр ${fi + 1}: номер обязателен`, true); return; }
+      // Валидация что кадр попадает хотя бы в одну серию.
+      const hitSeriesIdx = validSeries.findIndex(ser => fn >= parseInt(ser.frame_start, 10) && fn <= parseInt(ser.frame_end, 10));
+      if (hitSeriesIdx < 0) { toast(`Кадр ${fn} не входит ни в одну серию`, true); return; }
+      if (!f.items.length) { toast(`Кадр ${fn}: добавьте хотя бы один товар`, true); return; }
+      for (const it of f.items) {
+        const row = {
+          product_id: it.product_id,
+          quantity: parseInt(it.quantity, 10) || 1,
+          unit_price: parseFloat(it.unit_price) || 0,
+          frame_numbers: [fn],
+        };
+        if (validSeries.length > 1) row.series_index = hitSeriesIdx;
+        itemsForApi.push(row);
+      }
     }
   }
 
-  const totalAmount = s.items.reduce((sum, it) => sum + (parseFloat(it.unit_price) || 0) * (parseInt(it.quantity, 10) || 1), 0);
-
-  const multi = validSeries.length > 1;
-  const itemPayload = s.items.map((it) => {
-    const obj = { product_id: it.product_id, quantity: parseInt(it.quantity, 10) || 1, unit_price: parseFloat(it.unit_price) || 0 };
-    if (it.frames && it.frames.trim()) {
-      obj.frame_numbers = it.frames.split(/[,;\s]+/).map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n) && n > 0);
-    }
-    return obj;
-  });
-  const itemsForApi = multi
-    ? validSeries.flatMap((_, si) => itemPayload.map((it) => ({ ...it, series_index: si })))
-    : itemPayload;
+  const totalAmount = itemsForApi.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
 
   const body = {
     venue_id: currentShift.venue_id,
     event_id: currentShift.event_id || null,
     shift_id: currentShift.shift_id || null,
     sale_type: s.saleType,
-    series: validSeries.map((ser) => ({ camera_prefix: ser.camera_prefix || 'DSC_', frame_start: parseInt(ser.frame_start, 10), frame_end: parseInt(ser.frame_end, 10) })),
+    series: validSeries.map((ser) => ({
+      camera_prefix: ser.camera_prefix || 'DSC_',
+      frame_start: parseInt(ser.frame_start, 10),
+      frame_end: parseInt(ser.frame_end, 10),
+    })),
     items: itemsForApi,
-    guest: (s.guest.name || s.guest.email || s.guest.phone) ? s.guest : null,
+    guest_id: s.guest.guest_id || null,
+    guest: (!s.guest.guest_id && (s.guest.name || s.guest.email || s.guest.phone))
+      ? { name: s.guest.name, email: s.guest.email, phone: s.guest.phone }
+      : null,
     payment_method: s.saleType === 'sale' ? s.paymentMethod : null,
     paid_amount: s.saleType === 'sale' ? totalAmount : 0,
   };
@@ -535,7 +797,6 @@ async function submitSale() {
     toast(e.message, true);
   }
 }
-
 function showQrCode(sale) {
   const qrUrl = sale.qr_url || `${FRONTEND_URL}/guest.html?t=${sale.qr_token}`;
   const amt = parseFloat(sale.total_amount) || 0;
