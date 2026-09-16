@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Вход</title>
@@ -195,9 +196,7 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
 <script>
 // ── CONFIG ──
 // Замените на URL вашего сервера после деплоя
-const API = window.location.hostname === 'localhost'
-  ? 'http://localhost:3001/api'
-  : 'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 
 // ── STATE ──
 let accessToken = localStorage.getItem('fhr_access') || null;
@@ -282,14 +281,14 @@ async function api(method, path, body) {
   if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
   if (body) opts.body = JSON.stringify(body);
 
-  let res = await fetch(API + path, opts);
+  let res = await PhotoHR.fetch(API + path, opts);
 
   // Auto-refresh
   if (res.status === 401 && refreshToken) {
     try {
       if (!refreshLock) {
         refreshLock = (async () => {
-          const rr = await fetch(API + '/auth/refresh', {
+          const rr = await PhotoHR.fetch(API + '/auth/refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
@@ -304,7 +303,7 @@ async function api(method, path, body) {
       }
       await refreshLock;
       opts.headers['Authorization'] = `Bearer ${accessToken}`;
-      res = await fetch(API + path, opts);
+      res = await PhotoHR.fetch(API + path, opts);
     } catch {
       doLogout();
       return null;
@@ -351,7 +350,7 @@ async function login() {
   if (!email || !pass) { showLoginErr('Введите email и пароль'); return; }
   btn.textContent = 'Входим...'; btn.disabled = true;
   try {
-    const data = await fetch(API + '/auth/login', {
+    const data = await PhotoHR.fetch(API + '/auth/login', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email, password: pass }),
     });
@@ -379,7 +378,7 @@ async function login() {
 
 async function resendVerification(email) {
   try {
-    await fetch(API + '/auth/resend-verification', {
+    await PhotoHR.fetch(API + '/auth/resend-verification', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email }),
     });
@@ -437,7 +436,7 @@ async function register() {
   if (pass.length < 8) { showLoginErr('Пароль минимум 8 символов'); return; }
   btn.textContent = 'Регистрируем...'; btn.disabled = true;
   try {
-    const res = await fetch(API + '/auth/register', {
+    const res = await PhotoHR.fetch(API + '/auth/register', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email, name, password: pass, account_type: registerAccountType }),
     });
@@ -492,7 +491,7 @@ function googleSignIn() {
 
 async function handleGoogleToken(credential) {
   try {
-    const res = await fetch(API + '/auth/google', {
+    const res = await PhotoHR.fetch(API + '/auth/google', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ credential }),
     });
@@ -555,7 +554,7 @@ async function checkEmailVerification() {
   if (verifyToken) {
     window.history.replaceState({}, '', window.location.pathname);
     try {
-      const res = await fetch(API + '/auth/verify-email?token=' + verifyToken);
+      const res = await PhotoHR.fetch(API + '/auth/verify-email?token=' + verifyToken);
       const data = await res.json();
       if (res.ok) {
         showPendingScreen('Email подтверждён! Теперь ваш аккаунт ожидает одобрения администратора. Мы отправим уведомление на почту.', true);
@@ -581,7 +580,7 @@ async function forgotPassword() {
   if (!email) { showLoginErr('Введите email'); return; }
   btn.textContent = 'Отправляем...'; btn.disabled = true;
   try {
-    const res = await fetch(API + '/auth/forgot-password', {
+    const res = await PhotoHR.fetch(API + '/auth/forgot-password', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email }),
     });
@@ -602,7 +601,7 @@ async function resetPassword() {
   if (pass !== pass2) { showLoginErr('Пароли не совпадают'); return; }
   btn.textContent = 'Сохраняем...'; btn.disabled = true;
   try {
-    const res = await fetch(API + '/auth/reset-password', {
+    const res = await PhotoHR.fetch(API + '/auth/reset-password', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ token, password: pass }),
     });
@@ -617,7 +616,7 @@ async function resetPassword() {
 async function tryAutoLogin() {
   if (!refreshToken) return false;
   try {
-    const res = await fetch(API + '/auth/refresh', {
+    const res = await PhotoHR.fetch(API + '/auth/refresh', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ refreshToken }),
     });

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Склад</title>
@@ -639,7 +640,7 @@ function fmtStockQty(quantity, item) {
   return `${packsPart} (${consumptionQty.toLocaleString('ru-RU')} ${cuShort})`;
 }
 
-const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 const API_ROOT=API.replace(/\/api\/?$/,'');
 
 function openLightbox(url) {
@@ -868,12 +869,12 @@ async function api(m,p,b){
   const o={method:m,headers:{'Content-Type':'application/json'}};
   if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;
   if(b)o.body=JSON.stringify(b);
-  let r=await fetch(API+p,o);
+  let r=await PhotoHR.fetch(API+p,o);
   if(r.status===401&&refreshToken){
     try{
       if(!refreshLock){
         refreshLock=(async()=>{
-          const rr=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});
+          const rr=await PhotoHR.fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken})});
           if(!rr.ok)throw new Error('refresh_failed');
           const d=await rr.json();
           accessToken=d.accessToken;refreshToken=d.refreshToken;
@@ -883,7 +884,7 @@ async function api(m,p,b){
       }
       await refreshLock;
       o.headers['Authorization']=`Bearer ${accessToken}`;
-      r=await fetch(API+p,o);
+      r=await PhotoHR.fetch(API+p,o);
     }catch{doLogout();return null;}
     finally{refreshLock=null;}
   }
@@ -895,12 +896,12 @@ async function api(m,p,b){
 async function postNewInventorySession(warehouseId) {
   const o = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ warehouse_id: warehouseId }) };
   if (accessToken) o.headers['Authorization'] = `Bearer ${accessToken}`;
-  let r = await fetch(API + '/inventory-sessions', o);
+  let r = await PhotoHR.fetch(API + '/inventory-sessions', o);
   if (r.status === 401 && refreshToken) {
     try {
       if (!refreshLock) {
         refreshLock = (async () => {
-          const rr = await fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+          const rr = await PhotoHR.fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
           if (!rr.ok) throw new Error('refresh_failed');
           const d = await rr.json();
           accessToken = d.accessToken; refreshToken = d.refreshToken;
@@ -910,7 +911,7 @@ async function postNewInventorySession(warehouseId) {
       }
       await refreshLock;
       o.headers['Authorization'] = `Bearer ${accessToken}`;
-      r = await fetch(API + '/inventory-sessions', o);
+      r = await PhotoHR.fetch(API + '/inventory-sessions', o);
     } catch { doLogout(); return null; }
     finally { refreshLock = null; }
   }
@@ -2109,7 +2110,7 @@ async function exportStockExcel() {
   try {
     showToast('Генерация файла...');
     const token = accessToken || localStorage.getItem('fhr_access');
-    const resp = await fetch(`${API}/stock/export`, {
+    const resp = await PhotoHR.fetch(`${API}/stock/export`, {
       headers: token ? { Authorization: 'Bearer ' + token } : {},
     });
     if (!resp.ok) {
@@ -3297,7 +3298,7 @@ async function saveItem() {
       const formData = new FormData();
       formData.append('photo', fileInput.files[0]);
       try {
-        const r = await fetch(`${API}/inventory-items/${item.id}/photo`, {
+        const r = await PhotoHR.fetch(`${API}/inventory-items/${item.id}/photo`, {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + localStorage.getItem('fhr_access') },
           body: formData,
@@ -5412,7 +5413,7 @@ async function downloadEqLabel(id) {
     const invNum = (equipmentListCache || []).find(e => e.id === id)?.inventory_number || '';
     showToast('Генерация этикетки...');
     const token = accessToken || localStorage.getItem('fhr_access');
-    const resp = await fetch(`${API}/equipment/${id}/label`, {
+    const resp = await PhotoHR.fetch(`${API}/equipment/${id}/label`, {
       headers: token ? { Authorization: 'Bearer ' + token } : {},
     });
     if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'Ошибка'); }
@@ -5433,7 +5434,7 @@ async function downloadBulkLabels() {
   try {
     showToast(`Генерация ${ids.length} этикеток...`);
     const token = accessToken || localStorage.getItem('fhr_access');
-    const resp = await fetch(`${API}/equipment/labels`, {
+    const resp = await PhotoHR.fetch(`${API}/equipment/labels`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Управление</title>
@@ -382,9 +383,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <div id="toast" class="toast" style="display:none"></div>
 <script>
 // ── CONFIG ──
-const API = window.location.hostname === 'localhost'
-  ? 'http://localhost:3001/api'
-  : 'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
@@ -461,14 +460,14 @@ async function api(method, path, body) {
   if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
   if (body) opts.body = JSON.stringify(body);
 
-  let res = await fetch(API + path, opts);
+  let res = await PhotoHR.fetch(API + path, opts);
 
   // Auto-refresh
   if (res.status === 401 && refreshToken) {
     try {
       if (!refreshLock) {
         refreshLock = (async () => {
-          const rr = await fetch(API + '/auth/refresh', {
+          const rr = await PhotoHR.fetch(API + '/auth/refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
@@ -483,7 +482,7 @@ async function api(method, path, body) {
       }
       await refreshLock;
       opts.headers['Authorization'] = `Bearer ${accessToken}`;
-      res = await fetch(API + path, opts);
+      res = await PhotoHR.fetch(API + path, opts);
     } catch {
       doLogout();
       return null;

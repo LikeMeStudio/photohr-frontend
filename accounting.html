@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Управленческий учёт</title>
@@ -271,7 +272,7 @@ a{color:inherit;text-decoration:none}
 <div class="toast" id="toast"></div>
 
 <script>
-const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : 'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
 let currentUser = null;
@@ -288,10 +289,10 @@ async function api(m, p, b) {
   const o = { method: m, headers: {} };
   if (b !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(b); }
   if (accessToken) o.headers['Authorization'] = 'Bearer ' + accessToken;
-  let r = await fetch(API + p, o);
+  let r = await PhotoHR.fetch(API + p, o);
   if (r.status === 401 && refreshToken) {
-    const rr = await fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
-    if (rr.ok) { const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_access', accessToken); localStorage.setItem('fhr_refresh', refreshToken); o.headers['Authorization'] = 'Bearer ' + accessToken; r = await fetch(API + p, o); }
+    const rr = await PhotoHR.fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+    if (rr.ok) { const d = await rr.json(); accessToken = d.accessToken; refreshToken = d.refreshToken; localStorage.setItem('fhr_access', accessToken); localStorage.setItem('fhr_refresh', refreshToken); o.headers['Authorization'] = 'Bearer ' + accessToken; r = await PhotoHR.fetch(API + p, o); }
     else { doLogout(); return null; }
   }
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'Ошибка'); }
@@ -827,7 +828,7 @@ async function doImport() {
   if (accessToken) o.headers['Authorization'] = 'Bearer ' + accessToken;
   o.body = fd;
   try {
-    let r = await fetch(API + '/mgmt/bank-imports', o);
+    let r = await PhotoHR.fetch(API + '/mgmt/bank-imports', o);
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Ошибка');
     const d = await r.json();
     selectedImportId = d.import_id;
