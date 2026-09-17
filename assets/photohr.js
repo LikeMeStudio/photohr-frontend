@@ -4,12 +4,13 @@
   const legacy = 'https://fotohr-server-production.up.railway.app';
   const oldSite = 'https://likemestudio.github.io/photohr-frontend';
   const regional = root.location.hostname === 'hr.likeme.studio';
-  const base = root.location.hostname === 'localhost' ? 'http://localhost:3001' : regional ? root.location.origin : legacy;
+  const routed = regional || root.location.hostname === 'likemestudio.github.io';
+  const base = root.location.hostname === 'localhost' ? 'http://localhost:3001' : routed ? 'https://hr.likeme.studio' : legacy;
   const nativeFetch = root.fetch.bind(root);
   function normalize(value) {
-    if (typeof value === 'string' && regional) {
-      if (value.startsWith(legacy + '/uploads/')) return root.location.origin + value.slice(legacy.length);
-      if (value.startsWith(oldSite + '/')) return root.location.origin + value.slice(oldSite.length);
+    if (typeof value === 'string' && routed) {
+      if (value.startsWith(legacy + '/uploads/')) return base + value.slice(legacy.length);
+      if (regional && value.startsWith(oldSite + '/')) return root.location.origin + value.slice(oldSite.length);
     }
     if (Array.isArray(value)) return value.map(normalize);
     if (value && typeof value === 'object') {
@@ -50,6 +51,24 @@
       if (parentSignal) parentSignal.removeEventListener('abort', abort);
     }
   }
-  root.PhotoHR = {API:base + '/api', FRONTEND_URL:regional ? root.location.origin : root.location.hostname === 'localhost' ? root.location.origin : oldSite,
-    fetch:boundedFetch, normalize};
+  function beginGoogleFlow() {
+    const bytes = root.crypto.getRandomValues(new Uint8Array(32));
+    const nonce = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    root.localStorage.setItem('fhr_google_flow', JSON.stringify({nonce,created:Date.now()}));
+    return nonce;
+  }
+  function acceptGoogleReturn(params) {
+    try {
+      const flow = JSON.parse(root.localStorage.getItem('fhr_google_flow') || 'null');
+      if (!flow || params.get('state') !== flow.nonce || Date.now() - flow.created > 600000) return false;
+      const encoded = params.get('id_token').split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      const claims = JSON.parse(root.atob(encoded));
+      if (claims.nonce !== flow.nonce) return false;
+      root.localStorage.removeItem('fhr_google_flow');
+      return true;
+    } catch (_) { return false; }
+  }
+  root.PhotoHR = {API:base + '/api',
+    GOOGLE_CLIENT_ID:regional ? '705997696891-9ba7pculn78efl1acfbt4mgal5ea1lan.apps.googleusercontent.com' : '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com', FRONTEND_URL:regional ? root.location.origin : root.location.hostname === 'localhost' ? root.location.origin : oldSite,
+    fetch:boundedFetch, normalize, beginGoogleFlow, acceptGoogleReturn};
 })(window);
