@@ -113,6 +113,7 @@ if (!localStorage.getItem('fhr_refresh') && !localStorage.getItem('fhr_access'))
         Войти через Google
       </button>
     </div>
+    <div style="text-align:center;margin:14px 0;font-size:12px"><a href="privacy.html" style="color:var(--text2)">Политика конфиденциальности</a></div>
     <!-- РЕГИСТРАЦИЯ -->
     <div id="auth-register" style="display:none" autocomplete="off">
       <!-- Honeypot для отключения автозаполнения Safari -->
@@ -458,7 +459,7 @@ function showPendingScreen(html, verified) {
 }
 
 // Google Sign-In (OAuth 2.0 popup + storage event)
-const GOOGLE_CLIENT_ID = '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = PhotoHR.GOOGLE_CLIENT_ID;
 
 function googleSignIn() {
   if (!GOOGLE_CLIENT_ID) { showLoginErr('Google авторизация ещё не настроена.'); return; }
@@ -468,7 +469,7 @@ function googleSignIn() {
   if (redirectUri.endsWith('index.html')) {
     redirectUri = redirectUri.replace(/index\.html$/, '');
   }
-  const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const nonce = PhotoHR.beginGoogleFlow();
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -476,6 +477,7 @@ function googleSignIn() {
     response_type: 'id_token',
     scope: 'openid email profile',
     nonce: nonce,
+    state: nonce,
     prompt: 'select_account',
   });
 
@@ -526,6 +528,11 @@ function checkGoogleOAuthReturn() {
     const params = new URLSearchParams(hash.substring(1));
     const idToken = params.get('id_token');
     if (idToken) {
+      if (!PhotoHR.acceptGoogleReturn(params)) {
+        window.history.replaceState({}, '', window.location.pathname);
+        showLoginErr('Подтверждение Google устарело или относится к другому входу. Откройте вход заново.');
+        return false;
+      }
       localStorage.setItem('google_id_token', idToken);
       if (window.opener) { window.close(); return true; }
       window.history.replaceState({}, '', window.location.pathname);
