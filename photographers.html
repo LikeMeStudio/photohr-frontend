@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Фотографы</title>
@@ -684,9 +685,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
 <script>
 // ── CONFIG ──
 // Замените на URL вашего сервера после деплоя
-const API = window.location.hostname === 'localhost'
-  ? 'http://localhost:3001/api'
-  : 'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 
 // ── STATE ──
 let accessToken = localStorage.getItem('fhr_access') || null;
@@ -787,14 +786,14 @@ async function api(method, path, body) {
   if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
   if (body) opts.body = JSON.stringify(body);
 
-  let res = await fetch(API + path, opts);
+  let res = await PhotoHR.fetch(API + path, opts);
 
   // Auto-refresh
   if (res.status === 401 && refreshToken) {
     try {
       if (!refreshLock) {
         refreshLock = (async () => {
-          const rr = await fetch(API + '/auth/refresh', {
+          const rr = await PhotoHR.fetch(API + '/auth/refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
@@ -809,7 +808,7 @@ async function api(method, path, body) {
       }
       await refreshLock;
       opts.headers['Authorization'] = `Bearer ${accessToken}`;
-      res = await fetch(API + path, opts);
+      res = await PhotoHR.fetch(API + path, opts);
     } catch {
       doLogout();
       return null;
@@ -920,7 +919,7 @@ function exportPhotographers(){
 
   const ids = all.map(p=>p.id);
   showToast('Готовим файл...');
-  fetch(`${API}/photographers/export`, {
+  PhotoHR.fetch(`${API}/photographers/export`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids }),
@@ -2288,7 +2287,7 @@ async function uploadPhoto(event) {
     const formData = new FormData();
     formData.append('photo', file);
 
-    const res = await fetch(`${API}/photographers/${currentDrawerId}/photo`, {
+    const res = await PhotoHR.fetch(`${API}/photographers/${currentDrawerId}/photo`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${accessToken}` },
       body: formData,
@@ -3460,7 +3459,7 @@ async function uploadPassportScan(event){
   formData.append('scan', file);
   try {
     showToast('Загружаем скан...');
-    const res = await fetch(`${API}/photographers/${currentDrawerId}/passport-scan`, {
+    const res = await PhotoHR.fetch(`${API}/photographers/${currentDrawerId}/passport-scan`, {
       method:'POST', headers:{'Authorization':`Bearer ${accessToken}`}, body: formData,
     });
     if(!res.ok){ const e=await res.json(); throw new Error(e.error||'Ошибка'); }

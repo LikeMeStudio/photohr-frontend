@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
 <title>PhotoHR — Чекин</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="assets/html5-qrcode.min.js"></script>
 <style>
 :root{--bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--border:#2e2e3d;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;--accent:#7c6cff;--accent2:#9b8dff;--rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
@@ -90,7 +91,7 @@
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const API=window.location.hostname==='localhost'?'http://localhost:3001/api':'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 let AT=localStorage.getItem('fhr_access')||null,RT=localStorage.getItem('fhr_refresh')||null,U=null,currentUser=null,mgmtNavHasAccess=false,myShifts=[],scanner=null,scannerStream=null;
 const ROLE_LABELS={admin:'Администратор',super_admin:'Суперадмин',exec_director:'Исполнительный директор',hr_director:'HR-директор',hr_manager:'HR-менеджер',recruiter:'Рекрутер',tech_director:'Тех-директор',site_specialist:'Специалист по сайту',cashier:'Инкассация',photographer_user:'Сотрудник',aq_user:'Аквагримёр',aq_manager:'Менеджер аквагрима',archived:'Архив'};
 const ROLE_COLORS={admin:'#ffd700',super_admin:'#c084fc',exec_director:'#f5a623',hr_director:'#3ecf8e',hr_manager:'#4ecb8a',recruiter:'#e86aa6',tech_director:'#8a7aee',site_specialist:'#6aa6e8',cashier:'#e87a6a',photographer_user:'#9090a8',aq_user:'#3ecfb4',aq_manager:'#5ee8d0',archived:'#5a5a72'};
@@ -106,7 +107,7 @@ function setupUserPill(){const c=ROLE_COLORS[currentUser.role]||'#9090a8';docume
 function setupNav(activeKey){const navBtns=[],ns='text-decoration:none;padding:5px 12px;font-size:12px';const a=(key,href,label)=>{const cls=activeKey===key?'f-btn active':'f-btn';return`<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;};navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');navBtns.push(a('index','photographers.html','Команда'));if(hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin']))navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));if(hasAnyRole(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin']))navBtns.push(a('venue','venue.html','Отчёты'));if(hasAnyRole(['tech_director','hr_director','exec_director','admin']))navBtns.push(a('stock','stock.html','Склад'));if(mgmtNavHasAccess)navBtns.push(a('accounting','accounting.html','💰 Учёт'));if(hasAnyRole(['hr_manager','hr_director','exec_director','admin']))navBtns.push(a('schedule','schedule.html','Расписание'));document.getElementById('nav-links').innerHTML=navBtns.join('');}
 let refreshLock=null;
 
-async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await fetch(API+p,o);if(r.status===401&&RT){try{if(!refreshLock){refreshLock=(async()=>{const x=await fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(!x.ok)throw new Error('refresh_failed');const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);})();}await refreshLock;o.headers.Authorization='Bearer '+AT;r=await fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
+async function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(AT)o.headers.Authorization='Bearer '+AT;if(b)o.body=JSON.stringify(b);let r=await PhotoHR.fetch(API+p,o);if(r.status===401&&RT){try{if(!refreshLock){refreshLock=(async()=>{const x=await PhotoHR.fetch(API+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refreshToken:RT})});if(!x.ok)throw new Error('refresh_failed');const d=await x.json();AT=d.accessToken;RT=d.refreshToken;localStorage.setItem('fhr_access',AT);localStorage.setItem('fhr_refresh',RT);})();}await refreshLock;o.headers.Authorization='Bearer '+AT;r=await PhotoHR.fetch(API+p,o);}catch{doLogout();return null;}finally{refreshLock=null;}}if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}return r.json();}
 function doLogout(){localStorage.removeItem('fhr_refresh');localStorage.removeItem('fhr_access');location.href='index.html';}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast show'+(e?' error':'');setTimeout(()=>t.className='toast',3000);}
 
@@ -258,7 +259,7 @@ async function submitReceiptCheckin(assignmentId) {
   if (lng) formData.append('longitude', lng);
 
   try {
-    const r = await fetch(API + '/checkins/photo-receipt', {
+    const r = await PhotoHR.fetch(API + '/checkins/photo-receipt', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + AT },
       body: formData
@@ -420,7 +421,7 @@ async function doCheckin(qrCode){
     const checkinBody={qr_code:qrCode,checkin_type:'arrival',latitude:lat,longitude:lng};
     if(pendingAssignmentId)checkinBody.assignment_id=pendingAssignmentId;
 
-    const checkinResp=await fetch(API+'/checkins',{
+    const checkinResp=await PhotoHR.fetch(API+'/checkins',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+AT},
       body:JSON.stringify(checkinBody)

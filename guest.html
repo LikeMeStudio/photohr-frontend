@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script src="assets/photohr.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>LikeMe Studio — Ваши фотографии</title>
@@ -45,7 +46,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg1);color:var(--text1);min
 </div>
 
 <script>
-const API = window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : 'https://fotohr-server-production.up.railway.app/api';
+const API = PhotoHR.API;
 
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -58,7 +59,7 @@ function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;
   }
 
   try {
-    const res = await fetch(`${API}/photo-sales/by-token/${encodeURIComponent(token)}`);
+    const res = await PhotoHR.fetch(`${API}/photo-sales/by-token/${encodeURIComponent(token)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Не найдено');
