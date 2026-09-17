@@ -68,7 +68,51 @@
       return true;
     } catch (_) { return false; }
   }
+  function takePasswordReset() {
+    const url=new URL(root.location.href);
+    const token=new URLSearchParams(url.hash.slice(1)).get('reset') || url.searchParams.get('reset');
+    if (!token) return null;
+    root.history.replaceState({}, '', url.pathname);
+    return token;
+  }
+  function passwordError(password, confirmation) {
+    if (!password || !confirmation) return 'Заполните оба поля.';
+    if (Array.from(password).length < 8) return 'Пароль должен содержать минимум 8 символов.';
+    if (new TextEncoder().encode(password).length > 72) return 'Пароль слишком длинный. Сократите его.';
+    if (password !== confirmation) return 'Пароли не совпадают.';
+    return null;
+  }
+  let refreshQueue=Promise.resolve();
+  async function coordinatedFetch(input, options={}) {
+    const url=new URL(input,root.location.href);
+    if(url.origin!==new URL(base).origin || url.pathname!=='/api/auth/refresh' || options.method!=='POST')
+      return boundedFetch(input,options);
+    let requested;
+    try {requested=JSON.parse(options.body).refreshToken;} catch (_) {return boundedFetch(input,options);}
+    const rotate=async()=>{
+      const stored=root.localStorage.getItem('fhr_refresh');
+      const access=root.localStorage.getItem('fhr_access');
+      if(stored && access && stored!==requested) {
+        // Another tab already rotated this session; use its fresh pair instead of the spent token.
+        const me=await boundedFetch(base+'/api/auth/me',{headers:{Authorization:'Bearer '+access}});
+        if(me.ok) return new Response(JSON.stringify({accessToken:access,refreshToken:stored,user:await me.json()}),
+          {headers:{'content-type':'application/json'}});
+      }
+      const response=await boundedFetch(input,{...options,body:JSON.stringify({refreshToken:stored || requested})});
+      if(response.ok) {
+        const data=await response.clone().json();
+        if(typeof data.accessToken==='string' && typeof data.refreshToken==='string') {
+          root.localStorage.setItem('fhr_access',data.accessToken);
+          root.localStorage.setItem('fhr_refresh',data.refreshToken);
+        }
+      }
+      return response;
+    };
+    if(root.navigator?.locks) return root.navigator.locks.request('photohr-session-refresh',rotate);
+    // Older browsers still serialize requests from this page; modern browsers coordinate all tabs/iframes.
+    const pending=refreshQueue.then(rotate,rotate);refreshQueue=pending.catch(()=>{});return pending;
+  }
   root.PhotoHR = {API:base + '/api',
     GOOGLE_CLIENT_ID:regional ? '705997696891-9ba7pculn78efl1acfbt4mgal5ea1lan.apps.googleusercontent.com' : '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com', FRONTEND_URL:regional ? root.location.origin : root.location.hostname === 'localhost' ? root.location.origin : oldSite,
-    fetch:boundedFetch, normalize, beginGoogleFlow, acceptGoogleReturn};
+    fetch:coordinatedFetch, normalize, beginGoogleFlow, acceptGoogleReturn, takePasswordReset, passwordError};
 })(window);
