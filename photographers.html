@@ -3660,35 +3660,8 @@ async function createPhotographer(){
 // ── ADMIN PANEL (в drawer) ──
 
 
-// ── ПРОФИЛЬ (смена своего пароля) ──
-function openProfile(){
-  const av = avC(currentUser.name);
-  const el = document.getElementById('profile-av');
-  el.textContent = ini(currentUser.name);
-  el.style.background = av.bg;
-  el.style.color = av.fg;
-  document.getElementById('profile-name').textContent = currentUser.name;
-  document.getElementById('profile-email').textContent = currentUser.email;
-  document.getElementById('profile-role').innerHTML = `<span style="color:${ROLE_COLORS[currentUser.role]||'var(--text3)'}">${ROLE_LABELS[currentUser.role]||currentUser.role}</span>`;
-  document.getElementById('p-old-pass').value = '';
-  document.getElementById('p-new-pass').value = '';
-  document.getElementById('p-new-pass2').value = '';
-  document.getElementById('profile-modal').classList.add('open');
-}
-
-async function changeMyPassword(){
-  const oldPass = document.getElementById('p-old-pass').value;
-  const newPass = document.getElementById('p-new-pass').value;
-  const newPass2 = document.getElementById('p-new-pass2').value;
-  if(!oldPass || !newPass || !newPass2) return showToast('Заполните все поля', true);
-  if(newPass.length < 8) return showToast('Новый пароль минимум 8 символов', true);
-  if(newPass !== newPass2) return showToast('Пароли не совпадают', true);
-  try {
-    await api('PATCH', '/auth/change-password', { old_password: oldPass, new_password: newPass });
-    document.getElementById('profile-modal').classList.remove('open');
-    showToast('Пароль успешно изменён');
-  } catch(e){ showToast(e.message, true); }
-}
+// Account security belongs to the current signed-in user on My Profile.
+function openProfile(){window.location.href='my.html#account-security';}
 
 function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>'); }
 
