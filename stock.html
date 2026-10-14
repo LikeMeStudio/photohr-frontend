@@ -3821,6 +3821,7 @@ async function applyEquipmentChecks(){
     showToast('Применено строк: '+result.entries.length+'. Остальные записи не изменены.');
     try{equipmentCheck.units=(await api('GET','/equipment')).filter(u=>['active','repair'].includes(u.status));}catch(e){showToast('Исправления применены. Для обновления списка откройте сверку заново.',true);}
     loadSummary();loadEquipmentCheckHistory();
+    if(typeof currentTabIdx==='number'&&currentTabIdx===7)loadEquipment();
   }catch(e){invalidateEquipmentCheckPreview();showToast(e.message+' Откройте сверку заново, чтобы проверить результат перед повтором.',true);}
   finally{equipmentCheck.saving=false;controls.forEach(c=>c.disabled=false);renderEquipmentCheckRows();}
 }
