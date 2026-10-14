@@ -227,7 +227,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
       <option value="aq_manager">Менеджер аквагрима</option>
     </select>
   </div>
-  <div class="field" style="margin-bottom:12px"><div class="fl">Временный пароль *</div><input class="fin" type="password" id="nu-pass" placeholder="Минимум 8 символов" autocomplete="new-password"/></div>
+  <div class="field" style="margin-bottom:12px"><div class="fl">Временный пароль *</div><input class="fin" type="password" data-password-toggle id="nu-pass" placeholder="Минимум 8 символов" autocomplete="new-password"/></div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
     <input type="checkbox" id="nu-active" checked style="cursor:pointer"/>
     <label for="nu-active" style="font-size:14px;cursor:pointer">Активировать сразу</label>
@@ -279,15 +279,15 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     <div style="font-size:13px;font-weight:500;margin-bottom:14px;color:var(--text2)">Сменить пароль</div>
     <div class="field" style="margin-bottom:12px">
       <div class="fl">Текущий пароль *</div>
-      <input class="fin" type="password" id="p-old-pass" placeholder="••••••••"/>
+      <input class="fin" type="password" data-password-toggle id="p-old-pass" placeholder="••••••••"/>
     </div>
     <div class="field" style="margin-bottom:12px">
       <div class="fl">Новый пароль *</div>
-      <input class="fin" type="password" id="p-new-pass" placeholder="Минимум 8 символов"/>
+      <input class="fin" type="password" data-password-toggle id="p-new-pass" placeholder="Минимум 8 символов"/>
     </div>
     <div class="field" style="margin-bottom:4px">
       <div class="fl">Повторите новый пароль *</div>
-      <input class="fin" type="password" id="p-new-pass2" placeholder="Минимум 8 символов" onkeydown="if(event.key==='Enter')changeMyPassword()"/>
+      <input class="fin" type="password" data-password-toggle id="p-new-pass2" placeholder="Минимум 8 символов" onkeydown="if(event.key==='Enter')changeMyPassword()"/>
     </div>
   </div>
   <div class="modal-footer">
@@ -326,7 +326,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
   </div>
   <div class="field" style="margin-bottom:12px">
     <div class="fl">Новый пароль <span style="color:var(--text3);font-weight:400">(оставьте пустым чтобы не менять)</span></div>
-    <input class="fin" type="password" id="eu-pass" placeholder="Минимум 8 символов"/>
+    <input class="fin" type="password" data-password-toggle id="eu-pass" placeholder="Минимум 8 символов"/>
   </div>
   <div id="eu-profile-block" style="margin-bottom:14px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px"></div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">

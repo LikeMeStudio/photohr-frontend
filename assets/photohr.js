@@ -82,6 +82,59 @@
     if (password !== confirmation) return 'Пароли не совпадают.';
     return null;
   }
+  const passwordControls = [];
+  function hidePasswords() {
+    passwordControls.forEach(setVisible => setVisible(false));
+  }
+  function addPasswordControls() {
+    const doc = root.document;
+    const fields = doc.querySelectorAll('input[type="password"][data-password-toggle]');
+    if (!fields.length) return;
+    const style = doc.createElement('style');
+    style.textContent = `
+      .photohr-password-field{position:relative;width:100%}
+      .photohr-password-field>input{padding-right:48px!important;min-height:44px}
+      .photohr-password-toggle{position:absolute;right:0;top:0;width:44px;height:100%;min-height:44px;padding:10px;border:0;border-radius:10px;background:transparent;color:var(--text2,#9090a8);cursor:pointer;display:flex;align-items:center;justify-content:center}
+      .photohr-password-toggle:hover,.photohr-password-toggle[aria-pressed="true"]{color:var(--accent2,#9b8dff)}
+      .photohr-password-toggle:focus-visible{outline:2px solid var(--accent,#7c6cff);outline-offset:-3px}
+      .photohr-password-toggle svg{width:22px;height:22px;pointer-events:none}
+      .photohr-password-field>input::-ms-reveal{display:none}
+    `;
+    doc.head.appendChild(style);
+    const eye = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>';
+    const eyeOff = '<path d="m3 3 18 18M10.6 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3.1 3.9M6.2 6.2A21 21 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.8-1.8M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+    fields.forEach(input => {
+      const wrapper = doc.createElement('div');
+      wrapper.className = 'photohr-password-field';
+      input.parentNode.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+      input.spellcheck = false;
+      input.setAttribute('autocapitalize', 'none');
+      input.setAttribute('autocorrect', 'off');
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'photohr-password-toggle';
+      button.setAttribute('aria-controls', input.id);
+      const setVisible = visible => {
+        input.type = visible ? 'text' : 'password';
+        const label = visible ? 'Скрыть пароль' : 'Показать пароль';
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(visible));
+        button.title = label;
+        button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + (visible ? eyeOff : eye) + '</svg>';
+      };
+      button.addEventListener('click', () => setVisible(input.type === 'password'));
+      setVisible(false);
+      passwordControls.push(setVisible);
+      wrapper.appendChild(button);
+    });
+  }
+  if (root.document) {
+    if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', addPasswordControls, {once:true});
+    else addPasswordControls();
+    root.document.addEventListener('visibilitychange', () => { if (root.document.hidden) hidePasswords(); });
+    root.addEventListener('pagehide', hidePasswords);
+  }
   let refreshQueue=Promise.resolve();
   async function coordinatedFetch(input, options={}) {
     const url=new URL(input,root.location.href);
@@ -114,5 +167,5 @@
   }
   root.PhotoHR = {API:base + '/api',
     GOOGLE_CLIENT_ID:regional ? '705997696891-9ba7pculn78efl1acfbt4mgal5ea1lan.apps.googleusercontent.com' : '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com', FRONTEND_URL:regional ? root.location.origin : root.location.hostname === 'localhost' ? root.location.origin : oldSite,
-    fetch:coordinatedFetch, normalize, beginGoogleFlow, acceptGoogleReturn, takePasswordReset, passwordError};
+    fetch:coordinatedFetch, normalize, beginGoogleFlow, acceptGoogleReturn, takePasswordReset, passwordError, hidePasswords};
 })(window);
