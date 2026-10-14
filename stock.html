@@ -309,7 +309,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 <!-- Movement modal -->
 <div class="overlay" id="move-modal" onclick="if(event.target===this)safeCloseModal('move-modal')">
 <div class="modal">
-  <div class="modal-title"><span>Новое движение</span><button class="dr-close" onclick="safeCloseModal('move-modal')">×</button></div>
+  <div class="modal-title"><span>Движение расходников</span><button class="dr-close" onclick="safeCloseModal('move-modal')">×</button></div>
   <div class="field"><div class="fl">Тип *</div>
     <select class="fselect" id="mv-type" onchange="updateMoveFields()">
       <option value="purchase">Закупка</option>
@@ -454,9 +454,9 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 
 <!-- Transfer Modal -->
 <div class="overlay" id="tr-modal" onclick="if(event.target===this)safeCloseModal('tr-modal')">
-<div class="modal" style="max-width:520px">
+<div class="modal" style="max-width:620px">
   <div class="modal-title"><span>Перемещение между складами</span><button class="dr-close" onclick="safeCloseModal('tr-modal')">×</button></div>
-  <div class="field"><div class="fl">Со склада *</div><select class="fselect" id="tr-from"></select></div>
+  <div class="field"><div class="fl">Со склада *</div><select class="fselect" id="tr-from" onchange="transferSourceChanged()"></select></div>
   <div class="field"><div class="fl">На склад *</div><select class="fselect" id="tr-to"></select></div>
   <div class="field"><div class="fl">Заметки</div><input class="fin" id="tr-notes" placeholder="Причина перемещения..."/></div>
   <div style="margin:10px 0 6px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Позиции</div>
@@ -464,7 +464,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:12px" onclick="addTrLine()">+ Добавить позицию</button>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="safeCloseModal('tr-modal')">Отмена</button>
-    <button class="btn btn-primary" onclick="saveTransfer()">Создать перемещение</button>
+    <button class="btn btn-primary" id="tr-save" onclick="saveTransfer()">Создать перемещение</button>
   </div>
 </div>
 </div>
@@ -1844,7 +1844,7 @@ async function toggleTransferExpand(id) {
     const html = `<div style="padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)" onclick="event.stopPropagation()">
       <div style="font-weight:600;margin-bottom:8px;font-size:12px">Позиции</div>
       <ul style="font-size:12px;color:var(--text2);margin-left:18px;line-height:1.55;list-style:disc">
-        ${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}
+        ${lines.length ? lines.map(l => `<li>${transferLineDescription(l)}</li>`).join('') : '<li>Нет строк</li>'}
       </ul>
       ${pending ? actions : '<div style="font-size:12px;color:var(--text3);margin-top:8px">Только просмотр</div>'}
     </div>`;
@@ -1870,7 +1870,8 @@ async function loadStockTransfers() {
     const list = await api('GET', '/stock-transfers?limit=100');
     c.innerHTML = `
       <div class="section">
-        <div class="section-title">🔄 Перемещения между складами
+        <div class="section-title" style="flex-wrap:wrap">🔄 Перемещения между складами
+          <button class="btn btn-ghost" style="font-size:12px" onclick="openEquipmentCheck()">Сверка оборудования</button>
           ${canManage ? `<button class="btn btn-primary" style="margin-left:auto;font-size:12px;padding:4px 12px" onclick="openTrModal()">+ Новое</button>` : ''}
         </div>
         <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Клик по строке — состав заявки. Для «Ожидает» — подтверждение и отмена в раскрытии.</p>
@@ -3615,6 +3616,7 @@ function createSearchableSelect(hostEl, itemsList, opts = {}) {
 
   input.addEventListener('input', () => {
     hidden.value = '';
+    if (opts.onClear) opts.onClear();
     renderOptions(input.value);
     dropdown.classList.add('open');
   });
@@ -3656,65 +3658,229 @@ function createSearchableSelect(hostEl, itemsList, opts = {}) {
   return wrap;
 }
 
+let equipmentCheck = null;
+async function openEquipmentCheck() {
+  if (equipmentCheck?.dirty && !confirm('Открыть сохранённую сверку? Несохранённые отметки будут потеряны.')) return;
+  try {
+    const [units,draft] = await Promise.all([api('GET','/equipment'),api('GET','/equipment-location-checks/current')]);
+    equipmentCheck = {units:units.filter(u=>['active','repair'].includes(u.status)),draft:draft||{version:0,observations:{},unknown_entries:[]},changes:{},unknown:JSON.parse(JSON.stringify(draft?.unknown_entries||[])),dirty:false};
+    document.getElementById('eq-check-modal')?.remove();
+    const modal=document.createElement('div');modal.id='eq-check-modal';modal.className='overlay open';
+    modal.onclick=e=>{if(e.target===modal)closeEquipmentCheck();};
+    const options=warehouses.filter(w=>w.is_active).map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    modal.innerHTML=`<div class="modal" style="max-width:1100px;width:100%;max-height:94vh;overflow:auto">
+      <div class="modal-title"><span>Сверка расположения оборудования</span><button class="dr-close" onclick="closeEquipmentCheck()">×</button></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Найдите принтер по номеру и отметьте, где он находится фактически. Сохранение фиксирует результаты проверки; складские остатки и карточки оборудования не изменяются.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input class="fin" id="eq-check-search" value="принтер" placeholder="Модель, инвентарный или серийный номер" aria-label="Поиск оборудования для сверки" oninput="renderEquipmentCheckRows()" style="flex:2;min-width:200px"/>
+        <select class="fselect" id="eq-check-warehouse" aria-label="Площадка по учёту" onchange="renderEquipmentCheckRows()" style="flex:1;min-width:180px"><option value="">Все площадки по учёту</option>${options}</select>
+        <select class="fselect" id="eq-check-filter" aria-label="Результат проверки" onchange="renderEquipmentCheckRows()" style="flex:1;min-width:150px"><option value="all">Все результаты</option><option value="unchecked">Не проверено</option><option value="difference">Расхождения</option></select>
+      </div>
+      <div id="eq-check-status" role="status" style="font-size:12px;color:var(--accent2);margin:10px 0"></div>
+      <div id="eq-check-rows"></div>
+      <details style="margin-top:18px;padding:12px;border:1px solid var(--border);border-radius:10px"><summary style="cursor:pointer">Нашли оборудование, которого нет в списке?</summary>
+        <p style="font-size:12px;color:var(--text2);margin:10px 0">Запишите номер с наклейки. Это запись для выяснения — новое оборудование в учёте не создаётся.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input class="fin" id="eq-check-unknown-inv" placeholder="Инвентарный номер" aria-label="Неизвестный инвентарный номер"/>
+          <input class="fin" id="eq-check-unknown-sn" placeholder="Серийный номер" aria-label="Неизвестный серийный номер"/>
+          <select class="fselect" id="eq-check-unknown-wh" aria-label="Где найдено неизвестное оборудование"><option value="">Где находится</option>${options}</select>
+          <input class="fin" id="eq-check-unknown-note" placeholder="Модель / комментарий"/>
+          <button class="btn btn-ghost" onclick="addUnknownEquipmentCheck()">Записать найденное</button>
+        </div><div id="eq-check-unknown-list"></div>
+      </details>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="closeEquipmentCheck()">Закрыть</button><button class="btn btn-primary" id="eq-check-save" onclick="saveEquipmentCheck()">Сохранить сверку</button></div>
+    </div>`;
+    document.body.appendChild(modal);renderEquipmentCheckRows();renderUnknownEquipmentCheck();
+  } catch(e) {showToast(e.message,true);}
+}
+function closeEquipmentCheck(){
+  if(equipmentCheck?.saving)return;
+  if(equipmentCheck?.dirty&&!confirm('Закрыть без сохранения отметок сверки?'))return;
+  document.getElementById('eq-check-modal')?.remove();equipmentCheck=null;
+}
+function equipmentObservation(unit){return equipmentCheck.changes[unit.id]||equipmentCheck.draft.observations[unit.id]||{state:'unchecked',note:''};}
+function equipmentCheckDifference(unit,observation){return observation.state==='missing'||(observation.state==='found'&&observation.observed_warehouse_id!==unit.warehouse_id);}
+function renderEquipmentCheckRows(){
+  if(!equipmentCheck)return;
+  const q=document.getElementById('eq-check-search').value.trim().toLowerCase(),wh=document.getElementById('eq-check-warehouse').value,filter=document.getElementById('eq-check-filter').value;
+  const units=equipmentCheck.units.filter(u=>(!q||[u.item_name,u.inventory_number,u.serial_number].some(x=>String(x||'').toLowerCase().includes(q)))&&(!wh||u.warehouse_id===wh)&& (filter==='all'||(filter==='unchecked'?equipmentObservation(u).state==='unchecked':equipmentCheckDifference(u,equipmentObservation(u)))));
+  const options=warehouses.filter(w=>w.is_active);
+  document.getElementById('eq-check-rows').innerHTML=units.length?`<div style="overflow:auto"><table class="tbl" style="min-width:760px"><thead><tr><th>Оборудование и номера</th><th>Сейчас по учёту</th><th>Фактически / результат проверки</th><th>Комментарий</th></tr></thead><tbody>${units.map(u=>{
+    const o=equipmentObservation(u),value=o.state==='missing'?'missing':o.state==='found'?o.observed_warehouse_id:'';
+    return `<tr><td><div>${esc(u.item_name)}</div><div style="color:var(--accent2)">Инв. № ${esc(u.inventory_number||'не указан')}</div><div style="font-size:11px;color:var(--text2)">Сер. № ${esc(u.serial_number||'не указан')}</div></td>
+      <td>${esc(u.warehouse_name||'Без склада')}${equipmentCheckDifference(u,o)?'<div style="color:var(--rank2);margin-top:5px">Расхождение</div>':''}</td>
+      <td><select class="fselect" aria-label="Фактическое расположение ${esc(u.inventory_number||u.id)}" onchange="setEquipmentObservation('${u.id}',this.value)"><option value="" ${!value?'selected':''}>Не проверено</option><option value="missing" ${value==='missing'?'selected':''}>Не найдено при проверке</option>${options.map(w=>`<option value="${w.id}" ${value===w.id?'selected':''}>Найдено: ${esc(w.name)}</option>`).join('')}</select></td>
+      <td><input class="fin" aria-label="Комментарий ${esc(u.inventory_number||u.id)}" placeholder="Что нужно уточнить" value="${esc(o.note||'')}" maxlength="500" oninput="setEquipmentCheckNote('${u.id}',this.value)"/></td></tr>`;
+  }).join('')}</tbody></table></div>`:'<p style="padding:16px;color:var(--text2)">Нет совпадений. Очистите поиск или выберите все площадки. Если номер не найден — запишите его ниже.</p>';
+  updateEquipmentCheckStatus();
+}
+function setEquipmentObservation(unitId,value){
+  const unit=equipmentCheck.units.find(u=>u.id===unitId),previous=equipmentObservation(unit);
+  equipmentCheck.changes[unitId]={equipment_unit_id:unitId,state:value==='missing'?'missing':value?'found':'unchecked',observed_warehouse_id:value&&value!=='missing'?value:null,note:previous.note||''};
+  equipmentCheck.dirty=true;renderEquipmentCheckRows();
+}
+function setEquipmentCheckNote(unitId,note){
+  const unit=equipmentCheck.units.find(u=>u.id===unitId);
+  equipmentCheck.changes[unitId]={...equipmentObservation(unit),equipment_unit_id:unitId,note};
+  equipmentCheck.dirty=true;updateEquipmentCheckStatus();
+}
+function updateEquipmentCheckStatus(){
+  const checked=equipmentCheck.units.filter(u=>equipmentObservation(u).state!=='unchecked').length;
+  const differences=equipmentCheck.units.filter(u=>equipmentCheckDifference(u,equipmentObservation(u))).length;
+  document.getElementById('eq-check-status').textContent=`Проверено: ${checked} · Расхождений: ${differences} · Неизвестных номеров: ${equipmentCheck.unknown.length}. ${equipmentCheck.dirty?'Есть несохранённые отметки.':equipmentCheck.draft.updated_at?'Сохранено: '+new Date(equipmentCheck.draft.updated_at).toLocaleString('ru-RU'):'Сверка ещё не сохранена.'}`;
+}
+function addUnknownEquipmentCheck(){
+  const inventory_number=document.getElementById('eq-check-unknown-inv').value.trim(),serial_number=document.getElementById('eq-check-unknown-sn').value.trim(),warehouse_id=document.getElementById('eq-check-unknown-wh').value,note=document.getElementById('eq-check-unknown-note').value.trim();
+  if((!inventory_number&&!serial_number)||!warehouse_id){showToast('Укажите хотя бы один номер и площадку',true);return;}
+  equipmentCheck.unknown.push({inventory_number,serial_number,warehouse_id,note});equipmentCheck.dirty=true;
+  for(const suffix of ['inv','sn','note'])document.getElementById('eq-check-unknown-'+suffix).value='';
+  renderUnknownEquipmentCheck();updateEquipmentCheckStatus();
+}
+function removeUnknownEquipmentCheck(index){equipmentCheck.unknown.splice(index,1);equipmentCheck.dirty=true;renderUnknownEquipmentCheck();updateEquipmentCheckStatus();}
+function renderUnknownEquipmentCheck(){
+  document.getElementById('eq-check-unknown-list').innerHTML=equipmentCheck.unknown.map((u,i)=>`<div style="padding:8px 0;font-size:12px">Инв. № ${esc(u.inventory_number||'—')} · Сер. № ${esc(u.serial_number||'—')} · ${esc(warehouses.find(w=>w.id===u.warehouse_id)?.name||u.warehouse_name||'—')} · ${esc(u.note)} <button class="btn btn-ghost" onclick="removeUnknownEquipmentCheck(${i})">Убрать из сверки</button></div>`).join('');
+}
+async function saveEquipmentCheck(){
+  if(!equipmentCheck||equipmentCheck.saving)return;
+  if(!equipmentCheck.dirty){showToast('Новых отметок нет');return;}
+  equipmentCheck.saving=true;
+  const modal=document.getElementById('eq-check-modal'),controls=[...modal.querySelectorAll('input,select,button')];controls.forEach(c=>c.disabled=true);
+  try{
+    const draft=await api('POST','/equipment-location-checks/current',{version:equipmentCheck.draft.version,observations:Object.values(equipmentCheck.changes),unknown_entries:equipmentCheck.unknown});
+    equipmentCheck.draft=draft;equipmentCheck.changes={};equipmentCheck.dirty=false;showToast('Сверка сохранена. Учёт оборудования не изменён.');
+    updateEquipmentCheckStatus();
+  }catch(e){document.getElementById('eq-check-status').textContent=e.message;showToast(e.message,true);}
+  finally{equipmentCheck.saving=false;controls.forEach(c=>c.disabled=false);}
+}
+window.addEventListener('beforeunload',e=>{if(equipmentCheck?.dirty){e.preventDefault();e.returnValue='';}});
+
+function transferLineDescription(line) {
+  let label = `${esc(line.item_name)}: ${fmtNum(line.quantity)} ${esc(line.unit || '')}`;
+  if (line.equipment_unit_id) {
+    const numbers = line.notes || `Инв. № ${line.inventory_number || 'не указан'} · Сер. № ${line.serial_number || 'не указан'}`;
+    label += `<div style="color:var(--accent2);font-size:12px">${esc(numbers)}</div>`;
+  } else if (line.item_type === 'equipment') {
+    label += '<div style="color:var(--rank2);font-size:12px">Номера экземпляров в этой старой заявке не указаны.</div>';
+  }
+  if (line.actual_quantity != null && Number(line.actual_quantity) !== Number(line.quantity)) label += `<div>Получено: ${fmtNum(line.actual_quantity)}</div>`;
+  return label;
+}
+
 function openTrModal() {
   trLineCount = 0;
   document.getElementById('tr-lines').innerHTML = '';
   document.getElementById('tr-notes').value = '';
   const whOpts = warehouses.filter(w => w.is_active).map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('tr-from').innerHTML = whOpts;
-  document.getElementById('tr-to').innerHTML = whOpts;
+  document.getElementById('tr-to').innerHTML = '<option value="">Выберите склад получения</option>' + whOpts;
   addTrLine();
   document.getElementById('tr-modal').classList.add('open');
 }
-
+function transferSourceChanged() {
+  document.querySelectorAll('#tr-lines > .tr-line').forEach(row => updateTrEquipment(row.dataset.line));
+}
+async function updateTrEquipment(n) {
+  const row = document.getElementById(`tr-line-${n}`);
+  if (!row) return;
+  const request = {};
+  row.equipmentRequest = request;
+  const host = document.getElementById(`tr-equipment-${n}`);
+  const qty = document.getElementById(`tr-qty-${n}`);
+  const itemId = document.getElementById(`tr-item-host-${n}`).querySelector('.ss-value')?.value;
+  const item = items.find(i => i.id === itemId);
+  const equipment = item?.item_type === 'equipment';
+  host.innerHTML = '';
+  host.style.display = equipment ? 'block' : 'none';
+  qty.readOnly = equipment;
+  qty.min = equipment ? '1' : '0.01';
+  qty.step = equipment ? '1' : '0.01';
+  if (!equipment) { if (row.dataset.equipment === 'true') qty.value = ''; row.dataset.equipment = 'false'; return; }
+  row.dataset.equipment = 'true';
+  qty.value = '1';
+  host.innerHTML = '<div style="font-size:12px;color:var(--text3)">Загрузка экземпляров со склада…</div>';
+  const from = document.getElementById('tr-from').value;
+  try {
+    const units = await api('GET', '/equipment?warehouse_id=' + encodeURIComponent(from) + '&item_id=' + encodeURIComponent(itemId));
+    if (!row.isConnected || row.equipmentRequest !== request) return;
+    const available = units.filter(u => u.warehouse_id === from && u.item_id === itemId && ['active','repair'].includes(u.status));
+    if (!available.length) {
+      host.innerHTML = '<div style="font-size:12px;color:var(--rank2)">На складе отправления нет доступных экземпляров этой модели. Проверьте склад и карточку оборудования.</div>';
+      return;
+    }
+    host.innerHTML = `<div class="fl">Конкретный экземпляр *</div><div class="tr-unit-select"></div><div class="tr-unit-confirmation" style="font-size:12px;color:var(--accent2);margin-top:6px;overflow-wrap:anywhere"></div><div style="font-size:11px;color:var(--text3);margin-top:5px">Введите инвентарный или серийный номер и выберите из списка. Для второго экземпляра добавьте ещё позицию.</div>`;
+    createSearchableSelect(host.querySelector('.tr-unit-select'), available.map(u => ({...u, name: `Инв. № ${u.inventory_number || 'не указан'} · Сер. № ${u.serial_number || 'не указан'}${u.status === 'repair' ? ' · В ремонте' : ''}`})), {placeholder: 'Поиск по инв. или серийному номеру…', onSelect: u => { host.querySelector('.tr-unit-confirmation').textContent = 'Выбрано: ' + u.name; }, onClear: () => { host.querySelector('.tr-unit-confirmation').textContent = ''; }});
+  } catch (e) {
+    if (!row.isConnected || row.equipmentRequest !== request) return;
+    host.innerHTML = `<div style="font-size:12px;color:var(--rank3)">${esc(e.message)}</div><button type="button" class="btn btn-ghost" onclick="updateTrEquipment(${Number(n)})">Повторить загрузку</button>`;
+  }
+}
 function addTrLine() {
   const n = trLineCount++;
   const div = document.createElement('div');
   div.id = `tr-line-${n}`;
-  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
+  div.className = 'tr-line';
+  div.dataset.line = n;
+  div.style.cssText = 'padding:12px;margin-bottom:10px;border:1px solid var(--border);border-radius:10px';
   div.innerHTML = `
-    <div id="tr-item-host-${n}"></div>
-    <input class="fin" type="number" id="tr-qty-${n}" placeholder="Кол-во" min="0.01" step="0.01" style="font-size:11px;width:80px"/>
-    <button class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить">×</button>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 24px;gap:6px;align-items:end">
+      <div><div class="fl">Позиция *</div><div id="tr-item-host-${n}"></div></div>
+      <div><div class="fl">Кол-во</div><input class="fin" type="number" id="tr-qty-${n}" aria-label="Количество" placeholder="Кол-во" min="0.01" step="0.01" style="font-size:12px;width:100%"/></div>
+      <button type="button" class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить позицию">×</button>
+    </div>
+    <div id="tr-equipment-${n}" style="display:none;margin-top:10px"></div>
   `;
   document.getElementById('tr-lines').appendChild(div);
   createSearchableSelect(document.getElementById(`tr-item-host-${n}`), items.filter(i => i.is_active !== false), {
-    extraLabel: i => `(${i.category || i.item_type || ''})`,
-    placeholder: 'Поиск позиции...',
-    onSelect: () => {},
+    extraLabel: i => i.item_type === 'equipment' ? '(оборудование)' : '(расходник)',
+    placeholder: 'Поиск модели или расходника…',
+    onSelect: () => updateTrEquipment(n),
+    onClear: () => updateTrEquipment(n),
   });
 }
-
 async function saveTransfer() {
+  const button = document.getElementById('tr-save');
+  if (button.disabled) return;
   const from_warehouse_id = document.getElementById('tr-from').value;
   const to_warehouse_id = document.getElementById('tr-to').value;
   if (!from_warehouse_id || !to_warehouse_id) { showToast('Выберите оба склада', true); return; }
   if (from_warehouse_id === to_warehouse_id) { showToast('Склады должны быть разными', true); return; }
-  const lines = [];
-  document.querySelectorAll('[id^="tr-line-"]').forEach(row => {
-    const n = row.id.split('-')[2];
-    const item_id = document.getElementById(`tr-line-${n}`)?.querySelector('.ss-value')?.value;
-    const qty = parseFloat(document.getElementById(`tr-qty-${n}`)?.value);
-    if (item_id && qty > 0) lines.push({ item_id, quantity: qty });
-  });
+  const lines = [], selected = new Set();
+  for (const row of document.querySelectorAll('#tr-lines > .tr-line')) {
+    const n = row.dataset.line;
+    const item_id = document.getElementById(`tr-item-host-${n}`).querySelector('.ss-value')?.value;
+    const item = items.find(i => i.id === item_id);
+    if (!item) { showToast('Выберите позицию из списка в каждой строке', true); return; }
+    if (item.item_type === 'equipment') {
+      const equipment_unit_id = document.getElementById(`tr-equipment-${n}`).querySelector('.ss-value')?.value;
+      if (!equipment_unit_id) { showToast('Выберите конкретный экземпляр оборудования по номеру', true); return; }
+      if (selected.has(equipment_unit_id)) { showToast('Один экземпляр выбран дважды. Удалите повторную строку.', true); return; }
+      selected.add(equipment_unit_id);
+      lines.push({item_id, equipment_unit_id, quantity:1});
+    } else {
+      const qty = Number(document.getElementById(`tr-qty-${n}`).value);
+      if (!Number.isFinite(qty) || qty <= 0) { showToast('Укажите положительное количество расходника', true); return; }
+      lines.push({item_id, quantity:qty});
+    }
+  }
   if (!lines.length) { showToast('Добавьте позиции', true); return; }
+  button.disabled = true;
   try {
     await api('POST', '/stock-transfers', {
       from_warehouse_id, to_warehouse_id,
-      notes: document.getElementById('tr-notes').value.trim() || null,
-      lines,
+      notes: document.getElementById('tr-notes').value.trim() || null, lines,
     });
     document.getElementById('tr-modal').classList.remove('open');
-    showToast('Перемещение создано');
+    showToast('Перемещение создано. Оборудование сменит склад после подтверждения получения.');
     if (currentTabIdx === 0) loadStockForecast();
     if (currentTabIdx === 4) loadStockTransfers();
     if (currentTabIdx === 5) loadMovements();
     loadSummary();
   } catch(e) { showToast(e.message, true); }
+  finally { button.disabled = false; }
 }
 
 async function confirmTransfer(id) {
-  if (!confirm('Подтвердить получение? Остатки будут обновлены на обоих складах.')) return;
+  if (!confirm('Подтвердить получение всех указанных позиций? Проверьте инвентарные и серийные номера оборудования. После подтверждения выбранные экземпляры и расходники будут перемещены.')) return;
   try {
     await api('POST', `/stock-transfers/${id}/confirm`);
     showToast('Перемещение подтверждено');
@@ -3798,7 +3964,7 @@ async function openTransferPeekByPrefix(prefRaw) {
     document.getElementById('tr-peek-title').textContent = 'Перемещение';
     document.getElementById('tr-peek-meta').innerHTML = `${esc(TR_STATUS_RU[d.status] || d.status)} · ${esc(d.from_warehouse_name || '')} → ${esc(d.to_warehouse_name || '')}${d.created_at ? ' · ' + new Date(d.created_at).toLocaleDateString('ru-RU') : ''}`;
     const lines = d.lines || [];
-    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
+    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${transferLineDescription(l)}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
     document.getElementById('tr-peek-modal').classList.add('open');
   } catch (e) { showToast(e.message, true); }
 }
@@ -4499,6 +4665,7 @@ async function loadEquipment() {
     let html = `<div class="section">
       <div class="section-title" style="flex-wrap:wrap;gap:8px">
         <span style="flex:1;min-width:0">🖨 Оборудование (${equip.length})</span>
+        <button class="btn btn-ghost" onclick="openEquipmentCheck()">Сверка оборудования</button>
         <button class="btn btn-ghost" id="btn-qr-scan-eq" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="openQrScanner()" title="Сканировать QR оборудования">📷 QR</button>
         <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;font-size:12px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>`;
@@ -6850,7 +7017,7 @@ async function deleteTechTask(id) {
 }
 
 function openMoveModal(){
-  createSearchableSelect(document.getElementById('mv-item-host'), items.filter(i => i.is_active !== false), {
+  createSearchableSelect(document.getElementById('mv-item-host'), items.filter(i => i.is_active !== false && i.item_type === 'consumable'), {
     extraLabel: i => `(${i.unit || 'шт'})`,
     placeholder: 'Поиск позиции...',
   });
