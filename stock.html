@@ -3660,26 +3660,29 @@ function createSearchableSelect(hostEl, itemsList, opts = {}) {
 
 let equipmentCheck = null;
 async function openEquipmentCheck() {
+  if (equipmentCheck?.saving) return;
   if (equipmentCheck?.dirty && !confirm('Открыть сохранённую сверку? Несохранённые отметки будут потеряны.')) return;
   try {
     const [units,draft] = await Promise.all([api('GET','/equipment'),api('GET','/equipment-location-checks/current')]);
-    equipmentCheck = {units:units.filter(u=>['active','repair'].includes(u.status)),draft:draft||{version:0,observations:{},unknown_entries:[]},changes:{},unknown:JSON.parse(JSON.stringify(draft?.unknown_entries||[])),dirty:false};
+    equipmentCheck = {units:units.filter(u=>['active','repair'].includes(u.status)),draft:draft||{version:0,observations:{},unknown_entries:[]},changes:{},unknown:JSON.parse(JSON.stringify(draft?.unknown_entries||[])),dirty:false,selected:new Set(),preview:null};
     document.getElementById('eq-check-modal')?.remove();
     const modal=document.createElement('div');modal.id='eq-check-modal';modal.className='overlay open';
     modal.onclick=e=>{if(e.target===modal)closeEquipmentCheck();};
-    const options=warehouses.filter(w=>w.is_active).map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
-    modal.innerHTML=`<div class="modal" style="max-width:1100px;width:100%;max-height:94vh;overflow:auto">
+    const options=warehouses.filter(w=>w.is_active).map(w=>'<option value="'+w.id+'">'+esc(w.name)+'</option>').join('');
+    modal.innerHTML=`<div class="modal" style="max-width:1180px;width:100%;max-height:94vh;overflow:auto">
       <div class="modal-title"><span>Сверка расположения оборудования</span><button class="dr-close" onclick="closeEquipmentCheck()">×</button></div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Найдите принтер по номеру и отметьте, где он находится фактически. Сохранение фиксирует результаты проверки; складские остатки и карточки оборудования не изменяются.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">1. Найдите оборудование и укажите фактическую площадку. 2. Сохраните отметки. 3. Выберите проверенные строки и примените их. Можно работать по одной площадке или по нескольким принтерам. Пустые строки, «не найдено» и неизвестные номера не изменяют учёт.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <input class="fin" id="eq-check-search" value="принтер" placeholder="Модель, инвентарный или серийный номер" aria-label="Поиск оборудования для сверки" oninput="renderEquipmentCheckRows()" style="flex:2;min-width:200px"/>
         <select class="fselect" id="eq-check-warehouse" aria-label="Площадка по учёту" onchange="renderEquipmentCheckRows()" style="flex:1;min-width:180px"><option value="">Все площадки по учёту</option>${options}</select>
-        <select class="fselect" id="eq-check-filter" aria-label="Результат проверки" onchange="renderEquipmentCheckRows()" style="flex:1;min-width:150px"><option value="all">Все результаты</option><option value="unchecked">Не проверено</option><option value="difference">Расхождения</option></select>
+        <select class="fselect" id="eq-check-filter" aria-label="Результат проверки" onchange="renderEquipmentCheckRows()" style="flex:1;min-width:150px"><option value="all">Все результаты</option><option value="unchecked">Не проверено</option><option value="difference">Расхождения</option><option value="ready">Готово к применению</option><option value="applied">Применено</option></select>
       </div>
       <div id="eq-check-status" role="status" style="font-size:12px;color:var(--accent2);margin:10px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-ghost" id="eq-check-select-visible" onclick="selectVisibleEquipmentChecks()">Выбрать проверенные в этом списке</button><button class="btn btn-ghost" onclick="clearEquipmentCheckSelection()">Снять выбор</button></div>
       <div id="eq-check-rows"></div>
+      <div id="eq-check-preview" aria-live="polite"></div>
       <details style="margin-top:18px;padding:12px;border:1px solid var(--border);border-radius:10px"><summary style="cursor:pointer">Нашли оборудование, которого нет в списке?</summary>
-        <p style="font-size:12px;color:var(--text2);margin:10px 0">Запишите номер с наклейки. Это запись для выяснения — новое оборудование в учёте не создаётся.</p>
+        <p style="font-size:12px;color:var(--text2);margin:10px 0">Запишите номер с наклейки. Это запись для выяснения — новое оборудование в учёте не создаётся. Сначала сопоставьте номер с существующей карточкой.</p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <input class="fin" id="eq-check-unknown-inv" placeholder="Инвентарный номер" aria-label="Неизвестный инвентарный номер"/>
           <input class="fin" id="eq-check-unknown-sn" placeholder="Серийный номер" aria-label="Неизвестный серийный номер"/>
@@ -3688,7 +3691,8 @@ async function openEquipmentCheck() {
           <button class="btn btn-ghost" onclick="addUnknownEquipmentCheck()">Записать найденное</button>
         </div><div id="eq-check-unknown-list"></div>
       </details>
-      <div class="modal-footer"><button class="btn btn-ghost" onclick="closeEquipmentCheck()">Закрыть</button><button class="btn btn-primary" id="eq-check-save" onclick="saveEquipmentCheck()">Сохранить сверку</button></div>
+      <details style="margin:14px 0" ontoggle="if(this.open)loadEquipmentCheckHistory()"><summary style="cursor:pointer">История применения — последние 30 блоков</summary><div id="eq-check-history" style="font-size:12px;margin-top:10px"></div></details>
+      <div class="modal-footer" style="position:sticky;bottom:0;background:var(--bg2);padding:12px 0;z-index:2;flex-wrap:wrap"><button class="btn btn-ghost" onclick="closeEquipmentCheck()">Закрыть</button><button class="btn btn-primary" id="eq-check-save" onclick="saveEquipmentCheck()">Сохранить отметки</button><button class="btn btn-primary" id="eq-check-preview-btn" onclick="previewEquipmentChecks()">Проверить выбранные (0)</button></div>
     </div>`;
     document.body.appendChild(modal);renderEquipmentCheckRows();renderUnknownEquipmentCheck();
   } catch(e) {showToast(e.message,true);}
@@ -3699,44 +3703,80 @@ function closeEquipmentCheck(){
   document.getElementById('eq-check-modal')?.remove();equipmentCheck=null;
 }
 function equipmentObservation(unit){return equipmentCheck.changes[unit.id]||equipmentCheck.draft.observations[unit.id]||{state:'unchecked',note:''};}
-function equipmentCheckDifference(unit,observation){return observation.state==='missing'||(observation.state==='found'&&observation.observed_warehouse_id!==unit.warehouse_id);}
+function equipmentCheckDifference(unit,o){return !o.applied_at&&(o.state==='missing'||(o.state==='found'&&o.observed_warehouse_id!==unit.warehouse_id));}
+function equipmentCheckEligible(unit,o){
+  return o.state==='found'&&!o.applied_at&&!!o.expected_revision&&o.expected_revision===unit.location_revision&&o.expected_warehouse_id===unit.warehouse_id;
+}
+function visibleEquipmentChecks(){
+  const q=document.getElementById('eq-check-search').value.trim().toLowerCase(),wh=document.getElementById('eq-check-warehouse').value,filter=document.getElementById('eq-check-filter').value;
+  return equipmentCheck.units.filter(u=>{
+    const o=equipmentObservation(u);
+    return (!q||[u.item_name,u.inventory_number,u.serial_number].some(x=>String(x||'').toLowerCase().includes(q)))&&(!wh||u.warehouse_id===wh)&&
+      (filter==='all'||(filter==='unchecked'?o.state==='unchecked':filter==='ready'?equipmentCheckEligible(u,o):filter==='applied'?!!o.applied_at:equipmentCheckDifference(u,o)));
+  });
+}
+function invalidateEquipmentCheckPreview(){
+  equipmentCheck.preview=null;
+  const host=document.getElementById('eq-check-preview');if(host)host.innerHTML='';
+}
 function renderEquipmentCheckRows(){
   if(!equipmentCheck)return;
-  const q=document.getElementById('eq-check-search').value.trim().toLowerCase(),wh=document.getElementById('eq-check-warehouse').value,filter=document.getElementById('eq-check-filter').value;
-  const units=equipmentCheck.units.filter(u=>(!q||[u.item_name,u.inventory_number,u.serial_number].some(x=>String(x||'').toLowerCase().includes(q)))&&(!wh||u.warehouse_id===wh)&& (filter==='all'||(filter==='unchecked'?equipmentObservation(u).state==='unchecked':equipmentCheckDifference(u,equipmentObservation(u)))));
-  const options=warehouses.filter(w=>w.is_active);
-  document.getElementById('eq-check-rows').innerHTML=units.length?`<div style="overflow:auto"><table class="tbl" style="min-width:760px"><thead><tr><th>Оборудование и номера</th><th>Сейчас по учёту</th><th>Фактически / результат проверки</th><th>Комментарий</th></tr></thead><tbody>${units.map(u=>{
-    const o=equipmentObservation(u),value=o.state==='missing'?'missing':o.state==='found'?o.observed_warehouse_id:'';
-    return `<tr><td><div>${esc(u.item_name)}</div><div style="color:var(--accent2)">Инв. № ${esc(u.inventory_number||'не указан')}</div><div style="font-size:11px;color:var(--text2)">Сер. № ${esc(u.serial_number||'не указан')}</div></td>
-      <td>${esc(u.warehouse_name||'Без склада')}${equipmentCheckDifference(u,o)?'<div style="color:var(--rank2);margin-top:5px">Расхождение</div>':''}</td>
-      <td><select class="fselect" aria-label="Фактическое расположение ${esc(u.inventory_number||u.id)}" onchange="setEquipmentObservation('${u.id}',this.value)"><option value="" ${!value?'selected':''}>Не проверено</option><option value="missing" ${value==='missing'?'selected':''}>Не найдено при проверке</option>${options.map(w=>`<option value="${w.id}" ${value===w.id?'selected':''}>Найдено: ${esc(w.name)}</option>`).join('')}</select></td>
+  invalidateEquipmentCheckPreview();
+  const units=visibleEquipmentChecks(),options=warehouses.filter(w=>w.is_active);
+  equipmentCheck.selected=new Set([...equipmentCheck.selected].filter(id=>!equipmentCheck.dirty&&units.some(u=>u.id===id&&equipmentCheckEligible(u,equipmentObservation(u)))));
+  document.getElementById('eq-check-rows').innerHTML=units.length?`<div style="overflow:auto"><table class="tbl" style="min-width:850px"><thead><tr><th>Применить</th><th>Оборудование и номера</th><th>Сейчас по учёту</th><th>Фактически / результат проверки</th><th>Комментарий</th></tr></thead><tbody>${units.map(u=>{
+    const o=equipmentObservation(u),value=o.state==='missing'?'missing':o.state==='found'?o.observed_warehouse_id:'',ready=equipmentCheckEligible(u,o);
+    const status=o.applied_at?'Применено '+new Date(o.applied_at).toLocaleString('ru-RU'):o.state==='found'&&!ready?'Нужно проверить заново':equipmentCheckDifference(u,o)?'Расхождение':'';
+    return `<tr><td><input type="checkbox" aria-label="Применить ${esc(u.inventory_number||u.id)}" ${equipmentCheck.selected.has(u.id)?'checked':''} ${equipmentCheck.dirty||!ready?'disabled':''} onchange="toggleEquipmentCheckSelection('${u.id}',this.checked)"/></td>
+      <td><div>${esc(u.item_name)}</div><div style="color:var(--accent2)">Инв. № ${esc(u.inventory_number||'не указан')}</div><div style="font-size:11px;color:var(--text2)">Сер. № ${esc(u.serial_number||'не указан')}</div></td>
+      <td>${esc(u.warehouse_name||'Без склада')}<div style="font-size:11px;color:var(--rank2);margin-top:5px">${esc(status)}</div></td>
+      <td><select class="fselect" aria-label="Фактическое расположение ${esc(u.inventory_number||u.id)}" onchange="setEquipmentObservation('${u.id}',this.value)"><option value="" ${!value?'selected':''}>Не проверено</option><option value="missing" ${value==='missing'?'selected':''}>Не найдено при проверке</option>${options.map(w=>`<option value="${w.id}" ${value===w.id?'selected':''}>Найдено: ${esc(w.name)}</option>`).join('')}</select>
+      ${o.state==='found'&&(o.applied_at||!ready)?`<button class="btn btn-ghost" style="font-size:11px;margin-top:6px" onclick="recheckEquipmentObservation('${u.id}')">Проверить строку заново</button>`:''}</td>
       <td><input class="fin" aria-label="Комментарий ${esc(u.inventory_number||u.id)}" placeholder="Что нужно уточнить" value="${esc(o.note||'')}" maxlength="500" oninput="setEquipmentCheckNote('${u.id}',this.value)"/></td></tr>`;
   }).join('')}</tbody></table></div>`:'<p style="padding:16px;color:var(--text2)">Нет совпадений. Очистите поиск или выберите все площадки. Если номер не найден — запишите его ниже.</p>';
   updateEquipmentCheckStatus();
 }
 function setEquipmentObservation(unitId,value){
   const unit=equipmentCheck.units.find(u=>u.id===unitId),previous=equipmentObservation(unit);
-  equipmentCheck.changes[unitId]={equipment_unit_id:unitId,state:value==='missing'?'missing':value?'found':'unchecked',observed_warehouse_id:value&&value!=='missing'?value:null,note:previous.note||''};
+  equipmentCheck.changes[unitId]={equipment_unit_id:unitId,state:value==='missing'?'missing':value?'found':'unchecked',observed_warehouse_id:value&&value!=='missing'?value:null,note:previous.note||'',expected_warehouse_id:unit.warehouse_id,expected_revision:unit.location_revision,recheck:true};
   equipmentCheck.dirty=true;renderEquipmentCheckRows();
 }
+function recheckEquipmentObservation(id){setEquipmentObservation(id,equipmentObservation(equipmentCheck.units.find(u=>u.id===id)).observed_warehouse_id);}
 function setEquipmentCheckNote(unitId,note){
   const unit=equipmentCheck.units.find(u=>u.id===unitId);
   equipmentCheck.changes[unitId]={...equipmentObservation(unit),equipment_unit_id:unitId,note};
-  equipmentCheck.dirty=true;updateEquipmentCheckStatus();
+  equipmentCheck.dirty=true;equipmentCheck.selected.clear();invalidateEquipmentCheckPreview();updateEquipmentCheckStatus();
 }
+function toggleEquipmentCheckSelection(id,checked){
+  if(equipmentCheck.dirty||equipmentCheck.saving)return;
+  const unit=equipmentCheck.units.find(u=>u.id===id);
+  if(!unit||!equipmentCheckEligible(unit,equipmentObservation(unit)))return;
+  checked?equipmentCheck.selected.add(id):equipmentCheck.selected.delete(id);
+  invalidateEquipmentCheckPreview();updateEquipmentCheckStatus();
+}
+function selectVisibleEquipmentChecks(){
+  if(equipmentCheck.dirty||equipmentCheck.saving)return;
+  equipmentCheck.selected=new Set(visibleEquipmentChecks().filter(u=>equipmentCheckEligible(u,equipmentObservation(u))).map(u=>u.id));renderEquipmentCheckRows();
+}
+function clearEquipmentCheckSelection(){equipmentCheck.selected.clear();renderEquipmentCheckRows();}
 function updateEquipmentCheckStatus(){
   const checked=equipmentCheck.units.filter(u=>equipmentObservation(u).state!=='unchecked').length;
   const differences=equipmentCheck.units.filter(u=>equipmentCheckDifference(u,equipmentObservation(u))).length;
-  document.getElementById('eq-check-status').textContent=`Проверено: ${checked} · Расхождений: ${differences} · Неизвестных номеров: ${equipmentCheck.unknown.length}. ${equipmentCheck.dirty?'Есть несохранённые отметки.':equipmentCheck.draft.updated_at?'Сохранено: '+new Date(equipmentCheck.draft.updated_at).toLocaleString('ru-RU'):'Сверка ещё не сохранена.'}`;
+  const applied=equipmentCheck.units.filter(u=>equipmentObservation(u).applied_at).length;
+  document.getElementById('eq-check-status').textContent=`Проверено: ${checked} · Применено: ${applied} · Расхождений: ${differences} · Неизвестных номеров: ${equipmentCheck.unknown.length}. ${equipmentCheck.dirty?'Есть несохранённые отметки — сначала сохраните их.':equipmentCheck.draft.updated_at?'Сохранено: '+new Date(equipmentCheck.draft.updated_at).toLocaleString('ru-RU'):'Сверка ещё не сохранена.'}`;
+  const btn=document.getElementById('eq-check-preview-btn');
+  if(btn){btn.textContent='Проверить выбранные ('+equipmentCheck.selected.size+')';btn.disabled=!!equipmentCheck.saving||equipmentCheck.dirty||!equipmentCheck.selected.size;}
+  const select=document.getElementById('eq-check-select-visible');if(select)select.disabled=!!equipmentCheck.saving||equipmentCheck.dirty;
+  if(equipmentCheck.dirty)document.querySelectorAll('#eq-check-rows input[type="checkbox"]').forEach(c=>c.disabled=true);
 }
 function addUnknownEquipmentCheck(){
   const inventory_number=document.getElementById('eq-check-unknown-inv').value.trim(),serial_number=document.getElementById('eq-check-unknown-sn').value.trim(),warehouse_id=document.getElementById('eq-check-unknown-wh').value,note=document.getElementById('eq-check-unknown-note').value.trim();
   if((!inventory_number&&!serial_number)||!warehouse_id){showToast('Укажите хотя бы один номер и площадку',true);return;}
   equipmentCheck.unknown.push({inventory_number,serial_number,warehouse_id,note});equipmentCheck.dirty=true;
   for(const suffix of ['inv','sn','note'])document.getElementById('eq-check-unknown-'+suffix).value='';
-  renderUnknownEquipmentCheck();updateEquipmentCheckStatus();
+  renderUnknownEquipmentCheck();renderEquipmentCheckRows();
 }
-function removeUnknownEquipmentCheck(index){equipmentCheck.unknown.splice(index,1);equipmentCheck.dirty=true;renderUnknownEquipmentCheck();updateEquipmentCheckStatus();}
+function removeUnknownEquipmentCheck(index){equipmentCheck.unknown.splice(index,1);equipmentCheck.dirty=true;renderUnknownEquipmentCheck();renderEquipmentCheckRows();}
 function renderUnknownEquipmentCheck(){
   document.getElementById('eq-check-unknown-list').innerHTML=equipmentCheck.unknown.map((u,i)=>`<div style="padding:8px 0;font-size:12px">Инв. № ${esc(u.inventory_number||'—')} · Сер. № ${esc(u.serial_number||'—')} · ${esc(warehouses.find(w=>w.id===u.warehouse_id)?.name||u.warehouse_name||'—')} · ${esc(u.note)} <button class="btn btn-ghost" onclick="removeUnknownEquipmentCheck(${i})">Убрать из сверки</button></div>`).join('');
 }
@@ -3747,12 +3787,51 @@ async function saveEquipmentCheck(){
   const modal=document.getElementById('eq-check-modal'),controls=[...modal.querySelectorAll('input,select,button')];controls.forEach(c=>c.disabled=true);
   try{
     const draft=await api('POST','/equipment-location-checks/current',{version:equipmentCheck.draft.version,observations:Object.values(equipmentCheck.changes),unknown_entries:equipmentCheck.unknown});
-    equipmentCheck.draft=draft;equipmentCheck.changes={};equipmentCheck.dirty=false;showToast('Сверка сохранена. Учёт оборудования не изменён.');
-    updateEquipmentCheckStatus();
-  }catch(e){document.getElementById('eq-check-status').textContent=e.message;showToast(e.message,true);}
-  finally{equipmentCheck.saving=false;controls.forEach(c=>c.disabled=false);}
+    equipmentCheck.draft=draft;equipmentCheck.changes={};equipmentCheck.dirty=false;showToast('Отметки сохранены. Теперь выберите проверенные строки для применения.');
+  }catch(e){showToast(e.message,true);}
+  finally{equipmentCheck.saving=false;controls.forEach(c=>c.disabled=false);renderEquipmentCheckRows();}
 }
-window.addEventListener('beforeunload',e=>{if(equipmentCheck?.dirty){e.preventDefault();e.returnValue='';}});
+function equipmentCheckEntriesHtml(entries){
+  return '<ul style="margin:10px 0;padding-left:22px">'+entries.map(e=>'<li style="margin:8px 0">'+esc(e.item_name)+' · Инв. № '+esc(e.inventory_number||'—')+' · Сер. № '+esc(e.serial_number||'—')+'<br><strong>'+esc(e.from_warehouse_name)+' → '+esc(e.to_warehouse_name)+'</strong>'+(e.changed?'':' — расположение уже верное, только подтверждение проверки')+'</li>').join('')+'</ul>';
+}
+async function previewEquipmentChecks(){
+  if(!equipmentCheck||equipmentCheck.saving||equipmentCheck.dirty||!equipmentCheck.selected.size)return;
+  equipmentCheck.saving=true;updateEquipmentCheckStatus();
+  const controls=[...document.getElementById('eq-check-modal').querySelectorAll('input,select,button')].map(node=>({node,disabled:node.disabled}));controls.forEach(c=>c.node.disabled=true);
+  const body={version:equipmentCheck.draft.version,equipment_unit_ids:[...equipmentCheck.selected]};
+  try{
+    const preview=await api('POST','/equipment-location-checks/current/preview',body);
+    equipmentCheck.preview={...body,entries:preview.entries};
+    const host=document.getElementById('eq-check-preview');
+    host.innerHTML='<div style="margin-top:14px;padding:14px;border:1px solid var(--accent);border-radius:12px"><strong>Будут применены только эти строки: '+preview.entries.length+'</strong>'+equipmentCheckEntriesHtml(preview.entries)+'<p style="font-size:12px;margin:12px 0">Изменится площадка указанных карточек. Количество оборудования в целом и расходники сохранятся. Остальные строки сверки не применяются.</p><button class="btn btn-primary" onclick="applyEquipmentChecks()">Применить проверенные исправления</button></div>';
+    host.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }catch(e){invalidateEquipmentCheckPreview();showToast(e.message,true);}
+  finally{equipmentCheck.saving=false;controls.forEach(c=>c.node.disabled=c.disabled);updateEquipmentCheckStatus();}
+}
+async function applyEquipmentChecks(){
+  if(!equipmentCheck||equipmentCheck.saving||equipmentCheck.dirty||!equipmentCheck.preview)return;
+  const body={version:equipmentCheck.preview.version,equipment_unit_ids:[...equipmentCheck.preview.equipment_unit_ids]};
+  equipmentCheck.saving=true;
+  const controls=[...document.getElementById('eq-check-modal').querySelectorAll('input,select,button')];controls.forEach(c=>c.disabled=true);
+  try{
+    const result=await api('POST','/equipment-location-checks/current/apply',body);
+    equipmentCheck.draft=result.draft;equipmentCheck.selected.clear();invalidateEquipmentCheckPreview();
+    // Reflect the committed result even if a subsequent refresh loses connectivity.
+    for(const entry of result.entries){const unit=equipmentCheck.units.find(u=>u.id===entry.equipment_unit_id);if(unit){unit.warehouse_id=entry.to_warehouse_id;unit.warehouse_name=entry.to_warehouse_name;if(entry.changed)unit.location_revision=null;}}
+    showToast('Применено строк: '+result.entries.length+'. Остальные записи не изменены.');
+    try{equipmentCheck.units=(await api('GET','/equipment')).filter(u=>['active','repair'].includes(u.status));}catch(e){showToast('Исправления применены. Для обновления списка откройте сверку заново.',true);}
+    loadSummary();loadEquipmentCheckHistory();
+    if(typeof currentTabIdx==='number'&&currentTabIdx===7)loadEquipment();
+  }catch(e){invalidateEquipmentCheckPreview();showToast(e.message+' Откройте сверку заново, чтобы проверить результат перед повтором.',true);}
+  finally{equipmentCheck.saving=false;controls.forEach(c=>c.disabled=false);renderEquipmentCheckRows();}
+}
+async function loadEquipmentCheckHistory(){
+  const host=document.getElementById('eq-check-history');if(!host)return;
+  host.textContent='Загрузка истории…';
+  try{const history=await api('GET','/equipment-location-checks/current/history');host.innerHTML=history.length?history.map(h=>'<details style="padding:8px;border-bottom:1px solid var(--border)"><summary>'+esc(new Date(h.created_at).toLocaleString('ru-RU'))+' · '+esc(h.actor_name||'Сотрудник')+' · Строк: '+h.entries.length+'</summary>'+equipmentCheckEntriesHtml(h.entries)+'</details>').join(''):'Применённых исправлений пока нет.';}
+  catch(e){host.textContent=e.message;}
+}
+window.addEventListener('beforeunload',e=>{if(equipmentCheck?.dirty||equipmentCheck?.saving){e.preventDefault();e.returnValue='';}});
 
 function transferLineDescription(line) {
   let label = `${esc(line.item_name)}: ${fmtNum(line.quantity)} ${esc(line.unit || '')}`;
