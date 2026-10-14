@@ -309,7 +309,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 <!-- Movement modal -->
 <div class="overlay" id="move-modal" onclick="if(event.target===this)safeCloseModal('move-modal')">
 <div class="modal">
-  <div class="modal-title"><span>Новое движение</span><button class="dr-close" onclick="safeCloseModal('move-modal')">×</button></div>
+  <div class="modal-title"><span>Движение расходников</span><button class="dr-close" onclick="safeCloseModal('move-modal')">×</button></div>
   <div class="field"><div class="fl">Тип *</div>
     <select class="fselect" id="mv-type" onchange="updateMoveFields()">
       <option value="purchase">Закупка</option>
@@ -454,9 +454,9 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 
 <!-- Transfer Modal -->
 <div class="overlay" id="tr-modal" onclick="if(event.target===this)safeCloseModal('tr-modal')">
-<div class="modal" style="max-width:520px">
+<div class="modal" style="max-width:620px">
   <div class="modal-title"><span>Перемещение между складами</span><button class="dr-close" onclick="safeCloseModal('tr-modal')">×</button></div>
-  <div class="field"><div class="fl">Со склада *</div><select class="fselect" id="tr-from"></select></div>
+  <div class="field"><div class="fl">Со склада *</div><select class="fselect" id="tr-from" onchange="transferSourceChanged()"></select></div>
   <div class="field"><div class="fl">На склад *</div><select class="fselect" id="tr-to"></select></div>
   <div class="field"><div class="fl">Заметки</div><input class="fin" id="tr-notes" placeholder="Причина перемещения..."/></div>
   <div style="margin:10px 0 6px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Позиции</div>
@@ -464,7 +464,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:12px" onclick="addTrLine()">+ Добавить позицию</button>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="safeCloseModal('tr-modal')">Отмена</button>
-    <button class="btn btn-primary" onclick="saveTransfer()">Создать перемещение</button>
+    <button class="btn btn-primary" id="tr-save" onclick="saveTransfer()">Создать перемещение</button>
   </div>
 </div>
 </div>
@@ -1844,7 +1844,7 @@ async function toggleTransferExpand(id) {
     const html = `<div style="padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)" onclick="event.stopPropagation()">
       <div style="font-weight:600;margin-bottom:8px;font-size:12px">Позиции</div>
       <ul style="font-size:12px;color:var(--text2);margin-left:18px;line-height:1.55;list-style:disc">
-        ${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}
+        ${lines.length ? lines.map(l => `<li>${transferLineDescription(l)}</li>`).join('') : '<li>Нет строк</li>'}
       </ul>
       ${pending ? actions : '<div style="font-size:12px;color:var(--text3);margin-top:8px">Только просмотр</div>'}
     </div>`;
@@ -3615,6 +3615,7 @@ function createSearchableSelect(hostEl, itemsList, opts = {}) {
 
   input.addEventListener('input', () => {
     hidden.value = '';
+    if (opts.onClear) opts.onClear();
     renderOptions(input.value);
     dropdown.classList.add('open');
   });
@@ -3656,65 +3657,133 @@ function createSearchableSelect(hostEl, itemsList, opts = {}) {
   return wrap;
 }
 
+function transferLineDescription(line) {
+  let label = `${esc(line.item_name)}: ${fmtNum(line.quantity)} ${esc(line.unit || '')}`;
+  if (line.equipment_unit_id) {
+    const numbers = line.notes || `Инв. № ${line.inventory_number || 'не указан'} · Сер. № ${line.serial_number || 'не указан'}`;
+    label += `<div style="color:var(--accent2);font-size:12px">${esc(numbers)}</div>`;
+  } else if (line.item_type === 'equipment') {
+    label += '<div style="color:var(--rank2);font-size:12px">Номера экземпляров в этой старой заявке не указаны.</div>';
+  }
+  if (line.actual_quantity != null && Number(line.actual_quantity) !== Number(line.quantity)) label += `<div>Получено: ${fmtNum(line.actual_quantity)}</div>`;
+  return label;
+}
+
 function openTrModal() {
   trLineCount = 0;
   document.getElementById('tr-lines').innerHTML = '';
   document.getElementById('tr-notes').value = '';
   const whOpts = warehouses.filter(w => w.is_active).map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
   document.getElementById('tr-from').innerHTML = whOpts;
-  document.getElementById('tr-to').innerHTML = whOpts;
+  document.getElementById('tr-to').innerHTML = '<option value="">Выберите склад получения</option>' + whOpts;
   addTrLine();
   document.getElementById('tr-modal').classList.add('open');
 }
-
+function transferSourceChanged() {
+  document.querySelectorAll('#tr-lines > .tr-line').forEach(row => updateTrEquipment(row.dataset.line));
+}
+async function updateTrEquipment(n) {
+  const row = document.getElementById(`tr-line-${n}`);
+  if (!row) return;
+  const request = {};
+  row.equipmentRequest = request;
+  const host = document.getElementById(`tr-equipment-${n}`);
+  const qty = document.getElementById(`tr-qty-${n}`);
+  const itemId = document.getElementById(`tr-item-host-${n}`).querySelector('.ss-value')?.value;
+  const item = items.find(i => i.id === itemId);
+  const equipment = item?.item_type === 'equipment';
+  host.innerHTML = '';
+  host.style.display = equipment ? 'block' : 'none';
+  qty.readOnly = equipment;
+  qty.min = equipment ? '1' : '0.01';
+  qty.step = equipment ? '1' : '0.01';
+  if (!equipment) { if (row.dataset.equipment === 'true') qty.value = ''; row.dataset.equipment = 'false'; return; }
+  row.dataset.equipment = 'true';
+  qty.value = '1';
+  host.innerHTML = '<div style="font-size:12px;color:var(--text3)">Загрузка экземпляров со склада…</div>';
+  const from = document.getElementById('tr-from').value;
+  try {
+    const units = await api('GET', '/equipment?warehouse_id=' + encodeURIComponent(from) + '&item_id=' + encodeURIComponent(itemId));
+    if (!row.isConnected || row.equipmentRequest !== request) return;
+    const available = units.filter(u => u.warehouse_id === from && u.item_id === itemId && ['active','repair'].includes(u.status));
+    if (!available.length) {
+      host.innerHTML = '<div style="font-size:12px;color:var(--rank2)">На складе отправления нет доступных экземпляров этой модели. Проверьте склад и карточку оборудования.</div>';
+      return;
+    }
+    host.innerHTML = `<div class="fl">Конкретный экземпляр *</div><div class="tr-unit-select"></div><div class="tr-unit-confirmation" style="font-size:12px;color:var(--accent2);margin-top:6px;overflow-wrap:anywhere"></div><div style="font-size:11px;color:var(--text3);margin-top:5px">Введите инвентарный или серийный номер и выберите из списка. Для второго экземпляра добавьте ещё позицию.</div>`;
+    createSearchableSelect(host.querySelector('.tr-unit-select'), available.map(u => ({...u, name: `Инв. № ${u.inventory_number || 'не указан'} · Сер. № ${u.serial_number || 'не указан'}${u.status === 'repair' ? ' · В ремонте' : ''}`})), {placeholder: 'Поиск по инв. или серийному номеру…', onSelect: u => { host.querySelector('.tr-unit-confirmation').textContent = 'Выбрано: ' + u.name; }, onClear: () => { host.querySelector('.tr-unit-confirmation').textContent = ''; }});
+  } catch (e) {
+    if (!row.isConnected || row.equipmentRequest !== request) return;
+    host.innerHTML = `<div style="font-size:12px;color:var(--rank3)">${esc(e.message)}</div><button type="button" class="btn btn-ghost" onclick="updateTrEquipment(${Number(n)})">Повторить загрузку</button>`;
+  }
+}
 function addTrLine() {
   const n = trLineCount++;
   const div = document.createElement('div');
   div.id = `tr-line-${n}`;
-  div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 24px;gap:6px;align-items:center;margin-bottom:6px';
+  div.className = 'tr-line';
+  div.dataset.line = n;
+  div.style.cssText = 'padding:12px;margin-bottom:10px;border:1px solid var(--border);border-radius:10px';
   div.innerHTML = `
-    <div id="tr-item-host-${n}"></div>
-    <input class="fin" type="number" id="tr-qty-${n}" placeholder="Кол-во" min="0.01" step="0.01" style="font-size:11px;width:80px"/>
-    <button class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить">×</button>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 24px;gap:6px;align-items:end">
+      <div><div class="fl">Позиция *</div><div id="tr-item-host-${n}"></div></div>
+      <div><div class="fl">Кол-во</div><input class="fin" type="number" id="tr-qty-${n}" aria-label="Количество" placeholder="Кол-во" min="0.01" step="0.01" style="font-size:12px;width:100%"/></div>
+      <button type="button" class="dr-close" onclick="document.getElementById('tr-line-${n}').remove()" title="Удалить позицию">×</button>
+    </div>
+    <div id="tr-equipment-${n}" style="display:none;margin-top:10px"></div>
   `;
   document.getElementById('tr-lines').appendChild(div);
   createSearchableSelect(document.getElementById(`tr-item-host-${n}`), items.filter(i => i.is_active !== false), {
-    extraLabel: i => `(${i.category || i.item_type || ''})`,
-    placeholder: 'Поиск позиции...',
-    onSelect: () => {},
+    extraLabel: i => i.item_type === 'equipment' ? '(оборудование)' : '(расходник)',
+    placeholder: 'Поиск модели или расходника…',
+    onSelect: () => updateTrEquipment(n),
+    onClear: () => updateTrEquipment(n),
   });
 }
-
 async function saveTransfer() {
+  const button = document.getElementById('tr-save');
+  if (button.disabled) return;
   const from_warehouse_id = document.getElementById('tr-from').value;
   const to_warehouse_id = document.getElementById('tr-to').value;
   if (!from_warehouse_id || !to_warehouse_id) { showToast('Выберите оба склада', true); return; }
   if (from_warehouse_id === to_warehouse_id) { showToast('Склады должны быть разными', true); return; }
-  const lines = [];
-  document.querySelectorAll('[id^="tr-line-"]').forEach(row => {
-    const n = row.id.split('-')[2];
-    const item_id = document.getElementById(`tr-line-${n}`)?.querySelector('.ss-value')?.value;
-    const qty = parseFloat(document.getElementById(`tr-qty-${n}`)?.value);
-    if (item_id && qty > 0) lines.push({ item_id, quantity: qty });
-  });
+  const lines = [], selected = new Set();
+  for (const row of document.querySelectorAll('#tr-lines > .tr-line')) {
+    const n = row.dataset.line;
+    const item_id = document.getElementById(`tr-item-host-${n}`).querySelector('.ss-value')?.value;
+    const item = items.find(i => i.id === item_id);
+    if (!item) { showToast('Выберите позицию из списка в каждой строке', true); return; }
+    if (item.item_type === 'equipment') {
+      const equipment_unit_id = document.getElementById(`tr-equipment-${n}`).querySelector('.ss-value')?.value;
+      if (!equipment_unit_id) { showToast('Выберите конкретный экземпляр оборудования по номеру', true); return; }
+      if (selected.has(equipment_unit_id)) { showToast('Один экземпляр выбран дважды. Удалите повторную строку.', true); return; }
+      selected.add(equipment_unit_id);
+      lines.push({item_id, equipment_unit_id, quantity:1});
+    } else {
+      const qty = Number(document.getElementById(`tr-qty-${n}`).value);
+      if (!Number.isFinite(qty) || qty <= 0) { showToast('Укажите положительное количество расходника', true); return; }
+      lines.push({item_id, quantity:qty});
+    }
+  }
   if (!lines.length) { showToast('Добавьте позиции', true); return; }
+  button.disabled = true;
   try {
     await api('POST', '/stock-transfers', {
       from_warehouse_id, to_warehouse_id,
-      notes: document.getElementById('tr-notes').value.trim() || null,
-      lines,
+      notes: document.getElementById('tr-notes').value.trim() || null, lines,
     });
     document.getElementById('tr-modal').classList.remove('open');
-    showToast('Перемещение создано');
+    showToast('Перемещение создано. Оборудование сменит склад после подтверждения получения.');
     if (currentTabIdx === 0) loadStockForecast();
     if (currentTabIdx === 4) loadStockTransfers();
     if (currentTabIdx === 5) loadMovements();
     loadSummary();
   } catch(e) { showToast(e.message, true); }
+  finally { button.disabled = false; }
 }
 
 async function confirmTransfer(id) {
-  if (!confirm('Подтвердить получение? Остатки будут обновлены на обоих складах.')) return;
+  if (!confirm('Подтвердить получение всех указанных позиций? Проверьте инвентарные и серийные номера оборудования. После подтверждения выбранные экземпляры и расходники будут перемещены.')) return;
   try {
     await api('POST', `/stock-transfers/${id}/confirm`);
     showToast('Перемещение подтверждено');
@@ -3798,7 +3867,7 @@ async function openTransferPeekByPrefix(prefRaw) {
     document.getElementById('tr-peek-title').textContent = 'Перемещение';
     document.getElementById('tr-peek-meta').innerHTML = `${esc(TR_STATUS_RU[d.status] || d.status)} · ${esc(d.from_warehouse_name || '')} → ${esc(d.to_warehouse_name || '')}${d.created_at ? ' · ' + new Date(d.created_at).toLocaleDateString('ru-RU') : ''}`;
     const lines = d.lines || [];
-    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${esc(l.item_name)}: ${fmtNum(l.quantity)} ${esc(l.unit || '')}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
+    document.getElementById('tr-peek-body').innerHTML = `<ul style="margin:0;padding-left:18px;line-height:1.5;font-size:12px;color:var(--text2)">${lines.length ? lines.map(l => `<li>${transferLineDescription(l)}</li>`).join('') : '<li>Нет строк</li>'}</ul>`;
     document.getElementById('tr-peek-modal').classList.add('open');
   } catch (e) { showToast(e.message, true); }
 }
@@ -6850,7 +6919,7 @@ async function deleteTechTask(id) {
 }
 
 function openMoveModal(){
-  createSearchableSelect(document.getElementById('mv-item-host'), items.filter(i => i.is_active !== false), {
+  createSearchableSelect(document.getElementById('mv-item-host'), items.filter(i => i.is_active !== false && i.item_type === 'consumable'), {
     extraLabel: i => `(${i.unit || 'шт'})`,
     placeholder: 'Поиск позиции...',
   });
