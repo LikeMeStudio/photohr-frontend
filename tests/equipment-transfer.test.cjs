@@ -24,3 +24,12 @@ test('transfer detail shows numbered identity and honestly labels anonymous old 
   assert.match(ctx.transferLineDescription({item_name:'Printer',quantity:2,item_type:'equipment'}),/не указаны/);
   assert.doesNotMatch(ctx.transferLineDescription({item_name:'Paper',quantity:2,item_type:'consumable'}),/не указаны/);
 });
+test('location check saves only a draft and retains unsaved observations on failure',async()=>{
+  const calls=[],controls=[{disabled:false}],status={};let fail=false;
+  const original={version:0,observations:{},unknown_entries:[]};
+  const ctx=vm.createContext({equipmentCheck:{draft:original,changes:{unit:{equipment_unit_id:'unit',state:'found',observed_warehouse_id:'different'}},unknown:[],dirty:true},document:{getElementById:id=>id==='eq-check-modal'?{querySelectorAll:()=>controls}:status},api:async(...a)=>{calls.push(a);if(fail)throw new Error('Conflict');return {version:1,observations:{unit:a[2].observations[0]},unknown_entries:[]};},showToast(){},updateEquipmentCheckStatus(){}});
+  vm.runInContext(source.match(/async function saveEquipmentCheck\(\)\{[\s\S]*?\n\}/)[0],ctx);
+  fail=true;await vm.runInContext('saveEquipmentCheck()',ctx);assert.equal(ctx.equipmentCheck.dirty,true);assert.ok(ctx.equipmentCheck.changes.unit);assert.equal(controls[0].disabled,false);
+  fail=false;await vm.runInContext('saveEquipmentCheck()',ctx);assert.equal(ctx.equipmentCheck.dirty,false);assert.equal(ctx.equipmentCheck.draft.version,1);
+  assert.ok(calls.every(c=>c[0]==='POST'&&c[1]==='/equipment-location-checks/current'));
+});
