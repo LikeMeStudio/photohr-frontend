@@ -877,7 +877,7 @@ let detailFcCity='';
 let detailFcDays=7;
 let detailFcWhIds=null;
 
-async function api(m,p,b){
+async function api(m,p,b,raw=false){
   const o={method:m,headers:{'Content-Type':'application/json'}};
   if(accessToken)o.headers['Authorization']=`Bearer ${accessToken}`;
   if(b)o.body=JSON.stringify(b);
@@ -901,7 +901,7 @@ async function api(m,p,b){
     finally{refreshLock=null;}
   }
   if(!r.ok){const e=await r.json().catch(()=>({error:'Ошибка'}));throw new Error(e.error||'Ошибка');}
-  return r.json();
+  return raw?r:r.json();
 }
 
 /** POST /inventory-sessions; при 400 с уже открытой сессией в теле есть session_id */
@@ -2173,9 +2173,8 @@ async function downloadWarehouseExcel() {
   const status=document.getElementById('stock-export-status');
   stockExportBusy=true;modal.querySelectorAll('input,select,button').forEach(c=>c.disabled=true);status.textContent='Готовим Excel…';
   try {
-    const token=accessToken||localStorage.getItem('fhr_access');
-    const response=await PhotoHR.fetch(`${API}/stock/warehouse-export?${params}`,{headers:token?{Authorization:'Bearer '+token}:{}});
-    if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.error||'Не удалось подготовить Excel');}
+    const response=await api('GET',`/stock/warehouse-export?${params}`,null,true);
+    if(!response)throw new Error('Сеанс завершён. Войдите снова, чтобы скачать Excel.');
     const blob=await response.blob();
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     const encodedName=response.headers.get('Content-Disposition')?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
@@ -2189,14 +2188,8 @@ async function downloadWarehouseExcel() {
 async function exportStockExcel() {
   try {
     showToast('Генерация файла...');
-    const token = accessToken || localStorage.getItem('fhr_access');
-    const resp = await PhotoHR.fetch(`${API}/stock/export`, {
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || 'Ошибка экспорта');
-    }
+    const resp = await api('GET', '/stock/export', null, true);
+    if (!resp) throw new Error('Сеанс завершён. Войдите снова, чтобы скачать Excel.');
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
