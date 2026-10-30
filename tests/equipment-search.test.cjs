@@ -13,8 +13,10 @@ test('search covers every technical field and legacy JSON, with leading zeroes a
   assert.equal(c.equipmentMatchesQuery({custom_fields:'broken'},'SN'),false);
 });
 test('entity, category and warehouse filters intersect; unknown is explicit and sorting is natural',()=>{
-  const c=setup(),units=[{id:'1',legal_entity_id:'a',legal_entity_name:'Альфа',item_category:'cashregisters',warehouse_id:'w',custom_fields:{factory_number:'010'}},{id:'2',legal_entity_id:'b',legal_entity_name:'Бета',item_category:'cashregisters',warehouse_id:'w',custom_fields:{factory_number:'002'}},{id:'3',legal_entity_id:'a',legal_entity_name:'Альфа',item_category:'printers',warehouse_id:'other'},{id:'4'}];
+  const c=setup(),units=[{id:'1',legal_entity_id:'a',legal_entity_name:'Альфа',item_category:'cashregisters',subcategory_id:'registers',warehouse_id:'w',custom_fields:{factory_number:'010'}},{id:'2',legal_entity_id:'b',legal_entity_name:'Бета',item_category:'cashregisters',subcategory_id:'terminals',warehouse_id:'w',custom_fields:{factory_number:'002'}},{id:'3',legal_entity_id:'a',legal_entity_name:'Альфа',item_category:'printers',warehouse_id:'other'},{id:'4'}];
   assert.deepEqual(Array.from(c.equipmentViewUnits(units,{legalEntity:'a',category:'cashregisters',warehouse:'w'}),u=>u.id),['1']);
+  assert.deepEqual(Array.from(c.equipmentViewUnits(units,{category:'subcategory:registers'}),u=>u.id),['1']);
+  assert.deepEqual(Array.from(c.equipmentViewUnits(units,{category:'subcategory:terminals'}),u=>u.id),['2']);
   assert.deepEqual(Array.from(c.equipmentViewUnits(units,{legalEntity:'__none__'}),u=>u.id),['4']);
   assert.deepEqual(Array.from(c.equipmentViewUnits(units,{sort:'factory_number:asc'}),u=>u.id),['2','1','3','4']);
   assert.deepEqual(Array.from(c.equipmentViewUnits(units,{sort:'legal_entity_name:desc'}),u=>u.id),['2','1','3','4']);

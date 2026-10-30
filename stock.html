@@ -4801,7 +4801,7 @@ function equipmentMatchesQuery(unit, query) {
 function equipmentViewUnits(units, state) {
   const result=units.filter(unit=>(!state.warehouse||String(unit.warehouse_id)===state.warehouse)&&
     (!state.legalEntity||(state.legalEntity==='__none__'?!unit.legal_entity_id&& !equipmentLegalName(unit):unit.legal_entity_id===state.legalEntity))&&
-    (!state.category||unit.item_category===state.category)&&equipmentMatchesQuery(unit,state.query));
+    (!state.category||(state.category.startsWith('subcategory:')?unit.subcategory_id===state.category.slice(12):unit.item_category===state.category))&&equipmentMatchesQuery(unit,state.query));
   const [field,direction]=String(state.sort||'grouped').split(':');
   if(!['inventory_number','serial_number','factory_number','legal_entity_name','id','item_name','warehouse_name'].includes(field))return result;
   const compare=(a,b)=>String(a).localeCompare(String(b),'ru',{numeric:true,sensitivity:'base'});
@@ -4811,6 +4811,16 @@ function equipmentViewUnits(units, state) {
     const primary=compare(av,bv)*(direction==='desc'?-1:1);
     return primary||compare(a.inventory_number||'',b.inventory_number||'')||compare(a.id,b.id);
   });
+}
+function equipmentCategoryFilterOptions(units,selected) {
+  const categories=[...new Set(units.map(e=>e.item_category).filter(Boolean))];
+  return categories.map(category=>{
+    const label=getCategoryLabel('equipment',category);
+    const subcategories=new Map();
+    units.filter(e=>e.item_category===category&&e.subcategory_id).forEach(e=>subcategories.set(e.subcategory_id,`${e.subcategory_icon||''} ${e.subcategory_name||'Без названия'}`.trim()));
+    const option=(value,name)=>`<option value="${esc(value)}" ${selected===value?'selected':''}>${esc(name)}</option>`;
+    return `<optgroup label="${esc(label)}">${option(category,label+(subcategories.size?' — всё':''))}${[...subcategories].sort((a,b)=>a[1].localeCompare(b[1],'ru')).map(([id,name])=>option('subcategory:'+id,'↳ '+name)).join('')}</optgroup>`;
+  }).join('');
 }
 function updateEquipmentView() {
   equipmentViewState={query:document.getElementById('equipment-search').value,warehouse:document.getElementById('equipment-warehouse').value,legalEntity:document.getElementById('equipment-legal-filter').value,category:document.getElementById('equipment-category').value,sort:document.getElementById('equipment-sort').value};
@@ -4852,7 +4862,7 @@ async function loadEquipment() {
           <select class="fselect" id="equipment-legal-filter" aria-label="Фильтр по юрлицу" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все юрлица</option><option value="__none__" ${equipmentViewState.legalEntity==='__none__'?'selected':''}>Не указано</option>${equipmentLegalEntities.map(e=>`<option value="${esc(e.id)}" ${equipmentViewState.legalEntity===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select>
         </label>
         <label style="flex:1;min-width:170px;font-size:12px">Категория
-          <select class="fselect" id="equipment-category" aria-label="Категория оборудования" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все категории</option>${[...new Set(equipmentListCache.map(e=>e.item_category).filter(Boolean))].map(c=>`<option value="${esc(c)}" ${equipmentViewState.category===c?'selected':''}>${esc(getCategoryLabel('equipment',c))}</option>`).join('')}</select>
+          <select class="fselect" id="equipment-category" aria-label="Категория оборудования" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все категории и виды</option>${equipmentCategoryFilterOptions(equipmentListCache,equipmentViewState.category)}</select>
         </label>
         <label style="flex:1;min-width:170px;font-size:12px">Склад
           <select class="fselect" id="equipment-warehouse" aria-label="Склад" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все склады</option>${[...warehouseOptions].sort((a,b)=>a[1].localeCompare(b[1],'ru')).map(([id,name])=>`<option value="${esc(id)}" ${equipmentViewState.warehouse===id?'selected':''}>${esc(name)}</option>`).join('')}</select>
