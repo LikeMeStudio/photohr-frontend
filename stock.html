@@ -252,7 +252,8 @@ tr.dnd-dragging td:first-child{border-left:3px solid var(--accent)}
 .tr-transfer-pending{background:rgba(242,85,85,.1)}
 @keyframes trTransferHighlightFade{from{background-color:rgba(138,92,246,.18)}to{background-color:transparent}}
 .tr-transfer-highlight td{animation:trTransferHighlightFade 2s ease forwards}
-.eq-mini-card{width:100%;max-width:120px;min-height:auto;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:border-color .15s;font-size:10px}
+.eq-mini-card{width:100%;max-width:155px;min-height:auto;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:border-color .15s;font-size:10px}
+.eq-identity-line{font-size:10px;color:var(--text3);overflow-wrap:anywhere;margin-top:3px;line-height:1.35}
 .eq-mini-card:hover{border-color:var(--accent2)}
 .eq-group-summary{list-style:none;cursor:pointer;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .eq-group-summary::-webkit-details-marker{display:none}
@@ -284,7 +285,7 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   .equipment-search-table tbody{display:block}
   .equipment-search-table tbody tr{display:grid;grid-template-columns:22px minmax(0,1fr);padding:10px 0;border-bottom:1px solid var(--border)}
   .equipment-search-table tbody td{grid-column:2;border:0;padding:4px 6px;white-space:normal;overflow-wrap:anywhere}
-  .equipment-search-table tbody td:first-child{grid-column:1;grid-row:1 / span 5;padding:4px 0}
+  .equipment-search-table tbody td:first-child{grid-column:1;grid-row:1 / span 7;padding:4px 0}
   .equipment-search-table td[data-label]::before{content:attr(data-label) ': ';color:var(--text3)}
 }
 </style>
@@ -505,6 +506,17 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
 </div>
 
 <!-- Equipment Modal -->
+<div class="overlay" id="eq-legal-modal" style="z-index:220" onclick="if(event.target===this)closeEquipmentLegalDirectory()">
+  <div class="modal" style="max-width:760px"><div class="modal-title"><span>Юрлица оборудования</span><button class="dr-close" onclick="closeEquipmentLegalDirectory()">×</button></div>
+    <p style="color:var(--text3);font-size:12px">Единые названия для всех категорий оборудования. Выбирайте юрлицо в карточке. Объединяйте записи только если проверили, что это одно и то же юрлицо.</p>
+    <div id="eq-legal-create" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <input class="fin" id="eq-legal-new-name" aria-label="Название нового юрлица" placeholder="Например, ООО «Название» или ИП Фамилия И. О." maxlength="200" style="flex:1;min-width:180px"/>
+      <button class="btn btn-primary" onclick="saveEquipmentLegalEntity()">Добавить юрлицо</button>
+    </div>
+    <div id="eq-legal-list"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeEquipmentLegalDirectory()">Готово</button></div>
+  </div>
+</div>
 <div class="overlay" id="eq-modal" onclick="if(event.target===this)safeCloseModal('eq-modal')">
 <div class="modal" style="max-width:500px">
   <div class="modal-title"><span id="eq-modal-title">Новое оборудование</span><button class="dr-close" onclick="safeCloseModal('eq-modal')">×</button></div>
@@ -534,6 +546,12 @@ details.eq-group[open] .eq-group-chevron{transform:rotate(90deg)}
   <div class="field"><div class="fl">Состояние</div>
     <input type="hidden" id="eq-condition" value=""/>
     <div id="eq-condition-host" style="display:flex;gap:2px"></div>
+  </div>
+  <div class="field"><label class="fl" for="eq-legal-entity">Юрлицо</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select class="fselect" id="eq-legal-entity" style="flex:1;min-width:0"></select>
+      <button type="button" class="btn btn-ghost" onclick="openEquipmentLegalDirectory()" aria-label="Справочник юрлиц">＋</button>
+    </div>
   </div>
   <div id="eq-custom-fields"></div>
   <div class="modal-footer">
@@ -724,7 +742,6 @@ const EQ_CATEGORY_FIELDS={
     {key:'factory_number',label:'Заводской номер',type:'text'},
     {key:'id_number',label:'Номер ID',type:'text'},
     {key:'tech_number',label:'Тех. номер',type:'text'},
-    {key:'legal_entity',label:'Юр. лицо',type:'text'},
     {key:'ofd_tariff_until',label:'Тариф ОФД до',type:'date'},
     {key:'fiscal_end',label:'Окончание фискальника',type:'date'},
     {key:'litebox_login',label:'Litebox логин',type:'text'},
@@ -735,7 +752,9 @@ const EQ_CATEGORY_FIELDS={
     {key:'ownership',label:'Аренда/собственность',type:'select',options:['Собственность','Аренда']},
   ],
   acquiring:[
-    {key:'legal_entity',label:'Юр. лицо',type:'text'},
+    {key:'factory_number',label:'Заводской номер',type:'text'},
+    {key:'id_number',label:'Номер ID',type:'text'},
+    {key:'tech_number',label:'Тех. номер',type:'text'},
     {key:'sim_card',label:'SIM-карта',type:'text'},
     {key:'sim_owner',label:'Собственник SIM',type:'text'},
     {key:'sim_paid_until',label:'Оплата SIM до',type:'date'},
@@ -823,7 +842,9 @@ async function loadCategoriesFromApi() {
 }
 let venues=[],users=[];
 let equipmentListCache=[];
-let equipmentViewState={query:'',warehouse:'',sort:'grouped'};
+let equipmentViewState={query:'',warehouse:'',legalEntity:'',category:'',sort:'grouped'};
+let equipmentLegalEntities=[],eqDraftFields={};
+let equipmentLegalBusy=false;
 let allSubcategories=[];
 let allCategories=[];
 const EMOJI_PICKER_LIST = [
@@ -2295,7 +2316,7 @@ function whPanelBuildEquipmentTableRows(eqHere, whId, canDnd) {
     const snAttr = String(e.serial_number || '').replace(/"/g, '&quot;');
     const drag = canDnd ? ` draggable="true" data-equipment-id="${e.id}" data-item-id="${e.item_id || ''}" data-equipment-name="${nmAttr}" data-from-wh="${whId}" data-equipment-serial="${snAttr}" ondragstart="dndEquipmentRowDragStart(event)" onselectstart="return false" ontouchstart="touchDndStart(event)" ontouchmove="touchDndMove(event)" ontouchend="touchDndEnd(event)" ontouchcancel="touchDndCancel()"` : '';
     return `<tr${drag} onclick="if(this.dataset.suppressEqClick==='1')return;openEqDrawer('${e.id}')" style="${canDnd ? 'cursor:grab;' : 'cursor:pointer;'}touch-action:auto;user-select:none;-webkit-user-select:none">
-      <td>${esc(e.item_name)}</td>
+      <td>${esc(e.item_name)}${equipmentIdentityLines(e)}</td>
       <td style="text-align:center">${st}</td>
       <td style="text-align:center;color:var(--text3);font-size:12px;font-variant-numeric:tabular-nums">${formatEqSnCell(e)}</td>
       <td style="text-align:center;color:var(--accent2);font-size:12px;font-variant-numeric:tabular-nums">${formatEqInvCell(e)}</td>
@@ -4747,56 +4768,91 @@ async function openPoFromForecast() {
   document.getElementById('po-modal').classList.add('open');
 }
 
+function equipmentCustomFields(unit) {
+  let fields=unit?.custom_fields;
+  if(typeof fields==='string'){try{fields=JSON.parse(fields);}catch(_){return {};}}
+  return fields&&typeof fields==='object'&&!Array.isArray(fields)?{...fields}:{};
+}
+function equipmentLegalName(unit) {
+  return unit.legal_entity_name||equipmentCustomFields(unit).legal_entity||'';
+}
+function equipmentFieldValue(unit,field) {
+  if(field==='legal_entity_name')return equipmentLegalName(unit);
+  if(field==='factory_number')return equipmentCustomFields(unit).factory_number??unit.factory_number??'';
+  return unit[field]??'';
+}
+function equipmentTechnicalValues(value,depth=0) {
+  if(value==null||depth>5)return [];
+  if(typeof value==='object')return Object.values(value).flatMap(v=>equipmentTechnicalValues(v,depth+1));
+  return [String(value)];
+}
+function equipmentIdentityLines(unit) {
+  const factory=equipmentFieldValue(unit,'factory_number'),entity=equipmentLegalName(unit);
+  return (String(factory).trim()?`<div class="eq-identity-line">Зав. №: ${esc(String(factory))}</div>`:'')+
+    (entity?`<div class="eq-identity-line">Юрлицо: ${esc(entity)}</div>`:'');
+}
 function equipmentMatchesQuery(unit, query) {
   const terms=String(query||'').normalize('NFKC').toLocaleLowerCase('ru').trim().split(/\s+/).filter(Boolean);
-  const fields=[unit.serial_number,unit.inventory_number,unit.id,unit.item_name,unit.warehouse_name]
+  const fields=[unit.serial_number,unit.inventory_number,unit.id,unit.item_name,unit.warehouse_name,equipmentLegalName(unit),
+    ...equipmentTechnicalValues(equipmentCustomFields(unit))]
     .map(value=>String(value??'').normalize('NFKC').toLocaleLowerCase('ru'));
   return terms.every(term=>fields.some(value=>value.includes(term)));
 }
 function equipmentViewUnits(units, state) {
-  const result=units.filter(unit=>(!state.warehouse||String(unit.warehouse_id)===state.warehouse)&&equipmentMatchesQuery(unit,state.query));
+  const result=units.filter(unit=>(!state.warehouse||String(unit.warehouse_id)===state.warehouse)&&
+    (!state.legalEntity||(state.legalEntity==='__none__'?!unit.legal_entity_id&& !equipmentLegalName(unit):unit.legal_entity_id===state.legalEntity))&&
+    (!state.category||unit.item_category===state.category)&&equipmentMatchesQuery(unit,state.query));
   const [field,direction]=String(state.sort||'grouped').split(':');
-  if(!['inventory_number','serial_number','id','item_name','warehouse_name'].includes(field))return result;
+  if(!['inventory_number','serial_number','factory_number','legal_entity_name','id','item_name','warehouse_name'].includes(field))return result;
   const compare=(a,b)=>String(a).localeCompare(String(b),'ru',{numeric:true,sensitivity:'base'});
   return result.sort((a,b)=>{
-    const av=String(a[field]??'').trim(),bv=String(b[field]??'').trim();
+    const av=String(equipmentFieldValue(a,field)).trim(),bv=String(equipmentFieldValue(b,field)).trim();
     if(!av||!bv){if(!!av!==!!bv)return av?-1:1;}
     const primary=compare(av,bv)*(direction==='desc'?-1:1);
     return primary||compare(a.inventory_number||'',b.inventory_number||'')||compare(a.id,b.id);
   });
 }
 function updateEquipmentView() {
-  equipmentViewState={query:document.getElementById('equipment-search').value,warehouse:document.getElementById('equipment-warehouse').value,sort:document.getElementById('equipment-sort').value};
+  equipmentViewState={query:document.getElementById('equipment-search').value,warehouse:document.getElementById('equipment-warehouse').value,legalEntity:document.getElementById('equipment-legal-filter').value,category:document.getElementById('equipment-category').value,sort:document.getElementById('equipment-sort').value};
   renderEquipmentResults();
 }
 function resetEquipmentView() {
-  equipmentViewState={query:'',warehouse:'',sort:'grouped'};
+  equipmentViewState={query:'',warehouse:'',legalEntity:'',category:'',sort:'grouped'};
   document.getElementById('equipment-search').value='';
   document.getElementById('equipment-warehouse').value='';
   document.getElementById('equipment-sort').value='grouped';
+  document.getElementById('equipment-legal-filter').value='';
+  document.getElementById('equipment-category').value='';
   renderEquipmentResults();
 }
 function openWarehouseEquipmentSearch(warehouseId) {
-  equipmentViewState={query:'',warehouse:warehouseId||'',sort:'inventory_number:asc'};
+  equipmentViewState={query:'',warehouse:warehouseId||'',legalEntity:'',category:'',sort:'inventory_number:asc'};
   switchTab(7);
 }
 async function loadEquipment() {
   try {
-    equipmentListCache = await api('GET', '/equipment');
+    [equipmentListCache,equipmentLegalEntities] = await Promise.all([api('GET', '/equipment'),api('GET','/equipment-legal-entities')]);
     if (!items.length) items = await api('GET', '/inventory-items').catch(() => []);
     const warehouseOptions=new Map(warehouses.map(w=>[String(w.id),w.name]));
     equipmentListCache.forEach(e=>{if(e.warehouse_id&&!warehouseOptions.has(String(e.warehouse_id)))warehouseOptions.set(String(e.warehouse_id),e.warehouse_name||'Без названия');});
-    const sortOptions=[['grouped','По группам (как раньше)'],['inventory_number:asc','Инвентарный № ↑'],['inventory_number:desc','Инвентарный № ↓'],['serial_number:asc','Серийный № ↑'],['serial_number:desc','Серийный № ↓'],['id:asc','ID ↑'],['id:desc','ID ↓'],['item_name:asc','Название А–Я'],['warehouse_name:asc','Склад А–Я']];
+    const sortOptions=[['grouped','По группам (как раньше)'],['inventory_number:asc','Инвентарный № ↑'],['inventory_number:desc','Инвентарный № ↓'],['serial_number:asc','Серийный № ↑'],['serial_number:desc','Серийный № ↓'],['factory_number:asc','Заводской № ↑'],['factory_number:desc','Заводской № ↓'],['legal_entity_name:asc','Юрлицо А–Я'],['legal_entity_name:desc','Юрлицо Я–А'],['id:asc','ID ↑'],['id:desc','ID ↓'],['item_name:asc','Название А–Я'],['warehouse_name:asc','Склад А–Я']];
     document.getElementById('content').innerHTML=`<div class="section">
       <div class="section-title" style="flex-wrap:wrap;gap:8px">
         <span style="flex:1;min-width:200px">🖨 Оборудование (${equipmentListCache.length})</span>
+        <button class="btn btn-ghost" onclick="openEquipmentLegalDirectory()">Юрлица</button>
         <button class="btn btn-ghost" onclick="openEquipmentCheck()">Сверка оборудования</button>
         <button class="btn btn-ghost" id="btn-qr-scan-eq" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="openQrScanner()" title="Сканировать QR оборудования">📷 QR</button>
         <button id="bulk-label-btn" class="btn btn-ghost" style="display:none;font-size:12px;padding:4px 12px" onclick="downloadBulkLabels()">🏷 Печать этикеток</button>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:16px 0 8px">
         <label style="flex:2;min-width:min(100%,260px);font-size:12px">Поиск оборудования
-          <input class="fin" id="equipment-search" aria-label="Поиск оборудования" type="search" placeholder="Серийный №, инвентарный №, ID или название" value="${esc(equipmentViewState.query)}" oninput="updateEquipmentView()" style="margin-top:6px;width:100%"/>
+          <input class="fin" id="equipment-search" aria-label="Поиск оборудования" type="search" placeholder="Серийный, заводской, инвентарный, ID, тех. номер…" value="${esc(equipmentViewState.query)}" oninput="updateEquipmentView()" style="margin-top:6px;width:100%"/>
+        </label>
+        <label style="flex:1;min-width:210px;font-size:12px">Юрлицо
+          <select class="fselect" id="equipment-legal-filter" aria-label="Фильтр по юрлицу" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все юрлица</option><option value="__none__" ${equipmentViewState.legalEntity==='__none__'?'selected':''}>Не указано</option>${equipmentLegalEntities.map(e=>`<option value="${esc(e.id)}" ${equipmentViewState.legalEntity===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select>
+        </label>
+        <label style="flex:1;min-width:170px;font-size:12px">Категория
+          <select class="fselect" id="equipment-category" aria-label="Категория оборудования" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все категории</option>${[...new Set(equipmentListCache.map(e=>e.item_category).filter(Boolean))].map(c=>`<option value="${esc(c)}" ${equipmentViewState.category===c?'selected':''}>${esc(getCategoryLabel('equipment',c))}</option>`).join('')}</select>
         </label>
         <label style="flex:1;min-width:170px;font-size:12px">Склад
           <select class="fselect" id="equipment-warehouse" aria-label="Склад" onchange="updateEquipmentView()" style="margin-top:6px;width:100%"><option value="">Все склады</option>${[...warehouseOptions].sort((a,b)=>a[1].localeCompare(b[1],'ru')).map(([id,name])=>`<option value="${esc(id)}" ${equipmentViewState.warehouse===id?'selected':''}>${esc(name)}</option>`).join('')}</select>
@@ -4816,15 +4872,15 @@ function renderEquipmentResults() {
   const host=document.getElementById('equipment-results');
   if(!host)return;
   const equip=equipmentViewUnits(equipmentListCache,equipmentViewState);
-  document.getElementById('equipment-result-count').textContent=`Найдено: ${equip.length} из ${equipmentListCache.length}. Можно искать по части номера или ID.`;
-  const flat=equipmentViewState.query.trim()||equipmentViewState.warehouse||equipmentViewState.sort!=='grouped';
+  document.getElementById('equipment-result-count').textContent=`Найдено: ${equip.length} из ${equipmentListCache.length}. Поиск по номерам, названию, юрлицу и всем дополнительным полям.`;
+  const flat=equipmentViewState.query.trim()||equipmentViewState.warehouse||equipmentViewState.legalEntity||equipmentViewState.category||equipmentViewState.sort!=='grouped';
   if(flat){
     const statuses={active:'🟢 Активно',repair:'🟡 Ремонт',written_off:'⚫ Списано',lost:'🔴 Утеряно'};
     host.innerHTML=equip.length?`<div class="table-wrap"><table class="tbl equipment-search-table"><thead><tr><th><input type="checkbox" aria-label="Выбрать все найденные для этикеток" onchange="toggleEquipmentResultChecks(this.checked)"/></th><th>Оборудование / ID</th><th>Инвентарный №</th><th>Серийный №</th><th>Склад</th><th>Статус</th></tr></thead><tbody>${equip.map(e=>`<tr>
       <td><input class="eq-label-check" type="checkbox" value="${esc(e.id)}" aria-label="Этикетка ${esc(e.inventory_number||e.id)}" onchange="updateBulkLabelBtn()"/></td>
-      <td><button class="btn btn-ghost" style="padding:0;text-align:left" onclick="openEqDrawer('${esc(e.id)}')">${esc(e.item_name||'Без названия')}</button><div style="font-size:10px;color:var(--text3);overflow-wrap:anywhere;max-width:240px;user-select:text">ID: ${esc(e.id)}</div></td>
+      <td><button class="btn btn-ghost" style="padding:0;text-align:left" onclick="openEqDrawer('${esc(e.id)}')">${esc(e.item_name||'Без названия')}</button><div style="font-size:10px;color:var(--text3);overflow-wrap:anywhere;max-width:240px;user-select:text">ID: ${esc(e.id)}</div>${equipmentIdentityLines(e)}</td>
       <td data-label="Инв. №" style="color:var(--accent2);user-select:text">${esc(e.inventory_number||'—')}</td><td data-label="Сер. №" style="user-select:text">${esc(e.serial_number||'—')}</td><td data-label="Склад">${esc(e.warehouse_name||'—')}</td><td data-label="Статус">${esc(statuses[e.status]||e.status||'—')}</td>
-    </tr>`).join('')}</tbody></table></div>`:'<div style="padding:20px 0;color:var(--text3)">Ничего не найдено. Проверьте номер или выберите «Все склады».</div>';
+    </tr>`).join('')}</tbody></table></div>`:'<div style="padding:20px 0;color:var(--text3)">Ничего не найдено. Проверьте запрос или сбросьте фильтры.</div>';
   }else{
     host.innerHTML=renderEquipmentGroups(equip);
   }
@@ -4892,7 +4948,8 @@ function renderEquipmentGroups(equip) {
           <span style="font-size:8px;color:${st.color}">${st.icon}</span>
         </div>
         ${e.serial_number ? `<div style="font-size:9px;color:var(--text3)">SN: ${esc(e.serial_number)}</div>` : ''}
-        <div style="font-size:9px;color:var(--text3)">📍 ${esc(e.warehouse_name || '—')}</div>
+        ${equipmentIdentityLines(e)}
+        <div class="eq-identity-line">📍 ${esc(e.warehouse_name || '—')}</div>
       </div>`;
     };
 
@@ -5683,6 +5740,91 @@ async function openEqHistoryModal(unitId) {
 
 // ── БЛОК 4: Оборудование ──
 
+function collectEquipmentCustomFields(original,controls) {
+  const result={...original};
+  controls.forEach(el=>{
+    const key=el.getAttribute('data-cf-key');
+    if(!key)return;
+    const value=String(el.value??'').trim();
+    if(value)result[key]=value;else delete result[key];
+  });
+  return result;
+}
+function canAddEquipmentLegalEntity() {return ['tech_director','hr_manager','exec_director','admin'].some(role=>can(role));}
+function canManageEquipmentLegalEntities() {return ['tech_director','exec_director','admin'].some(role=>can(role));}
+function renderEquipmentLegalPicker(selected) {
+  const select=document.getElementById('eq-legal-entity');
+  select.innerHTML='<option value="">Не указано</option>'+equipmentLegalEntities.map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('');
+  // A stale/merged selection must not silently become an explicit removal on save.
+  if(selected&&!equipmentLegalEntities.some(e=>e.id===selected))select.innerHTML+=`<option value="${esc(selected)}">Юрлицо изменилось — выберите заново</option>`;
+  select.value=selected;
+}
+async function openEquipmentLegalDirectory() {
+  try {
+    equipmentLegalEntities=await api('GET','/equipment-legal-entities');
+    document.getElementById('eq-legal-create').style.display=canAddEquipmentLegalEntity()?'flex':'none';
+    document.getElementById('eq-legal-new-name').value='';
+    renderEquipmentLegalDirectory();
+    document.getElementById('eq-legal-modal').classList.add('open');
+  }catch(error){showToast(error.message,true);}
+}
+function closeEquipmentLegalDirectory() {
+  if(equipmentLegalBusy)return;
+  document.getElementById('eq-legal-modal').classList.remove('open');
+}
+function renderEquipmentLegalDirectory() {
+  const manage=canManageEquipmentLegalEntities();
+  document.getElementById('eq-legal-list').innerHTML=equipmentLegalEntities.map(e=>`<div style="border-top:1px solid var(--border);padding:12px 0">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      ${manage?`<input class="fin" id="eq-legal-name-${e.id}" aria-label="Название ${esc(e.name)}" maxlength="200" value="${esc(e.name)}" style="flex:1;min-width:180px"/><button class="btn btn-ghost" onclick="saveEquipmentLegalEntity('${e.id}')">Сохранить название</button>`:`<b>${esc(e.name)}</b>`}
+      <span style="color:var(--text3);font-size:12px">Оборудование: ${e.equipment_count||0}</span>
+    </div>
+    ${manage&&equipmentLegalEntities.length>1?`<details style="margin-top:8px;font-size:12px;color:var(--text3)"><summary style="cursor:pointer">Это дубликат другого юрлица?</summary>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><select class="fselect" id="eq-legal-target-${e.id}" aria-label="Объединить ${esc(e.name)} с" style="flex:1;min-width:180px"><option value="">Выберите верное юрлицо</option>${equipmentLegalEntities.filter(t=>t.id!==e.id).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button class="btn btn-ghost" onclick="mergeEquipmentLegalEntity('${e.id}')">Объединить</button></div></details>`:''}
+  </div>`).join('')||'<p style="color:var(--text3)">Справочник пока пуст. Добавьте первое юрлицо.</p>';
+}
+async function refreshEquipmentLegalDirectory(selected) {
+  equipmentLegalEntities=await api('GET','/equipment-legal-entities');
+  renderEquipmentLegalDirectory();
+  renderEquipmentLegalPicker(selected);
+  if(currentTabIdx===7)await loadEquipment();
+  // Force the warehouse panels and drawer to read current names next time.
+  if(currentTabIdx===1)await loadWarehouses();
+}
+async function saveEquipmentLegalEntity(id) {
+  if(equipmentLegalBusy)return;
+  const input=document.getElementById(id?'eq-legal-name-'+id:'eq-legal-new-name');
+  const name=input.value.trim();
+  if(!name){showToast('Введите название юрлица',true);return;}
+  if(id&&!confirm('Изменить название юрлица во всех связанных карточках оборудования?'))return;
+  equipmentLegalBusy=true;
+  try {
+    const entity=await api(id?'PATCH':'POST',id?'/equipment-legal-entities/'+id:'/equipment-legal-entities',{name});
+    const selected=id?document.getElementById('eq-legal-entity').value:entity.id;
+    input.value=id?entity.name:'';
+    await refreshEquipmentLegalDirectory(selected);
+    showToast(id?'Название обновлено':entity.created?'Юрлицо добавлено':'Такое юрлицо уже есть — выбран существующий вариант');
+  }catch(error){showToast(error.message,true);}
+  finally{equipmentLegalBusy=false;}
+}
+async function mergeEquipmentLegalEntity(id) {
+  if(equipmentLegalBusy)return;
+  const targetId=document.getElementById('eq-legal-target-'+id).value;
+  const source=equipmentLegalEntities.find(e=>e.id===id),target=equipmentLegalEntities.find(e=>e.id===targetId);
+  if(!source||!target){showToast('Выберите юрлицо для объединения',true);return;}
+  if(!confirm(`Объединить «${source.name}» с «${target.name}»?\nУ оборудования (${source.equipment_count||0} шт.) будет юрлицо «${target.name}». Места хранения и номера оборудования сохранятся.\nПродолжайте только если это действительно одно юрлицо.`))return;
+  equipmentLegalBusy=true;
+  try {
+    await api('POST','/equipment-legal-entities/'+id+'/merge',{target_id:targetId});
+    let selected=document.getElementById('eq-legal-entity').value;
+    if(selected===id)selected=targetId;
+    if(equipmentViewState.legalEntity===id)equipmentViewState.legalEntity=targetId;
+    await refreshEquipmentLegalDirectory(selected);
+    showToast('Записи юрлиц объединены');
+  }catch(error){showToast(error.message,true);}
+  finally{equipmentLegalBusy=false;}
+}
+
 function renderEqCustomFields(eq) {
   const host = document.getElementById('eq-custom-fields');
   if (!host) return;
@@ -5702,15 +5844,19 @@ function renderEqCustomFields(eq) {
     extraFields.map(f => {
       const val = cf[f.key] != null && cf[f.key] !== '' ? cf[f.key] : (eq?.[f.key] != null && eq?.[f.key] !== '' ? eq[f.key] : '');
       if (f.type === 'select') {
-        return `<div class="field"><div class="fl">${esc(f.label)}</div><select class="fselect" data-cf-key="${esc(f.key)}">
+        return `<div class="field"><div class="fl">${esc(f.label)}</div><select class="fselect" aria-label="${esc(f.label)}" data-cf-key="${esc(f.key)}">
           <option value="">—</option>${(f.options || []).map(o => `<option value="${esc(o)}" ${String(val) === String(o) ? 'selected' : ''}>${esc(o)}</option>`).join('')}
         </select></div>`;
       }
-      return `<div class="field"><div class="fl">${esc(f.label)}</div><input class="fin" type="${f.type === 'number' ? 'number' : (f.type === 'date' ? 'date' : 'text')}" data-cf-key="${esc(f.key)}" value="${esc(String(val ?? ''))}"/></div>`;
+      return `<div class="field"><div class="fl">${esc(f.label)}</div><input class="fin" type="${f.type === 'number' ? 'number' : (f.type === 'date' ? 'date' : 'text')}" aria-label="${esc(f.label)}" data-cf-key="${esc(f.key)}" value="${esc(String(val ?? ''))}"/></div>`;
     }).join('');
 }
 
-function openEqModal(eq) {
+async function openEqModal(eq) {
+  try { equipmentLegalEntities=await api('GET','/equipment-legal-entities'); }
+  catch(error){showToast('Не удалось загрузить юрлица: '+error.message,true);return;}
+  eqDraftFields=equipmentCustomFields(eq);
+  renderEquipmentLegalPicker(eq?.legal_entity_id||'');
   document.getElementById('eq-modal-title').textContent = eq ? 'Редактировать оборудование' : 'Новое оборудование';
   document.getElementById('eq-id').value = eq?.id || '';
   const itemSel = document.getElementById('eq-item');
@@ -5748,7 +5894,10 @@ function openEqModal(eq) {
   if (condInput) condInput.value = eq?.condition_rating != null ? String(eq.condition_rating) : '';
 
   renderEqCustomFields(eq);
-  itemSel.onchange = () => renderEqCustomFields(null);
+  itemSel.onchange = () => {
+    eqDraftFields=collectEquipmentCustomFields(eqDraftFields,document.querySelectorAll('#eq-custom-fields [data-cf-key]'));
+    renderEqCustomFields({custom_fields:eqDraftFields});
+  };
 
   document.getElementById('eq-modal').classList.add('open');
 }
@@ -5770,15 +5919,15 @@ async function saveEquipment() {
     condition_rating: parseInt(document.getElementById('eq-condition')?.value, 10) || null,
     counter_start: null,
     custom_fields: {},
+    legal_entity_id: document.getElementById('eq-legal-entity').value || null,
   };
   const cfInputs = document.querySelectorAll('#eq-custom-fields [data-cf-key]');
-  const custom_fields = {};
+  const custom_fields = collectEquipmentCustomFields(eqDraftFields,cfInputs);
   cfInputs.forEach(el => {
     const key = el.getAttribute('data-cf-key');
     if (!key) return;
     const raw = el.value != null ? String(el.value).trim() : '';
     const val = raw || null;
-    if (val) custom_fields[key] = val;
     if (key === 'resource_limit' && val) body.resource_limit = parseFloat(val) || null;
     if (key === 'counter_start' && val) body.counter_start = parseFloat(val) || null;
   });
@@ -5900,6 +6049,7 @@ async function openEqDrawer(id) {
       <div class="info-row"><span class="info-label">ID</span><span style="font-size:11px;overflow-wrap:anywhere;user-select:text">${esc(eq.id)}</span></div>
       <div class="info-row"><span class="info-label">Серийный</span><span style="font-family:monospace;font-size:12px">${esc(eq.serial_number || '—')}</span></div>
       <div class="info-row"><span class="info-label">Инвентарный</span><span>${esc(eq.inventory_number || '—')}</span></div>
+      <div class="info-row"><span class="info-label">Юрлицо</span><span>${esc(equipmentLegalName(eq)||'Не указано')}</span></div>
       <div class="info-row"><span class="info-label">Статус</span><span>${STATUS[eq.status] || eq.status}</span></div>
       ${eq.condition_rating ? `<div class="info-row"><span class="info-label">Состояние</span><span>${'★'.repeat(eq.condition_rating)}${'☆'.repeat(5 - eq.condition_rating)}</span></div>` : ''}
       <div class="info-row"><span class="info-label">Место</span><span>${esc(eq.warehouse_name || '—')}${eq.venue_name ? ' · ' + esc(eq.venue_name) : ''}</span></div>
@@ -5953,6 +6103,8 @@ function closeEqDrawer() {
 // ESC закрывает модалки и drawer
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
+  if (document.getElementById('eq-legal-modal')?.classList.contains('open')) { closeEquipmentLegalDirectory(); return; }
+  if (document.getElementById('eq-modal')?.classList.contains('open')) { safeCloseModal('eq-modal'); return; }
   const drBd = document.getElementById('eq-drawer-backdrop');
   if (drBd && drBd.classList.contains('open')) { closeEqDrawer(); return; }
   const overlays = document.querySelectorAll('.overlay.open');
