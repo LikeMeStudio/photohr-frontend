@@ -5961,49 +5961,59 @@ function openEqModalFromDrawer() {
   if (eq) openEqModal(eq);
 }
 
-async function downloadEqLabel(id) {
-  try {
-    const invNum = (equipmentListCache || []).find(e => e.id === id)?.inventory_number || '';
-    showToast('Генерация этикетки...');
-    const token = accessToken || localStorage.getItem('fhr_access');
-    const resp = await PhotoHR.fetch(`${API}/equipment/${id}/label`, {
-      headers: token ? { Authorization: 'Bearer ' + token } : {},
-    });
-    if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'Ошибка'); }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `label-${invNum || id.slice(0, 8)}.pdf`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    showToast('Этикетка скачана');
-  } catch (e) { showToast(e.message, true); }
+let equipmentLabelBusy=false;
+let equipmentLabelIds=[];
+function downloadEqLabel(id) {
+  openEquipmentLabels([id]);
 }
-
-async function downloadBulkLabels() {
-  const checked = document.querySelectorAll('.eq-label-check:checked');
-  if (!checked.length) { showToast('Выберите оборудование для печати', true); return; }
-  const ids = [...checked].map(cb => cb.value);
+function downloadBulkLabels() {
+  openEquipmentLabels([...document.querySelectorAll('.eq-label-check:checked')].map(cb=>cb.value));
+}
+function openEquipmentLabels(ids) {
+  if(equipmentLabelBusy)return;
+  if(!ids.length){showToast('Выберите оборудование для печати',true);return;}
+  if(ids.length>270){showToast('За один раз можно выбрать до 270 единиц оборудования',true);return;}
+  equipmentLabelIds=[...new Set(ids)];
+  document.getElementById('equipment-label-modal')?.remove();
+  const modal=document.createElement('div');modal.id='equipment-label-modal';modal.className='overlay open';modal.style.zIndex='240';
+  modal.onclick=e=>{if(e.target===modal)closeEquipmentLabels();};
+  modal.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="equipment-label-title" style="max-width:560px;max-height:92vh;overflow:auto">
+    <div class="modal-title"><span id="equipment-label-title">Этикетки оборудования</span><button class="dr-close" aria-label="Закрыть этикетки" onclick="closeEquipmentLabels()">×</button></div>
+    <p style="font-size:13px;color:var(--text2)">Выбрано единиц: <strong>${equipmentLabelIds.length}</strong>. На каждой этикетке — QR, инвентарный номер, модель и серийный номер.</p>
+    <p style="font-size:13px;line-height:1.6;color:var(--text2)">Для терминалов добавляются юрлицо и ID, для касс — юрлицо и заводской номер. Если поле пустое, на этикетке будет «не указан».</p>
+    <p style="font-size:13px;margin:18px 0"><strong>63,5 × 29,6 мм · 27 наклеек на A4</strong><br><span style="color:var(--text3)">Прежняя разметка Avery L6011: 3 столбца × 9 рядов.</span></p>
+    <p style="font-size:12px;color:var(--text3);line-height:1.5">PDF — для печати в масштабе 100%, без подгонки к странице. Word — с редактируемым текстом. PDF + Word скачиваются одним ZIP-архивом с двумя файлами. После редактирования Word проверьте расположение текста перед печатью.</p>
+    <div id="equipment-label-status" role="status" style="font-size:13px;line-height:1.5;color:var(--accent2);margin:16px 0"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="saveEquipmentLabels('pdf')">PDF</button>
+      <button class="btn btn-ghost" onclick="saveEquipmentLabels('docx')">Word</button>
+      <button class="btn btn-primary" onclick="saveEquipmentLabels('zip')">Скачать PDF + Word</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('button')?.focus();
+}
+function closeEquipmentLabels() {
+  if(!equipmentLabelBusy)document.getElementById('equipment-label-modal')?.remove();
+}
+async function saveEquipmentLabels(format) {
+  if(equipmentLabelBusy||!equipmentLabelIds.length)return;
+  if(!['pdf','docx','zip'].includes(format))return;
+  const modal=document.getElementById('equipment-label-modal'),status=document.getElementById('equipment-label-status');
+  const params=new URLSearchParams({format});
+  const ids=[...equipmentLabelIds];
+  equipmentLabelBusy=true;modal.querySelectorAll('select,button').forEach(c=>c.disabled=true);status.textContent='Готовим этикетки…';
   try {
-    showToast(`Генерация ${ids.length} этикеток...`);
-    const token = accessToken || localStorage.getItem('fhr_access');
-    const resp = await PhotoHR.fetch(`${API}/equipment/labels`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: 'Bearer ' + token } : {}),
-      },
-      body: JSON.stringify({ ids }),
-    });
-    if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || 'Ошибка'); }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `labels-${new Date().toISOString().split('T')[0]}.pdf`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    showToast(`${ids.length} этикеток скачано`);
-  } catch (e) { showToast(e.message, true); }
+    const response=ids.length===1
+      ? await api('GET',`/equipment/${encodeURIComponent(ids[0])}/label?${params}`,null,true)
+      : await api('POST',`/equipment/labels?${params}`,{ids},true);
+    if(!response)throw new Error('Сеанс завершён. Войдите снова, чтобы скачать этикетки.');
+    const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download=`PhotoHR-labels-${new Date().toISOString().slice(0,10)}.${format}`;
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    status.textContent=format==='zip'?'Архив с PDF и Word подготовлен. Проверьте загрузки браузера.':'Файл подготовлен. Проверьте загрузки браузера.';
+  }catch(e){status.textContent=e.message;showToast(e.message,true);}
+  finally{equipmentLabelBusy=false;modal.querySelectorAll('select,button').forEach(c=>c.disabled=false);}
 }
 
 function toggleAllEqLabels(master) {
@@ -6113,6 +6123,7 @@ function closeEqDrawer() {
 // ESC закрывает модалки и drawer
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
+  if (document.getElementById('equipment-label-modal')) { closeEquipmentLabels(); return; }
   if (document.getElementById('eq-legal-modal')?.classList.contains('open')) { closeEquipmentLegalDirectory(); return; }
   if (document.getElementById('eq-modal')?.classList.contains('open')) { safeCloseModal('eq-modal'); return; }
   const drBd = document.getElementById('eq-drawer-backdrop');
