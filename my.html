@@ -1618,5 +1618,25 @@ async function submitEndDay() {
 <div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
   <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
 </div>
+<!-- Воронка стажёров: тренеру и менеджеру площадки — кнопка к их задачам (recruiting.html#tasks). Без задач ничего не показывается. -->
+<script>
+(async function internTasksLink() {
+  try {
+    const token = localStorage.getItem('fhr_access');
+    if (!token || !window.PhotoHR) return;
+    const r = await PhotoHR.fetch(PhotoHR.API + '/recruiting/my-tasks', { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !Array.isArray(d.tasks) || (d.hats && d.hats.recruiter)) return;   // recruiters work in «Рекрутинг»
+    if (!d.tasks.length && !(d.hats && d.hats.trainer)) return;
+    const a = document.createElement('a');
+    a.href = 'recruiting.html#' + (d.tasks.length ? 'tasks' : 'trainer');
+    a.textContent = d.tasks.length ? '🎓 Стажёры: задач ' + d.tasks.length : '🧑‍🏫 Экран тренера';
+    a.style.cssText = 'position:fixed;left:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:60;padding:10px 16px;border-radius:20px;'
+      + 'background:#7c6cff;color:#fff;font:600 13px Golos Text,sans-serif;text-decoration:none;box-shadow:0 8px 24px rgba(124,108,255,.45)';
+    document.body.appendChild(a);
+  } catch (_) { /* optional */ }
+})();
+</script>
 </body>
 </html>
