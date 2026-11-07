@@ -90,3 +90,47 @@ test('page safety: no inline handlers with interpolated ids, links open safely, 
   assert.ok(!/(client_secret|AVITO_CLIENT_SECRET=|HH_CLIENT_SECRET=)[^<`]*['"][A-Za-z0-9]{16,}/.test(html));
   assert.ok(html.includes('<script src="assets/photohr.js"></script>'));
 });
+
+test('interns funnel: first name for messages, templates, channel links', () => {
+  const R = core();
+  assert.equal(R.firstName('Петрова Ирина'), 'Ирина');
+  assert.equal(R.firstName('Ирина Петрова'), 'Ирина');
+  assert.equal(R.firstName('Иванов Иван Иванович'), 'Иван');
+  assert.equal(R.firstName('Константин Лев'), 'Константин', 'first names that look like surnames stay first names');
+  assert.equal(R.firstName(''), '');
+  assert.equal(R.renderTemplate('{имя}, тренинг {дата_тренинга} в {время_тренинга}', { имя: 'Ира', дата_тренинга: 'сб 14 ноя' }), 'Ира, тренинг сб 14 ноя в …',
+    'missing data becomes «…», never an empty gap');
+  assert.equal(R.renderTemplate('{evil}<b>', {}), '…<b>', 'rendering does not escape — the text goes into a textarea via esc()');
+  const c = { name: 'Петрова Ирина', assigned_to_name: 'Юлия Рекрутер', source: 'hh', source_url: 'https://hh.ru/resume/1', phone: '8 900 111-22-33',
+    intern: { training: { date: '2026-11-14', time: '12:00', place: 'Офис', trainer_name: 'Пётр' },
+      outings: [{ date: '2026-11-15', status: 'done', venue_name: 'Москвариум' }, { date: '2026-11-20', status: 'booked', venue_name: 'Крокус' }] } };
+  const v = R.templateVars(c, { laika_bot: 'likeme_laika_bot', intern_chat_url: 'https://t.me/+abc' });
+  assert.equal(v.имя, 'Ирина'); assert.equal(v.рекрутер, 'Юлия'); assert.equal(v.дата_тренинга, 'сб 14 ноя'); assert.equal(v.площадка, 'Москвариум');
+  assert.equal(v.дата, 'пт 20 ноя'); assert.equal(v.ссылка_бот, 'https://t.me/likeme_laika_bot');
+  assert.equal(R.channelOf(c), 'hh'); assert.equal(R.channelOf({ contact_channel: 'max' }), 'max'); assert.equal(R.channelOf({ telegram: '@x_name' }), 'telegram');
+  assert.equal(R.channelHref('hh', c), 'https://hh.ru/resume/1');
+  assert.equal(R.channelHref('phone', c), 'tel:+79001112233');
+  assert.equal(R.channelHref('whatsapp', c), 'https://wa.me/79001112233');
+  assert.equal(R.channelHref('telegram', { contact_link: '@photo_ivan' }), 'https://t.me/photo_ivan');
+  assert.equal(R.channelHref('max', { contact_link: 'javascript:alert(1)' }), null, 'no script links from the contact field');
+  assert.equal(R.channelHref('email', { contact_link: 'a@b.ru' }), 'mailto:a@b.ru');
+});
+
+test('interns funnel: checklist groups in funnel order, tasks per person, QR images only from SVG', () => {
+  const R = core();
+  const g = R.checklistGroups([{ code: 'x', stage: 'outing_1' }, { code: 'a', stage: 'training_1' }, { code: 'b', stage: 'training_1' }]);
+  assert.equal(JSON.stringify(g.map(x => [x.stage, x.items.length])), JSON.stringify([['training_1', 2], ['outing_1', 1]]));
+  const t = R.groupTasks([{ candidate_id: '1', item: 'a' }, { candidate_id: '2', item: 'b' }, { candidate_id: '1', item: 'c' }]);
+  assert.equal(JSON.stringify(t.map(x => [x.candidate_id, x.items.map(i => i.item).join('')])), JSON.stringify([['1', 'ac'], ['2', 'b']]));
+  assert.match(R.svgSrc('<svg xmlns="http://www.w3.org/2000/svg"></svg>'), /^data:image\/svg\+xml/);
+  assert.equal(R.svgSrc('<script>alert(1)</script>'), null);
+  assert.equal(R.dayLabel('2026-11-14'), 'сб 14 ноя');
+  assert.ok(R.STEP.outing_3 && R.STEP.trainee && R.STEP.reserve, 'labels for the new KPI steps');
+});
+
+test('interns funnel: QR and templates never inject server HTML; checkboxes are handled by the change listener', () => {
+  assert.ok(html.includes("addEventListener('change'") && html.includes('data-act="check-item"'));
+  assert.ok(!/innerHTML\s*=\s*[a-z.]*qr_svg/i.test(html), 'server SVG goes through an <img> data: URL, not innerHTML');
+  assert.ok(html.includes('<script src="assets/qrcode.min.js"></script>'));
+  assert.ok(/textarea class="tpl-text"[^>]*>\$\{esc\(text\)\}/.test(html), 'template text is escaped into the textarea');
+});

@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
 <script src="assets/photohr.js"></script>
+<script src="assets/qrcode.min.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="theme-color" content="#0f0f13"/>
@@ -215,6 +216,33 @@ code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11p
 .admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
 .admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 
+/* Interns funnel */
+.chk-group{margin-bottom:8px}
+.chk-stage{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 4px}
+.chk{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;font-size:12px;background:var(--bg3);margin-bottom:4px}
+.chk.st-due{border:1px solid rgba(245,166,35,.45)}
+.chk.st-done{opacity:.7}
+.chk.st-skipped{opacity:.45}
+.chk input{margin-top:2px;accent-color:var(--rank1)}
+.chk .who{margin-left:auto;font-size:10px;color:var(--text3);white-space:nowrap}
+.out{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:7px 10px;border-radius:9px;background:var(--bg3);margin-bottom:6px;font-size:12px}
+.out .st{font-weight:600}
+.out .st.done{color:var(--rank1)}.out .st.no_show,.out .st.cancelled{color:var(--rank3)}.out .st.booked{color:var(--rank2)}
+.qr-box{background:#fff;border-radius:14px;padding:14px;display:flex;justify-content:center;align-items:center;min-height:280px;margin:0 auto 10px;max-width:320px}
+.qr-box img,.qr-box canvas{max-width:100%;height:auto}
+.qr-name{font-family:'Unbounded',sans-serif;font-size:18px;text-align:center;margin-bottom:8px}
+.slot-day{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;min-width:180px}
+.slot-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.slot{display:flex;justify-content:space-between;gap:6px;font-size:12px;padding:4px 0;border-bottom:1px dashed var(--border)}
+.slot>span:last-child{white-space:nowrap}
+.slot:last-child{border-bottom:none}
+.free{font-weight:600;color:var(--rank1)}.full{color:var(--rank3)}
+.tpl-text{white-space:pre-wrap;font-size:13px;line-height:1.5;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;min-height:120px;width:100%;color:var(--text);font-family:inherit}
+.att td{vertical-align:middle}
+.att input[type=checkbox]{width:18px;height:18px;accent-color:var(--rank1)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:8px;font-size:10px;background:var(--bg3);color:var(--text2)}
+.pill.ok{background:rgba(62,207,142,.15);color:var(--rank1)}
+
 @media(max-width:768px){
   .header{padding:10px 14px;gap:8px;padding-top:max(10px,env(safe-area-inset-top))}
   .nav-links{order:3;width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-left:0}
@@ -272,7 +300,10 @@ code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11p
   <button class="tab" data-tab="board">🗂 Воронка</button>
   <button class="tab" data-tab="list">📋 Список</button>
   <button class="tab" data-tab="vacancies">💼 Вакансии</button>
+  <button class="tab intern-only hidden" data-tab="interns">🎓 Стажировки</button>
+  <button class="tab intern-only hidden" data-tab="trainer">🧑‍🏫 Тренинг</button>
   <button class="tab" data-tab="kpi">📈 KPI</button>
+  <button class="tab helper-only hidden" data-tab="tasks">✅ Мои задачи <span class="cnt" id="cnt-tasks"></span></button>
   <button class="tab lead-only hidden" data-tab="import">⬆ Импорт</button>
   <button class="tab lead-only hidden" data-tab="dupes">👯 Дубли</button>
   <button class="tab lead-only hidden" data-tab="settings">⚙ Настройки</button>
@@ -308,6 +339,9 @@ code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11p
   <section id="view-list" class="view hidden"></section>
   <section id="view-vacancies" class="view hidden"></section>
   <section id="view-kpi" class="view hidden"></section>
+  <section id="view-interns" class="view hidden"></section>
+  <section id="view-trainer" class="view hidden"></section>
+  <section id="view-tasks" class="view hidden"></section>
   <section id="view-import" class="view hidden"></section>
   <section id="view-dupes" class="view hidden"></section>
   <section id="view-settings" class="view hidden"></section>
@@ -415,11 +449,74 @@ code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11p
   R.pct = (a, b) => (a ? Math.round((b / a) * 1000) / 10 + '%' : '—');
   R.SRC = { hh: 'hh.ru', avito: 'Авито', telegram: 'Telegram', website: 'Сайт', referral: 'Рекомендация', manual: 'Вручную', import: 'Импорт', other: 'Другое' };
   R.ROLE = { photographer: 'Фотограф', aquagrim: 'Аквагримёр', admin: 'Администратор', manager: 'Менеджер', other: 'Другое' };
-  R.STEP = { response: 'Отклик', call: 'Звонок', interview: 'Собеседование', training: 'Обучение', internship: 'Стажировка', hired: 'Найм', rejected: 'Отказ' };
+  // KPI steps (interns funnel 7 Nov): keys are kept from Recruiting 2, labels follow the scheme.
+  R.STEP = { response: 'Отклик', call: 'Звонок', interview: 'Приглашён', training: 'Тренинг ч.1', trainee: 'Стажёр (2 части)',
+    internship: 'Записан на стажировку', outing_1: 'Выход 1', outing_2: 'Выход 2', outing_3: 'Выход 3', hired: 'Передан в HR', rejected: 'Отказ', reserve: 'Резерв' };
   R.CALL = { reached: 'Дозвонился', no_answer: 'Не ответил', busy: 'Занято', wrong_number: 'Неверный номер', callback: 'Просил перезвонить', declined: 'Отказался' };
   R.CTYPE = { note: '📝', call: '📞', no_answer: '📵', message_sent: '💬', interview: '🤝', system: '⚙' };
   R.KIND = { call: 'Позвонить', message: 'Написать', interview: 'Собеседование', meeting: 'Встреча', other: 'Другое' };
-  R.FUNNEL = { hiring: 'Найм и обучение', internship: 'Стажировка и приём', rejected: 'Отказы' };
+  R.FUNNEL = { hiring: 'Отклик и тренинг', internship: 'Стажировка', rejected: 'Отказы и резерв' };
+  R.CHANNEL = { hh: 'hh.ru', avito: 'Авито', telegram: 'Telegram', max: 'MAX', whatsapp: 'WhatsApp', phone: 'Телефон', email: 'Почта', other: 'Другое' };
+  R.WHO = { recruiter: 'Рекрутер', trainer: 'Тренер', venue_manager: 'Менеджер площадки' };
+  R.OUT = { booked: 'записан', done: 'был ✓', no_show: 'не пришёл', cancelled: 'отменён' };
+  R.TEMPLATES = { invite_interview: 'Приглашение на собеседование', invite_training: 'Приглашение на тренинг', after_day1: 'После 1-го дня', who_is_who: 'Кто чем занимается' };
+  R.CODE_ORDER = ['response', 'invited', 'training_1', 'trainee', 'booked', 'outing_1', 'outing_2', 'outing_3', 'handover'];
+  // Channel of the conversation: set by hand, otherwise from the source of the response.
+  R.channelOf = c => (c && c.contact_channel) || ({ hh: 'hh', avito: 'avito', telegram: 'telegram' })[c && c.source] || (c && c.telegram ? 'telegram' : c && c.phone ? 'phone' : null);
+  R.channelHref = (ch, c) => {
+    const link = String((c && c.contact_link) || '').trim();
+    switch (ch) {
+      case 'telegram': return R.tgHref(link) || R.tgHref(c && c.telegram) || R.safeUrl(link);
+      case 'whatsapp': return R.safeUrl(link) || R.waHref(link) || R.waHref((c && (c.whatsapp || c.phone)) || '');
+      case 'phone': return R.telHref(link) || R.telHref(c && c.phone);
+      case 'email': { const e = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(link) ? link : (c && c.email) || ''; return e ? 'mailto:' + e : null; }
+      default: return R.safeUrl(link) || (ch === 'hh' || ch === 'avito' ? R.safeUrl(c && c.source_url) : null);
+    }
+  };
+  // First name for messages: «Петрова Ирина» → Ирина, «Ирина Петрова» → Ирина, «Иванов Иван Иванович» → Иван.
+  const NOT_SURNAMES = new Set(['ирина', 'марина', 'екатерина', 'полина', 'алина', 'кристина', 'валентина', 'ангелина', 'карина', 'галина', 'нина',
+    'регина', 'арина', 'дарина', 'константин', 'валентин', 'вениамин', 'мартин', 'лев', 'яков', 'любовь']);
+  const surnameLike = w => /(ов|ова|ев|ева|ёв|ёва|ин|ина|ын|ына|ский|ская|цкий|цкая|ко|ук|юк|ян|дзе|швили|их|ых)$/i.test(w) && !NOT_SURNAMES.has(w.toLowerCase());
+  R.firstName = name => {
+    const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (w.length < 2) return w[0] || '';
+    return surnameLike(w[0]) && !surnameLike(w[1]) ? w[1] : w[0];
+  };
+  // {имя}, {дата_тренинга}… — unknown or empty placeholders become «…» so a draft never goes out half-filled silently.
+  R.renderTemplate = (tpl, vars) => String(tpl || '').replace(/\{([0-9a-zа-яё_]+)\}/gi, (m, k) => (vars && vars[k] != null && vars[k] !== '' ? String(vars[k]) : '…'));
+  const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  R.dayLabel = v => { if (!v) return ''; const d = new Date(String(v).slice(0, 10) + 'T12:00:00'); return isNaN(d) ? '' : `${WD[d.getDay()]} ${R.fmtDate(d)}`; };
+  R.templateVars = (c, settings, me) => {
+    const i = (c && c.intern) || {};
+    const next = (i.outings || []).filter(o => o.status === 'booked').sort((a, b) => a.date.localeCompare(b.date))[0];
+    const last = (i.outings || []).filter(o => o.status === 'done').sort((a, b) => b.date.localeCompare(a.date))[0];
+    const tr = i.training || {};
+    return { имя: R.firstName(c && c.name), рекрутер: R.firstName((c && c.assigned_to_name) || (me && me.name) || ''),
+      дата_тренинга: tr.date ? R.dayLabel(tr.date) : '', время_тренинга: tr.time || '', место_тренинга: tr.place || '', тренер: tr.trainer_name || '',
+      дата: next ? R.dayLabel(next.date) : '', площадка: (last || next || {}).venue_name || '',
+      ссылка_бот: settings && settings.laika_bot ? 'https://t.me/' + settings.laika_bot : '', чат_стажёров: (settings && settings.intern_chat_url) || '' };
+  };
+  // Checklist grouped by the stage it belongs to, in funnel order.
+  R.checklistGroups = list => {
+    const groups = [];
+    for (const item of list || []) {
+      let g = groups.find(x => x.stage === item.stage);
+      if (!g) { g = { stage: item.stage, items: [] }; groups.push(g); }
+      g.items.push(item);
+    }
+    return groups.sort((a, b) => R.CODE_ORDER.indexOf(a.stage) - R.CODE_ORDER.indexOf(b.stage));
+  };
+  // Tasks of one person together (one card per candidate on «Сегодня»), order kept.
+  R.groupTasks = tasks => {
+    const out = [];
+    for (const t of tasks || []) {
+      let g = out.find(x => x.candidate_id === t.candidate_id);
+      if (!g) { g = { candidate_id: t.candidate_id, items: [] }; out.push(g); }
+      g.items.push(t);
+    }
+    return out;
+  };
+  R.svgSrc = svg => /^<svg[\s>]/.test(String(svg || '')) ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) : null;
   // Card timeline: stage moves, comments/calls and finished reminders, newest first.
   R.timeline = c => {
     const ev = [];
@@ -436,6 +533,7 @@ code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11p
   };
   R.rejectStage = (stages, current) => {
     const rej = stages.filter(s => s.terminal_type === 'rejected' && s.is_active !== false).sort((a, b) => a.sort_order - b.sort_order);
+    if (rej.length === 1) return rej[0];
     if (!rej.length) return null;
     const cur = stages.find(s => s.id === current);
     const step = cur && cur.kpi_step;
@@ -459,7 +557,8 @@ let refreshLock = null;
 let currentUser = null;
 let mgmtNavHasAccess = false;
 let META = null;
-const state = { tab: 'today', filters: {}, list: { offset: 0, sort: 'created_desc', selected: new Set() }, mobileStage: null, card: null, kpi: { period: '30' } };
+const state = { tab: 'today', filters: {}, list: { offset: 0, sort: 'created_desc', selected: new Set() }, mobileStage: null, card: null, kpi: { period: '30', internBy: 'week' },
+  helper: false, trainer: { training: null }, interns: { days: 14 } };
 
 const ROLE_LABELS = { admin: 'Администратор', super_admin: 'Суперадмин', exec_director: 'Исполнительный директор', hr_director: 'HR-директор',
   hr_manager: 'HR-менеджер', recruiter: 'Рекрутер', tech_director: 'Тех-директор', site_specialist: 'Специалист по сайту', cashier: 'Инкассация',
@@ -467,6 +566,9 @@ const ROLE_LABELS = { admin: 'Администратор', super_admin: 'Суп�
 const ROLE_COLORS = { admin: '#ffd700', super_admin: '#c084fc', exec_director: '#f5a623', hr_director: '#3ecf8e', hr_manager: '#4ecb8a', recruiter: '#e86aa6' };
 const hasAnyRole = roles => currentUser?.role === 'super_admin' || roles.includes(currentUser?.role);
 const isLead = () => !!META?.me?.is_lead;
+const internsOn = () => !!META?.interns?.enabled;
+const SETTINGS = () => (META && META.interns && META.interns.settings) || {};
+const stageByCode = code => (META?.stages || []).find(s => s.code === code && s.is_active !== false);
 
 // ── API ──
 async function api(method, path, body, { raw = false, form = null } = {}) {
@@ -525,6 +627,7 @@ function setupHeader() {
     <span class="muted small">${esc(ROLE_LABELS[currentUser.role] || currentUser.role)}</span>`;
   $('btn-management').classList.toggle('hidden', !hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']));
   document.querySelectorAll('.lead-only').forEach(el => el.classList.toggle('hidden', !isLead()));
+  document.querySelectorAll('.intern-only').forEach(el => el.classList.toggle('hidden', !internsOn()));
 }
 
 // ── INIT ──
@@ -536,6 +639,8 @@ function setupHeader() {
     try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch { mgmtNavHasAccess = false; }
     setupNav('recruiting');
     try { META = await api('GET', '/recruiting/meta'); } catch (e) {
+      // Trainers and venue managers: only their tasks for the interns (and the trainer screen).
+      if (e.status === 403 && await startHelperMode()) return;
       setupHeader();
       document.querySelector('main').innerHTML = `<div class="empty">${e.status === 403 ? 'Раздел рекрутинга доступен рекрутерам, HR и руководителям.' : esc(e.message)}</div>`;
       return;
@@ -549,7 +654,7 @@ function setupHeader() {
       if (p.get('hh') === 'connected') toast('hh.ru подключён ✅'); else toast(p.get('msg') || 'hh.ru не подключён', true);
       history.replaceState(null, '', location.pathname + '#settings');
     }
-    showTab(['today', 'board', 'list', 'vacancies', 'kpi', 'import', 'dupes', 'settings'].includes(tab) ? tab : (isLead() && window.innerWidth > 900 ? 'board' : 'today'));
+    showTab(['today', 'board', 'list', 'vacancies', 'interns', 'trainer', 'kpi', 'import', 'dupes', 'settings'].includes(tab) ? tab : (isLead() && window.innerWidth > 900 ? 'board' : 'today'));
     refreshTodayCount();
   } catch (e) { if (e && e.status === 401) doLogout(); else toast(e.message || 'Ошибка', true); }
 })();
@@ -557,19 +662,23 @@ function setupHeader() {
 // ── TABS ──
 const FILTER_TABS = ['board', 'list'];
 function showTab(tab) {
-  if (['import', 'dupes', 'settings'].includes(tab) && !isLead()) tab = 'today';
+  if (state.helper) tab = ['tasks', 'trainer'].includes(tab) ? tab : 'tasks';
+  else if (['import', 'dupes', 'settings'].includes(tab) && !isLead()) tab = 'today';
+  if (!state.helper && ['interns', 'trainer'].includes(tab) && !internsOn()) tab = 'today';
+  if (!state.helper && tab === 'tasks') tab = 'today';
   state.tab = tab;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + tab));
   $('filters').classList.toggle('hidden', !FILTER_TABS.includes(tab));
   if (location.hash.replace('#', '').split('?')[0] !== tab) history.replaceState(null, '', '#' + tab);
   ({ today: loadToday, board: loadBoard, list: loadList, vacancies: loadVacancies, kpi: loadKpi, import: renderImport,
-    dupes: loadDupes, settings: loadSettings })[tab]();
+    dupes: loadDupes, settings: loadSettings, interns: loadInterns, trainer: loadTrainer, tasks: loadTasks })[tab]();
 }
 async function refreshTodayCount() {
+  if (state.helper) return;
   try {
     const d = await api('GET', '/recruiting/today?user=me&days=1&tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone));
-    const n = d.counts.overdue + d.counts.today;
+    const n = d.counts.overdue + d.counts.today + (d.counts.intern_tasks || 0);
     const el = $('cnt-today'); el.textContent = n || ''; el.classList.toggle('red', d.counts.overdue > 0);
   } catch { /* badge is optional */ }
 }
@@ -652,10 +761,11 @@ async function loadToday() {
       ${d.overdue.length ? block('⏰ Просрочено', d.overdue, 'overdue') : ''}
       ${block('📞 Сегодня', d.today, 'today')}
       ${block('🆕 Новые отклики — позвонить первыми', d.new_responses, 'fresh', true)}
+      ${internsOn() ? internTasksBlock(d.intern_tasks || [], false) : ''}
       ${d.upcoming.length ? block('🗓 Ближайшие дни', d.upcoming, '') : ''}`;
     const sel = $('today-who');
     if (sel) sel.addEventListener('change', () => { state.todayWho = sel.value; loadToday(); });
-    const n = d.counts.overdue + d.counts.today; $('cnt-today').textContent = n || ''; $('cnt-today').classList.toggle('red', d.counts.overdue > 0);
+    const n = d.counts.overdue + d.counts.today + (d.counts.intern_tasks || 0); $('cnt-today').textContent = n || ''; $('cnt-today').classList.toggle('red', d.counts.overdue > 0);
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 function todayCard(r, cls, fresh) {
@@ -727,6 +837,11 @@ function boardCard(c) {
       ${!c.assigned_to ? '<span title="Общий кандидат">👥</span>' : (isLead() && c.assigned_to_name ? `<span>👤 ${esc(c.assigned_to_name.split(' ')[0])}</span>` : '')}
     </div>
     ${c.vacancy_title ? `<div class="cc-row" style="margin-top:3px">💼 ${esc(c.vacancy_title)}</div>` : ''}
+    ${internsOn() && (c.outings_done || c.next_outing_date || c.telegram_linked || c.ready_for_hr_at) ? `<div class="cc-row" style="margin-top:3px">
+      ${c.outings_done ? `<span class="pill ${c.outings_done >= 3 ? 'ok' : ''}">🎓 ${Number(c.outings_done)}/3</span>` : ''}
+      ${c.next_outing_date ? `<span class="pill">📅 ${esc(R.dayLabel(c.next_outing_date))}</span>` : ''}
+      ${c.telegram_linked ? '<span class="pill" title="Записан в боте Лайки">TG ✓</span>' : ''}
+      ${c.ready_for_hr_at && !c.is_terminal ? '<span class="pill ok">→ HR</span>' : ''}</div>` : ''}
   </div>`;
 }
 function bindDnD(root) {
@@ -746,10 +861,15 @@ function bindDnD(root) {
 async function moveFlow(id, stageId, after) {
   const st = stageById(stageId);
   if (!st) return;
-  if (st.terminal_type === 'rejected') return openReject(id, stageId, after);
+  if (st.terminal_type === 'rejected' || st.terminal_type === 'reserve') return openReject(id, stageId, after, st.terminal_type === 'reserve');
   if (st.terminal_type === 'hired') {
-    if (!confirm('Принять кандидата в штат? Будет создана карточка сотрудника (испытательный срок).')) return;
+    const card = state.card && state.card.id === id ? state.card : null;
+    const txt = card && card.intern && card.intern.trainee_card
+      ? `«${st.name}»: карточка стажёра «${card.intern.trainee_card.name}» станет карточкой сотрудника (испытательный срок). Продолжить?`
+      : `«${st.name}»: будет создана карточка сотрудника (испытательный срок). Продолжить?`;
+    if (!confirm(txt)) return;
   }
+  if (st.auto_action === 'pick_outing' && internsOn()) return openOutingPicker(id, stageId, after);
   // Stage action from settings; the old page's stage names keep working without settings.
   const isTraining = st.auto_action === 'pick_training' || (!st.auto_action && st.name === 'Приглашен на обучение');
   const isIntern = st.auto_action === 'pick_internship' || (!st.auto_action && ['Назначена стажировка', 'Ожидает стажировку'].includes(st.name));
@@ -759,7 +879,8 @@ async function moveFlow(id, stageId, after) {
 async function doMove(id, stageId, extra = {}, after) {
   try {
     const r = await api('POST', `/candidates/${id}/move`, { stage_id: stageId, ...extra });
-    toast(r.converted ? '🎉 Принят! Карточка сотрудника создана' : 'Перемещён: ' + (stageById(stageId)?.name || ''));
+    toast(r.converted ? (r.reused_trainee_card ? '🎉 Передан в HR — карточка стажёра стала карточкой сотрудника' : '🎉 Передан в HR — карточка сотрудника создана')
+      : 'Перемещён: ' + (stageById(stageId)?.name || ''));
     await refreshAfterChange(id);
     if (after) after();
   } catch (e) { toast(e.message, true); }
@@ -886,10 +1007,12 @@ function renderCard(c, keepScroll) {
         ${next ? `<button class="btn btn-ghost btn-sm" data-act="next-stage" data-id="${esc(c.id)}">→ ${esc(next.name)}</button>` : ''}
         <select class="fselect" id="card-move" style="width:auto;flex:1;min-width:140px">${opt('', c.is_terminal ? '↩ Вернуть на этап…' : 'Перевести на этап…')}${META.stages.filter(s => s.is_active !== false && s.id !== c.stage_id).map(s => opt(s.id, s.name)).join('')}</select>
         ${!c.is_terminal ? `<button class="btn btn-danger btn-sm" data-act="reject" data-id="${esc(c.id)}">✕ Отказ</button>` : ''}
+        ${!c.is_terminal && internsOn() && stageByCode('reserve') ? `<button class="btn btn-ghost btn-sm" data-act="reserve" data-id="${esc(c.id)}">⏸ Резерв</button>` : ''}
         ${!c.assigned_to || (c.assigned_to !== currentUser.id && isLead()) ? `<button class="btn btn-ghost btn-sm" data-act="take" data-id="${esc(c.id)}">🙋 Взять себе</button>` : ''}
       </div>
     </div>
     <div class="dr-body">
+      ${internsOn() ? internReadyBanner(c) : ''}
       ${c.photographer_id ? `<div class="panel" style="border-color:rgba(62,207,142,.4);margin-bottom:14px;font-size:13px;color:var(--rank1)">✅ Принят${c.converted_employee_name ? ': ' + esc(c.converted_employee_name) : ''} — <a href="photographers.html" style="text-decoration:underline">карточка сотрудника</a></div>` : ''}
       <div class="dr-section">
         <div class="dr-label">⏰ Перезвонить ${openRems.length ? '' : '<span class="muted">— не запланировано</span>'}</div>
@@ -904,6 +1027,7 @@ function renderCard(c, keepScroll) {
       <div class="dr-section">
         <div class="dr-label">Контакты и данные <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${esc(c.id)}" style="margin-left:auto">✏️ Изменить</button></div>
         <div class="kv">
+          ${internsOn() ? channelRow(c) : ''}
           ${c.phone ? `<div class="k">Телефон</div><div><a href="${esc(tel || '#')}">${esc(c.phone)}</a></div>` : ''}
           ${c.email ? `<div class="k">Почта</div><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ''}
           ${c.telegram ? `<div class="k">Telegram</div><div>${tg ? `<a href="${esc(tg)}" target="_blank" rel="noopener">${esc(c.telegram)}</a>` : esc(c.telegram)}</div>` : ''}
@@ -926,6 +1050,8 @@ function renderCard(c, keepScroll) {
           <datalist id="tag-list">${META.tags.map(t => `<option value="${esc(t.tag)}">`).join('')}</datalist>
         </div>
       </div>
+      ${internsOn() && c.intern ? internSection(c) : ''}
+      ${internsOn() ? templatesSection(c) : ''}
       ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме / о себе</div><div class="panel small" style="white-space:pre-wrap;line-height:1.5;max-height:200px;overflow:auto">${esc(c.resume_text)}</div></div>` : ''}
       <div class="dr-section">
         <div class="dr-label">Файлы <label class="btn btn-ghost btn-sm" style="margin-left:auto;cursor:pointer">📎 Загрузить<input type="file" id="file-in" hidden accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png,.webp"/></label></div>
@@ -989,7 +1115,7 @@ function modal(html, { wide = false } = {}) {
   $('modal-box').innerHTML = html;
   $('modal').classList.add('open');
 }
-function closeModal() { $('modal').classList.remove('open'); $('modal-box').innerHTML = ''; }
+function closeModal() { clearInterval(state.qrTimer); $('modal').classList.remove('open'); $('modal-box').innerHTML = ''; }
 const modalHead = title => `<div class="modal-title"><span>${title}</span><button class="modal-x" data-act="close-modal" aria-label="Закрыть">×</button></div>`;
 
 // New candidate
@@ -1053,6 +1179,8 @@ function openEdit(c) {
     <div class="row2"><div class="field"><div class="fl">Ведёт</div><select class="fselect" id="e-assign">${opt('', 'Общий (без рекрутера)', !c.assigned_to)}${(isLead() ? META.recruiters : META.recruiters.filter(u => u.id === currentUser.id || u.id === c.assigned_to)).map(u => opt(u.id, u.name, c.assigned_to === u.id)).join('')}</select></div>
       <div class="field"><div class="fl">Видимость</div><select class="fselect" id="e-shared">${opt('0', 'Только у рекрутера', !c.is_shared)}${opt('1', 'Видно всем рекрутерам', c.is_shared)}</select></div></div>
     <div class="field"><div class="fl">Ссылка на резюме</div><input class="fin" id="e-url" value="${esc(c.source_url || '')}" placeholder="https://hh.ru/resume/…"/></div>
+    ${internsOn() ? `<div class="row2"><div class="field"><div class="fl">Канал общения</div><select class="fselect" id="e-channel">${opt('', '— по источнику —', !c.contact_channel)}${Object.entries(R.CHANNEL).map(([k, l]) => opt(k, l, c.contact_channel === k)).join('')}</select></div>
+      <div class="field"><div class="fl">Ссылка / контакт в канале</div><input class="fin" id="e-link" value="${esc(c.contact_link || '')}" placeholder="чат на hh/Авито, @ник, номер"/></div></div>` : ''}
     <div class="field"><div class="fl">Резюме / о себе</div><textarea class="fin" id="e-resume" rows="4">${esc(c.resume_text || '')}</textarea></div>
     <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="save-edit" data-id="${esc(c.id)}">Сохранить</button></div>`);
 }
@@ -1062,6 +1190,7 @@ async function saveEdit(id) {
     birth_date: $('e-birth').value || null, source: $('e-source').value, target_role: $('e-role').value, vacancy_id: $('e-vacancy').value || null,
     priority: $('e-prio').value, assigned_to: $('e-assign').value || null, is_shared: $('e-shared').value === '1',
     source_url: $('e-url').value.trim() || null, resume_text: $('e-resume').value.trim() || null };
+  if ($('e-channel')) { body.contact_channel = $('e-channel').value || null; body.contact_link = $('e-link').value.trim() || null; }
   try { await api('PATCH', `/candidates/${id}`, body); closeModal(); toast('Сохранено'); refreshAfterChange(id); }
   catch (e) { toast(e.message + (e.data && e.data.duplicate_name ? ': ' + e.data.duplicate_name : ''), true); }
 }
@@ -1101,17 +1230,21 @@ async function callResult(candidateId, result, reminderId) {
 }
 
 // Reject with reason and optional «вернуться позже»
-function openReject(id, stageId, after) {
+function openReject(id, stageId, after, reserve = false) {
   const c = state.card && state.card.id === id ? state.card : null;
-  const stages = META.stages.filter(s => s.terminal_type === 'rejected' && s.is_active !== false);
-  const guess = stageId || (R.rejectStage(META.stages, c ? c.stage_id : null) || {}).id;
-  modal(`${modalHead('✕ Отказ')}
-    <div class="field"><div class="fl">Этап отказа</div><select class="fselect" id="j-stage">${stages.map(s => opt(s.id, s.name, s.id === guess)).join('')}</select></div>
+  const type = reserve ? 'reserve' : 'rejected';
+  const stages = META.stages.filter(s => s.terminal_type === type && s.is_active !== false);
+  const guess = stageId || (reserve ? (stages[0] || {}).id : (R.rejectStage(META.stages, c ? c.stage_id : null) || {}).id);
+  const s = SETTINGS();
+  const reasons = (reserve ? s.reserve_reasons : s.reject_reasons) || ['Кандидат отказался сам', 'Не вышел на связь', 'Не пришёл', 'Не подходит по навыкам',
+    'Нет техники (камеры)', 'Не устроил график / оплата', 'Временно не может', 'Другое'];
+  modal(`${modalHead(reserve ? '⏸ В резерв' : '✕ Отказ')}
+    <div class="field"><div class="fl">${reserve ? 'Этап' : 'Этап отказа'}</div><select class="fselect" id="j-stage">${stages.map(x => opt(x.id, x.name, x.id === guess)).join('')}</select></div>
     <div class="field"><div class="fl">Причина *</div><select class="fselect" id="j-reason">
-      ${['Кандидат отказался сам', 'Не вышел на связь', 'Не пришёл', 'Не подходит по навыкам', 'Нет техники (камеры)', 'Не устроил график / оплата', 'Временно не может', 'Другое'].map(x => opt(x, x)).join('')}</select></div>
+      ${reasons.map(x => opt(x, x)).join('')}</select></div>
     <div class="field"><div class="fl">Комментарий</div><textarea class="fin" id="j-comment" rows="2" placeholder="Подробности, планы на будущее…"></textarea></div>
     <div class="field"><div class="fl">Вернуться позже?</div><select class="fselect" id="j-return">${opt('', 'Нет')}${opt('newyear', 'Готов на ёлки — напомнить 1 ноября')}${opt('summer', 'Готов на лето — напомнить 1 мая')}${opt('month', 'Перезвонить через месяц')}</select></div>
-    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-danger" data-act="confirm-reject" data-id="${esc(id)}">Отказать</button></div>`);
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn ${reserve ? 'btn-warn' : 'btn-danger'}" data-act="confirm-reject" data-id="${esc(id)}">${reserve ? 'В резерв' : 'Отказать'}</button></div>`);
   state.afterReject = after;
 }
 async function confirmReject(id) {
@@ -1120,9 +1253,9 @@ async function confirmReject(id) {
   const note = $('j-reason').value + ($('j-comment').value.trim() ? ': ' + $('j-comment').value.trim() : '');
   const ret = $('j-return').value;
   try {
-    await api('POST', `/candidates/${id}/move`, { stage_id: stageId, notes: note });
+    await api('POST', `/candidates/${id}/move`, { stage_id: stageId, notes: note, rejection_code: $('j-reason').value });
     if (ret) await api('POST', `/candidates/${id}/reminders`, { due_at: R.presetDate(ret).toISOString(), kind: 'call', note: 'Вернуться после отказа: ' + note.slice(0, 200) });
-    closeModal(); toast('Отказ сохранён' + (ret ? ', напоминание поставлено' : ''));
+    closeModal(); toast((stageById(stageId)?.terminal_type === 'reserve' ? 'В резерве' : 'Отказ сохранён') + (ret ? ', напоминание поставлено' : ''));
     refreshAfterChange(id);
     if (state.afterReject) state.afterReject();
   } catch (e) { toast(e.message, true); }
@@ -1229,7 +1362,7 @@ async function loadKpi() {
           <div class="kpi-funnel">${steps.map((s, i) => `<div class="kf-row"><span>${esc(R.STEP[s])}</span>
             <div class="kf-bar"><div class="kf-fill" style="width:${Math.round(d.funnel[s] / max * 100)}%"></div></div>
             <span class="kf-num">${d.funnel[s]}</span><span class="kf-conv">${i ? R.pct(d.funnel[steps[i - 1]], d.funnel[s]) : ''}</span></div>`).join('')}</div>
-          <div class="small muted" style="margin-top:8px">Когорта: отклики, пришедшие за период; % — переход с предыдущего шага. Отказов: ${d.funnel.rejected}. Импорт архива не учитывается.</div>
+          <div class="small muted" style="margin-top:8px">Когорта: отклики, пришедшие за период; % — переход с предыдущего шага. Отказов: ${d.funnel.rejected}${d.funnel.reserve != null ? `, в резерве: ${d.funnel.reserve}` : ''}. Импорт архива не учитывается.</div>
         </div>
         <div class="panel"><div class="section-title" style="margin-top:0">Отклики по дням</div>
           <div class="spark">${d.daily.map(x => `<div title="${esc(x.day)}: ${x.responses}" style="height:${Math.round(x.responses / dmax * 100)}%"></div>`).join('') || '<span class="muted small">нет данных</span>'}</div>
@@ -1237,6 +1370,7 @@ async function loadKpi() {
           ${d.stage_times.length ? `<div class="kv">${d.stage_times.map(s => `<div class="k"><span class="dot" style="background:${R.color(s.color)}"></span> ${esc(s.name)}</div><div>${s.median_days ?? '—'} медиана · ${s.avg_days ?? '—'} в среднем <span class="muted">(${s.n})</span></div>`).join('')}</div>` : '<div class="small muted">Пока нет переходов за период</div>'}
         </div>
       </div>
+      ${internsOn() ? `<div class="panel" style="margin-bottom:14px"><div class="section-title" style="margin-top:0">🎓 Стажёры: тренинг → стажёр → 3 выхода → HR</div><div id="kpi-interns"><div class="loading">Считаю…</div></div></div>` : ''}
       <div style="display:flex;flex-direction:column;gap:14px">
         ${tableBy(d.by_source, 'По источникам', r => `<span class="src src-${esc(r.key || 'other')}">${esc(R.SRC[r.key] || r.key || '—')}</span>`)}
         ${isLead() ? tableBy(d.by_recruiter, 'По рекрутерам', r => esc(r.label)) : ''}
@@ -1247,6 +1381,7 @@ async function loadKpi() {
       </div>`;
     const bind = (id, key) => { const x = $(id); if (x) x.addEventListener('change', () => { k[key] = x.value; loadKpi(); }); };
     bind('kpi-source', 'source'); bind('kpi-recruiter', 'recruiter'); bind('kpi-vacancy', 'vacancy_id'); bind('kpi-city', 'city'); bind('kpi-from', 'from'); bind('kpi-to', 'to');
+    if (internsOn()) internReport(params.get('from'), params.get('to'));
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 
@@ -1402,14 +1537,15 @@ async function loadSettings() {
       </div>
       <div class="howto" style="margin-top:10px">Автоматическая загрузка по расписанию: ${s.schedule.enabled ? `<b>включена</b>, каждые ${s.schedule.interval_min} мин` : 'выключена (<code>RECRUITING_SYNC_ENABLED=true</code>, интервал <code>RECRUITING_SYNC_INTERVAL_MIN</code>, по умолчанию 15)'}.</div>
       <div id="int-result"></div>
+      ${internsOn() ? '<div class="section-title" style="margin-top:22px">🎓 Стажировки: бот, ссылки, причины, шаблоны, площадки</div><div id="set-interns"><div class="loading">Загрузка…</div></div>' : ''}
       <div class="section-title" style="margin-top:22px">Этапы воронки <button class="btn btn-ghost btn-sm" data-act="stage-new">+ Этап</button></div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Этап</th><th>Воронка</th><th>Шаг для KPI</th><th class="hide-m">При переводе</th><th>Тип</th><th>Показ</th><th></th></tr></thead><tbody>
         ${META.stages.slice().sort((a, b) => a.sort_order - b.sort_order).map((st, i, arr) => `<tr>
           <td><span class="dot" style="background:${R.color(st.color)}"></span> ${esc(st.name)}</td>
           <td><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="funnel">${Object.entries(R.FUNNEL).map(([k, l]) => opt(k, l, (st.funnel || 'hiring') === k)).join('')}</select></td>
           <td><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="kpi_step">${opt('', '— не считать —')}${[...META.kpi_steps, 'rejected'].map(k => opt(k, R.STEP[k], st.kpi_step === k)).join('')}</select></td>
-          <td class="hide-m"><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="auto_action">${opt('', '—')}${opt('pick_training', 'Выбрать тренинг', st.auto_action === 'pick_training')}${opt('pick_internship', 'Выбрать стажировку', st.auto_action === 'pick_internship')}</select></td>
-          <td class="small">${st.terminal_type === 'hired' ? '✅ найм' : st.terminal_type === 'rejected' ? '✕ отказ' : 'рабочий'}</td>
+          <td class="hide-m"><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="auto_action">${opt('', '—')}${opt('pick_training', 'Выбрать тренинг', st.auto_action === 'pick_training')}${opt('pick_internship', 'Выбрать стажировку', st.auto_action === 'pick_internship')}${internsOn() ? opt('pick_outing', 'Записать на выход', st.auto_action === 'pick_outing') : ''}</select></td>
+          <td class="small">${st.terminal_type === 'hired' ? '✅ найм / в HR' : st.terminal_type === 'rejected' ? '✕ отказ' : st.terminal_type === 'reserve' ? '⏸ резерв' : 'рабочий'}${st.code ? ' <span class="pill" title="Этап схемы стажёров — его ищет автоматика">схема</span>' : ''}</td>
           <td><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="is_active">${opt('true', 'На доске', st.is_active !== false)}${opt('false', 'Скрыт', st.is_active === false)}</select></td>
           <td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-act="stage-up" data-i="${i}" ${i ? '' : 'disabled'}>↑</button><button class="btn btn-ghost btn-sm" data-act="stage-down" data-i="${i}" ${i < arr.length - 1 ? '' : 'disabled'}>↓</button></td></tr>`).join('')}
       </tbody></table></div>`;
@@ -1418,6 +1554,7 @@ async function loadSettings() {
       try { await api('PATCH', `/recruiting/stages/${sel.dataset.id}`, { [sel.dataset.field]: v }); META = await api('GET', '/recruiting/meta'); toast('Сохранено'); }
       catch (e) { toast(e.message, true); }
     }));
+    if (internsOn()) internSettings().catch(e => { const b = $('set-interns'); if (b) b.innerHTML = `<div class="empty">${esc(e.message)}</div>`; });
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 async function moveStage(i, dir) {
@@ -1450,7 +1587,7 @@ function openStageNew() {
     <div class="field"><div class="fl">Название *</div><input class="fin" id="s-name"/></div>
     <div class="row2"><div class="field"><div class="fl">Воронка</div><select class="fselect" id="s-funnel">${Object.entries(R.FUNNEL).map(([k, l]) => opt(k, l)).join('')}</select></div>
       <div class="field"><div class="fl">Шаг для KPI</div><select class="fselect" id="s-step">${opt('', '—')}${[...META.kpi_steps, 'rejected'].map(k => opt(k, R.STEP[k])).join('')}</select></div></div>
-    <div class="row2"><div class="field"><div class="fl">Тип</div><select class="fselect" id="s-type">${opt('', 'Рабочий')}${opt('rejected', 'Отказ (конечный)')}${opt('hired', 'Найм (конечный)')}</select></div>
+    <div class="row2"><div class="field"><div class="fl">Тип</div><select class="fselect" id="s-type">${opt('', 'Рабочий')}${opt('rejected', 'Отказ (конечный)')}${internsOn() ? opt('reserve', 'Резерв (конечный)') : ''}${opt('hired', 'Найм / в HR (конечный)')}</select></div>
       <div class="field"><div class="fl">Цвет</div><input class="fin" id="s-color" type="color" value="#7c6cff" style="height:36px;padding:2px"/></div></div>
     <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="stage-save">Добавить</button></div>`);
 }
@@ -1470,6 +1607,380 @@ async function openTrainings() {
       <span class="muted" style="margin-left:auto">${Number(t.registered_count || 0)}/${t.max_attendees ? Number(t.max_attendees) : '∞'}</span></div>`).join('') : '<div class="empty">Запланированных нет</div>';
     if ($('tr-trainer')) { const tr = await api('GET', '/trainers'); $('tr-trainer').innerHTML = tr.map(x => opt(x.id, x.name)).join(''); }
   } catch (e) { $('tr-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// ── INTERNS FUNNEL (scheme «Воронка найма стажёров»): checklist, outings, QR, templates, internships, trainer, tasks ──
+function channelRow(c) {
+  const ch = R.channelOf(c);
+  if (!ch && !c.contact_link) return '';
+  const href = R.channelHref(ch, c);
+  const label = R.CHANNEL[ch] || 'Канал';
+  return `<div class="k">Канал</div><div>${href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(label)}${c.contact_link ? ' · ' + esc(c.contact_link) : ''} ↗</a>` : esc(label + (c.contact_link ? ' · ' + c.contact_link : ''))}
+    ${c.telegram_linked ? ' <span class="pill ok" title="Записан в боте Лайки">бот ✓</span>' : ''}</div>`;
+}
+function internReadyBanner(c) {
+  const i = c.intern;
+  if (!i || !i.ready_for_hr || c.is_terminal) return '';
+  return `<div class="panel" style="border-color:rgba(62,207,142,.45);margin-bottom:14px;font-size:13px">✅ Три выхода позади — можно передавать в HR.
+    <div class="actions" style="margin-top:8px"><button class="btn btn-ghost btn-sm" data-act="tpl-open" data-key="who_is_who">✉ «Кто чем занимается»</button>
+    ${stageByCode('handover') ? `<button class="btn btn-ok btn-sm" data-act="handover" data-id="${esc(c.id)}">→ ${esc(stageByCode('handover').name)}</button>` : ''}</div></div>`;
+}
+function internSection(c) {
+  const i = c.intern;
+  const tr = i.training;
+  const groups = R.checklistGroups(i.checklist);
+  const codeName = code => (META.stages.find(s => s.code === code) || {}).name || code;
+  const tc = i.trainee_card;
+  return `<div class="dr-section"><div class="dr-label">🎓 Стажировка
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" data-act="tg-qr" data-id="${esc(c.id)}">📱 QR для записи</button></div>
+    <div class="kv" style="margin-bottom:10px">
+      <div class="k">Тренинг</div><div>${tr ? `${esc(R.dayLabel(tr.date))}${tr.time ? ' ' + esc(tr.time) : ''} · ${esc(tr.title || '')}${tr.trainer_name ? ' · 🧑‍🏫 ' + esc(tr.trainer_name) : ''}${tr.trainer_has_account ? '' : ' <span class="muted small">(у тренера нет входа — его пункты у рекрутера)</span>'}`
+        : `<span class="muted">не выбран</span> <button class="btn btn-ghost btn-sm" data-act="pick-training" data-id="${esc(c.id)}">Выбрать</button>`}</div>
+      <div class="k">Выходы</div><div><b>${Number(i.outings_done)}</b> из 3${i.third_outing_manager ? ` · менеджер 3-го выхода: ${esc(i.third_outing_manager.name)}${i.third_outing_manager.has_account ? '' : ' (без входа)'}` : ''}</div>
+      <div class="k">Карточка стажёра</div><div>${tc ? `${esc(tc.name)} <span class="muted small">— смены и отметки считаются выходами</span> <button class="btn btn-ghost btn-sm" data-act="trainee-unlink" data-id="${esc(c.id)}">отвязать</button>`
+        : `${(i.trainee_card_suggestions || []).map(p => `<button class="btn btn-ghost btn-sm" data-act="trainee-link" data-id="${esc(c.id)}" data-ph="${esc(p.id)}">🔗 ${esc(p.name)}</button>`).join(' ')}
+           ${i.can_create_trainee_card ? `<button class="btn btn-ghost btn-sm" data-act="trainee-create" data-id="${esc(c.id)}">+ Создать (грейд «Стажёр»)</button>` : ''}
+           <span class="muted small">${(i.trainee_card_suggestions || []).length ? 'нашла по телефону в «Команде»' : 'нет — выходы отмечаются здесь вручную'}</span>`}</div>
+    </div>
+    <div class="dr-label">Выходы <button class="btn btn-ghost btn-sm" style="margin-left:auto" data-act="outing-new" data-id="${esc(c.id)}">+ Записать на выход</button></div>
+    ${(i.outings || []).map(o => outingRow(o, c)).join('') || '<div class="small muted" style="margin-bottom:8px">Ещё не записан</div>'}
+    <div class="dr-label" style="margin-top:10px">Чек-лист</div>
+    ${groups.map(g => `<div class="chk-group"><div class="chk-stage">${esc(codeName(g.stage))}</div>
+      ${g.items.map(it => `<label class="chk st-${esc(it.state)}">
+        <input type="checkbox" data-act="check-item" data-id="${esc(c.id)}" data-item="${esc(it.code)}" ${it.state === 'done' ? 'checked' : ''} ${it.code === 'handed_to_hr' ? 'disabled' : ''}/>
+        <span>${esc(it.label)}${it.state === 'done' ? `<div class="muted small">${esc(R.fmtDateTime(it.done_at))}${it.done_by_name ? ' · ' + esc(it.done_by_name) : ''}</div>` : it.state === 'due' ? '<div class="small" style="color:var(--rank2)">нужно сделать</div>' : it.state === 'skipped' ? '<div class="small muted">не отмечено</div>' : ''}</span>
+        <span class="who">${esc(R.WHO[it.who] || '')}${it.auto ? ' · авто' : ''}</span></label>`).join('')}</div>`).join('')}
+  </div>`;
+}
+function outingRow(o, c) {
+  const past = o.date < R.dateOnly(new Date());
+  return `<div class="out"><b>${o.day_no ? o.day_no + '-й' : '—'}</b><span>${esc(R.dayLabel(o.date))}</span><span>📍 ${esc(o.venue_name || '—')}</span>
+    <span class="st ${esc(o.status)}">${esc(R.OUT[o.status] || o.status)}</span>
+    ${o.from_shift ? '<span class="pill" title="Из расписания смен">смена</span>' : ''}${o.reminder_sent_at ? '<span class="pill" title="Бот напомнил накануне">🔔</span>' : ''}
+    ${o.feedback ? `<span class="muted" title="${esc(o.feedback)}">💬 ${esc(o.feedback.slice(0, 40))}</span>` : ''}
+    <span style="margin-left:auto;display:flex;gap:4px">
+      ${o.status !== 'done' && o.status !== 'cancelled' && (past || o.date === R.dateOnly(new Date())) ? `<button class="btn btn-ok btn-sm" data-act="outing-status" data-outing="${esc(o.id)}" data-status="done">✓ был</button>
+        <button class="btn btn-warn btn-sm" data-act="outing-status" data-outing="${esc(o.id)}" data-status="no_show">✗ не пришёл</button>` : ''}
+      ${o.status === 'booked' && !o.from_shift ? `<button class="btn btn-ghost btn-sm" data-act="outing-status" data-outing="${esc(o.id)}" data-status="cancelled" title="Отменить запись">✕</button>` : ''}
+      ${o.status !== 'cancelled' ? `<button class="btn btn-ghost btn-sm" data-act="outing-feedback" data-outing="${esc(o.id)}" title="Обратная связь">💬</button>` : ''}
+    </span></div>`;
+}
+function templatesSection(c) {
+  const t = SETTINGS().templates || {};
+  const keys = Object.keys(R.TEMPLATES).filter(k => t[k]);
+  if (!keys.length) return '';
+  return `<div class="dr-section"><div class="dr-label">✉ Шаблоны сообщений</div><div class="actions">
+    ${keys.map(k => `<button class="btn btn-ghost btn-sm" data-act="tpl-open" data-key="${esc(k)}">${esc(R.TEMPLATES[k])}</button>`).join('')}</div>
+    <div class="small muted" style="margin-top:6px">Текст подставляется из карточки — скопируйте и отправьте в ${esc(R.CHANNEL[R.channelOf(c)] || 'канал кандидата')}. Из PhotoHR ничего не отправляется.</div></div>`;
+}
+function openTemplate(key) {
+  const c = state.card;
+  if (!c) return;
+  const text = R.renderTemplate((SETTINGS().templates || {})[key], R.templateVars(c, SETTINGS(), currentUser));
+  const ch = R.channelOf(c);
+  const href = R.channelHref(ch, c);
+  modal(`${modalHead('✉ ' + esc(R.TEMPLATES[key] || 'Шаблон'))}
+    <textarea class="tpl-text" id="tpl-text" rows="9">${esc(text)}</textarea>
+    ${text.includes('…') ? '<div class="small" style="color:var(--rank2);margin-top:6px">«…» — нет данных в карточке (тренинг, дата, чат стажёров) — допишите перед отправкой.</div>' : ''}
+    <div class="modal-footer">${href ? `<a class="btn btn-ghost" href="${esc(href)}" target="_blank" rel="noopener noreferrer">Открыть ${esc(R.CHANNEL[ch] || 'канал')} ↗</a>` : ''}
+      <button class="btn btn-primary" data-act="tpl-copy">📋 Скопировать</button></div>`);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Скопировано'); }
+  catch { const t = $('tpl-text'); if (t) { t.select(); document.execCommand && document.execCommand('copy'); toast('Выделено — скопируйте'); } }
+}
+
+// Outing picker: free days from the internship plan (bot shows the same), or any date + venue by hand.
+async function openOutingPicker(id, stageId, after) {
+  modal(`${modalHead('📅 Записать на стажировку')}<div id="op-list"><div class="loading">Ищу свободные места…</div></div>
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px">
+      <div class="row2"><div class="field"><div class="fl">Или дата</div><input class="fin" type="date" id="op-date"/></div>
+        <div class="field"><div class="fl">Площадка</div><select class="fselect" id="op-venue"><option value="">…</option></select></div></div>
+      ${isLead() ? '<label class="small muted"><input type="checkbox" id="op-force"/> без проверки мест (руководитель)</label>' : ''}</div>
+    <div class="modal-footer">${stageId ? `<button class="btn btn-ghost" data-act="op-skip" data-id="${esc(id)}" data-stage="${esc(stageId)}">Перевести без записи</button>` : ''}
+      <button class="btn btn-primary" data-act="op-manual" data-id="${esc(id)}">Записать</button></div>`);
+  state.afterPick = after;
+  try {
+    const [d, venues] = await Promise.all([api('GET', `/recruiting/candidates/${id}/outing-options`), state.venues || api('GET', '/recruiting/intern-venues')]);
+    state.venues = venues;
+    $('op-venue').innerHTML = opt('', '— площадка —') + venues.map(v => opt(v.id, v.name + (v.city ? ' · ' + v.city : ''))).join('');
+    $('op-list').innerHTML = d.options.length ? d.options.slice(0, 20).map(o => `<button class="btn btn-ghost" style="width:100%;justify-content:flex-start;margin-bottom:6px;text-align:left"
+        data-act="op-pick" data-id="${esc(id)}" data-date="${esc(o.date)}" data-venue="${esc(o.venue_id)}">
+        <b>${esc(R.dayLabel(o.date))}</b>&nbsp;· ${esc(o.venue_name || '')}${o.start_time ? ' · сбор ' + esc(o.start_time) : ''} <span class="muted" style="margin-left:auto">мест: ${Number(o.free)}</span></button>`).join('')
+      : '<div class="empty">Свободных мест в плане нет — добавьте места на «Стажировках» или укажите дату вручную</div>';
+  } catch (e) { $('op-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function bookOuting(id, date, venueId, force) {
+  try {
+    await api('POST', `/recruiting/candidates/${id}/outings`, { date, venue_id: venueId, force: !!force });
+    closeModal(); toast('Записан: ' + R.dayLabel(date));
+    await refreshAfterChange(id);
+    if (state.afterPick) state.afterPick();
+    if (state.tab === 'interns') loadInterns();
+  } catch (e) { toast(e.message, true); }
+}
+
+// QR for the Telegram booking: one-time link per person; «по очереди» goes through everybody without Telegram.
+async function openTgQr(ids, idx = 0, names = {}) {
+  state.qr = { ids, idx, names };
+  const id = ids[idx];
+  modal(`${modalHead('📱 Запись на стажировку в Telegram')}
+    <div class="qr-name">${esc(names[id] || (state.card && state.card.id === id ? state.card.name : ''))}</div>
+    <div class="qr-box" id="qr-box"><div class="loading">Готовлю QR…</div></div>
+    <div class="small muted" style="text-align:center" id="qr-status">Наведите камеру телефона — откроется бот Лайки, там выбрать дату. Ссылка одноразовая, 3 дня.</div>
+    <div class="modal-footer">${ids.length > 1 ? `<span class="muted small" style="margin-right:auto">${idx + 1} из ${ids.length}</span>
+      <button class="btn btn-ghost" data-act="qr-step" data-dir="-1" ${idx ? '' : 'disabled'}>←</button><button class="btn btn-ghost" data-act="qr-step" data-dir="1" ${idx < ids.length - 1 ? '' : 'disabled'}>→</button>` : ''}
+      <button class="btn btn-ghost" data-act="close-modal">Готово</button></div>`);
+  try {
+    const t = await api('POST', `/recruiting/trainer/candidates/${id}/telegram-token`);
+    drawQr('qr-box', t.url, t.qr_svg);
+    if (t.already_linked) $('qr-status').textContent = 'Уже записан в боте — новый QR нужен, только если сменил телефон.';
+    pollToken(t.id, id);
+  } catch (e) { $('qr-box').innerHTML = `<div style="color:#c33">${esc(e.message)}</div>`; }
+}
+function drawQr(boxId, url, svg) {
+  const box = $(boxId);
+  if (!box) return;
+  box.innerHTML = '';
+  if (window.QRCode) {
+    try { new QRCode(box, { text: url, width: 260, height: 260, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); return; } catch { box.innerHTML = ''; }
+  }
+  const src = R.svgSrc(svg);
+  if (src) { const img = document.createElement('img'); img.src = src; img.alt = 'QR'; img.width = 260; box.appendChild(img); }
+  else box.textContent = url;
+}
+function pollToken(tokenId, candidateId) {
+  clearInterval(state.qrTimer);
+  const started = Date.now();
+  state.qrTimer = setInterval(async () => {
+    if (!$('qr-box') || Date.now() - started > 10 * 60e3) { clearInterval(state.qrTimer); return; }
+    try {
+      const st = await api('GET', `/recruiting/trainer/tokens/${tokenId}`);
+      if (st.used) {
+        clearInterval(state.qrTimer);
+        $('qr-status').innerHTML = '✅ <b>Записан в боте</b> — дальше он выбирает дату сам';
+        if (state.qr && state.qr.idx < state.qr.ids.length - 1) setTimeout(() => { if ($('qr-box')) openTgQr(state.qr.ids, state.qr.idx + 1, state.qr.names); }, 1500);
+        if (state.tab === 'trainer') loadTrainer(true);
+      }
+    } catch { /* keep polling */ }
+  }, 4000);
+}
+async function openPdQr() {
+  modal(`${modalHead('🪪 Персональные данные для площадок')}<div class="qr-box" id="pd-box"><div class="loading">…</div></div>
+    <div class="small muted" style="text-align:center" id="pd-url"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Готово</button></div>`);
+  try { const d = await api('GET', '/recruiting/trainer/pd-form'); drawQr('pd-box', d.url, d.qr_svg); $('pd-url').textContent = d.url; }
+  catch (e) { $('pd-box').innerHTML = `<div style="color:#c33;padding:10px">${esc(e.message)}</div>`; }
+}
+
+// Tasks (checklist items) for recruiter / trainer / venue manager — on «Сегодня» and in «Мои задачи».
+function internTasksBlock(tasks, helper) {
+  if (!tasks.length) return helper ? '<div class="empty">Задач по стажёрам нет 👌</div>' : '';
+  const byWho = {};
+  for (const t of tasks) (byWho[t.who] = byWho[t.who] || []).push(t);
+  return Object.entries(byWho).map(([who, list]) => {
+    const people = R.groupTasks(list);
+    return `<div class="section-title">🎓 ${esc(helper ? R.WHO[who] : 'Стажёры — ' + (R.WHO[who] || '').toLowerCase())}
+      <span class="badge" style="background:var(--bg3);color:var(--text2)">${list.length}</span></div>
+    <div class="today-grid">${people.map(g => internTaskCard(g, helper)).join('')}</div>`;
+  }).join('');
+}
+function internTaskCard(g, helper) {
+  const t = g.items[0];
+  const when = t.outing_date ? '📅 ' + R.dayLabel(t.outing_date) + (t.venue_name ? ' · ' + t.venue_name : '') : t.training_date ? '🧑‍🏫 тренинг ' + R.dayLabel(t.training_date) : '';
+  const action = x => {
+    const tpl = { feedback_day1: 'after_day1', who_is_who: 'who_is_who' }[x.item];
+    const main = x.item === 'outing_confirm' ? `<button class="btn btn-ok btn-sm" data-act="outing-status" data-outing="${esc(x.outing_id)}" data-status="done">✓ был</button>
+        <button class="btn btn-warn btn-sm" data-act="outing-status" data-outing="${esc(x.outing_id)}" data-status="no_show">✗ нет</button>`
+      : x.item === 'handed_to_hr' ? `<button class="btn btn-ok btn-sm" data-act="handover" data-id="${esc(x.candidate_id)}">→ в HR</button>`
+        : x.item === 'outing1_booked' ? `<button class="btn btn-primary btn-sm" data-act="outing-new" data-id="${esc(x.candidate_id)}">📅 Записать</button>`
+          : `<button class="btn btn-ok btn-sm" data-act="check-item" data-id="${esc(x.candidate_id)}" data-item="${esc(x.item)}" data-done="1" title="Отметить сделанным">✓</button>`;
+    return `<div class="chk st-due" style="align-items:center;flex-wrap:wrap"><span style="flex:1 1 160px;min-width:0">${esc(x.label)}${x.outing_date && x.item === 'outing_confirm' ? ' · ' + esc(R.dayLabel(x.outing_date)) : ''}</span>
+      ${x.item === 'telegram_linked' ? `<button class="btn btn-ghost btn-sm" data-act="tg-qr" data-id="${esc(x.candidate_id)}" data-name="${esc(x.name)}">📱 QR</button>` : ''}
+      ${tpl && !helper ? `<button class="btn btn-ghost btn-sm" data-act="open-tpl" data-id="${esc(x.candidate_id)}" data-key="${esc(tpl)}" title="Шаблон сообщения">✉</button>` : ''}
+      ${main}</div>`;
+  };
+  return `<div class="tcard today">
+    <div class="tcard-top"><div style="min-width:0;flex:1">
+      <div class="${helper ? '' : 'tcard-name'}" ${helper ? '' : `data-act="open" data-id="${esc(t.candidate_id)}"`} style="font-weight:600">${esc(t.name)}</div>
+      <div class="tcard-meta"><span class="badge" style="background:${R.color(t.stage_color)}22;color:${R.color(t.stage_color)}">${esc(t.stage_name || '')}</span>
+        ${when ? `<span>${esc(when)}</span>` : ''}${!helper && t.assigned_to_name && isLead() ? `<span>👤 ${esc(t.assigned_to_name)}</span>` : ''}
+        ${t.manager_name ? `<span>менеджер: ${esc(t.manager_name)}</span>` : ''}</div></div></div>
+    <div>${g.items.map(action).join('')}</div></div>`;
+}
+async function startHelperMode() {
+  try {
+    const d = await api('GET', '/recruiting/my-tasks');
+    if (!d || (!d.tasks.length && !d.hats.trainer && !d.hats.manager)) return false;
+    state.helper = true; state.helperHats = d.hats;
+    document.querySelectorAll('.fab').forEach(x => x.classList.add('hidden'));
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('hidden', !(b.dataset.tab === 'tasks' || (b.dataset.tab === 'trainer' && d.hats.trainer))));
+    document.querySelectorAll('.tabs .btn').forEach(b => b.classList.add('hidden'));
+    $('cnt-tasks').textContent = d.tasks.length || '';
+    $('user-pill').innerHTML = `<span>${esc(currentUser.name)}</span>`;
+    const hash = (location.hash || '').replace(/^#/, '').split('?')[0];
+    showTab(hash === 'trainer' && d.hats.trainer ? 'trainer' : 'tasks');
+    return true;
+  } catch { return false; }
+}
+async function loadTasks() {
+  const el = $('view-tasks');
+  el.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    const d = await api('GET', '/recruiting/my-tasks');
+    $('cnt-tasks').textContent = d.tasks.length || '';
+    el.innerHTML = `<div class="section-title">Задачи по стажёрам</div>${internTasksBlock(d.tasks, true)}
+      <div class="small muted" style="margin-top:12px">Здесь — то, что по воронке стажёров нужно сделать вам как ${[d.hats.trainer && 'тренеру', d.hats.manager && 'менеджеру площадки'].filter(Boolean).join(' и ') || 'сотруднику'}.</div>`;
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// Trainer screen: trainings (mine first), attendance of both parts, personal data, QR for the bot.
+async function loadTrainer(keep) {
+  const el = $('view-trainer');
+  if (!keep) el.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    const d = await api('GET', '/recruiting/trainer/trainings' + (state.trainer.mine ? '?mine=1' : ''));
+    const list = d.trainings;
+    if (!list.length) { el.innerHTML = '<div class="empty">Тренингов на ближайший месяц нет. Тренинг создаётся кнопкой «📅 Тренинги» (HR).</div>'; return; }
+    const today = R.dateOnly(new Date());
+    if (!state.trainer.training || !list.some(t => t.id === state.trainer.training)) {
+      state.trainer.training = (list.find(t => t.date === today) || list.find(t => t.date >= today) || list[0]).id;
+    }
+    const t = list.find(x => x.id === state.trainer.training);
+    const people = t.attendees.filter(a => !a.dropped);
+    const noTg = people.filter(a => !a.telegram_linked);
+    el.innerHTML = `
+      <div class="filters" style="padding:0 0 12px;border:none">
+        <select class="fchip" id="tr-pick">${list.map(x => opt(x.id, `${R.dayLabel(x.date)}${x.time ? ' ' + x.time : ''} · ${x.title}${x.is_mine ? ' · мой' : ' · ' + (x.trainer_name || '')}`, x.id === t.id)).join('')}</select>
+        ${!state.helper && META && !state.helperHats ? `<button class="fchip ${state.trainer.mine ? 'on' : ''}" data-act="tr-mine">Только мои</button>` : ''}
+        <button class="btn btn-ghost btn-sm" data-act="pd-qr">🪪 QR: персональные данные</button>
+        <button class="btn btn-primary btn-sm" data-act="tg-qr-all" ${noTg.length ? '' : 'disabled'}>📱 QR для записи — по очереди (${noTg.length})</button>
+      </div>
+      <div class="panel" style="margin-bottom:12px;font-size:13px">🧑‍🏫 ${esc(t.trainer_name || '')} · ${esc(R.dayLabel(t.date))}${t.time ? ' ' + esc(t.time) : ''}${t.location_text ? ' · 📍 ' + esc(t.location_text) : ''}
+        <div class="small muted" style="margin-top:6px">Отметьте обе части: после второй кандидат — стажёр. Во время тренинга покажите QR формы персональных данных; в конце — QR записи в Telegram (каждому свой, одноразовый).</div></div>
+      ${people.length ? `<div class="tbl-wrap"><table class="tbl att"><thead><tr><th>Кандидат</th><th class="num" title="1-я часть">Ч.1</th><th class="num" title="2-я часть">Ч.2</th><th class="num" title="Персональные данные заполнены">ПД</th><th>TG</th></tr></thead><tbody>
+        ${people.map(a => `<tr><td><div style="font-weight:500">${esc(a.name)}</div><div class="small muted hide-m">${esc(a.stage_name)}</div></td>
+          ${['training_part1', 'training_part2', 'pd_filled'].map((k, i) => `<td class="num"><input type="checkbox" data-act="check-item" data-id="${esc(a.id)}" data-item="${k}" ${[a.part1, a.part2, a.pd_filled][i] ? 'checked' : ''} aria-label="${esc(k)}"/></td>`).join('')}
+          <td>${a.telegram_linked ? '<span class="pill ok">✓</span>' : `<button class="btn btn-ghost btn-sm" data-act="tg-qr" data-id="${esc(a.id)}" data-name="${esc(a.name)}">📱</button>`}</td></tr>`).join('')}
+      </tbody></table></div><div class="small muted" style="margin-top:6px">Ч.1 / Ч.2 — части тренинга · ПД — персональные данные для списков площадок · TG — записан в боте Лайки.</div>`
+        : '<div class="empty">На этот тренинг пока никого не пригласили</div>'}
+      ${t.attendees.length > people.length ? `<div class="small muted" style="margin-top:8px">В отказе / резерве: ${t.attendees.length - people.length}</div>` : ''}`;
+    state.trainer.people = noTg.map(a => a.id);
+    state.trainer.names = Object.fromEntries(people.map(a => [a.id, a.name]));
+    $('tr-pick').addEventListener('change', e => { state.trainer.training = e.target.value; loadTrainer(); });
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// «Стажировки»: trainings ahead → expected trainees, free places by day and venue, who has no outing yet.
+async function loadInterns() {
+  const el = $('view-interns');
+  el.innerHTML = '<div class="loading">Считаю места…</div>';
+  try {
+    const d = await api('GET', `/recruiting/internships?days=${state.interns.days}`);
+    const byDay = {};
+    for (const p of d.places) (byDay[p.date] = byDay[p.date] || []).push(p);
+    const days = Object.keys(byDay).sort();
+    el.innerHTML = `
+      <div class="stats-row">
+        <div class="stat"><div class="stat-num" style="color:var(--rank1)">${d.totals.free}</div><div class="stat-lbl">Свободных мест</div></div>
+        <div class="stat"><div class="stat-num">${d.totals.booked}</div><div class="stat-lbl">Записано</div></div>
+        <div class="stat"><div class="stat-num" style="color:${d.totals.unbooked ? 'var(--rank2)' : 'inherit'}">${d.totals.unbooked}</div><div class="stat-lbl">Без следующего выхода</div></div>
+        <div class="stat"><div class="stat-num">${d.trainings.reduce((n, t) => n + (t.expected_trainees || 0), 0) || '—'}</div><div class="stat-lbl">Ожидаем стажёров с тренингов</div></div>
+        <div style="margin-left:auto;align-self:center;display:flex;gap:6px">${[7, 14, 21].map(n => `<button class="fchip ${state.interns.days === n ? 'on' : ''}" data-act="in-days" data-days="${n}">${n} дн</button>`).join('')}
+          <button class="btn btn-primary btn-sm" data-act="slot-new">+ Места</button></div>
+      </div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="panel"><div class="section-title" style="margin-top:0">🧑‍🏫 Ближайшие тренинги</div>
+          ${d.trainings.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Когда</th><th>Тренинг</th><th class="num">Пригл.</th><th class="num">Ждём стажёров</th></tr></thead><tbody>
+            ${d.trainings.map(t => `<tr><td>${esc(R.dayLabel(t.date))}${t.time ? ' ' + esc(t.time) : ''}</td><td>${esc(t.title)}<div class="small muted">${esc(t.trainer_name || '')}</div></td>
+              <td class="num">${t.invited}${t.max_attendees ? '/' + Number(t.max_attendees) : ''}</td>
+              <td class="num">${t.expected_trainees == null ? '—' : `~${t.expected_trainees}`}${t.conversion != null ? `<div class="small muted">${t.conversion}%</div>` : ''}</td></tr>`).join('')}
+          </tbody></table></div><div class="small muted" style="margin-top:6px">«Ждём» — по доле прошедших обе части у этого тренера за 120 дней (или в среднем).</div>` : '<div class="empty">Тренингов в ближайший месяц нет</div>'}</div>
+        <div class="panel"><div class="section-title" style="margin-top:0">⏳ Кому ещё не назначен выход</div>
+          ${d.unbooked.length ? d.unbooked.map(c => `<div class="rem"><span class="tcard-name" data-act="open" data-id="${esc(c.id)}">${esc(c.name)}</span>
+            <span class="badge" style="background:${R.color(c.stage_color)}22;color:${R.color(c.stage_color)}">${esc(c.stage_name)}</span>
+            <span class="muted small">выходов ${Number(c.done)}/3${c.telegram_linked ? ' · бот ✓' : ''}${isLead() && c.assigned_to_name ? ' · ' + esc(c.assigned_to_name) : ''}</span>
+            <button class="btn btn-primary btn-sm" style="margin-left:auto" data-act="outing-new" data-id="${esc(c.id)}">📅 Записать</button></div>`).join('') : '<div class="empty">Все стажёры записаны 👌</div>'}</div>
+      </div>
+      <div class="section-title">📍 Места для стажёров по дням <span class="muted small">план: правила площадок × мероприятия из расписания + добавленные места</span></div>
+      ${days.length ? `<div class="slot-days">${days.map(day => `<div class="slot-day"><div style="font-weight:600;margin-bottom:6px">${esc(R.dayLabel(day))}</div>
+        ${byDay[day].map(p => `<div class="slot"><span>${esc(p.venue_name || '—')}${p.start_time ? ` <span class="muted">${esc(p.start_time)}</span>` : ''}</span>
+          <span class="${p.free ? 'free' : 'full'}">${p.free ? `${p.free} своб.` : 'занято'}<span class="muted"> · ${p.booked}/${p.capacity}</span>
+          ${p.slot_id ? `<button class="btn btn-ghost btn-sm" data-act="slot-del" data-slot="${esc(p.slot_id)}" title="Убрать добавленные места" style="padding:0 5px">✕</button>` : ''}</span></div>`).join('')}</div>`).join('')}</div>`
+        : `<div class="empty">Мест в плане нет. ${isLead() ? 'Включите площадки для стажёров в «Настройках» (сколько человек в день) или' : 'Руководитель включает площадки в «Настройках»; можно'} добавить места вручную кнопкой «+ Места».</div>`}`;
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function openSlotNew() {
+  const venues = state.venues || await api('GET', '/recruiting/intern-venues').catch(() => []);
+  state.venues = venues;
+  modal(`${modalHead('+ Места для стажёров')}
+    <div class="row2"><div class="field"><div class="fl">Дата *</div><input class="fin" type="date" id="sl-date" value="${esc(R.dateOnly(new Date(Date.now() + 86400000)))}"/></div>
+      <div class="field"><div class="fl">Мест</div><input class="fin" type="number" min="0" max="50" id="sl-cap" value="1"/></div></div>
+    <div class="field"><div class="fl">Площадка *</div><select class="fselect" id="sl-venue">${opt('', '—')}${venues.map(v => opt(v.id, v.name + (v.city ? ' · ' + v.city : ''))).join('')}</select></div>
+    <div class="field"><div class="fl">Заметка</div><input class="fin" id="sl-note" placeholder="Например: только с наставником"/></div>
+    <div class="small muted">0 мест — закрыть этот день на площадке (даже если по правилу места есть).</div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="slot-save">Сохранить</button></div>`);
+}
+
+// KPI: interns report «тренинг → стажёр → 3 выхода → HR»
+async function internReport(from, to) {
+  const box = $('kpi-interns');
+  if (!box) return;
+  try {
+    const d = await api('GET', `/recruiting/kpi/interns?from=${from}&to=${to}&by=${state.kpi.internBy}`);
+    const cols = [['invited', 'Пригл.'], ['part1', 'Ч.1'], ['trainee', 'Стажёр'], ['booked', 'Записан'], ['outing_1', 'Вых.1'], ['outing_2', 'Вых.2'], ['outing_3', 'Вых.3'], ['hr', 'В HR']];
+    const pct = v => (v == null ? '—' : v + '%');
+    box.innerHTML = `<div class="filters" style="padding:0 0 10px;border:none">${[['week', 'По неделям'], ['trainer', 'По тренерам'], ['recruiter', 'По рекрутерам']].map(([k, l]) => `<button class="fchip ${state.kpi.internBy === k ? 'on' : ''}" data-act="ik-by" data-by="${k}">${l}</button>`).join('')}</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>${({ week: 'Неделя тренинга', trainer: 'Тренер', recruiter: 'Рекрутер' })[d.by]}</th>${cols.map(([, l]) => `<th class="num">${l}</th>`).join('')}
+        <th class="num">Тренинг→стажёр</th><th class="num">Стажёр→3 выхода</th><th class="num">3 выхода→HR</th><th class="num hide-m">Дней до 1-го выхода</th></tr></thead><tbody>
+        ${[...d.rows, { label: 'Итого', ...d.totals, total: true }].map(r => `<tr ${r.total ? 'style="font-weight:600"' : ''}><td>${esc(r.label)}</td>${cols.map(([k]) => `<td class="num">${r[k]}</td>`).join('')}
+          <td class="num">${pct(r.trainee_rate)}</td><td class="num">${pct(r.outing3_rate)}</td><td class="num">${pct(r.hr_rate)}</td><td class="num hide-m">${r.median_days_to_first_outing ?? '—'}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="small muted" style="margin-top:6px">Когорта — приглашённые на тренинги, которые прошли в выбранный период (по дате тренинга). Отказ / резерв: ${d.totals.dropped}.</div>`;
+  } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// Settings: bot, links, reasons, templates, venues for interns
+async function internSettings() {
+  const box = $('set-interns');
+  if (!box) return;
+  const s = await api('GET', '/recruiting/settings');
+  const venues = await api('GET', '/recruiting/intern-venues');
+  state.venues = venues;
+  const ta = (key, value, rows = 4) => `<textarea class="fin" id="set-${key}" rows="${rows}">${esc(value)}</textarea>`;
+  box.innerHTML = `
+    <div class="grid2">
+      <div class="panel">
+        <div class="field"><div class="fl">Бот Лайки (ник)</div><div style="display:flex;gap:6px"><input class="fin" id="set-laika_bot" value="${esc(s.laika_bot || '')}"/><button class="btn btn-ghost btn-sm" data-act="set-save" data-key="laika_bot">✓</button></div></div>
+        <div class="field"><div class="fl">Форма персональных данных (QR на тренинге)</div><div style="display:flex;gap:6px"><input class="fin" id="set-pd_form_url" value="${esc(s.pd_form_url || '')}" placeholder="https://forms.gle/…"/><button class="btn btn-ghost btn-sm" data-act="set-save" data-key="pd_form_url">✓</button></div></div>
+        <div class="field"><div class="fl">Чат стажёров — ссылка-приглашение (для шаблона)</div><div style="display:flex;gap:6px"><input class="fin" id="set-intern_chat_url" value="${esc(s.intern_chat_url || '')}" placeholder="https://t.me/+…"/><button class="btn btn-ghost btn-sm" data-act="set-save" data-key="intern_chat_url">✓</button></div></div>
+        <div class="field"><div class="fl">На сколько дней вперёд записывать</div><div style="display:flex;gap:6px"><input class="fin" type="number" min="3" max="60" id="set-booking_days" value="${Number(s.booking_days) || 14}"/><button class="btn btn-ghost btn-sm" data-act="set-save" data-key="booking_days">✓</button></div></div>
+        <div class="field"><div class="fl">Причины отказа (по строке)</div>${ta('reject_reasons', (s.reject_reasons || []).join('\n'), 6)}<button class="btn btn-ghost btn-sm" data-act="set-save" data-key="reject_reasons">Сохранить</button></div>
+        <div class="field"><div class="fl">Причины резерва (по строке)</div>${ta('reserve_reasons', (s.reserve_reasons || []).join('\n'), 5)}<button class="btn btn-ghost btn-sm" data-act="set-save" data-key="reserve_reasons">Сохранить</button></div>
+      </div>
+      <div class="panel">
+        <div class="howto" style="margin-bottom:8px">Подстановки: <code>{имя}</code> <code>{рекрутер}</code> <code>{дата_тренинга}</code> <code>{время_тренинга}</code> <code>{место_тренинга}</code> <code>{тренер}</code> <code>{дата}</code> <code>{площадка}</code> <code>{ссылка_бот}</code> <code>{чат_стажёров}</code></div>
+        ${Object.entries(R.TEMPLATES).map(([k, l]) => `<div class="field"><div class="fl">${esc(l)}</div>${ta('tpl-' + k, (s.templates || {})[k] || '', 5)}</div>`).join('')}
+        <button class="btn btn-primary btn-sm" data-act="set-save" data-key="templates">Сохранить шаблоны</button>
+      </div>
+    </div>
+    <div class="section-title" style="margin-top:16px">Площадки, где нужны стажёры <span class="muted small">мест в день × мероприятия из расписания</span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Площадка</th><th>Город</th><th class="num">Мест в день</th><th>Дни</th><th>Берём стажёров</th><th></th></tr></thead><tbody>
+      ${venues.map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.city || '')}</td>
+        <td class="num"><input class="fin" type="number" min="0" max="50" id="vr-cap-${esc(v.id)}" value="${v.capacity == null ? 1 : Number(v.capacity)}" style="width:70px"/></td>
+        <td><select class="fselect" id="vr-days-${esc(v.id)}">${opt('all', 'все', !v.days || v.days === 'all')}${opt('weekend', 'выходные', v.days === 'weekend')}${opt('weekday', 'будни', v.days === 'weekday')}</select></td>
+        <td><select class="fselect" id="vr-on-${esc(v.id)}">${opt('1', 'да', v.enabled)}${opt('0', 'нет', !v.enabled)}</select></td>
+        <td><button class="btn btn-ghost btn-sm" data-act="vr-save" data-venue="${esc(v.id)}">✓</button></td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+async function saveSetting(key) {
+  let value;
+  if (key === 'templates') value = Object.fromEntries(Object.keys(R.TEMPLATES).map(k => [k, $('set-tpl-' + k).value]));
+  else if (key === 'reject_reasons' || key === 'reserve_reasons') value = $('set-' + key).value.split('\n').map(x => x.trim()).filter(Boolean);
+  else if (key === 'booking_days') value = Number($('set-' + key).value);
+  else value = $('set-' + key).value.trim() || null;
+  try { const s = await api('PUT', `/recruiting/settings/${key}`, { value }); META.interns.settings = s; toast('Сохранено'); }
+  catch (e) { toast(e.message, true); }
 }
 
 // ── EVENTS (delegation; ids only in data-* attributes) ──
@@ -1553,10 +2064,69 @@ document.addEventListener('click', async e => {
     case 'stage-save':
       try { await api('POST', '/recruiting/stages', { name: $('s-name').value.trim(), funnel: $('s-funnel').value, kpi_step: $('s-step').value || null, color: $('s-color').value,
         is_terminal: !!$('s-type').value, terminal_type: $('s-type').value || null }); closeModal(); META = await api('GET', '/recruiting/meta'); loadSettings(); } catch (err) { toast(err.message, true); } break;
+    // ── interns funnel ──
+    case 'check-item': await checkItem(d.id, d.item, true); break;
+    case 'outing-status': await outingUpdate(d.outing, { status: d.status }); break;
+    case 'outing-feedback': { const f = prompt('Обратная связь по выходу (что получилось, что подтянуть)'); if (f != null) await outingUpdate(d.outing, { feedback: f }); break; }
+    case 'outing-new': openOutingPicker(d.id); break;
+    case 'op-pick': bookOuting(d.id, d.date, d.venue, false); break;
+    case 'op-manual': { const date = $('op-date').value; const v = $('op-venue').value; if (!date || !v) { toast('Укажите дату и площадку', true); break; } bookOuting(d.id, date, v, $('op-force') && $('op-force').checked); break; }
+    case 'op-skip': closeModal(); doMove(d.id, d.stage, {}, state.afterPick); break;
+    case 'tg-qr': openTgQr([d.id], 0, d.name ? { [d.id]: d.name } : {}); break;
+    case 'tg-qr-all': if (state.trainer.people && state.trainer.people.length) openTgQr(state.trainer.people, 0, state.trainer.names); break;
+    case 'qr-step': if (state.qr) openTgQr(state.qr.ids, Math.max(0, Math.min(state.qr.ids.length - 1, state.qr.idx + Number(d.dir))), state.qr.names); break;
+    case 'pd-qr': openPdQr(); break;
+    case 'tr-mine': state.trainer.mine = !state.trainer.mine; loadTrainer(); break;
+    case 'trainee-link': case 'trainee-unlink':
+      try { await api('PATCH', `/candidates/${d.id}`, { trainee_photographer_id: d.act === 'trainee-link' ? d.ph : null }); toast(d.act === 'trainee-link' ? 'Карточка стажёра привязана' : 'Отвязана'); openCard(d.id, true); } catch (err) { toast(err.message, true); } break;
+    case 'trainee-create':
+      if (!confirm('Создать карточку в «Команде» с грейдом «Стажёр»? Её можно ставить на смены — выходы посчитаются сами.')) break;
+      try { await api('POST', `/recruiting/candidates/${d.id}/trainee-card`); toast('Карточка стажёра создана'); openCard(d.id, true); } catch (err) { toast(err.message, true); } break;
+    case 'handover': { const st = stageByCode('handover'); if (!st) { toast('Нет этапа «Передан в HR»', true); break; } if (!state.card || state.card.id !== d.id) await openCard(d.id); moveFlow(d.id, st.id); break; }
+    case 'reserve': openReject(d.id, null, null, true); break;
+    case 'pick-training': pickTraining(d.id, state.card ? state.card.stage_id : null, false); break;
+    case 'tpl-open': openTemplate(d.key); break;
+    case 'open-tpl': await openCard(d.id); openTemplate(d.key); break;
+    case 'tpl-copy': copyText($('tpl-text').value); break;
+    case 'in-days': state.interns.days = Number(d.days); loadInterns(); break;
+    case 'slot-new': openSlotNew(); break;
+    case 'slot-save':
+      try { await api('POST', '/recruiting/intern-slots', { date: $('sl-date').value, venue_id: $('sl-venue').value, capacity: Number($('sl-cap').value), note: $('sl-note').value.trim() || null });
+        closeModal(); toast('Места сохранены'); loadInterns(); } catch (err) { toast(err.message, true); } break;
+    case 'slot-del': try { await api('PATCH', `/recruiting/intern-slots/${d.slot}`, { is_active: false }); loadInterns(); } catch (err) { toast(err.message, true); } break;
+    case 'vr-save':
+      try { await api('PUT', `/recruiting/intern-venues/${d.venue}`, { capacity: Number($('vr-cap-' + d.venue).value), days: $('vr-days-' + d.venue).value, enabled: $('vr-on-' + d.venue).value === '1' }); toast('Сохранено'); }
+      catch (err) { toast(err.message, true); } break;
+    case 'set-save': saveSetting(d.key); break;
+    case 'ik-by': state.kpi.internBy = d.by; loadKpi(); break;
     case 'stage-up': moveStage(Number(d.i), -1); break;
     case 'stage-down': moveStage(Number(d.i), 1); break;
   }
 });
+// Checklist / attendance checkboxes (clicks on checkboxes are not handled by the click delegation above).
+document.addEventListener('change', e => {
+  const cb = e.target.closest && e.target.closest('input[type=checkbox][data-act="check-item"]');
+  if (cb) checkItem(cb.dataset.id, cb.dataset.item, cb.checked, cb);
+});
+async function checkItem(id, item, done, cb) {
+  try {
+    await api('POST', `/recruiting/candidates/${id}/checklist/${item}`, { done });
+    toast(done ? '✓ Отмечено' : 'Отметка снята');
+    if (state.card && state.card.id === id && $('drawer-bg').classList.contains('open')) await openCard(id, true);
+    if (state.tab === 'trainer') loadTrainer(true); else if (state.tab === 'tasks') loadTasks(); else if (state.tab === 'today') loadToday();
+    else if (state.tab === 'board') loadBoard();
+    refreshTodayCount();
+  } catch (err) { if (cb) cb.checked = !done; toast(err.message, true); }
+}
+async function outingUpdate(outingId, body) {
+  try {
+    await api('PATCH', `/recruiting/outings/${outingId}`, body);
+    toast(body.status ? 'Выход: ' + (R.OUT[body.status] || body.status) : 'Сохранено');
+    if (state.card && $('drawer-bg').classList.contains('open')) await openCard(state.card.id, true);
+    if (state.tab === 'tasks') loadTasks(); else if (state.tab === 'today') loadToday(); else if (state.tab === 'interns') loadInterns(); else if (state.tab === 'board') loadBoard();
+    refreshTodayCount();
+  } catch (err) { toast(err.message, true); }
+}
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('modal').classList.contains('open')) closeModal(); else if ($('drawer-bg').classList.contains('open')) closeCard(); } });
 
 function openAdmin() { const ov = $('admin-overlay'); $('admin-iframe').src = 'admin.html?v=' + Date.now(); ov.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
