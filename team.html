@@ -596,10 +596,9 @@ function toggleTeamFilter(category, value, btn) {
   updateTeamAllBtn();
   render();
 }
-const can = (r) => {
-  if (currentUser?.role === 'super_admin') return true;
-  return (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
-};
+// Explicit role lists matching the server permission map; no access «by level» (a cashier is not an HR director).
+const CAN_ROLES = { admin: ['admin'], exec_director: ['exec_director', 'admin'], hr_director: ['hr_director', 'exec_director', 'admin'] };
+const can = (r) => hasAnyRole(CAN_ROLES[r] || []);
 
 const ROLE_LABELS = {
   admin: 'Администратор',
@@ -647,7 +646,7 @@ function setupTeamNav() {
   const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
   const navBtns = [];
   navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:#4e8fff;border-color:#4e8fff;color:#fff">📷 Мой профиль</a>');
-  navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + ';background:#4e8fff;border-color:#4e8fff;color:#fff">Команда</a>');
+  if (PhotoHR.canOpen('team', currentUser?.role)) navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + ';background:#4e8fff;border-color:#4e8fff;color:#fff">Команда</a>');
   if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
   }

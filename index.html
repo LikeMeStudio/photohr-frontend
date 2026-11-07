@@ -259,7 +259,8 @@ const ROLES = {
 };
 const roleNow = () => currentUser?.role || 'photographer_user';
 const hasAnyRole = (roles) => roles.includes(roleNow());
-const can = (r) => (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
+// Explicit role lists matching the server permission map; no access «by level» (a cashier is not an HR director).
+const can = (r) => r === 'admin' && (roleNow() === 'admin' || roleNow() === 'super_admin');
 const canEditCard = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin','site_specialist']);
 const canManageComments = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
 const canPassport = () => currentUser?.role === 'admin' || currentUser?.role === 'hr_director';

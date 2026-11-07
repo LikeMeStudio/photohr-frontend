@@ -756,10 +756,8 @@ const hasAnyRole = (roles) => {
   if (currentUser?.role === 'super_admin') return true;
   return roles.includes(roleNow());
 };
-const can = (r) => {
-  if (currentUser?.role === 'super_admin') return true;
-  return (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
-};
+// Explicit role lists matching the server permission map; no access «by level» (a cashier is not an HR director).
+const can = (r) => r === 'admin' && hasAnyRole(['admin']);
 const canEditCard = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin','site_specialist']);
 const canManageComments = () => hasAnyRole(['hr_manager','hr_director','exec_director','admin']);
 const canPassport = () =>
@@ -868,7 +866,7 @@ function setupToolbarActions() {
   const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
   const navBtns = [];
   navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + '">Команда</a>');
+  if (PhotoHR.canOpen('team', currentUser?.role)) navBtns.push('<a class="f-btn active" href="photographers.html" style="' + ns + '">Команда</a>');
   if (hasAnyRole(['recruiter','hr_manager','hr_director','exec_director','admin'])) {
     navBtns.push('<a class="f-btn" href="recruiting.html" style="' + ns + '">Рекрутинг</a>');
   }
@@ -4226,6 +4224,11 @@ window.addEventListener('resize', updateStickyTop);
   if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
   try {
     currentUser = await api('GET', '/auth/me');
+    // Roles without access to the team list (recruiter, tech director, aquagrim) go to their own section.
+    if (!PhotoHR.canOpen('team', currentUser.role)) {
+      window.location.href = new URLSearchParams(window.location.search).get('profile') === '1' ? 'my.html#account-security' : PhotoHR.homeFor(currentUser.role);
+      return;
+    }
     try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
     startApp();
   } catch(e) {
