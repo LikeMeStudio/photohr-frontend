@@ -1377,7 +1377,9 @@ function switchTab(i) {
   } else if (i === 1) {
     const comments = drawerData.comments || [];
     const canDelete = can('admin');
-    body.innerHTML = `
+    // Все комментарии о управленцах сервер отдаёт только HR-руководству (team.comments), остальным — свои и важные общие.
+    const partialNote = canManageComments() ? '' : '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Здесь видны ваши комментарии и важные общие. Все комментарии видят HR и руководство.</div>';
+    body.innerHTML = `${partialNote}
 <div style="margin-bottom:16px">
   <textarea class="fin" id="new-team-comment" rows="3" style="width:100%;resize:vertical;box-sizing:border-box;margin-bottom:8px" placeholder="Написать комментарий..."></textarea>
   <button class="btn btn-primary" onclick="postTeamComment()">Отправить</button>

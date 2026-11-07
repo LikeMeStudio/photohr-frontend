@@ -1102,6 +1102,9 @@ ${(()=>{
   const photoPhs = phs.filter(a=>!['print_operator','venue_manager','mentor'].includes(a.role_in_shift));
   const pendingJoins = photoPhs.filter(a => a.status === 'pending_qr_join');
   const activePhs = photoPhs.filter(a => a.status !== 'pending_qr_join');
+  // Принять заявку может руководитель или сотрудник этой смены, но не свою (сервер проверяет так же).
+  const onThisShift = phs.some(a => a.photographer_id === U.photographer_id && !['cancelled','declined','pending_qr_join'].includes(a.status));
+  const canDecideJoin = a => isEditor() || (onThisShift && a.photographer_id !== U.photographer_id);
   const joinRequestsHtml = pendingJoins.length ? `
     <div style="margin-bottom:8px">
       ${pendingJoins.map(a => `
@@ -1109,10 +1112,10 @@ ${(()=>{
           <span style="font-size:13px">🔔</span>
           <span style="font-size:12px;font-weight:600">${esc(a.photographer_name)}</span>
           <span style="font-size:10px;color:var(--text3)">просит добавить в смену</span>
-          <div style="margin-left:auto;display:flex;gap:4px">
+          ${canDecideJoin(a) ? `<div style="margin-left:auto;display:flex;gap:4px">
             <button class="btn btn-primary" style="font-size:10px;padding:3px 10px" onclick="approveQrJoin('${a.id}')">✅ Принять</button>
             <button class="btn btn-ghost" style="font-size:10px;padding:3px 10px;color:var(--rank3)" onclick="rejectQrJoin('${a.id}')">❌ Отклонить</button>
-          </div>
+          </div>` : ''}
         </div>
       `).join('')}
     </div>
