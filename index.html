@@ -338,6 +338,11 @@ function redirectByRole(user) {
     location.href = 'aquagrim.html';
     return;
   }
+  // Рекрутер работает в рекрутинге: раньше после входа попадал в «Команду», где ему делать нечего.
+  if (user.role === 'recruiter') {
+    location.href = 'recruiting.html';
+    return;
+  }
   location.href = 'photographers.html';
 }
 

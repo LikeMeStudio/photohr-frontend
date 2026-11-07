@@ -4,6 +4,7 @@
 <script src="assets/photohr.js"></script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#0f0f13"/>
 <title>PhotoHR — Рекрутинг</title>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -11,1387 +12,1555 @@
   --bg:#0f0f13;--bg2:#16161d;--bg3:#1e1e28;--card:#1a1a23;--card-h:#1f1f2a;
   --border:#2e2e3d;--border2:#3a3a4f;--text:#e8e8f0;--text2:#9090a8;--text3:#5a5a72;
   --accent:#7c6cff;--accent2:#9b8dff;
-  --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;
+  --rank1:#3ecf8e;--rank2:#f5a623;--rank3:#f25555;--info:#3aa8d8;
+  color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent}
 a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+.hidden{display:none!important}
 
-/* Header (как index.html) */
-.header{padding:18px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:8px}
+/* Header (как на остальных страницах) */
+.header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-right:4px}
 .logo span{color:var(--accent2)}
-.header-stats{display:flex;gap:16px;flex:1}
-.stat{text-align:center}
-.stat-num{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600}
-.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.nav-links{display:flex;gap:6px;margin-left:8px}
 .header-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
 .user-pill{padding:6px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px}
 .role-dot{width:7px;height:7px;border-radius:50%}
-.nav-links{display:flex;gap:6px;margin-left:12px}
-
-/* Toolbar */
-.toolbar{padding:10px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.search-in{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:13px;outline:none;width:220px}
-.search-in::placeholder{color:var(--text3)}
-.search-in:focus{border-color:var(--accent)}
-.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Golos Text',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.f-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s}
 .f-btn:hover{color:var(--text)}
 .f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.spacer{flex:1}
-.btn{padding:7px 16px;border-radius:10px;border:none;font-family:'Golos Text',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
-.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;padding:10px 24px 0;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;position:sticky;top:61px;background:var(--bg);z-index:40}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:9px 14px;border:none;background:none;color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--text);border-bottom-color:var(--accent)}
+.tab .cnt{font-size:10px;padding:1px 6px;border-radius:8px;background:var(--bg3);color:var(--text2)}
+.tab .cnt.red{background:rgba(242,85,85,.18);color:var(--rank3)}
+.tab .cnt:empty{display:none}
+.tabs-spacer{flex:1}
+
+/* Buttons & inputs */
+.btn{padding:8px 16px;border-radius:10px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;justify-content:center;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover:not(:disabled){background:var(--accent2)}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
-.toolbar-unified .btn.btn-ghost{padding:6px 14px;border-radius:20px;font-size:12px}
-.btn-danger{background:rgba(242,85,85,.15);color:var(--rank3);border:1px solid rgba(242,85,85,.3)}.btn-danger:hover{background:rgba(242,85,85,.25)}
+.btn-ok{background:rgba(62,207,142,.15);color:var(--rank1);border:1px solid rgba(62,207,142,.3)}
+.btn-warn{background:rgba(245,166,35,.12);color:var(--rank2);border:1px solid rgba(245,166,35,.3)}
+.btn-danger{background:rgba(242,85,85,.12);color:var(--rank3);border:1px solid rgba(242,85,85,.3)}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn-icon{width:34px;height:34px;padding:0;border-radius:9px}
+.fin,.fselect{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.fin:focus,.fselect:focus{border-color:var(--accent)}
+.fselect option{background:var(--bg2)}
+textarea.fin{resize:vertical;min-height:60px}
+.fl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.field{margin-bottom:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.muted{color:var(--text3)}
+.small{font-size:11px}
 
-/* Kanban */
-.funnel-section{padding:10px 24px 0}
-.funnel-label{font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;padding-left:4px}
-.kanban-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
-.kanban-col{min-width:210px;width:210px;flex-shrink:0;background:var(--bg2);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(50vh - 80px)}
-.col-header{padding:10px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);border-radius:12px 12px 0 0}
-.col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.col-title{font-size:12px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.col-count{font-size:10px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:6px}
-.col-body{padding:6px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;min-height:40px;transition:background .15s}
-.col-body.drag-over{background:rgba(124,108,255,.08)}
+/* Filters */
+.filters{padding:10px 24px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search-in{padding:7px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;outline:none;width:240px}
+.search-in:focus{border-color:var(--accent)}
+.fchip{padding:5px 10px;border-radius:16px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer;max-width:200px}
+.fchip.on{border-color:var(--accent);color:var(--text);background:rgba(124,108,255,.12)}
+select.fchip{appearance:none;-webkit-appearance:none;padding-right:22px;background-image:linear-gradient(45deg,transparent 50%,var(--text3) 50%),linear-gradient(135deg,var(--text3) 50%,transparent 50%);background-position:calc(100% - 12px) 50%,calc(100% - 8px) 50%;background-size:4px 4px;background-repeat:no-repeat}
+.filters-toggle{display:none}
 
-/* Candidate card */
-.cc{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:grab;transition:all .12s;animation:fi .2s ease both}
-@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
-.cc:hover{border-color:var(--border2);background:var(--card-h)}
-.cc.dragging{opacity:.4;border-color:var(--accent)}
-.cc.priority-high{border-left:3px solid var(--rank2)}
-.cc-name{font-size:12px;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cc-row{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--text3);flex-wrap:wrap}
-.cc-src{padding:0 5px;border-radius:3px;font-size:9px;font-weight:600}
+/* Layout */
+main{padding:16px 24px 90px}
+.section-title{font-family:'Unbounded',sans-serif;font-size:13px;font-weight:600;color:var(--text2);margin:6px 0 10px;display:flex;align-items:center;gap:8px}
+.empty{padding:28px;text-align:center;color:var(--text3);font-size:13px;border:1px dashed var(--border);border-radius:12px}
+.loading{text-align:center;padding:40px;color:var(--text3)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px}
+
+/* Today */
+.today-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.tcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;border-left:3px solid var(--border2)}
+.tcard.overdue{border-left-color:var(--rank3)}
+.tcard.today{border-left-color:var(--rank2)}
+.tcard.fresh{border-left-color:var(--accent)}
+.tcard-top{display:flex;gap:8px;align-items:flex-start}
+.tcard-name{font-weight:600;font-size:14px;cursor:pointer}
+.tcard-name:hover{color:var(--accent2)}
+.tcard-meta{font-size:11px;color:var(--text2);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.due{font-size:11px;font-weight:600;margin-left:auto;white-space:nowrap}
+.due.red{color:var(--rank3)}.due.amber{color:var(--rank2)}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.stats-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;min-width:120px}
+.stat-num{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:600;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block}
+.src{padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
 .src-hh{background:rgba(255,80,80,.12);color:#ff6b6b}
 .src-avito{background:rgba(0,200,120,.12);color:#4ecb8a}
 .src-referral{background:rgba(124,108,255,.15);color:var(--accent2)}
 .src-telegram{background:rgba(0,136,204,.15);color:#3aa8d8}
-.src-manual{background:rgba(144,144,168,.12);color:var(--text2)}
+.src-manual,.src-other,.src-import{background:rgba(144,144,168,.12);color:var(--text2)}
 .src-website{background:rgba(245,166,35,.12);color:var(--rank2)}
-.cc-overdue{color:var(--rank3);font-weight:500}
-.cc-comments{opacity:.5}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.tag button{border:none;background:none;color:var(--text3);cursor:pointer;font-size:12px;line-height:1}
+
+/* Board */
+.funnel{margin-bottom:16px}
+.funnel-label{font-family:'Unbounded',sans-serif;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.board{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}
+.col{min-width:240px;width:240px;flex-shrink:0;background:var(--bg2);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(100vh - 230px)}
+.col-h{padding:10px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
+.col-t{font-size:12px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.col-n{font-size:10px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:6px}
+.col-b{padding:6px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:50px;flex:1}
+.col-b.over{background:rgba(124,108,255,.08)}
+.col-more{font-size:11px;color:var(--text3);text-align:center;padding:6px}
+.cc{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 10px;cursor:pointer;transition:border-color .12s,background .12s;position:relative}
+.cc:hover{border-color:var(--border2);background:var(--card-h)}
+.cc.dragging{opacity:.4;border-color:var(--accent)}
+.cc.prio-high{border-left:3px solid var(--rank2)}
+.cc-name{font-size:13px;font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:26px}
+.cc-row{display:flex;gap:5px;align-items:center;font-size:10px;color:var(--text3);flex-wrap:wrap}
+.cc-alarm{color:var(--rank3);font-weight:600}
+.cc-soon{color:var(--rank2)}
+.cc-quick{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.cc-quick a,.cc-quick button{width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.stage-chips{display:none;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+.stage-chips::-webkit-scrollbar{display:none}
+.stage-chips .fchip{white-space:nowrap;max-width:none;flex-shrink:0;display:inline-flex;align-items:center;gap:5px}
+
+/* List */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+table.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;font-weight:500;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:9px 10px;border-bottom:1px solid var(--border);background:var(--bg2);white-space:nowrap}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:var(--bg2);cursor:pointer}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.bulkbar{position:sticky;bottom:12px;margin-top:10px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;font-size:12px;color:var(--text2)}
+
+/* KPI */
+.kpi-funnel{display:flex;flex-direction:column;gap:8px}
+.kf-row{display:grid;grid-template-columns:150px 1fr 70px 70px;gap:10px;align-items:center;font-size:12px}
+.kf-bar{height:22px;background:var(--bg3);border-radius:6px;overflow:hidden}
+.kf-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;min-width:2px}
+.kf-num{font-family:'Unbounded',sans-serif;font-size:13px;text-align:right}
+.kf-conv{font-size:11px;color:var(--text2);text-align:right}
+.spark{display:flex;align-items:flex-end;gap:2px;height:60px}
+.spark div{flex:1;background:var(--accent);opacity:.75;border-radius:2px 2px 0 0;min-height:1px}
 
 /* Drawer */
-.drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100}
+.drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100}
 .drawer-bg.open{display:block}
-.drawer{position:fixed;top:0;right:0;width:460px;max-width:92vw;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:101;overflow-y:auto;padding:20px;transform:translateX(100%);transition:transform .2s ease}
+.drawer{position:fixed;top:0;right:0;width:520px;max-width:100vw;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:101;overflow-y:auto;transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column}
 .drawer-bg.open .drawer{transform:translateX(0)}
-.dr-close{position:absolute;top:14px;right:14px;width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
-.dr-close:hover{color:var(--text)}
-.dr-name{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px;padding-right:36px}
-.dr-stage-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:500;margin-bottom:14px}
-.dr-section{margin-bottom:14px}
-.dr-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.dr-val{font-size:13px}
-.dr-val a{color:var(--accent2)}.dr-val a:hover{text-decoration:underline}
-.field{margin-bottom:10px}
-.fl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
-.fin{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none}
-.fin:focus{border-color:var(--accent)}
-.fselect{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Golos Text',sans-serif;font-size:12px;outline:none;cursor:pointer}
-.fselect option{background:var(--bg2)}
-textarea.fin{resize:vertical;min-height:50px}
-.dr-actions{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
-.timeline{display:flex;flex-direction:column;gap:6px}
-.tl-item{display:flex;gap:6px;font-size:11px;align-items:flex-start}
-.tl-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:4px}
-.tl-date{color:var(--text3);font-size:10px}
-.cm-item{padding:6px 8px;background:var(--bg3);border-radius:6px;margin-bottom:4px}
-.cm-author{font-size:10px;color:var(--accent2);margin-bottom:1px}
-.cm-body{font-size:12px;line-height:1.4}
-.cm-date{font-size:9px;color:var(--text3);margin-top:1px}
-.cm-type{font-size:9px;padding:0 4px;border-radius:2px;background:var(--bg);color:var(--text3);margin-left:3px}
+.dr-head{padding:16px 18px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:2}
+.dr-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:16px}
+.dr-name{font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;padding-right:40px;margin-bottom:6px}
+.dr-body{padding:14px 18px 40px}
+.dr-section{margin-bottom:18px}
+.dr-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.dr-label .btn{text-transform:none;letter-spacing:0}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:5px 10px;font-size:13px}
+.kv .k{color:var(--text3);font-size:12px}
+.kv a{color:var(--accent2)}
+.timeline{display:flex;flex-direction:column;gap:8px}
+.ev{display:flex;gap:8px;font-size:12px}
+.ev-ic{width:24px;height:24px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px}
+.ev-b{flex:1;min-width:0}
+.ev-t{white-space:pre-wrap;word-wrap:break-word;line-height:1.4}
+.ev-d{color:var(--text3);font-size:10px;margin-top:2px}
+.rem{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:9px;background:var(--bg3);margin-bottom:6px;font-size:12px}
+.rem.over{border:1px solid rgba(242,85,85,.4)}
+.file{display:flex;gap:8px;align-items:center;padding:7px 10px;border-radius:9px;background:var(--bg3);margin-bottom:6px;font-size:12px}
+.file .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--accent2)}
 
-/* Modal */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+/* Modal / sheet */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal.wide{max-width:760px}
 .modal-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600}
-.modal-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
+.modal-x{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap}
+.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
 
-/* Toast */
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:12px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+/* Settings */
+.conn{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.conn-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.conn-h{display:flex;align-items:center;gap:10px}
+.conn-logo{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.state{padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;margin-left:auto}
+.state-connected{background:rgba(62,207,142,.15);color:var(--rank1)}
+.state-error{background:rgba(242,85,85,.15);color:var(--rank3)}
+.state-not_configured,.state-disconnected{background:var(--bg3);color:var(--text2)}
+code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+.howto{font-size:12px;color:var(--text2);line-height:1.55}
+.howto ol{padding-left:18px}
+
+/* Toast, FAB */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 18px;font-size:13px;z-index:500;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw}
 .toast.show{opacity:1}
 .toast.error{border-color:rgba(242,85,85,.4);color:var(--rank3)}
-
-/* Loading */
-.loading{text-align:center;padding:40px;color:var(--text3)}
-
-/* Mobile */
+.fab{display:none;position:fixed;right:16px;bottom:max(16px,env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:28px;box-shadow:0 8px 24px rgba(124,108,255,.45);z-index:60;cursor:pointer}
 .admin-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;display:none;padding:0}
 .admin-iframe{width:960px;max-width:96vw;height:90vh;border:none;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+
 @media(max-width:768px){
-  .header{padding:10px 14px;gap:8px}
-  .nav-links{order:3;width:100%;overflow-x:auto;padding-bottom:2px;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+  .header{padding:10px 14px;gap:8px;padding-top:max(10px,env(safe-area-inset-top))}
+  .nav-links{order:3;width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-left:0}
   .nav-links::-webkit-scrollbar{display:none}
-  .header-stats{display:none}
-  .logo{font-size:16px}
-  .toolbar{padding-left:12px;padding-right:12px;flex-wrap:wrap}
-  .toolbar-unified{padding-left:12px;padding-right:12px;flex-wrap:wrap}
-  .kanban-row{overflow-x:auto}
-  .kanban-col{min-width:240px;width:240px}
-  .drawer{width:100vw;max-width:100vw}
+  .header-right .btn-ghost.hide-m{display:none}
+  .tabs{padding:6px 10px 0;top:0;position:relative}
+  .tabs .btn{display:none}
+  .filters{padding:8px 12px}
+  .filters .fx{display:none}
+  .filters.open .fx{display:inline-flex}
+  .filters-toggle{display:inline-flex}
+  .search-in{width:100%;flex:1 1 100%}
+  main{padding:12px 12px 100px}
+  .today-grid{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
+  .board-desktop .board{display:block}
+  .board-desktop .col{display:none;width:100%;min-width:0;max-height:none}
+  .board-desktop .col.m-active{display:flex}
+  .stage-chips{display:flex}
+  .funnel-label{display:none}
+  .drawer{width:100vw}
+  .dr-head{position:static;padding-top:max(16px,env(safe-area-inset-top))}
+  .dr-head .actions .btn{flex:1 1 auto}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .stats-row .stat{min-width:0;padding:8px}
+  .stats-row .stat-num{font-size:17px}
+  .stats-row .stat-lbl{font-size:9px;letter-spacing:.2px}
+  .stats-row>div:last-child:not(.stat){grid-column:1/-1}
   .overlay{align-items:flex-end;padding:0}
-  .modal{border-radius:18px 18px 0 0;max-height:88vh;width:100%;max-width:100%}
-  /* ── recruiting.html mobile v2 ── */
-  .kanban-row{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:8px;scrollbar-width:thin}
-  .kanban-col{min-width:200px;flex-shrink:0;width:auto}
-  .drawer{width:100vw;max-width:100vw}
-  .admin-iframe{width:100vw!important;max-width:100vw!important;height:100vh!important;border-radius:0!important}
-  .admin-overlay{padding:0!important;align-items:stretch!important}
-  /* Safe area для iPhone с notch */
-  .header{padding-top:max(10px, env(safe-area-inset-top))}
-  .toast{bottom:max(20px, env(safe-area-inset-bottom))}
-  body{padding-bottom:env(safe-area-inset-bottom)}
+  .modal{border-radius:18px 18px 0 0;max-height:92vh;max-width:100%}
+  .kf-row{grid-template-columns:100px 1fr 50px 50px}
+  .fab{display:block}
+  .tbl .hide-m{display:none}
+  .btn{padding:10px 14px}
+  .btn-sm{padding:7px 10px}
+  .presets{grid-template-columns:repeat(2,1fr)}
+  .toast{bottom:max(84px,env(safe-area-inset-bottom))}
 }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <a href="index.html" class="logo" style="text-decoration:none;color:inherit">Photo<span>HR</span></a>
+  <a href="index.html" class="logo">Photo<span>HR</span></a>
   <div class="nav-links" id="nav-links"></div>
-  <div class="header-stats" id="hstats"></div>
   <div class="header-right">
-    <button class="btn btn-ghost" id="btn-management" style="display:none;font-size:13px;padding:6px 12px" onclick="openAdmin()">⚙ Управление</button>
-    <div class="user-pill" id="user-pill" onclick="openProfile()" style="cursor:pointer" title="Мой профиль"></div>
-    <button class="btn btn-ghost" onclick="doLogout()" style="font-size:13px;padding:6px 12px">Выйти</button>
+    <button class="btn btn-ghost btn-sm hide-m hidden" id="btn-management" data-act="open-admin">⚙ Управление</button>
+    <div class="user-pill" id="user-pill"></div>
+    <button class="btn btn-ghost btn-sm" data-act="logout">Выйти</button>
   </div>
 </div>
 
-<div class="toolbar toolbar-unified">
-  <input class="search-in" id="search" placeholder="Поиск по имени, телефону..." oninput="renderKanban()"/>
-  <button class="f-btn" id="f-all" onclick="setFilter('all')">Все</button>
-  <button class="f-btn" id="f-photographer" onclick="setFilter('photographer')">📷 Фото</button>
-  <button class="f-btn" id="f-aquagrim" onclick="setFilter('aquagrim')">🎨 Аква</button>
-  <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;margin-left:8px;cursor:pointer"><input type="checkbox" id="show-rejected" onchange="renderKanban()"/> Отказы</label>
-  <span class="spacer"></span>
-  <button class="btn btn-ghost" onclick="openTrainings()">📅 Тренинги</button>
-  <button class="btn btn-ghost" onclick="openInternships()">🎓 Стажировки</button>
-  <button class="btn btn-primary" onclick="openNewCandidate()">+ Кандидат</button>
-  <button class="btn btn-ghost" onclick="openAchievementsPanel()">🏆 Достижения</button>
-  <button class="btn btn-ghost" onclick="openBirthdaysPanel()">🎂 Дни рождения</button>
-  <button class="btn btn-ghost" onclick="openLikesPanel()">❤️ Лайки</button>
+<div class="tabs" id="tabs">
+  <button class="tab" data-tab="today">📞 Сегодня <span class="cnt" id="cnt-today"></span></button>
+  <button class="tab" data-tab="board">🗂 Воронка</button>
+  <button class="tab" data-tab="list">📋 Список</button>
+  <button class="tab" data-tab="vacancies">💼 Вакансии</button>
+  <button class="tab" data-tab="kpi">📈 KPI</button>
+  <button class="tab lead-only hidden" data-tab="import">⬆ Импорт</button>
+  <button class="tab lead-only hidden" data-tab="dupes">👯 Дубли</button>
+  <button class="tab lead-only hidden" data-tab="settings">⚙ Настройки</button>
+  <span class="tabs-spacer"></span>
+  <button class="btn btn-ghost btn-sm" data-act="trainings">📅 Тренинги</button>
+  <button class="btn btn-primary btn-sm" data-act="new-candidate">+ Кандидат</button>
 </div>
 
-<div id="kanban-container">
-  <div class="loading">Загрузка...</div>
+<div class="filters hidden" id="filters">
+  <input class="search-in" id="f-q" placeholder="Поиск: имя, телефон, почта, @telegram" autocomplete="off"/>
+  <button class="fchip filters-toggle" data-act="toggle-filters">Фильтры <span id="f-count"></span></button>
+  <select class="fchip fx" id="f-recruiter"></select>
+  <select class="fchip fx" id="f-source"></select>
+  <select class="fchip fx" id="f-city"></select>
+  <select class="fchip fx" id="f-vacancy"></select>
+  <select class="fchip fx" id="f-role"></select>
+  <select class="fchip fx" id="f-tag"></select>
+  <select class="fchip fx" id="f-stage"></select>
+  <select class="fchip fx" id="f-period">
+    <option value="">За всё время</option><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="custom">Свой период…</option>
+  </select>
+  <input type="date" class="fchip fx hidden" id="f-from"/><input type="date" class="fchip fx hidden" id="f-to"/>
+  <button class="fchip fx" id="f-overdue" data-act="toggle-flag" data-flag="overdue">⏰ Просрочено</button>
+  <button class="fchip fx" id="f-no_contact" data-act="toggle-flag" data-flag="no_contact">🆕 Без звонка</button>
+  <select class="fchip fx" id="f-views"></select>
+  <button class="fchip fx" data-act="save-view">☆ Сохранить вид</button>
+  <button class="fchip fx" data-act="reset-filters">Сбросить</button>
 </div>
 
-<!-- Drawer: карточка кандидата -->
-<div class="drawer-bg" id="drawer-bg" onclick="if(event.target===this)closeDrawer()">
-<div class="drawer" id="drawer">
-  <button class="dr-close" onclick="closeDrawer()">×</button>
-  <div id="drawer-content"></div>
-</div>
+<main>
+  <section id="view-today" class="view hidden"></section>
+  <section id="view-board" class="view hidden"></section>
+  <section id="view-list" class="view hidden"></section>
+  <section id="view-vacancies" class="view hidden"></section>
+  <section id="view-kpi" class="view hidden"></section>
+  <section id="view-import" class="view hidden"></section>
+  <section id="view-dupes" class="view hidden"></section>
+  <section id="view-settings" class="view hidden"></section>
+</main>
+
+<button class="fab" data-act="new-candidate" aria-label="Новый кандидат">+</button>
+
+<!-- Карточка кандидата -->
+<div class="drawer-bg" id="drawer-bg">
+  <div class="drawer" id="drawer"></div>
 </div>
 
-<!-- Modal: новый кандидат -->
-<div class="overlay" id="new-cand-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal">
-  <div class="modal-title"><span>Новый кандидат</span><button class="dr-close" onclick="document.getElementById('new-cand-modal').classList.remove('open')">×</button></div>
-  <div class="field"><div class="fl">Имя *</div><input class="fin" id="nc-name" placeholder="Иван Иванов"/></div>
-  <div class="field"><div class="fl">Телефон</div><input class="fin" id="nc-phone" placeholder="+7 900 123-45-67" type="tel"/></div>
-  <div class="field"><div class="fl">Email</div><input class="fin" id="nc-email" placeholder="email@example.com" type="email"/></div>
-  <div class="field"><div class="fl">Telegram</div><input class="fin" id="nc-telegram" placeholder="@username"/></div>
-  <div class="field"><div class="fl">Город</div><input class="fin" id="nc-city" placeholder="Москва"/></div>
-  <div class="field">
-    <div class="fl">Источник</div>
-    <select class="fselect" id="nc-source">
-      <option value="manual">Вручную</option>
-      <option value="hh">HeadHunter</option>
-      <option value="avito">Avito</option>
-      <option value="referral">Реферал</option>
-      <option value="telegram">Telegram</option>
-      <option value="website">Сайт</option>
-      <option value="other">Другое</option>
-    </select>
-  </div>
-  <div class="field">
-    <div class="fl">На роль</div>
-    <select class="fselect" id="nc-role">
-      <option value="photographer">Фотограф</option>
-      <option value="aquagrim">Аквагримёр</option>
-    </select>
-  </div>
-  <div class="field"><div class="fl">Приоритет</div>
-    <select class="fselect" id="nc-priority">
-      <option value="normal">Обычный</option>
-      <option value="high">Высокий</option>
-      <option value="low">Низкий</option>
-    </select>
-  </div>
-  <div class="field"><div class="fl">Комментарий</div><textarea class="fin" id="nc-notes" rows="2" placeholder="Первое впечатление..."></textarea></div>
-  <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('new-cand-modal').classList.remove('open')">Отмена</button>
-    <button class="btn btn-primary" onclick="createCandidate()">Добавить</button>
-  </div>
-</div>
-</div>
-
-<!-- Modal: отказ кандидата -->
-<div class="overlay" id="reject-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal">
-  <div class="modal-title"><span>❌ Отказ кандидата</span><button class="dr-close" onclick="document.getElementById('reject-modal').classList.remove('open')">×</button></div>
-  <input type="hidden" id="rej-id"/>
-  <div class="field"><div class="fl">С какого этапа отвалился</div><div id="rej-from-stage" style="font-size:13px;color:var(--text2);padding:4px 0"></div></div>
-  <div class="field">
-    <div class="fl">Причина отказа *</div>
-    <select class="fselect" id="rej-reason">
-      <option value="candidate_refused">Кандидат отказался сам</option>
-      <option value="no_show">Не пришёл</option>
-      <option value="not_suitable">Не подходит по навыкам</option>
-      <option value="vacation">В отпуске / временно не может</option>
-      <option value="other_work">Готов на другой формат (платные съёмки и т.д.)</option>
-      <option value="other">Другое</option>
-    </select>
-  </div>
-  <div class="field"><div class="fl">Комментарий *</div><textarea class="fin" id="rej-comment" rows="3" placeholder="Подробности, планы на будущее..."></textarea></div>
-  <div class="field"><div class="fl">Вернуть позже?</div>
-    <select class="fselect" id="rej-return">
-      <option value="">Нет</option>
-      <option value="newyear">Готов на ёлки (декабрь)</option>
-      <option value="summer">Готов на лето</option>
-      <option value="later">Перезвонить позже</option>
-    </select>
-  </div>
-  <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('reject-modal').classList.remove('open')">Отмена</button>
-    <button class="btn btn-danger" onclick="confirmReject()">Отклонить</button>
-  </div>
-</div>
-</div>
-
-<!-- Modal: тренинги -->
-<div class="overlay" id="trainings-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal" style="max-width:600px">
-  <div class="modal-title"><span>📅 Тренинги</span><button class="dr-close" onclick="document.getElementById('trainings-modal').classList.remove('open')">×</button></div>
-  <div id="trainings-list" style="margin-bottom:16px"><div class="loading">Загрузка...</div></div>
-  <div style="border-top:1px solid var(--border);padding-top:12px">
-    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Добавить тренинг</div>
-    <div class="field"><div class="fl">Название *</div><input class="fin" id="tr-title" placeholder="Обучение новичков"/></div>
-    <div style="display:flex;gap:8px">
-      <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" id="tr-date" type="date"/></div>
-      <div class="field" style="flex:1"><div class="fl">Время</div><input class="fin" id="tr-time" type="time" value="12:00"/></div>
-    </div>
-    <div class="field"><div class="fl">Тренер *</div><select class="fselect" id="tr-trainer"><option value="">Загрузка...</option></select></div>
-    <div class="field"><div class="fl">Место</div><input class="fin" id="tr-location" placeholder="Адрес или площадка"/></div>
-    <div style="display:flex;gap:8px">
-      <div class="field" style="flex:1"><div class="fl">Макс. участников</div><input class="fin" id="tr-max" type="number" value="15"/></div>
-      <div class="field" style="flex:1"><div class="fl">Тип</div>
-        <select class="fselect" id="tr-type">
-          <option value="onboarding">Обучение новичков</option>
-          <option value="advanced">Продвинутый</option>
-          <option value="general">Общий</option>
-        </select>
-      </div>
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="createTraining()">Создать тренинг</button>
-  </div>
-</div>
-</div>
-
-<!-- Modal: выбор тренинга при переводе -->
-<div class="overlay" id="training-pick-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal">
-  <div class="modal-title"><span>📅 Выбрать тренинг</span><button class="dr-close" onclick="document.getElementById('training-pick-modal').classList.remove('open')">×</button></div>
-  <input type="hidden" id="tp-cand-id"/>
-  <input type="hidden" id="tp-stage-id"/>
-  <div id="training-pick-list" style="margin-bottom:12px"><div class="loading">Загрузка...</div></div>
-  <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('training-pick-modal').classList.remove('open')">Пропустить</button>
-  </div>
-</div>
-</div>
-
-<!-- Modal: стажировки -->
-<div class="overlay" id="internships-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal" style="max-width:600px">
-  <div class="modal-title"><span>🎓 Стажировки</span><button class="dr-close" onclick="document.getElementById('internships-modal').classList.remove('open')">×</button></div>
-  <div id="internships-list" style="margin-bottom:16px"><div class="loading">Загрузка...</div></div>
-  <div style="border-top:1px solid var(--border);padding-top:12px">
-    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Добавить стажировку</div>
-    <div class="field"><div class="fl">Название *</div><input class="fin" id="int-title" placeholder="Стажировка Москва"/></div>
-    <div style="display:flex;gap:8px">
-      <div class="field" style="flex:1"><div class="fl">Дата *</div><input class="fin" id="int-date" type="date"/></div>
-      <div class="field" style="flex:1"><div class="fl">Время</div><input class="fin" id="int-time" type="time" value="10:00"/></div>
-    </div>
-    <div class="field"><div class="fl">Наставник *</div><select class="fselect" id="int-trainer"><option value="">Загрузка...</option></select></div>
-    <div class="field"><div class="fl">Площадка / место</div><input class="fin" id="int-location" placeholder="Океанариум Москвариум"/></div>
-    <div class="field"><div class="fl">Макс. участников</div><input class="fin" id="int-max" type="number" value="3"/></div>
-    <button class="btn btn-primary" style="width:100%" onclick="createInternship()">Создать стажировку</button>
-  </div>
-</div>
-</div>
-
-<!-- Modal: выбор стажировки при переводе -->
-<div class="overlay" id="internship-pick-modal" onclick="if(event.target===this)this.classList.remove('open')">
-<div class="modal">
-  <div class="modal-title"><span>🎓 Выбрать стажировку</span><button class="dr-close" onclick="document.getElementById('internship-pick-modal').classList.remove('open')">×</button></div>
-  <input type="hidden" id="ip-cand-id"/>
-  <input type="hidden" id="ip-stage-id"/>
-  <div id="internship-pick-list" style="margin-bottom:12px"><div class="loading">Загрузка...</div></div>
-  <div class="modal-footer">
-    <button class="btn btn-ghost" onclick="document.getElementById('internship-pick-modal').classList.remove('open');skipInternshipAndMove()">Пропустить</button>
-  </div>
-</div>
+<!-- Универсальное модальное окно -->
+<div class="overlay" id="modal">
+  <div class="modal" id="modal-box"></div>
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="admin-overlay" class="admin-overlay">
+  <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
+</div>
+
+<!-- Чистые функции страницы (без DOM и сети) — их проверяют tests/recruiting.test.cjs -->
+<script id="recruiting-core">
+(function (root) {
+  'use strict';
+  const R = {};
+  R.esc = s => s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  R.color = c => /^#[0-9a-fA-F]{6}$/.test(String(c || '')) ? c : '#7c6cff';
+  R.digits = p => String(p || '').replace(/\D/g, '');
+  R.ruDigits = p => {
+    const d = R.digits(p);
+    if (d.length === 11 && (d[0] === '8' || d[0] === '7')) return '7' + d.slice(1);
+    if (d.length === 10) return '7' + d;
+    return d;
+  };
+  R.telHref = p => { const d = R.ruDigits(p); return d.length >= 5 ? 'tel:+' + d : null; };
+  R.waHref = p => { const d = R.ruDigits(p); return d.length >= 10 ? 'https://wa.me/' + d : null; };
+  R.tgHref = t => {
+    const s = String(t || '').trim();
+    const m = s.match(/^(?:https?:\/\/)?(?:t\.me\/|telegram\.me\/)?@?([A-Za-z][A-Za-z0-9_]{4,31})$/);
+    return m ? 'https://t.me/' + m[1] : null;
+  };
+  R.safeUrl = u => /^https?:\/\//i.test(String(u || '')) ? String(u) : null;
+  R.FILTER_KEYS = ['q', 'recruiter', 'source', 'city', 'vacancy_id', 'target_role', 'tag', 'stage_id', 'date_from', 'date_to', 'overdue', 'no_contact', 'imported'];
+  R.filtersToQuery = f => {
+    const p = new URLSearchParams();
+    for (const k of R.FILTER_KEYS) if (f && f[k] != null && f[k] !== '' && f[k] !== false) p.set(k, String(f[k]));
+    return p.toString();
+  };
+  R.countFilters = f => R.FILTER_KEYS.filter(k => k !== 'q' && f && f[k] != null && f[k] !== '').length;
+  R.pad = n => String(n).padStart(2, '0');
+  R.toLocalInput = d => `${d.getFullYear()}-${R.pad(d.getMonth() + 1)}-${R.pad(d.getDate())}T${R.pad(d.getHours())}:${R.pad(d.getMinutes())}`;
+  R.dateOnly = d => `${d.getFullYear()}-${R.pad(d.getMonth() + 1)}-${R.pad(d.getDate())}`;
+  // Quick choices for «перезвонить»: local time of the recruiter's phone.
+  R.PRESETS = [['h1', 'Через час'], ['h3', 'Через 3 часа'], ['eve', 'Вечером, 18:00'], ['tom10', 'Завтра, 10:00'], ['tom15', 'Завтра, 15:00'],
+    ['day2', 'Послезавтра'], ['week', 'Через неделю'], ['month', 'Через месяц'], ['newyear', 'К ёлкам (1 ноя)'], ['summer', 'К лету (1 мая)']];
+  R.presetDate = (kind, now = new Date()) => {
+    const d = new Date(now.getTime());
+    const at = (days, h, m = 0) => { const x = new Date(now.getTime()); x.setDate(x.getDate() + days); x.setHours(h, m, 0, 0); return x; };
+    switch (kind) {
+      case 'h1': d.setMinutes(d.getMinutes() + 60, 0, 0); return d;
+      case 'h2': d.setMinutes(d.getMinutes() + 120, 0, 0); return d;
+      case 'h3': d.setMinutes(d.getMinutes() + 180, 0, 0); return d;
+      case 'eve': { const x = at(0, 18); return x > now ? x : at(1, 18); }
+      case 'tom10': return at(1, 10);
+      case 'tom15': return at(1, 15);
+      case 'day2': return at(2, 10);
+      case 'week': return at(7, 10);
+      case 'month': return at(30, 10);
+      case 'newyear': case 'summer': {
+        const month = kind === 'newyear' ? 10 : 4;
+        const x = new Date(now.getFullYear(), month, 1, 10, 0, 0, 0);
+        if (x <= now) x.setFullYear(x.getFullYear() + 1);
+        return x;
+      }
+      default: return null;
+    }
+  };
+  const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  R.fmtDate = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? '' : `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : ''}`; };
+  R.fmtTime = v => { const d = new Date(v); return isNaN(d) ? '' : `${R.pad(d.getHours())}:${R.pad(d.getMinutes())}`; };
+  R.fmtDateTime = v => v ? `${R.fmtDate(v)}, ${R.fmtTime(v)}` : '';
+  R.ago = (v, now = Date.now()) => {
+    if (!v) return '';
+    const m = Math.floor((now - new Date(v).getTime()) / 60000);
+    if (m < 1) return 'только что';
+    if (m < 60) return m + ' мин';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + ' ч';
+    const d = Math.floor(h / 24);
+    return d < 60 ? d + ' дн' : Math.floor(d / 30) + ' мес';
+  };
+  // «просрочено 2 ч» / «сегодня 15:00» / «завтра 10:00» / «12 ноя, 10:00»
+  R.dueLabel = (v, now = new Date()) => {
+    const d = new Date(v);
+    if (isNaN(d)) return { text: '', cls: '' };
+    if (d < now) return { text: 'просрочено ' + R.ago(d, now.getTime()), cls: 'red' };
+    const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(d) - day(now)) / 86400000);
+    if (diff === 0) return { text: 'сегодня ' + R.fmtTime(d), cls: 'amber' };
+    if (diff === 1) return { text: 'завтра ' + R.fmtTime(d), cls: '' };
+    return { text: R.fmtDateTime(d), cls: '' };
+  };
+  R.pct = (a, b) => (a ? Math.round((b / a) * 1000) / 10 + '%' : '—');
+  R.SRC = { hh: 'hh.ru', avito: 'Авито', telegram: 'Telegram', website: 'Сайт', referral: 'Рекомендация', manual: 'Вручную', import: 'Импорт', other: 'Другое' };
+  R.ROLE = { photographer: 'Фотограф', aquagrim: 'Аквагримёр', admin: 'Администратор', manager: 'Менеджер', other: 'Другое' };
+  R.STEP = { response: 'Отклик', call: 'Звонок', interview: 'Собеседование', training: 'Обучение', internship: 'Стажировка', hired: 'Найм', rejected: 'Отказ' };
+  R.CALL = { reached: 'Дозвонился', no_answer: 'Не ответил', busy: 'Занято', wrong_number: 'Неверный номер', callback: 'Просил перезвонить', declined: 'Отказался' };
+  R.CTYPE = { note: '📝', call: '📞', no_answer: '📵', message_sent: '💬', interview: '🤝', system: '⚙' };
+  R.KIND = { call: 'Позвонить', message: 'Написать', interview: 'Собеседование', meeting: 'Встреча', other: 'Другое' };
+  R.FUNNEL = { hiring: 'Найм и обучение', internship: 'Стажировка и приём', rejected: 'Отказы' };
+  // Card timeline: stage moves, comments/calls and finished reminders, newest first.
+  R.timeline = c => {
+    const ev = [];
+    for (const s of c.stage_log || []) ev.push({ at: s.created_at, icon: '➜', text: (s.from_stage_name ? s.from_stage_name + ' → ' : '') + (s.to_stage_name || ''), note: s.notes, who: s.moved_by_name });
+    for (const m of c.comments || []) ev.push({ at: m.created_at, icon: R.CTYPE[m.comment_type] || '📝', text: m.body, who: m.author_name, call: m.call_result ? R.CALL[m.call_result] : null });
+    for (const r of c.reminders || []) if (r.status !== 'open' && r.done_at) ev.push({ at: r.done_at, icon: r.status === 'done' ? '✅' : '✖', text: (R.KIND[r.kind] || 'Напоминание') + (r.result ? ': ' + r.result : ''), who: r.assigned_to_name });
+    return ev.sort((a, b) => new Date(b.at) - new Date(a.at));
+  };
+  // Next working stage after the current one (same order as the board, skipping terminal stages).
+  R.nextStage = (stages, current) => {
+    const live = stages.filter(s => s.is_active !== false && !s.is_terminal).sort((a, b) => a.sort_order - b.sort_order);
+    const i = live.findIndex(s => s.id === current);
+    return i >= 0 && i + 1 < live.length ? live[i + 1] : null;
+  };
+  R.rejectStage = (stages, current) => {
+    const rej = stages.filter(s => s.terminal_type === 'rejected' && s.is_active !== false).sort((a, b) => a.sort_order - b.sort_order);
+    if (!rej.length) return null;
+    const cur = stages.find(s => s.id === current);
+    const step = cur && cur.kpi_step;
+    const pick = re => rej.find(s => re.test(s.name));
+    if (step === 'internship') return pick(/стаж/i) || rej[rej.length - 1];
+    if (step === 'training' || step === 'interview') return pick(/обуч|тренинг|собесед/i) || rej[0];
+    return pick(/отклик/i) || rej[0];
+  };
+  root.R2 = R;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
 
 <script>
+'use strict';
 const API = PhotoHR.API;
-
+const R = window.R2;
+const esc = R.esc;
 let accessToken = localStorage.getItem('fhr_access') || null;
 let refreshToken = localStorage.getItem('fhr_refresh') || null;
+let refreshLock = null;
 let currentUser = null;
 let mgmtNavHasAccess = false;
-let kanbanData = [];
-let currentFilter = 'all';
-let draggedCard = null;
-let refreshLock = null;
+let META = null;
+const state = { tab: 'today', filters: {}, list: { offset: 0, sort: 'created_desc', selected: new Set() }, mobileStage: null, card: null, kpi: { period: '30' } };
 
-const ROLE_LABELS = {
-  admin: 'Администратор',
-  super_admin: 'Суперадмин',
-  exec_director: 'Исполнительный директор',
-  hr_director: 'HR-директор',
-  hr_manager: 'HR-менеджер',
-  recruiter: 'Рекрутер',
-  tech_director: 'Тех-директор',
-  site_specialist: 'Специалист по сайту',
-  cashier: 'Инкассация',
-  photographer_user: 'Сотрудник',
-  aq_user: 'Аквагримёр',
-  aq_manager: 'Менеджер аквагрима',
-  archived: 'Архив'
-};
-const ROLE_COLORS = {
-  admin: '#ffd700',
-  super_admin: '#c084fc',
-  exec_director: '#f5a623',
-  hr_director: '#3ecf8e',
-  hr_manager: '#4ecb8a',
-  recruiter: '#e86aa6',
-  tech_director: '#8a7aee',
-  site_specialist: '#6aa6e8',
-  cashier: '#e87a6a',
-  photographer_user: '#9090a8',
-  aq_user: '#3ecfb4',
-  aq_manager: '#5ee8d0',
-  archived: '#5a5a72'
-};
-const ROLES = {
-  photographer_user: 0,
-  aq_user: 0,
-  recruiter: 1,
-  hr_manager: 1,
-  tech_director: 1,
-  site_specialist: 1,
-  aq_manager: 1,
-  cashier: 2,
-  hr_director: 2,
-  exec_director: 3,
-  admin: 4,
-  super_admin: 5
-};
-const roleNow = () => currentUser?.role || 'photographer_user';
-const hasAnyRole = (roles) => {
-  if (currentUser?.role === 'super_admin') return true;
-  return roles.includes(roleNow());
-};
-
-function openProfile() { window.location.href = 'photographers.html?profile=1'; }
-
-function openAchievementsPanel() { window.location.href = 'photographers.html#achievements'; }
-function openBirthdaysPanel() { window.location.href = 'photographers.html#birthdays'; }
-function openLikesPanel() { window.location.href = 'photographers.html#likes'; }
-
-function fillPlaceholderStats() {
-  const hs = document.getElementById('hstats');
-  if (!hs) return;
-  hs.innerHTML = `
-    <div class="stat"><div class="stat-num" style="color:var(--accent2)">—</div><div class="stat-lbl">Всего</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--rank1)">—</div><div class="stat-lbl">Топ</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--rank2)">—</div><div class="stat-lbl">Средний балл</div></div>
-  `;
-}
-
-function setupUserPill() {
-  const color = ROLE_COLORS[currentUser.role] || '#9090a8';
-  document.getElementById('user-pill').innerHTML =
-    `<div class="role-dot" style="background:${color}"></div>
-     <span>${esc(currentUser.name)}</span>
-     <span style="color:var(--text3);font-size:11px">${ROLE_LABELS[currentUser.role] || currentUser.role}</span>`;
-}
-
-function setupNav(activeKey) {
-  const navBtns = [];
-  const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
-  const a = (key, href, label) => {
-    const cls = activeKey === key ? 'f-btn active' : 'f-btn';
-    return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`;
-  };
-  navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push(a('index', 'photographers.html', 'Команда'));
-  if (hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin'])) {
-    navBtns.push(a('recruiting', 'recruiting.html', 'Рекрутинг'));
-  }
-  if (hasAnyRole(['photographer_user', 'hr_manager', 'cashier', 'hr_director', 'tech_director', 'site_specialist', 'exec_director', 'admin'])) {
-    navBtns.push(a('venue', 'venue.html', 'Отчёты'));
-  }
-  if (hasAnyRole(['tech_director', 'hr_director', 'exec_director', 'admin'])) {
-    navBtns.push(a('stock', 'stock.html', 'Склад'));
-  }
-  if (mgmtNavHasAccess) {
-    navBtns.push(a('accounting', 'accounting.html', '💰 Учёт'));
-  }
-  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin'])) {
-    navBtns.push(a('schedule', 'schedule.html', 'Расписание'));
-  }
-  document.getElementById('nav-links').innerHTML = navBtns.join('');
-}
-const SRC_LABELS = { hh:'HH', avito:'Avito', referral:'Реферал', telegram:'TG', manual:'Вручную', website:'Сайт', other:'Другое' };
+const ROLE_LABELS = { admin: 'Администратор', super_admin: 'Суперадмин', exec_director: 'Исполнительный директор', hr_director: 'HR-директор',
+  hr_manager: 'HR-менеджер', recruiter: 'Рекрутер', tech_director: 'Тех-директор', site_specialist: 'Специалист по сайту', cashier: 'Инкассация',
+  photographer_user: 'Сотрудник', aq_user: 'Аквагримёр', aq_manager: 'Менеджер аквагрима', archived: 'Архив' };
+const ROLE_COLORS = { admin: '#ffd700', super_admin: '#c084fc', exec_director: '#f5a623', hr_director: '#3ecf8e', hr_manager: '#4ecb8a', recruiter: '#e86aa6' };
+const hasAnyRole = roles => currentUser?.role === 'super_admin' || roles.includes(currentUser?.role);
+const isLead = () => !!META?.me?.is_lead;
 
 // ── API ──
-async function api(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
-  if (accessToken) opts.headers['Authorization'] = `Bearer ${accessToken}`;
-  if (body) opts.body = JSON.stringify(body);
+async function api(method, path, body, { raw = false, form = null } = {}) {
+  const opts = { method, headers: {} };
+  if (form) opts.body = form; else if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  if (accessToken) opts.headers.Authorization = 'Bearer ' + accessToken;
   let res = await PhotoHR.fetch(API + path, opts);
   if (res.status === 401 && refreshToken) {
     try {
       if (!refreshLock) {
         refreshLock = (async () => {
-          const rr = await PhotoHR.fetch(API + '/auth/refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken }) });
+          const rr = await PhotoHR.fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
           if (!rr.ok) throw new Error('refresh_failed');
           const d = await rr.json();
           accessToken = d.accessToken; refreshToken = d.refreshToken;
-          localStorage.setItem('fhr_refresh', refreshToken);
-          localStorage.setItem('fhr_access', accessToken);
+          localStorage.setItem('fhr_refresh', refreshToken); localStorage.setItem('fhr_access', accessToken);
         })();
       }
       await refreshLock;
-      opts.headers['Authorization'] = `Bearer ${accessToken}`;
+      opts.headers.Authorization = 'Bearer ' + accessToken;
       res = await PhotoHR.fetch(API + path, opts);
-    } catch { doLogout(); return null; }
-    finally { refreshLock = null; }
+    } catch { doLogout(); return null; } finally { refreshLock = null; }
   }
-  if (!res.ok) { const err = await res.json().catch(()=>({error:'Ошибка'})); throw new Error(err.error || 'Ошибка'); }
-  return res.json();
+  if (raw) { if (!res.ok) throw new Error('Не удалось получить файл'); return res; }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.error || 'Ошибка'); e.status = res.status; e.data = data; throw e; }
+  return data;
 }
-
-function doLogout() { accessToken = null; refreshToken = null; localStorage.removeItem('fhr_refresh'); localStorage.removeItem('fhr_access'); window.location.href = 'index.html'; }
-
-function showToast(msg, err) {
+function doLogout() { localStorage.removeItem('fhr_refresh'); localStorage.removeItem('fhr_access'); window.location.href = 'index.html'; }
+let toastTimer;
+function toast(msg, err) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show' + (err ? ' error' : '');
-  setTimeout(() => t.className = 'toast', 2500);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 2800);
 }
+const $ = id => document.getElementById(id);
+const stageById = id => (META?.stages || []).find(s => s.id === id);
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-function esc(s) {
-  if (s == null) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+// ── NAV / HEADER ──
+function setupNav(activeKey) {
+  const navBtns = []; const ns = 'text-decoration:none;padding:5px 12px;font-size:12px';
+  const a = (key, href, label) => `<a class="${activeKey === key ? 'f-btn active' : 'f-btn'}" href="${href}" style="${ns}">${label}</a>`;
+  navBtns.push('<a class="f-btn" href="my.html" style="' + ns + ';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
+  navBtns.push(a('index', 'photographers.html', 'Команда'));
+  if (hasAnyRole(['recruiter', 'hr_manager', 'hr_director', 'exec_director', 'admin'])) navBtns.push(a('recruiting', 'recruiting.html', 'Рекрутинг'));
+  if (hasAnyRole(['photographer_user', 'hr_manager', 'cashier', 'hr_director', 'tech_director', 'site_specialist', 'exec_director', 'admin'])) navBtns.push(a('venue', 'venue.html', 'Отчёты'));
+  if (hasAnyRole(['tech_director', 'hr_director', 'exec_director', 'admin'])) navBtns.push(a('stock', 'stock.html', 'Склад'));
+  if (mgmtNavHasAccess) navBtns.push(a('accounting', 'accounting.html', '💰 Учёт'));
+  if (hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin'])) navBtns.push(a('schedule', 'schedule.html', 'Расписание'));
+  $('nav-links').innerHTML = navBtns.join('');
+}
+function setupHeader() {
+  const color = R.color(ROLE_COLORS[currentUser.role] || '#9090a8');
+  $('user-pill').innerHTML = `<span class="role-dot" style="background:${color}"></span><span>${esc(currentUser.name)}</span>
+    <span class="muted small">${esc(ROLE_LABELS[currentUser.role] || currentUser.role)}</span>`;
+  $('btn-management').classList.toggle('hidden', !hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']));
+  document.querySelectorAll('.lead-only').forEach(el => el.classList.toggle('hidden', !isLead()));
 }
 
 // ── INIT ──
 (async function init() {
   if (!accessToken && !refreshToken) { window.location.href = 'index.html'; return; }
   try {
-    // Пробуем с текущим accessToken
     currentUser = await api('GET', '/auth/me');
-    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch (e) { mgmtNavHasAccess = false; }
-    setupUserPill();
+    if (!currentUser) return;
+    try { const ma = await api('GET', '/mgmt/my-access'); mgmtNavHasAccess = !!(ma && ma.has_access); } catch { mgmtNavHasAccess = false; }
     setupNav('recruiting');
-    setupMgmtButton();
-    fillPlaceholderStats();
-    await loadKanban();
-  } catch {
-    doLogout();
-  }
+    try { META = await api('GET', '/recruiting/meta'); } catch (e) {
+      setupHeader();
+      document.querySelector('main').innerHTML = `<div class="empty">${e.status === 403 ? 'Раздел рекрутинга доступен рекрутерам, HR и руководителям.' : esc(e.message)}</div>`;
+      return;
+    }
+    setupHeader();
+    fillFilterControls();
+    const hash = (location.hash || '').replace(/^#/, '');
+    const [tab, qs] = hash.split('?');
+    if (qs && /hh=/.test(qs)) {
+      const p = new URLSearchParams(qs);
+      if (p.get('hh') === 'connected') toast('hh.ru подключён ✅'); else toast(p.get('msg') || 'hh.ru не подключён', true);
+      history.replaceState(null, '', location.pathname + '#settings');
+    }
+    showTab(['today', 'board', 'list', 'vacancies', 'kpi', 'import', 'dupes', 'settings'].includes(tab) ? tab : (isLead() && window.innerWidth > 900 ? 'board' : 'today'));
+    refreshTodayCount();
+  } catch (e) { if (e && e.status === 401) doLogout(); else toast(e.message || 'Ошибка', true); }
 })();
 
-function openAdmin() {
-  const ov = document.getElementById('admin-overlay');
-  const fr = document.getElementById('admin-iframe');
-  if (!ov || !fr) return;
-  fr.src = 'admin.html?v=' + Date.now();
-  ov.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+// ── TABS ──
+const FILTER_TABS = ['board', 'list'];
+function showTab(tab) {
+  if (['import', 'dupes', 'settings'].includes(tab) && !isLead()) tab = 'today';
+  state.tab = tab;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + tab));
+  $('filters').classList.toggle('hidden', !FILTER_TABS.includes(tab));
+  if (location.hash.replace('#', '').split('?')[0] !== tab) history.replaceState(null, '', '#' + tab);
+  ({ today: loadToday, board: loadBoard, list: loadList, vacancies: loadVacancies, kpi: loadKpi, import: renderImport,
+    dupes: loadDupes, settings: loadSettings })[tab]();
 }
-function closeAdmin() {
-  const ov = document.getElementById('admin-overlay');
-  const fr = document.getElementById('admin-iframe');
-  if (ov) ov.style.display = 'none';
-  if (fr) fr.src = '';
-  document.body.style.overflow = '';
-  if (typeof loadVenues === 'function') loadVenues().catch(() => {});
-  if (typeof venuesList !== 'undefined' && typeof api === 'function')
-    api('GET', '/venues').then(v => { venuesList = v; }).catch(() => {});
-}
-function setupMgmtButton() {
-  const b = document.getElementById('btn-management');
-  if (b) b.style.display = hasAnyRole(['hr_manager', 'hr_director', 'exec_director', 'admin']) ? '' : 'none';
-}
-
-// ── LOAD ──
-let allStages = [];
-async function loadKanban() {
+async function refreshTodayCount() {
   try {
-    const filterParam = currentFilter !== 'all' ? `?target_role=${currentFilter}` : '';
-    kanbanData = await api('GET', '/candidates/kanban' + filterParam);
-    allStages = kanbanData.stages_flat || [];
-    renderKanban();
-  } catch (e) { document.getElementById('kanban-container').innerHTML = `<div class="loading">${esc(e.message)}</div>`; }
+    const d = await api('GET', '/recruiting/today?user=me&days=1&tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone));
+    const n = d.counts.overdue + d.counts.today;
+    const el = $('cnt-today'); el.textContent = n || ''; el.classList.toggle('red', d.counts.overdue > 0);
+  } catch { /* badge is optional */ }
 }
 
-// ── RENDER ──
-const FUNNEL_LABELS = { hiring: '📋 Обучение', internship: '🎓 Стажировка и найм', rejected: '❌ Отказы' };
-
-function renderKanban() {
-  const search = (document.getElementById('search')?.value || '').toLowerCase();
-  const showRejected = document.getElementById('show-rejected')?.checked;
-  const container = document.getElementById('kanban-container');
-  const funnels = kanbanData.funnels || {};
-
-  let html = '';
-  for (const [funnelKey, stages] of Object.entries(funnels)) {
-    if (funnelKey === 'rejected' && !showRejected) continue;
-
-    html += `<div class="funnel-section">
-      <div class="funnel-label">${FUNNEL_LABELS[funnelKey] || funnelKey}</div>
-      <div class="kanban-row">`;
-
-    html += stages.map(stage => {
-      let cards = stage.candidates || [];
-      if (search) cards = cards.filter(c => c.name.toLowerCase().includes(search) || (c.phone||'').includes(search));
-
-      return `<div class="kanban-col">
-        <div class="col-header">
-          <div class="col-dot" style="background:${stage.color}"></div>
-          <div class="col-title">${esc(stage.name)}</div>
-          <div class="col-count">${cards.length}</div>
-        </div>
-        <div class="col-body" data-stage="${stage.id}"
-             ondragover="event.preventDefault();this.classList.add('drag-over')"
-             ondragleave="this.classList.remove('drag-over')"
-             ondrop="dropCard(event, '${stage.id}')">
-          ${cards.map(c => renderCard(c)).join('')}
-          ${!cards.length ? '<div style="text-align:center;padding:12px;font-size:11px;color:var(--text3)">Пусто</div>' : ''}
-        </div>
-      </div>`;
-    }).join('');
-
-    html += `</div></div>`;
+// ── FILTERS ──
+function opt(v, label, sel) { return `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(label)}</option>`; }
+function fillFilterControls() {
+  const f = state.filters;
+  $('f-recruiter').innerHTML = opt('', 'Все рекрутеры') + opt('me', 'Мои') + opt('none', 'Общие (без рекрутера)') +
+    (isLead() ? META.recruiters.map(u => opt(u.id, u.name, f.recruiter === u.id)).join('') : '');
+  $('f-source').innerHTML = opt('', 'Все источники') + META.sources.map(s => opt(s, R.SRC[s] || s, f.source === s)).join('');
+  $('f-city').innerHTML = opt('', 'Все города') + META.cities.map(c => opt(c.city, `${c.city} · ${c.n}`, f.city === c.city)).join('');
+  $('f-vacancy').innerHTML = opt('', 'Все вакансии') + opt('none', 'Без вакансии') + META.vacancies.map(v => opt(v.id, v.title + (v.city ? ' · ' + v.city : ''), f.vacancy_id === v.id)).join('');
+  $('f-role').innerHTML = opt('', 'Все роли') + META.target_roles.map(r => opt(r, R.ROLE[r] || r, f.target_role === r)).join('');
+  $('f-tag').innerHTML = opt('', 'Все теги') + META.tags.map(t => opt(t.tag, `#${t.tag} · ${t.n}`, f.tag === t.tag)).join('');
+  $('f-stage').innerHTML = opt('', 'Все этапы') + META.stages.map(s => opt(s.id, s.name + (s.is_active === false ? ' (скрыт)' : ''), f.stage_id === s.id)).join('');
+  for (const [id, key] of [['f-recruiter', 'recruiter'], ['f-source', 'source'], ['f-city', 'city'], ['f-vacancy', 'vacancy_id'], ['f-role', 'target_role'], ['f-tag', 'tag'], ['f-stage', 'stage_id']]) {
+    $(id).value = f[key] || '';
+    $(id).classList.toggle('on', !!f[key]);
   }
-
-  container.innerHTML = html || '<div class="loading">Нет этапов воронки</div>';
+  $('f-q').value = f.q || '';
+  $('f-overdue').classList.toggle('on', f.overdue === '1');
+  $('f-no_contact').classList.toggle('on', f.no_contact === '1');
+  const n = R.countFilters(f); $('f-count').textContent = n ? `(${n})` : '';
+  loadViews();
 }
+async function loadViews() {
+  try {
+    const views = await api('GET', '/recruiting/views');
+    $('f-views').innerHTML = opt('', '★ Мои виды') + views.map(v => opt(v.id, (v.is_shared ? '👥 ' : '') + v.name)).join('');
+    $('f-views')._views = views;
+  } catch { $('f-views').innerHTML = opt('', '★ Мои виды'); }
+}
+function applyFilters() {
+  fillFilterControls();
+  state.list.offset = 0;
+  if (state.tab === 'board') loadBoard(); else if (state.tab === 'list') loadList();
+}
+const onSearch = debounce(() => { state.filters.q = $('f-q').value.trim(); applyFilters(); }, 300);
+$('f-q').addEventListener('input', onSearch);
+for (const [id, key] of [['f-recruiter', 'recruiter'], ['f-source', 'source'], ['f-city', 'city'], ['f-vacancy', 'vacancy_id'], ['f-role', 'target_role'], ['f-tag', 'tag'], ['f-stage', 'stage_id']]) {
+  $(id).addEventListener('change', () => { state.filters[key] = $(id).value; applyFilters(); });
+}
+$('f-period').addEventListener('change', () => {
+  const v = $('f-period').value;
+  $('f-from').classList.toggle('hidden', v !== 'custom'); $('f-to').classList.toggle('hidden', v !== 'custom');
+  if (v === 'custom') return;
+  state.filters.date_to = '';
+  state.filters.date_from = v ? R.dateOnly(new Date(Date.now() - Number(v) * 86400000)) : '';
+  applyFilters();
+});
+for (const id of ['f-from', 'f-to']) $(id).addEventListener('change', () => { state.filters.date_from = $('f-from').value; state.filters.date_to = $('f-to').value; applyFilters(); });
+$('f-views').addEventListener('change', () => {
+  const v = ($('f-views')._views || []).find(x => x.id === $('f-views').value);
+  if (!v) return;
+  state.filters = { ...v.filters };
+  if (v.view === 'list' || v.view === 'board') showTab(v.view);
+  applyFilters();
+});
 
-function renderCard(c) {
-  const srcClass = 'src-' + (c.source || 'manual');
-  const srcLabel = SRC_LABELS[c.source] || c.source;
-  const timeAgo = getTimeAgo(c.stage_entered_at || c.created_at);
-  const isOverdue = c.next_contact_at && new Date(c.next_contact_at) < new Date();
-  const priorityClass = c.priority === 'high' ? ' priority-high' : '';
-
-  return `<div class="cc${priorityClass}" draggable="true" data-id="${c.id}"
-               ondragstart="dragStart(event,'${c.id}')" ondragend="dragEnd(event)"
-               onclick="openCandidate('${c.id}')">
-    <div class="cc-name">${esc(c.name)}</div>
-    <div class="cc-row">
-      <span class="cc-src ${srcClass}">${esc(srcLabel)}</span>
-      ${isOverdue ? '<span class="cc-overdue">⏰ просрочен</span>' : ''}
-      <span>${timeAgo}</span>
-      ${c.comment_count > 0 ? `<span class="cc-comments">💬${c.comment_count}</span>` : ''}
+// ── TODAY ──
+async function loadToday() {
+  const el = $('view-today');
+  el.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    const who = isLead() && state.todayWho ? state.todayWho : 'me';
+    const d = await api('GET', `/recruiting/today?user=${encodeURIComponent(who)}&days=7&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`);
+    const whoSel = isLead() ? `<select class="fchip" id="today-who">${opt('me', 'Мои звонки', who === 'me')}${opt('all', 'Все рекрутеры', who === 'all')}${META.recruiters.map(u => opt(u.id, u.name, who === u.id)).join('')}</select>` : '';
+    const block = (title, items, cls, fresh) => `
+      <div class="section-title">${title} <span class="badge" style="background:var(--bg3);color:var(--text2)">${items.length}</span></div>
+      ${items.length ? `<div class="today-grid">${items.map(r => todayCard(r, cls, fresh)).join('')}</div>` : `<div class="empty">${fresh ? 'Все новые отклики разобраны 👌' : 'Пусто'}</div>`}`;
+    el.innerHTML = `
+      <div class="stats-row">
+        <div class="stat"><div class="stat-num" style="color:var(--rank3)">${d.counts.overdue}</div><div class="stat-lbl">Просрочено</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--rank2)">${d.counts.today}</div><div class="stat-lbl">Сегодня</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--accent2)">${d.counts.new_responses}</div><div class="stat-lbl">Новые отклики</div></div>
+        <div class="stat"><div class="stat-num">${d.counts.upcoming}</div><div class="stat-lbl">На неделе</div></div>
+        <div style="margin-left:auto;align-self:center">${whoSel}</div>
+      </div>
+      ${d.overdue.length ? block('⏰ Просрочено', d.overdue, 'overdue') : ''}
+      ${block('📞 Сегодня', d.today, 'today')}
+      ${block('🆕 Новые отклики — позвонить первыми', d.new_responses, 'fresh', true)}
+      ${d.upcoming.length ? block('🗓 Ближайшие дни', d.upcoming, '') : ''}`;
+    const sel = $('today-who');
+    if (sel) sel.addEventListener('change', () => { state.todayWho = sel.value; loadToday(); });
+    const n = d.counts.overdue + d.counts.today; $('cnt-today').textContent = n || ''; $('cnt-today').classList.toggle('red', d.counts.overdue > 0);
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function todayCard(r, cls, fresh) {
+  const due = fresh ? { text: 'отклик ' + R.ago(r.created_at) + ' назад', cls: '' } : R.dueLabel(r.due_at);
+  const tel = R.telHref(r.phone);
+  return `<div class="tcard ${cls}">
+    <div class="tcard-top">
+      <div style="min-width:0;flex:1">
+        <div class="tcard-name" data-act="open" data-id="${esc(r.candidate_id)}">${esc(r.name)}</div>
+        <div class="tcard-meta">
+          <span class="badge" style="background:${R.color(r.stage_color)}22;color:${R.color(r.stage_color)}">${esc(r.stage_name)}</span>
+          <span class="src src-${esc(r.source || 'other')}">${esc(R.SRC[r.source] || r.source || '')}</span>
+          ${r.vacancy_title ? `<span>💼 ${esc(r.vacancy_title)}</span>` : ''}${r.city ? `<span>📍 ${esc(r.city)}</span>` : ''}
+          ${r.assigned_to_name && isLead() ? `<span>👤 ${esc(r.assigned_to_name)}</span>` : ''}
+        </div>
+        ${r.note ? `<div class="small" style="margin-top:4px;color:var(--text2)">📝 ${esc(r.note)}</div>` : ''}
+      </div>
+      <div class="due ${due.cls}">${esc(due.text)}</div>
+    </div>
+    <div class="actions">
+      ${tel ? `<a class="btn btn-primary btn-sm" href="${esc(tel)}">📞 ${esc(r.phone)}</a>` : '<span class="small muted">нет телефона</span>'}
+      <button class="btn btn-ok btn-sm" data-act="call-result" data-result="reached" data-id="${esc(r.candidate_id)}" data-rem="${esc(r.id || '')}">✓ Дозвонился</button>
+      <button class="btn btn-warn btn-sm" data-act="call-result" data-result="no_answer" data-id="${esc(r.candidate_id)}" data-rem="${esc(r.id || '')}">✗ Не ответил</button>
+      ${r.id ? `<button class="btn btn-ghost btn-sm" data-act="snooze" data-rem="${esc(r.id)}">⏰ Перенести</button>` : ''}
     </div>
   </div>`;
 }
 
-function getTimeAgo(dateStr) {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return mins + 'м';
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs + 'ч';
-  const days = Math.floor(hrs / 24);
-  return days + 'д';
-}
-
-// ── DRAG & DROP ──
-function dragStart(e, id) {
-  draggedCard = id;
-  e.target.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-function dragEnd(e) {
-  e.target.classList.remove('dragging');
-  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-}
-async function dropCard(e, stageId) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if (!draggedCard) return;
-
-  const stage = allStages.find(s => s.id === stageId);
-
-  // Если этап требует выбора тренинга
-  if (stage && TRAINING_PICK_STAGES.includes(stage.name)) {
-    document.getElementById('tp-cand-id').value = draggedCard;
-    document.getElementById('tp-stage-id').value = stageId;
-    draggedCard = null;
-    await loadTrainingPicker();
-    document.getElementById('training-pick-modal').classList.add('open');
-    return;
-  }
-
-  // Если этап требует выбора стажировки
-  if (stage && INTERNSHIP_PICK_STAGES.includes(stage.name)) {
-    document.getElementById('ip-cand-id').value = draggedCard;
-    document.getElementById('ip-stage-id').value = stageId;
-    draggedCard = null;
-    await loadInternshipPicker();
-    document.getElementById('internship-pick-modal').classList.add('open');
-    return;
-  }
-
-  // Если этап «Принят в штат» — покажем тост
+// ── BOARD ──
+async function loadBoard() {
+  const el = $('view-board');
+  el.innerHTML = '<div class="loading">Загрузка…</div>';
   try {
-    const result = await api('POST', `/candidates/${draggedCard}/move`, { stage_id: stageId });
-    if (result.converted) {
-      showToast(`🎉 ${result.table === 'aquagrimers' ? 'Аквагримёр' : 'Сотрудник'} создан!`);
-    } else {
-      showToast('Перемещён');
+    const d = await api('GET', '/candidates/kanban?per_stage=150&' + R.filtersToQuery(state.filters));
+    const stagesFlat = Object.values(d.funnels).flat();
+    if (!stagesFlat.length) { el.innerHTML = '<div class="empty">Нет этапов воронки</div>'; return; }
+    if (!state.mobileStage || !stagesFlat.some(s => s.id === state.mobileStage)) state.mobileStage = (stagesFlat.find(s => s.count) || stagesFlat[0]).id;
+    const chips = `<div class="stage-chips">${stagesFlat.map(s => `<button class="fchip ${s.id === state.mobileStage ? 'on' : ''}" data-act="m-stage" data-id="${esc(s.id)}">
+      <span class="dot" style="background:${R.color(s.color)}"></span> ${esc(s.name)} · ${s.count}</button>`).join('')}</div>`;
+    let html = chips + '<div class="board-desktop">';
+    for (const [funnel, stages] of Object.entries(d.funnels)) {
+      if (funnel === 'rejected' && !state.showRejected && window.innerWidth > 768) {
+        html += `<div class="funnel"><button class="btn btn-ghost btn-sm" data-act="show-rejected">❌ Показать отказы (${stages.reduce((n, s) => n + s.count, 0)})</button></div>`;
+        continue;
+      }
+      html += `<div class="funnel"><div class="funnel-label">${esc(R.FUNNEL[funnel] || funnel)}</div><div class="board">`;
+      html += stages.map(s => `<div class="col ${s.id === state.mobileStage ? 'm-active' : ''}">
+        <div class="col-h"><span class="dot" style="background:${R.color(s.color)}"></span><span class="col-t" title="${esc(s.name)}">${esc(s.name)}</span><span class="col-n">${s.count}</span></div>
+        <div class="col-b" data-stage="${esc(s.id)}">${s.candidates.map(boardCard).join('') || '<div class="col-more">Пусто</div>'}
+          ${s.count > s.shown ? `<div class="col-more">ещё ${s.count - s.shown} — уточните фильтр или откройте «Список»</div>` : ''}</div></div>`).join('');
+      html += '</div></div>';
     }
-    await loadKanban();
-  } catch (e) { showToast(e.message, true); }
-  draggedCard = null;
+    el.innerHTML = html + '</div>';
+    bindDnD(el);
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
-
-// ── FILTERS ──
-function setFilter(f) {
-  currentFilter = f;
-  ['all','photographer','aquagrim'].forEach(k => {
-    const el = document.getElementById('f-' + k);
-    if (el) el.classList.toggle('active', k === f);
+function boardCard(c) {
+  const rem = c.next_reminder_at ? R.dueLabel(c.next_reminder_at) : null;
+  const tel = R.telHref(c.phone);
+  return `<div class="cc ${c.priority === 'high' ? 'prio-high' : ''}" draggable="true" data-act="open" data-id="${esc(c.id)}">
+    <div class="cc-quick">${tel ? `<a href="${esc(tel)}" title="Позвонить" data-stop="1">📞</a>` : ''}${R.nextStage(META.stages, c.stage_id) ? `<button data-act="next-stage" data-id="${esc(c.id)}" title="На следующий этап">→</button>` : ''}</div>
+    <div class="cc-name">${esc(c.name)}</div>
+    <div class="cc-row">
+      <span class="src src-${esc(c.source || 'other')}">${esc(R.SRC[c.source] || c.source || '')}</span>
+      ${c.city ? `<span>${esc(c.city)}</span>` : ''}
+      ${rem ? `<span class="${rem.cls === 'red' ? 'cc-alarm' : rem.cls === 'amber' ? 'cc-soon' : ''}">⏰ ${esc(rem.text)}</span>` : (!c.first_contact_at && !c.is_terminal ? '<span class="cc-soon">🆕 не звонили</span>' : '')}
+      <span>${esc(R.ago(c.stage_entered_at || c.created_at))}</span>
+      ${c.comment_count ? `<span>💬${c.comment_count}</span>` : ''}
+      ${!c.assigned_to ? '<span title="Общий кандидат">👥</span>' : (isLead() && c.assigned_to_name ? `<span>👤 ${esc(c.assigned_to_name.split(' ')[0])}</span>` : '')}
+    </div>
+    ${c.vacancy_title ? `<div class="cc-row" style="margin-top:3px">💼 ${esc(c.vacancy_title)}</div>` : ''}
+  </div>`;
+}
+function bindDnD(root) {
+  let dragged = null;
+  root.querySelectorAll('.cc[draggable]').forEach(card => {
+    card.addEventListener('dragstart', e => { dragged = card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragged); });
+    card.addEventListener('dragend', () => { card.classList.remove('dragging'); root.querySelectorAll('.over').forEach(x => x.classList.remove('over')); });
   });
-  loadKanban();
-}
-setFilter('all');
-
-// ── NEW CANDIDATE ──
-function openNewCandidate() {
-  ['nc-name','nc-phone','nc-email','nc-telegram','nc-city','nc-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('nc-source').value = 'manual';
-  document.getElementById('nc-role').value = 'photographer';
-  document.getElementById('nc-priority').value = 'normal';
-  document.getElementById('new-cand-modal').classList.add('open');
-  setTimeout(() => document.getElementById('nc-name').focus(), 100);
+  root.querySelectorAll('.col-b').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('over'); });
+    col.addEventListener('dragleave', () => col.classList.remove('over'));
+    col.addEventListener('drop', e => { e.preventDefault(); col.classList.remove('over'); if (dragged) moveFlow(dragged, col.dataset.stage); dragged = null; });
+  });
 }
 
-async function createCandidate() {
-  const name = document.getElementById('nc-name').value.trim();
-  if (!name) { showToast('Введите имя', true); return; }
+// Moving: special stages ask for details (training / internship / rejection / hire).
+async function moveFlow(id, stageId, after) {
+  const st = stageById(stageId);
+  if (!st) return;
+  if (st.terminal_type === 'rejected') return openReject(id, stageId, after);
+  if (st.terminal_type === 'hired') {
+    if (!confirm('Принять кандидата в штат? Будет создана карточка сотрудника (испытательный срок).')) return;
+  }
+  // Stage action from settings; the old page's stage names keep working without settings.
+  const isTraining = st.auto_action === 'pick_training' || (!st.auto_action && st.name === 'Приглашен на обучение');
+  const isIntern = st.auto_action === 'pick_internship' || (!st.auto_action && ['Назначена стажировка', 'Ожидает стажировку'].includes(st.name));
+  if (isTraining || isIntern) return pickTraining(id, stageId, isIntern, after);
+  await doMove(id, stageId, {}, after);
+}
+async function doMove(id, stageId, extra = {}, after) {
   try {
-    await api('POST', '/candidates', {
-      name,
-      phone: document.getElementById('nc-phone').value.trim() || null,
-      email: document.getElementById('nc-email').value.trim() || null,
-      telegram: document.getElementById('nc-telegram').value.trim() || null,
-      city: document.getElementById('nc-city').value.trim() || null,
-      source: document.getElementById('nc-source').value,
-      target_role: document.getElementById('nc-role').value,
-      priority: document.getElementById('nc-priority').value,
-      notes: document.getElementById('nc-notes').value.trim() || null,
-    });
-    document.getElementById('new-cand-modal').classList.remove('open');
-    showToast('Кандидат добавлен');
-    await loadKanban();
-  } catch (e) { showToast(e.message, true); }
+    const r = await api('POST', `/candidates/${id}/move`, { stage_id: stageId, ...extra });
+    toast(r.converted ? '🎉 Принят! Карточка сотрудника создана' : 'Перемещён: ' + (stageById(stageId)?.name || ''));
+    await refreshAfterChange(id);
+    if (after) after();
+  } catch (e) { toast(e.message, true); }
+}
+async function refreshAfterChange(id) {
+  if (state.card && state.card.id === id && $('drawer-bg').classList.contains('open')) await openCard(id, true);
+  if (state.tab === 'board') loadBoard(); else if (state.tab === 'list') loadList(); else if (state.tab === 'today') loadToday();
+  refreshTodayCount();
 }
 
-// ── CANDIDATE DRAWER ──
-let currentCandidateId = null;
-let editMode = false;
+// ── LIST ──
+async function loadList() {
+  const el = $('view-list');
+  el.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    const q = R.filtersToQuery(state.filters);
+    const d = await api('GET', `/candidates?limit=50&offset=${state.list.offset}&sort=${state.list.sort}&${q}`);
+    state.list.rows = d.candidates;
+    const sel = state.list.selected;
+    const sorts = { created_desc: 'Сначала новые', created_asc: 'Сначала старые', activity_desc: 'По активности', next_contact: 'По ближайшему звонку', name: 'По имени' };
+    el.innerHTML = `
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <div class="section-title" style="margin:0">Кандидаты: ${d.total.toLocaleString('ru-RU')}</div>
+        <select class="fchip" id="list-sort" style="margin-left:auto">${Object.entries(sorts).map(([k, v]) => opt(k, v, state.list.sort === k)).join('')}</select>
+        <button class="fchip" data-act="toggle-imported">${state.filters.imported === '1' ? 'Только импорт' : state.filters.imported === '0' ? 'Без импорта' : 'Включая импорт'}</button>
+      </div>
+      ${d.candidates.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr>
+        <th style="width:28px"><input type="checkbox" id="sel-all"/></th><th>Кандидат</th><th>Этап</th><th class="hide-m">Источник</th>
+        <th class="hide-m">Город</th><th class="hide-m">Вакансия</th><th class="hide-m">Рекрутер</th><th>Звонок</th><th class="hide-m">Создан</th></tr></thead><tbody>
+        ${d.candidates.map(c => {
+          const rem = c.next_reminder_at ? R.dueLabel(c.next_reminder_at) : null;
+          return `<tr data-act="open" data-id="${esc(c.id)}">
+            <td data-stop="1"><input type="checkbox" class="row-sel" data-id="${esc(c.id)}" ${sel.has(c.id) ? 'checked' : ''}/></td>
+            <td><div style="font-weight:500">${esc(c.name)}</div><div class="small muted">${esc(c.phone || c.email || '')}</div></td>
+            <td><span class="badge" style="background:${R.color(c.stage_color)}22;color:${R.color(c.stage_color)}">${esc(c.stage_name)}</span></td>
+            <td class="hide-m"><span class="src src-${esc(c.source || 'other')}">${esc(R.SRC[c.source] || c.source || '')}</span></td>
+            <td class="hide-m">${esc(c.city || '')}</td><td class="hide-m">${esc(c.vacancy_title || '')}</td>
+            <td class="hide-m">${c.assigned_to_name ? esc(c.assigned_to_name) : '<span class="muted">общий</span>'}</td>
+            <td>${rem ? `<span class="${rem.cls === 'red' ? 'cc-alarm' : ''}">${esc(rem.text)}</span>` : (c.first_contact_at ? '<span class="muted">—</span>' : '<span class="cc-soon">не звонили</span>')}</td>
+            <td class="hide-m muted">${esc(R.fmtDate(c.created_at))}</td></tr>`;
+        }).join('')}</tbody></table></div>` : '<div class="empty">Никого не нашла — попробуйте сбросить фильтры</div>'}
+      <div class="pager">
+        <span>${d.total ? `${state.list.offset + 1}–${Math.min(state.list.offset + d.limit, d.total)} из ${d.total.toLocaleString('ru-RU')}` : ''}</span>
+        <button class="btn btn-ghost btn-sm" data-act="page" data-dir="-1" ${state.list.offset ? '' : 'disabled'}>←</button>
+        <button class="btn btn-ghost btn-sm" data-act="page" data-dir="1" ${state.list.offset + d.limit < d.total ? '' : 'disabled'}>→</button>
+      </div>
+      <div class="bulkbar ${sel.size ? '' : 'hidden'}" id="bulkbar">
+        <b>Выбрано: ${sel.size}</b>
+        <select class="fchip" id="bulk-stage">${opt('', 'Перевести на этап…')}${META.stages.filter(s => s.terminal_type !== 'hired' && s.is_active !== false).map(s => opt(s.id, s.name)).join('')}</select>
+        <select class="fchip" id="bulk-assign">${opt('', 'Назначить…')}${opt('me', 'Себе')}${opt('none', 'В общий список')}${isLead() ? META.recruiters.map(u => opt(u.id, u.name)).join('') : ''}</select>
+        <button class="btn btn-ghost btn-sm" data-act="bulk-tag">#️ Тег</button>
+        <button class="btn btn-ghost btn-sm" data-act="bulk-clear">Снять выбор</button>
+      </div>`;
+    $('list-sort').addEventListener('change', () => { state.list.sort = $('list-sort').value; state.list.offset = 0; loadList(); });
+    const all = $('sel-all');
+    if (all) all.addEventListener('change', () => { d.candidates.forEach(c => all.checked ? sel.add(c.id) : sel.delete(c.id)); loadList(); });
+    el.querySelectorAll('.row-sel').forEach(cb => cb.addEventListener('change', () => { cb.checked ? sel.add(cb.dataset.id) : sel.delete(cb.dataset.id); updateBulkbar(); }));
+    const bs = $('bulk-stage'); if (bs) bs.addEventListener('change', () => bulkMove(bs.value));
+    const ba = $('bulk-assign'); if (ba) ba.addEventListener('change', () => bulkUpdate({ assigned_to: ba.value === 'me' ? currentUser.id : ba.value === 'none' ? null : ba.value }));
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function updateBulkbar() {
+  const b = $('bulkbar'); if (!b) return;
+  b.classList.toggle('hidden', !state.list.selected.size);
+  b.querySelector('b').textContent = 'Выбрано: ' + state.list.selected.size;
+}
+async function bulkMove(stageId) {
+  if (!stageId) return;
+  const st = stageById(stageId);
+  if (!confirm(`Перевести ${state.list.selected.size} кандидатов на «${st ? st.name : ''}»?`)) return;
+  try {
+    const r = await api('POST', '/candidates/bulk-move', { candidate_ids: [...state.list.selected], stage_id: stageId });
+    toast(`Переведено: ${r.moved}${r.skipped ? `, пропущено: ${r.skipped}` : ''}`);
+    state.list.selected.clear(); loadList();
+  } catch (e) { toast(e.message, true); }
+}
+async function bulkUpdate(body) {
+  try {
+    const r = await api('POST', '/candidates/bulk-update', { candidate_ids: [...state.list.selected], ...body });
+    toast('Обновлено: ' + r.updated); state.list.selected.clear(); loadList();
+  } catch (e) { toast(e.message, true); }
+}
 
-async function openCandidate(id) {
-  currentCandidateId = id;
-  editMode = false;
+// ── CANDIDATE CARD ──
+async function openCard(id, keepScroll) {
   try {
     const c = await api('GET', `/candidates/${id}`);
-    renderDrawer(c);
-    document.getElementById('drawer-bg').classList.add('open');
-  } catch (e) { showToast(e.message, true); }
+    state.card = c;
+    renderCard(c, keepScroll);
+    $('drawer-bg').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } catch (e) { toast(e.message, true); }
 }
-
-function renderDrawer(c) {
-  const dc = document.getElementById('drawer-content');
-  const stageColor = c.stage_color || '#6C63FF';
-  const srcClass = 'src-' + (c.source || 'manual');
-  const srcLabel = SRC_LABELS[c.source] || c.source;
-
-  if (editMode) {
-    dc.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <div class="dr-name" style="flex:1">Редактирование</div>
-        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="openCandidate('${c.id}')">Отмена</button>
+function closeCard() { $('drawer-bg').classList.remove('open'); document.body.style.overflow = ''; state.card = null; }
+function renderCard(c, keepScroll) {
+  const dr = $('drawer');
+  const scroll = keepScroll ? dr.scrollTop : 0;
+  const color = R.color(c.stage_color);
+  const tel = R.telHref(c.phone); const wa = R.waHref(c.whatsapp || c.phone); const tg = R.tgHref(c.telegram);
+  const next = !c.is_terminal ? R.nextStage(META.stages, c.stage_id) : null;
+  const openRems = (c.reminders || []).filter(r => r.status === 'open');
+  const tl = R.timeline(c);
+  const src = R.safeUrl(c.source_url);
+  dr.innerHTML = `
+    <div class="dr-head">
+      <button class="dr-close" data-act="close-card" aria-label="Закрыть">×</button>
+      <div class="dr-name">${esc(c.name)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}44"><span class="dot" style="background:${color}"></span>${esc(c.stage_name)}</span>
+        <span class="src src-${esc(c.source || 'other')}">${esc(R.SRC[c.source] || c.source || '')}</span>
+        <span class="small muted">${esc(R.ROLE[c.target_role] || '')}</span>
+        ${c.priority === 'high' ? '<span class="badge" style="background:rgba(245,166,35,.15);color:var(--rank2)">🔥 приоритет</span>' : ''}
+        ${c.assigned_to_name ? `<span class="small" style="color:var(--text2)">👤 ${esc(c.assigned_to_name)}</span>` : '<span class="small muted">👥 общий</span>'}
       </div>
-      <div class="field"><div class="fl">Имя *</div><input class="fin" id="ed-name" value="${c.name || ''}"/></div>
-      <div class="field"><div class="fl">Телефон</div><input class="fin" id="ed-phone" value="${c.phone || ''}" type="tel"/></div>
-      <div class="field"><div class="fl">Email</div><input class="fin" id="ed-email" value="${c.email || ''}" type="email"/></div>
-      <div class="field"><div class="fl">Telegram</div><input class="fin" id="ed-telegram" value="${c.telegram || ''}"/></div>
-      <div class="field"><div class="fl">WhatsApp</div><input class="fin" id="ed-whatsapp" value="${c.whatsapp || ''}"/></div>
-      <div class="field"><div class="fl">Город</div><input class="fin" id="ed-city" value="${c.city || ''}"/></div>
-      <div class="field"><div class="fl">Дата рождения</div><input class="fin" id="ed-birth" type="date" value="${c.birth_date ? c.birth_date.split('T')[0] : ''}"/></div>
-      <div class="field"><div class="fl">Источник</div>
-        <select class="fselect" id="ed-source">
-          ${['manual','hh','avito','referral','telegram','website','other'].map(s => `<option value="${s}" ${c.source===s?'selected':''}>${SRC_LABELS[s]||s}</option>`).join('')}
-        </select>
+      <div class="actions">
+        ${tel ? `<a class="btn btn-primary btn-sm" href="${esc(tel)}">📞 Позвонить</a>` : ''}
+        ${wa ? `<a class="btn btn-ghost btn-sm" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+        ${tg ? `<a class="btn btn-ghost btn-sm" href="${esc(tg)}" target="_blank" rel="noopener">Telegram</a>` : ''}
+        <button class="btn btn-ok btn-sm" data-act="call-result" data-result="reached" data-id="${esc(c.id)}">✓ Дозвонился</button>
+        <button class="btn btn-warn btn-sm" data-act="call-result" data-result="no_answer" data-id="${esc(c.id)}">✗ Не ответил</button>
+        <button class="btn btn-ghost btn-sm" data-act="remind" data-id="${esc(c.id)}">⏰ Перезвонить</button>
       </div>
-      <div class="field"><div class="fl">На роль</div>
-        <select class="fselect" id="ed-role">
-          <option value="photographer" ${c.target_role==='photographer'?'selected':''}>Фотограф</option>
-          <option value="aquagrim" ${c.target_role==='aquagrim'?'selected':''}>Аквагримёр</option>
-        </select>
+      <div class="actions" style="margin-top:6px">
+        ${next ? `<button class="btn btn-ghost btn-sm" data-act="next-stage" data-id="${esc(c.id)}">→ ${esc(next.name)}</button>` : ''}
+        <select class="fselect" id="card-move" style="width:auto;flex:1;min-width:140px">${opt('', c.is_terminal ? '↩ Вернуть на этап…' : 'Перевести на этап…')}${META.stages.filter(s => s.is_active !== false && s.id !== c.stage_id).map(s => opt(s.id, s.name)).join('')}</select>
+        ${!c.is_terminal ? `<button class="btn btn-danger btn-sm" data-act="reject" data-id="${esc(c.id)}">✕ Отказ</button>` : ''}
+        ${!c.assigned_to || (c.assigned_to !== currentUser.id && isLead()) ? `<button class="btn btn-ghost btn-sm" data-act="take" data-id="${esc(c.id)}">🙋 Взять себе</button>` : ''}
       </div>
-      <div class="field"><div class="fl">Приоритет</div>
-        <select class="fselect" id="ed-priority">
-          <option value="normal" ${c.priority==='normal'?'selected':''}>Обычный</option>
-          <option value="high" ${c.priority==='high'?'selected':''}>Высокий</option>
-          <option value="low" ${c.priority==='low'?'selected':''}>Низкий</option>
-        </select>
-      </div>
-      <div class="field"><div class="fl">Следующий контакт</div><input class="fin" id="ed-next-contact" type="datetime-local" value="${c.next_contact_at ? c.next_contact_at.slice(0,16) : ''}"/></div>
-      <div class="field"><div class="fl">Резюме / заметки</div><textarea class="fin" id="ed-resume" rows="3">${esc(c.resume_text || '')}</textarea></div>
-      <div class="modal-footer" style="margin-top:12px">
-        <button class="btn btn-primary" onclick="saveCandidate('${c.id}')">Сохранить</button>
-      </div>
-    `;
-  } else {
-    dc.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <div class="dr-name" style="flex:1">${esc(c.name)}</div>
-        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="enterEditMode('${c.id}')">✏️ Ред.</button>
-      </div>
-      <div class="dr-stage-badge" style="background:${stageColor}22;color:${stageColor};border:1px solid ${stageColor}44">
-        <span style="width:6px;height:6px;border-radius:50%;background:${stageColor}"></span>
-        ${esc(c.stage_name)}
-      </div>
-
-      ${!c.is_terminal ? `
-      <div class="dr-actions">
-        <select class="fselect" id="move-stage" style="width:auto;flex:1">
-          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}" ${s.id === c.stage_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
-        </select>
-        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">Перевести</button>
-        <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="openRejectModal('${c.id}','${(c.stage_name||'').replace(/'/g,"\\'")}')">❌</button>
-      </div>` : `
-      <div class="dr-actions">
-        <select class="fselect" id="move-stage" style="width:auto;flex:1">
-          ${allStages.filter(s => s.funnel !== 'rejected').map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
-        </select>
-        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="moveCandidate('${c.id}')">↩ Вернуть</button>
-      </div>`}
-
-      ${c.photographer_id ? `<div style="padding:8px;background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.3);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--rank1)">✅ Принят → <a href="photographers.html" style="color:var(--rank1);text-decoration:underline">Карточка сотрудника</a></div>` : ''}
-
+    </div>
+    <div class="dr-body">
+      ${c.photographer_id ? `<div class="panel" style="border-color:rgba(62,207,142,.4);margin-bottom:14px;font-size:13px;color:var(--rank1)">✅ Принят${c.converted_employee_name ? ': ' + esc(c.converted_employee_name) : ''} — <a href="photographers.html" style="text-decoration:underline">карточка сотрудника</a></div>` : ''}
       <div class="dr-section">
-        <div class="dr-label">Контакты</div>
-        ${c.phone ? `<div class="dr-val">📞 <a href="tel:${c.phone}">${esc(c.phone)}</a></div>` : ''}
-        ${c.email ? `<div class="dr-val">📧 <a href="mailto:${c.email}">${esc(c.email)}</a></div>` : ''}
-        ${c.telegram ? `<div class="dr-val">💬 ${esc(c.telegram)}</div>` : ''}
-        ${c.whatsapp ? `<div class="dr-val">📱 ${esc(c.whatsapp)}</div>` : ''}
-        ${c.city ? `<div class="dr-val">📍 ${esc(c.city)}</div>` : ''}
-        ${c.birth_date ? `<div class="dr-val">🎂 ${new Date(c.birth_date).toLocaleDateString('ru-RU')}</div>` : ''}
-        ${!c.phone && !c.email && !c.telegram ? '<div class="dr-val" style="color:var(--text3)">Нет контактов</div>' : ''}
+        <div class="dr-label">⏰ Перезвонить ${openRems.length ? '' : '<span class="muted">— не запланировано</span>'}</div>
+        ${openRems.map(r => { const d = R.dueLabel(r.due_at); return `<div class="rem ${d.cls === 'red' ? 'over' : ''}">
+          <span>${esc(R.KIND[r.kind] || '')}</span><b class="${d.cls === 'red' ? 'cc-alarm' : ''}">${esc(d.text)}</b>
+          ${r.note ? `<span class="muted">· ${esc(r.note)}</span>` : ''}${r.assigned_to_name && r.assigned_to !== currentUser.id ? `<span class="muted">· ${esc(r.assigned_to_name)}</span>` : ''}
+          <span style="margin-left:auto;display:flex;gap:4px">
+            <button class="btn btn-ok btn-sm" data-act="rem-done" data-rem="${esc(r.id)}">Готово</button>
+            <button class="btn btn-ghost btn-sm" data-act="snooze" data-rem="${esc(r.id)}">Перенести</button>
+            <button class="btn btn-ghost btn-sm" data-act="rem-cancel" data-rem="${esc(r.id)}" title="Отменить">✕</button></span></div>`; }).join('')}
       </div>
-
       <div class="dr-section">
-        <div class="dr-label">Информация</div>
-        <div class="dr-val"><span class="cc-src ${srcClass}">${esc(srcLabel)}</span> · ${c.target_role === 'aquagrim' ? '🎨 Аквагримёр' : '📷 Фотограф'} · ${c.priority === 'high' ? '🔥 Высокий' : c.priority === 'low' ? 'Низкий' : 'Обычный'}</div>
-        ${c.assigned_to_name ? `<div class="dr-val" style="margin-top:4px">👤 Ведёт: ${esc(c.assigned_to_name)}</div>` : ''}
-        ${c.referred_by_name ? `<div class="dr-val" style="margin-top:4px">🔗 Привёл: ${esc(c.referred_by_name)}</div>` : ''}
-        ${c.next_contact_at ? `<div class="dr-val" style="margin-top:4px">📅 Контакт: ${new Date(c.next_contact_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+        <div class="dr-label">Контакты и данные <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${esc(c.id)}" style="margin-left:auto">✏️ Изменить</button></div>
+        <div class="kv">
+          ${c.phone ? `<div class="k">Телефон</div><div><a href="${esc(tel || '#')}">${esc(c.phone)}</a></div>` : ''}
+          ${c.email ? `<div class="k">Почта</div><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ''}
+          ${c.telegram ? `<div class="k">Telegram</div><div>${tg ? `<a href="${esc(tg)}" target="_blank" rel="noopener">${esc(c.telegram)}</a>` : esc(c.telegram)}</div>` : ''}
+          ${c.whatsapp ? `<div class="k">WhatsApp</div><div>${esc(c.whatsapp)}</div>` : ''}
+          ${c.city ? `<div class="k">Город</div><div>${esc(c.city)}</div>` : ''}
+          ${c.birth_date ? `<div class="k">Дата рождения</div><div>${esc(R.fmtDate(c.birth_date))}</div>` : ''}
+          <div class="k">Вакансия</div><div>${c.vacancy_title ? esc(c.vacancy_title) : '<span class="muted">не привязан</span>'}</div>
+          ${src ? `<div class="k">Резюме</div><div><a href="${esc(src)}" target="_blank" rel="noopener noreferrer">открыть на площадке ↗</a></div>` : ''}
+          ${c.referred_by_name ? `<div class="k">Привёл</div><div>${esc(c.referred_by_name)}</div>` : ''}
+          ${c.internship_date ? `<div class="k">Стажировка</div><div>${esc(R.fmtDate(c.internship_date))}</div>` : ''}
+          <div class="k">Отклик</div><div>${esc(R.fmtDateTime(c.created_at))}${c.created_by_name ? ' · добавил(а) ' + esc(c.created_by_name) : ''}</div>
+          ${c.rejection_reason && c.terminal_type === 'rejected' ? `<div class="k">Причина отказа</div><div style="color:var(--rank3)">${esc(c.rejection_reason)}</div>` : ''}
+        </div>
       </div>
-
-      ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме</div><div class="dr-val" style="font-size:12px;line-height:1.5;max-height:120px;overflow-y:auto">${esc(c.resume_text)}</div></div>` : ''}
-
+      <div class="dr-section">
+        <div class="dr-label">Теги</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${(c.tags || []).map(t => `<span class="tag">#${esc(t)} <button data-act="tag-del" data-tag="${esc(t)}" aria-label="Удалить тег">×</button></span>`).join('')}
+          <input class="fin" id="tag-new" list="tag-list" placeholder="+ тег" style="width:120px;padding:4px 8px;font-size:12px"/>
+          <datalist id="tag-list">${META.tags.map(t => `<option value="${esc(t.tag)}">`).join('')}</datalist>
+        </div>
+      </div>
+      ${c.resume_text ? `<div class="dr-section"><div class="dr-label">Резюме / о себе</div><div class="panel small" style="white-space:pre-wrap;line-height:1.5;max-height:200px;overflow:auto">${esc(c.resume_text)}</div></div>` : ''}
+      <div class="dr-section">
+        <div class="dr-label">Файлы <label class="btn btn-ghost btn-sm" style="margin-left:auto;cursor:pointer">📎 Загрузить<input type="file" id="file-in" hidden accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png,.webp"/></label></div>
+        ${(c.files || []).map(f => `<div class="file"><span>${/^image/.test(f.mime_type) ? '🖼' : '📄'}</span><span class="n" data-act="file-dl" data-file="${esc(f.id)}" data-name="${esc(f.original_name)}">${esc(f.original_name)}</span>
+          <span class="muted small">${Math.max(1, Math.round(f.size_bytes / 1024))} КБ</span><button class="btn btn-ghost btn-sm" data-act="file-del" data-file="${esc(f.id)}" aria-label="Удалить файл">🗑</button></div>`).join('') || '<div class="small muted">Резюме, портфолио — PDF, DOC, фото до 10 МБ</div>'}
+      </div>
+      <div class="dr-section">
+        <div class="dr-label">Заметка / звонок</div>
+        <div style="display:flex;gap:6px">
+          <select class="fselect" id="cm-type" style="width:auto">
+            <option value="note">📝 Заметка</option><option value="call">📞 Звонок</option><option value="message_sent">💬 Написал(а)</option><option value="interview">🤝 Собеседование</option>
+          </select>
+          <input class="fin" id="cm-body" placeholder="Что обсудили…" style="flex:1"/>
+          <button class="btn btn-primary btn-sm" data-act="comment" data-id="${esc(c.id)}">→</button>
+        </div>
+      </div>
       <div class="dr-section">
         <div class="dr-label">История</div>
-        <div class="timeline">
-          ${(c.stage_log || []).map(s => `
-            <div class="tl-item">
-              <div class="tl-dot"></div>
-              <div>
-                <div>${s.from_stage_name ? esc(s.from_stage_name) + ' → ' : ''}${esc(s.to_stage_name)}</div>
-                ${s.notes ? `<div style="color:var(--text2);font-size:11px">${esc(s.notes)}</div>` : ''}
-                <div class="tl-date">${new Date(s.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${s.moved_by_name ? ' · ' + esc(s.moved_by_name) : ''}</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
+        <div class="timeline">${tl.map(e => `<div class="ev"><div class="ev-ic">${esc(e.icon)}</div><div class="ev-b">
+          <div class="ev-t">${e.call ? `<b>${esc(e.call)}</b>${e.text && e.text !== e.call ? ' · ' : ''}` : ''}${e.text && e.text !== e.call ? esc(e.text) : ''}${e.note ? `<div class="muted">${esc(e.note)}</div>` : ''}</div>
+          <div class="ev-d">${esc(R.fmtDateTime(e.at))}${e.who ? ' · ' + esc(e.who) : ''}</div></div></div>`).join('') || '<div class="small muted">Пока пусто</div>'}</div>
       </div>
-
-      <div class="dr-section">
-        <div class="dr-label">Комментарии</div>
-        ${(c.comments || []).map(cm => `
-          <div class="cm-item">
-            <div class="cm-author">${esc(cm.author_name)}<span class="cm-type">${esc(cm.comment_type)}</span></div>
-            <div class="cm-body">${esc(cm.body)}</div>
-            <div class="cm-date">${new Date(cm.created_at).toLocaleDateString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
-          </div>
-        `).join('')}
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <input class="fin" id="new-cm" placeholder="Комментарий..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${c.id}')"/>
-          <select class="fselect" id="cm-type" style="width:auto;min-width:90px">
-            <option value="note">Заметка</option>
-            <option value="call">Звонок</option>
-            <option value="no_answer">Не ответил</option>
-            <option value="message_sent">Написал</option>
-            <option value="interview">Собеседование</option>
-          </select>
-          <button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="addComment('${c.id}')">→</button>
-        </div>
-      </div>
-
-      ${c.rejection_reason ? `<div class="dr-section"><div class="dr-label">Причина отказа</div><div class="dr-val" style="color:var(--rank3)">${c.rejection_reason}</div></div>` : ''}
-    `;
-  }
-}
-
-async function enterEditMode(id) {
-  editMode = true;
-  const c = await api('GET', `/candidates/${id}`);
-  renderDrawer(c);
-}
-
-async function saveCandidate(id) {
-  try {
-    await api('PATCH', `/candidates/${id}`, {
-      name: document.getElementById('ed-name').value.trim() || undefined,
-      phone: document.getElementById('ed-phone').value.trim() || null,
-      email: document.getElementById('ed-email').value.trim() || null,
-      telegram: document.getElementById('ed-telegram').value.trim() || null,
-      whatsapp: document.getElementById('ed-whatsapp').value.trim() || null,
-      city: document.getElementById('ed-city').value.trim() || null,
-      birth_date: document.getElementById('ed-birth').value || null,
-      source: document.getElementById('ed-source').value,
-      target_role: document.getElementById('ed-role').value,
-      priority: document.getElementById('ed-priority').value,
-      next_contact_at: document.getElementById('ed-next-contact').value || null,
-      resume_text: document.getElementById('ed-resume').value.trim() || null,
-    });
-    showToast('Сохранено');
-    editMode = false;
-    openCandidate(id);
-    loadKanban();
-  } catch (e) { showToast(e.message, true); }
-}
-
-function closeDrawer() { document.getElementById('drawer-bg').classList.remove('open'); }
-
-// Этапы требующие выбора тренинга
-const TRAINING_PICK_STAGES = ['Приглашен на обучение'];
-const INTERNSHIP_PICK_STAGES = ['Назначена стажировка', 'Ожидает стажировку'];
-
-async function moveCandidate(id) {
-  const stageId = document.getElementById('move-stage').value;
-  const stage = allStages.find(s => s.id === stageId);
-
-  if (stage && TRAINING_PICK_STAGES.includes(stage.name)) {
-    document.getElementById('tp-cand-id').value = id;
-    document.getElementById('tp-stage-id').value = stageId;
-    await loadTrainingPicker();
-    document.getElementById('training-pick-modal').classList.add('open');
-    return;
-  }
-
-  if (stage && INTERNSHIP_PICK_STAGES.includes(stage.name)) {
-    document.getElementById('ip-cand-id').value = id;
-    document.getElementById('ip-stage-id').value = stageId;
-    await loadInternshipPicker();
-    document.getElementById('internship-pick-modal').classList.add('open');
-    return;
-  }
-
-  await doMove(id, stageId);
-}
-
-async function doMove(id, stageId, trainingId) {
-  try {
-    const body = { stage_id: stageId };
-    if (trainingId) body.notes = `Тренинг: ${trainingId}`;
-    const result = await api('POST', `/candidates/${id}/move`, body);
-
-    // Привязываем тренинг и записываем в участники
-    if (trainingId) {
-      await api('PATCH', `/candidates/${id}`, { training_id: trainingId }).catch(() => {});
-      // Получаем photographer_id кандидата если есть, иначе пропускаем attendee
-      // Кандидат ещё не фотограф — сохраняем только training_id в кандидате
-    }
-
-    if (result.converted) {
-      showToast('🎉 Принят! Карточка создана.');
-    } else {
-      showToast(trainingId ? 'Записан на тренинг' : 'Этап обновлён');
-    }
-    closeDrawer();
-    await loadKanban();
-  } catch (e) { showToast(e.message, true); }
-}
-
-async function pickTrainingAndMove(trainingId) {
-  const candId = document.getElementById('tp-cand-id').value;
-  const stageId = document.getElementById('tp-stage-id').value;
-  document.getElementById('training-pick-modal').classList.remove('open');
-
-  if (stageId) {
-    // Перемещение на новый этап + привязка к тренингу
-    await doMove(candId, stageId, trainingId);
-  } else {
-    // Перенос на другой тренинг (без смены этапа)
-    try {
-      await api('PATCH', `/candidates/${candId}`, { training_id: trainingId });
-      showToast('Перенесён на другой тренинг');
-      await loadKanban();
-    } catch (e) { showToast(e.message, true); }
-  }
-}
-
-async function skipTrainingAndMove() {
-  const candId = document.getElementById('tp-cand-id').value;
-  const stageId = document.getElementById('tp-stage-id').value;
-  document.getElementById('training-pick-modal').classList.remove('open');
-  await doMove(candId, stageId);
-}
-
-// ── REJECT ──
-function openRejectModal(id, stageName) {
-  document.getElementById('rej-id').value = id;
-  document.getElementById('rej-from-stage').textContent = stageName;
-  document.getElementById('rej-comment').value = '';
-  document.getElementById('rej-reason').value = 'candidate_refused';
-  document.getElementById('rej-return').value = '';
-  document.getElementById('reject-modal').classList.add('open');
-}
-
-async function confirmReject() {
-  const id = document.getElementById('rej-id').value;
-  const reason = document.getElementById('rej-reason').value;
-  const comment = document.getElementById('rej-comment').value.trim();
-  const returnPlan = document.getElementById('rej-return').value;
-
-  if (!comment) { showToast('Комментарий обязателен', true); return; }
-
-  try {
-    // Находим нужную колонку отказов по текущему этапу кандидата
-    const cand = await api('GET', `/candidates/${id}`);
-    const currentStage = allStages.find(s => s.id === cand.stage_id);
-    const currentOrder = currentStage ? currentStage.sort_order || 0 : 0;
-
-    // Маппинг: какой reject-этап соответствует текущему
-    const rejStages = allStages.filter(s => s.funnel === 'rejected').sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-    let targetRejectStage = rejStages[0]; // default: первый
-    // sort_order 1-2: Новый отклик, Приглашен → после отклика
-    if (currentOrder <= 2) targetRejectStage = rejStages.find(s => s.name.includes('отклика')) || rejStages[0];
-    // sort_order 3-4: Пришёл, Прошёл 1-ю часть → после обучения ч.1
-    else if (currentOrder <= 4) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.1')) || rejStages[1] || rejStages[0];
-    // sort_order 5-7: Придёт на 2-ю, Прошёл 2-ю, Назначена стажировка → после обучения ч.2
-    else if (currentOrder <= 7) targetRejectStage = rejStages.find(s => s.name.includes('обучения ч.2')) || rejStages[2] || rejStages[0];
-    // sort_order 10-12: Ожидает/Пришёл/Прошёл стажировку → после стажировки
-    else if (currentOrder <= 12) targetRejectStage = rejStages.find(s => s.name.includes('стажировки')) || rejStages[3] || rejStages[0];
-    // sort_order 13-14: Первые выходы, Принят → после первых выходов
-    else targetRejectStage = rejStages.find(s => s.name.includes('первых выходов')) || rejStages[4] || rejStages[0];
-
-    if (!targetRejectStage) { showToast('Нет этапа для отказа', true); return; }
-
-    const REASON_LABELS = { candidate_refused:'Отказался сам', no_show:'Не пришёл', not_suitable:'Не подходит', vacation:'В отпуске', other_work:'Другой формат', other:'Другое' };
-    const fullNote = `❌ ${REASON_LABELS[reason] || reason}${returnPlan ? ' | Вернуть: ' + returnPlan : ''}\n${comment}`;
-
-    await api('POST', `/candidates/${id}/move`, { stage_id: targetRejectStage.id, notes: fullNote });
-    await api('POST', `/candidates/${id}/comments`, { body: fullNote, comment_type: 'note' });
-
-    document.getElementById('reject-modal').classList.remove('open');
-    closeDrawer();
-    showToast('Кандидат перемещён в отказы');
-    await loadKanban();
-  } catch (e) { showToast(e.message, true); }
-}
-
-// ── TRAININGS ──
-let trainings = [];
-
-async function openTrainings() {
-  document.getElementById('trainings-modal').classList.add('open');
-  await Promise.all([loadTrainingsList(), loadTrainers()]);
-}
-
-async function loadTrainers() {
-  try {
-    const trainers = await api('GET', '/trainers');
-    const sel = document.getElementById('tr-trainer');
-    if (!trainers.length) {
-      sel.innerHTML = '<option value="">Нет тренеров (добавьте роль trainer в карточке)</option>';
-    } else {
-      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
-    }
-  } catch (e) {
-    document.getElementById('tr-trainer').innerHTML = '<option value="">Ошибка загрузки</option>';
-  }
-}
-
-async function loadTrainingsList() {
-  try {
-    const from = new Date().toISOString().split('T')[0];
-    trainings = await api('GET', `/trainings?from=${from}&status=planned`);
-    trainings = trainings.filter(t => t.training_type !== 'internship');
-    const list = document.getElementById('trainings-list');
-
-    if (!trainings.length) {
-      list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет запланированных тренингов</div>';
-      return;
-    }
-
-    // Загружаем кандидатов записанных на тренинги
-    const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
-
-    list.innerHTML = trainings.map(t => {
-      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
-      const enrolledCands = allCands.filter(c => c.training_id === t.id);
-      const enrolledCount = (t.registered_count || 0) + enrolledCands.length;
-
-      return `<div style="background:var(--bg3);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
-        <div style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="toggleTrainingDetail('${t.id}')">
-          <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${esc(t.title)}</div>
-          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${esc(t.location_text || t.venue_name || '—')}</div>
-          </div>
-          <div style="text-align:right">
-          <div style="font-size:12px;color:var(--text2)">${esc(t.trainer_name || '')}</div>
-            <div style="font-size:11px;color:${enrolledCount >= (t.max_attendees||999) ? 'var(--rank3)' : 'var(--rank1)'}">${enrolledCount}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
-          </div>
-          <span style="font-size:10px;color:var(--text3)">▼</span>
-        </div>
-        <div id="tr-detail-${t.id}" style="display:none;padding:0 12px 10px;border-top:1px solid var(--border)">
-          <div style="padding-top:8px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Записанные кандидаты:</div>
-            <div id="tr-cands-${t.id}"><div style="font-size:11px;color:var(--text3)">Загрузка...</div></div>
-            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-              <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="remindTraining('${t.id}','${t.title}')">📢 Напомнить всем</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    document.getElementById('trainings-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
-  }
-}
-
-async function toggleTrainingDetail(trainingId) {
-  const el = document.getElementById('tr-detail-' + trainingId);
-  if (!el) return;
-  if (el.style.display === 'none') {
-    el.style.display = 'block';
-    await loadTrainingCandidates(trainingId);
-  } else {
-    el.style.display = 'none';
-  }
-}
-
-async function loadTrainingCandidates(trainingId) {
-  const container = document.getElementById('tr-cands-' + trainingId);
-  if (!container) return;
-
-  // Ищем кандидатов с training_id = этот тренинг
-  const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
-  const enrolled = allCands.filter(c => c.training_id === trainingId);
-
-  // Также загружаем attendees из API (для тех кто уже стал фотографом)
-  let attendees = [];
-  try {
-    const detail = await api('GET', `/trainings/${trainingId}`);
-    attendees = detail.attendees || [];
-  } catch {}
-
-  if (!enrolled.length && !attendees.length) {
-    container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 0">Пока никто не записан</div>';
-    return;
-  }
-
-  let html = '';
-  enrolled.forEach(c => {
-    const stage = allStages.find(s => s.id === c.stage_id);
-    html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">
-      <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('trainings-modal').classList.remove('open');openCandidate('${c.id}')">${esc(c.name)}</span>
-      <span style="font-size:10px;color:var(--text3)">${esc(stage?.name || '')}</span>
-      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px" onclick="reassignTraining('${c.id}','${trainingId}')" title="Перенести">🔄</button>
+      ${(c.audit || []).length ? `<details class="dr-section"><summary class="dr-label" style="cursor:pointer">Журнал изменений (${c.audit.length})</summary>
+        <div class="small" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${c.audit.map(a => `<div><span class="muted">${esc(R.fmtDateTime(a.created_at))}</span> · ${esc(a.actor_name || '')} · ${esc(a.action)}${a.field ? ' ' + esc(a.field) : ''}${a.old_value || a.new_value ? `: ${esc(a.old_value || '—')} → ${esc(a.new_value || '—')}` : ''}</div>`).join('')}</div></details>` : ''}
     </div>`;
-  });
-  attendees.forEach(a => {
-    if (!enrolled.find(c => c.name === a.photographer_name)) {
-      html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px">
-        <span style="flex:1">${esc(a.photographer_name)}</span>
-        <span style="font-size:10px;color:var(--rank1)">сотрудник</span>
-      </div>`;
-    }
-  });
-
-  container.innerHTML = html;
+  dr.scrollTop = scroll;
+  $('card-move').addEventListener('change', e => { if (e.target.value) moveFlow(c.id, e.target.value); });
+  $('tag-new').addEventListener('keydown', e => { if (e.key === 'Enter') addTag(c, e.target.value); });
+  $('tag-new').addEventListener('change', e => { if (META.tags.some(t => t.tag === e.target.value)) addTag(c, e.target.value); });
+  $('cm-body').addEventListener('keydown', e => { if (e.key === 'Enter') addComment(c.id); });
+  $('file-in').addEventListener('change', e => uploadFile(c.id, e.target.files[0]));
 }
-
-async function reassignTraining(candId, currentTrainingId) {
-  document.getElementById('tp-cand-id').value = candId;
-  document.getElementById('tp-stage-id').value = ''; // не меняем этап
-  document.getElementById('trainings-modal').classList.remove('open');
-  await loadTrainingPicker();
-  document.getElementById('training-pick-modal').classList.add('open');
+async function addTag(c, value) {
+  const t = String(value || '').trim().replace(/^#/, '');
+  if (!t) return;
+  try { await api('PATCH', `/candidates/${c.id}`, { tags: [...(c.tags || []), t] }); await openCard(c.id, true); } catch (e) { toast(e.message, true); }
 }
-
-async function remindTraining(trainingId, title) {
-  const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
-  const enrolled = allCands.filter(c => c.training_id === trainingId);
-
-  if (!enrolled.length) { showToast('Нет записанных кандидатов', true); return; }
-
-  const names = enrolled.map(c => c.name).join(', ');
-  const t = trainings.find(tr => tr.id === trainingId);
-  const d = t ? new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'long'}) : '';
-  const time = t?.training_time ? t.training_time.slice(0,5) : '';
-  const place = t?.location_text || '';
-
-  const msg = `📢 Напоминание: тренинг "${title}"\n📅 ${d} ${time}\n📍 ${place}\n👥 ${enrolled.length} чел: ${names}`;
-
-  // Копируем в буфер
-  try {
-    await navigator.clipboard.writeText(msg);
-    showToast(`Скопировано в буфер (${enrolled.length} чел)`);
-  } catch {
-    prompt('Скопируйте текст:', msg);
-  }
-}
-
-async function createTraining() {
-  const title = document.getElementById('tr-title').value.trim();
-  const date = document.getElementById('tr-date').value;
-  const trainerId = document.getElementById('tr-trainer').value;
-  if (!title || !date) { showToast('Название и дата обязательны', true); return; }
-  if (!trainerId) { showToast('Выберите тренера', true); return; }
-
-  try {
-    await api('POST', '/trainings', {
-      title,
-      training_date: date,
-      training_time: document.getElementById('tr-time').value || null,
-      location_text: document.getElementById('tr-location').value.trim() || null,
-      max_attendees: parseInt(document.getElementById('tr-max').value) || null,
-      training_type: document.getElementById('tr-type').value,
-      trainer_id: trainerId,
-    });
-    showToast('Тренинг создан');
-    document.getElementById('tr-title').value = '';
-    document.getElementById('tr-date').value = '';
-    await loadTrainingsList();
-  } catch (e) { showToast(e.message, true); }
-}
-
-async function loadTrainingPicker() {
-  try {
-    const from = new Date().toISOString().split('T')[0];
-    const allList = await api('GET', `/trainings?from=${from}&status=planned`);
-    const list = allList.filter(t => t.training_type !== 'internship');
-    const container = document.getElementById('training-pick-list');
-
-    if (!list.length) {
-      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет предстоящих тренингов. Создайте через 📅 Тренинги.</div>';
-      return;
-    }
-
-    container.innerHTML = list.map(t => {
-      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
-      const full = t.max_attendees && t.registered_count >= t.max_attendees;
-      return `<div style="padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;${full ? 'opacity:.5' : 'cursor:pointer'}"
-                   ${full ? '' : `onclick="pickTrainingAndMove('${t.id}')"`}>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${t.title}</div>
-          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || t.venue_name || '—'}</div>
-        </div>
-        <div style="font-size:11px;color:${full ? 'var(--rank3)' : 'var(--rank1)'}">${t.registered_count || 0}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    document.getElementById('training-pick-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
-  }
-}
-
-// ── INTERNSHIPS ──
-
-async function openInternships() {
-  document.getElementById('internships-modal').classList.add('open');
-  await Promise.all([loadInternshipsList(), loadInternshipTrainers()]);
-}
-
-async function loadInternshipTrainers() {
-  try {
-    const trainers = await api('GET', '/trainers');
-    const sel = document.getElementById('int-trainer');
-    if (!trainers.length) {
-      sel.innerHTML = '<option value="">Нет наставников</option>';
-    } else {
-      sel.innerHTML = trainers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
-    }
-  } catch {
-    document.getElementById('int-trainer').innerHTML = '<option value="">Ошибка</option>';
-  }
-}
-
-async function loadInternshipsList() {
-  try {
-    const from = new Date().toISOString().split('T')[0];
-    const list = await api('GET', `/trainings?from=${from}&status=planned`);
-    const internships = list.filter(t => t.training_type === 'internship');
-    const container = document.getElementById('internships-list');
-
-    if (!internships.length) {
-      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет запланированных стажировок</div>';
-      return;
-    }
-
-    const allCands = kanbanData?.funnels ? Object.values(kanbanData.funnels).flat().flatMap(s => s.candidates || []) : [];
-
-    container.innerHTML = internships.map(t => {
-      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
-      const enrolledCands = allCands.filter(c => c.training_id === t.id);
-
-      return `<div style="background:var(--bg3);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)">
-        <div style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="toggleInternshipDetail('${t.id}')">
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${esc(t.title)}</div>
-            <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${esc(t.location_text || '—')}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:12px;color:var(--text2)">${esc(t.trainer_name || '')}</div>
-            <div style="font-size:11px;color:var(--rank1)">${enrolledCands.length}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
-          </div>
-          <span style="font-size:10px;color:var(--text3)">▼</span>
-        </div>
-        <div id="int-detail-${t.id}" style="display:none;padding:0 12px 10px;border-top:1px solid var(--border)">
-          <div style="padding-top:8px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Записанные:</div>
-            ${enrolledCands.length ? enrolledCands.map(c => {
-              const stage = allStages.find(s => s.id === c.stage_id);
-              return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px">
-                <span style="flex:1;cursor:pointer;color:var(--accent2)" onclick="document.getElementById('internships-modal').classList.remove('open');openCandidate('${c.id}')">${esc(c.name)}</span>
-                <span style="font-size:10px;color:var(--text3)">${esc(stage?.name || '')}</span>
-              </div>`;
-            }).join('') : '<div style="font-size:11px;color:var(--text3)">Пока никто</div>'}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    document.getElementById('internships-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
-  }
-}
-
-function toggleInternshipDetail(id) {
-  const el = document.getElementById('int-detail-' + id);
-  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-async function createInternship() {
-  const title = document.getElementById('int-title').value.trim();
-  const date = document.getElementById('int-date').value;
-  const trainerId = document.getElementById('int-trainer').value;
-  if (!title || !date) { showToast('Название и дата обязательны', true); return; }
-  if (!trainerId) { showToast('Выберите наставника', true); return; }
-
-  try {
-    await api('POST', '/trainings', {
-      title,
-      training_date: date,
-      training_time: document.getElementById('int-time').value || null,
-      location_text: document.getElementById('int-location').value.trim() || null,
-      max_attendees: parseInt(document.getElementById('int-max').value) || null,
-      training_type: 'internship',
-      trainer_id: trainerId,
-    });
-    showToast('Стажировка создана');
-    document.getElementById('int-title').value = '';
-    document.getElementById('int-date').value = '';
-    await loadInternshipsList();
-  } catch (e) { showToast(e.message, true); }
-}
-
-async function loadInternshipPicker() {
-  try {
-    const from = new Date().toISOString().split('T')[0];
-    const list = await api('GET', `/trainings?from=${from}&status=planned`);
-    const internships = list.filter(t => t.training_type === 'internship');
-    const container = document.getElementById('internship-pick-list');
-
-    if (!internships.length) {
-      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3)">Нет стажировок. Создайте через 🎓 Стажировки.</div>';
-      return;
-    }
-
-    container.innerHTML = internships.map(t => {
-      const d = new Date(t.training_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',weekday:'short'});
-      const full = t.max_attendees && (t.registered_count || 0) >= t.max_attendees;
-      return `<div style="padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;${full ? 'opacity:.5' : 'cursor:pointer'}"
-                   ${full ? '' : `onclick="pickInternshipAndMove('${t.id}')"`}>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${t.title}</div>
-          <div style="font-size:11px;color:var(--text3)">${d}${t.training_time ? ' · ' + t.training_time.slice(0,5) : ''} · ${t.location_text || '—'}</div>
-        </div>
-        <div style="font-size:11px;color:${full ? 'var(--rank3)' : 'var(--rank1)'}">${t.registered_count || 0}${t.max_attendees ? '/' + t.max_attendees : ''}</div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    document.getElementById('internship-pick-list').innerHTML = `<div style="color:var(--rank3)">${esc(e.message)}</div>`;
-  }
-}
-
-async function pickInternshipAndMove(trainingId) {
-  const candId = document.getElementById('ip-cand-id').value;
-  const stageId = document.getElementById('ip-stage-id').value;
-  document.getElementById('internship-pick-modal').classList.remove('open');
-  if (stageId) {
-    await doMove(candId, stageId, trainingId);
-  } else {
-    try {
-      await api('PATCH', `/candidates/${candId}`, { training_id: trainingId });
-      showToast('Записан на стажировку');
-      await loadKanban();
-    } catch (e) { showToast(e.message, true); }
-  }
-}
-
-function skipInternshipAndMove() {
-  const candId = document.getElementById('ip-cand-id').value;
-  const stageId = document.getElementById('ip-stage-id').value;
-  if (stageId && candId) doMove(candId, stageId);
-}
-
 async function addComment(id) {
-  const input = document.getElementById('new-cm');
-  const body = input.value.trim();
+  const body = $('cm-body').value.trim();
   if (!body) return;
-  const type = document.getElementById('cm-type').value;
-  try {
-    await api('POST', `/candidates/${id}/comments`, { body, comment_type: type });
-    input.value = '';
-    openCandidate(id);
-  } catch (e) { showToast(e.message, true); }
+  try { await api('POST', `/candidates/${id}/comments`, { body, comment_type: $('cm-type').value }); await openCard(id, true); } catch (e) { toast(e.message, true); }
 }
+async function uploadFile(id, file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('Файл больше 10 МБ', true); return; }
+  const form = new FormData(); form.append('file', file); form.append('kind', 'resume');
+  try { await api('POST', `/candidates/${id}/files`, undefined, { form }); toast('Файл загружен'); await openCard(id, true); } catch (e) { toast(e.message, true); }
+}
+async function downloadFile(fileId, name) {
+  try {
+    const res = await api('GET', `/recruiting/files/${fileId}`, undefined, { raw: true });
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a'); a.href = url; a.download = name || 'file'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ── MODALS ──
+function modal(html, { wide = false } = {}) {
+  $('modal-box').className = 'modal' + (wide ? ' wide' : '');
+  $('modal-box').innerHTML = html;
+  $('modal').classList.add('open');
+}
+function closeModal() { $('modal').classList.remove('open'); $('modal-box').innerHTML = ''; }
+const modalHead = title => `<div class="modal-title"><span>${title}</span><button class="modal-x" data-act="close-modal" aria-label="Закрыть">×</button></div>`;
+
+// New candidate
+function openNew() {
+  const v = META.vacancies;
+  modal(`${modalHead('Новый кандидат')}
+    <div class="field"><div class="fl">Имя и фамилия *</div><input class="fin" id="n-name" autocomplete="off"/></div>
+    <div class="row2"><div class="field"><div class="fl">Телефон</div><input class="fin" id="n-phone" type="tel" placeholder="+7 900 123-45-67"/></div>
+      <div class="field"><div class="fl">Почта</div><input class="fin" id="n-email" type="email"/></div></div>
+    <div class="row2"><div class="field"><div class="fl">Telegram</div><input class="fin" id="n-tg" placeholder="@username"/></div>
+      <div class="field"><div class="fl">Город</div><input class="fin" id="n-city" list="n-cities" placeholder="Москва"/><datalist id="n-cities">${META.cities.map(c => `<option value="${esc(c.city)}">`).join('')}</datalist></div></div>
+    <div class="row2"><div class="field"><div class="fl">Источник</div><select class="fselect" id="n-source">${META.sources.filter(s => s !== 'import').map(s => opt(s, R.SRC[s], s === 'manual')).join('')}</select></div>
+      <div class="field"><div class="fl">На роль</div><select class="fselect" id="n-role">${META.target_roles.map(r => opt(r, R.ROLE[r])).join('')}</select></div></div>
+    <div class="field"><div class="fl">Вакансия</div><select class="fselect" id="n-vacancy">${opt('', '— без вакансии —')}${v.map(x => opt(x.id, x.title + (x.city ? ' · ' + x.city : ''))).join('')}</select></div>
+    <div class="row2"><div class="field"><div class="fl">Ведёт</div><select class="fselect" id="n-assign">${opt('me', 'Я')}${opt('none', 'Общий (без рекрутера)')}${isLead() ? META.recruiters.filter(u => u.id !== currentUser.id).map(u => opt(u.id, u.name)).join('') : ''}</select></div>
+      <div class="field"><div class="fl">Первый звонок</div><select class="fselect" id="n-call">${opt('', 'Не планировать')}${R.PRESETS.slice(0, 5).map(([k, l]) => opt(k, l, k === 'h1')).join('')}</select></div></div>
+    <div class="field"><div class="fl">Заметка</div><textarea class="fin" id="n-notes" rows="2" placeholder="Первое впечатление, откуда узнал…"></textarea></div>
+    <div id="n-dup" class="hidden panel small" style="border-color:rgba(245,166,35,.4);margin-bottom:8px"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="create">Добавить</button></div>`);
+  setTimeout(() => $('n-name').focus(), 50);
+}
+async function createCandidate(allowDuplicate) {
+  const name = $('n-name').value.trim();
+  if (!name) { toast('Введите имя', true); return; }
+  const assign = $('n-assign').value;
+  const call = $('n-call').value;
+  const body = { name, phone: $('n-phone').value.trim() || null, email: $('n-email').value.trim() || null, telegram: $('n-tg').value.trim() || null,
+    city: $('n-city').value.trim() || null, source: $('n-source').value, target_role: $('n-role').value, vacancy_id: $('n-vacancy').value || null,
+    assigned_to: assign === 'me' ? currentUser.id : assign === 'none' ? null : assign, notes: $('n-notes').value.trim() || null,
+    next_contact_at: call ? R.presetDate(call).toISOString() : null };
+  if (allowDuplicate) body.allow_duplicate = true;
+  try {
+    const c = await api('POST', '/candidates', body);
+    closeModal(); toast('Кандидат добавлен');
+    refreshAfterChange(c.id); openCard(c.id);
+  } catch (e) {
+    if (e.status === 409) {
+      const d = e.data || {};
+      const box = $('n-dup'); box.classList.remove('hidden');
+      box.innerHTML = `⚠️ ${esc(e.message)}${d.duplicate_name ? `: <b>${esc(d.duplicate_name)}</b>` : ''}${d.employee_name ? `: <b>${esc(d.employee_name)}</b>` : ''}
+        <div class="actions" style="margin-top:8px">${d.duplicate_id ? `<button class="btn btn-primary btn-sm" data-act="open-dup" data-id="${esc(d.duplicate_id)}">Открыть${d.duplicate_rejected ? ' и вернуть в воронку' : ''}</button>` : ''}
+        ${!d.duplicate_hidden ? '<button class="btn btn-ghost btn-sm" data-act="create-anyway">Всё равно добавить</button>' : ''}</div>`;
+    } else toast(e.message, true);
+  }
+}
+
+// Edit
+function openEdit(c) {
+  modal(`${modalHead('Изменить данные')}
+    <div class="field"><div class="fl">Имя *</div><input class="fin" id="e-name" value="${esc(c.name)}"/></div>
+    <div class="row2"><div class="field"><div class="fl">Телефон</div><input class="fin" id="e-phone" type="tel" value="${esc(c.phone || '')}"/></div>
+      <div class="field"><div class="fl">Почта</div><input class="fin" id="e-email" type="email" value="${esc(c.email || '')}"/></div></div>
+    <div class="row2"><div class="field"><div class="fl">Telegram</div><input class="fin" id="e-tg" value="${esc(c.telegram || '')}"/></div>
+      <div class="field"><div class="fl">WhatsApp</div><input class="fin" id="e-wa" value="${esc(c.whatsapp || '')}"/></div></div>
+    <div class="row2"><div class="field"><div class="fl">Город</div><input class="fin" id="e-city" value="${esc(c.city || '')}"/></div>
+      <div class="field"><div class="fl">Дата рождения</div><input class="fin" id="e-birth" type="date" value="${esc((c.birth_date || '').slice(0, 10))}"/></div></div>
+    <div class="row2"><div class="field"><div class="fl">Источник</div><select class="fselect" id="e-source">${META.sources.map(s => opt(s, R.SRC[s], c.source === s)).join('')}</select></div>
+      <div class="field"><div class="fl">На роль</div><select class="fselect" id="e-role">${META.target_roles.map(r => opt(r, R.ROLE[r], c.target_role === r)).join('')}</select></div></div>
+    <div class="row2"><div class="field"><div class="fl">Вакансия</div><select class="fselect" id="e-vacancy">${opt('', '— без вакансии —')}${META.vacancies.map(x => opt(x.id, x.title + (x.city ? ' · ' + x.city : ''), c.vacancy_id === x.id)).join('')}</select></div>
+      <div class="field"><div class="fl">Приоритет</div><select class="fselect" id="e-prio">${opt('normal', 'Обычный', c.priority === 'normal')}${opt('high', '🔥 Высокий', c.priority === 'high')}${opt('low', 'Низкий', c.priority === 'low')}</select></div></div>
+    <div class="row2"><div class="field"><div class="fl">Ведёт</div><select class="fselect" id="e-assign">${opt('', 'Общий (без рекрутера)', !c.assigned_to)}${(isLead() ? META.recruiters : META.recruiters.filter(u => u.id === currentUser.id || u.id === c.assigned_to)).map(u => opt(u.id, u.name, c.assigned_to === u.id)).join('')}</select></div>
+      <div class="field"><div class="fl">Видимость</div><select class="fselect" id="e-shared">${opt('0', 'Только у рекрутера', !c.is_shared)}${opt('1', 'Видно всем рекрутерам', c.is_shared)}</select></div></div>
+    <div class="field"><div class="fl">Ссылка на резюме</div><input class="fin" id="e-url" value="${esc(c.source_url || '')}" placeholder="https://hh.ru/resume/…"/></div>
+    <div class="field"><div class="fl">Резюме / о себе</div><textarea class="fin" id="e-resume" rows="4">${esc(c.resume_text || '')}</textarea></div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="save-edit" data-id="${esc(c.id)}">Сохранить</button></div>`);
+}
+async function saveEdit(id) {
+  const body = { name: $('e-name').value.trim(), phone: $('e-phone').value.trim() || null, email: $('e-email').value.trim() || null,
+    telegram: $('e-tg').value.trim() || null, whatsapp: $('e-wa').value.trim() || null, city: $('e-city').value.trim() || null,
+    birth_date: $('e-birth').value || null, source: $('e-source').value, target_role: $('e-role').value, vacancy_id: $('e-vacancy').value || null,
+    priority: $('e-prio').value, assigned_to: $('e-assign').value || null, is_shared: $('e-shared').value === '1',
+    source_url: $('e-url').value.trim() || null, resume_text: $('e-resume').value.trim() || null };
+  try { await api('PATCH', `/candidates/${id}`, body); closeModal(); toast('Сохранено'); refreshAfterChange(id); }
+  catch (e) { toast(e.message + (e.data && e.data.duplicate_name ? ': ' + e.data.duplicate_name : ''), true); }
+}
+
+// Reminder / snooze
+function openRemind(candidateId, reminderId, title) {
+  modal(`${modalHead(title || '⏰ Когда перезвонить')}
+    <div class="presets">${R.PRESETS.map(([k, l]) => `<button class="btn btn-ghost btn-sm" data-act="preset" data-preset="${k}">${esc(l)}</button>`).join('')}</div>
+    <div class="row2"><div class="field"><div class="fl">Дата и время</div><input class="fin" id="r-at" type="datetime-local" value="${R.toLocalInput(R.presetDate('tom10'))}"/></div>
+      <div class="field"><div class="fl">Что сделать</div><select class="fselect" id="r-kind">${Object.entries(R.KIND).map(([k, l]) => opt(k, l)).join('')}</select></div></div>
+    <div class="field"><div class="fl">Заметка</div><input class="fin" id="r-note" placeholder="Например: после 18:00, спросить про камеру"/></div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button>
+      <button class="btn btn-primary" data-act="save-remind" data-id="${esc(candidateId || '')}" data-rem="${esc(reminderId || '')}">Сохранить</button></div>`);
+}
+async function saveRemind(candidateId, reminderId) {
+  const at = $('r-at').value ? new Date($('r-at').value) : null;
+  if (!at || isNaN(at)) { toast('Укажите дату и время', true); return; }
+  try {
+    if (reminderId) await api('PATCH', `/recruiting/reminders/${reminderId}`, { due_at: at.toISOString(), note: $('r-note').value.trim() || undefined });
+    else await api('POST', `/candidates/${candidateId}/reminders`, { due_at: at.toISOString(), kind: $('r-kind').value, note: $('r-note').value.trim() || null });
+    closeModal(); toast('Напоминание: ' + R.fmtDateTime(at));
+    refreshAfterChange(candidateId || state.card?.id);
+  } catch (e) { toast(e.message, true); }
+}
+
+// Call result: one tap. «Не ответил» → callback in 2 hours automatically (editable afterwards).
+async function callResult(candidateId, result, reminderId) {
+  try {
+    const body = { comment_type: result === 'reached' ? 'call' : 'no_answer', call_result: result };
+    if (reminderId) body.complete_reminder_id = reminderId;
+    if (result === 'no_answer') body.next_reminder = { due_at: R.presetDate('h2').toISOString(), kind: 'call', note: 'Не ответил — повторный звонок' };
+    await api('POST', `/candidates/${candidateId}/comments`, body);
+    toast(result === 'reached' ? '✓ Звонок записан' : '✗ Не ответил — перезвоню через 2 часа');
+    refreshAfterChange(candidateId);
+    if (result === 'reached' && !(state.card && state.card.id === candidateId)) openCard(candidateId);
+  } catch (e) { toast(e.message, true); }
+}
+
+// Reject with reason and optional «вернуться позже»
+function openReject(id, stageId, after) {
+  const c = state.card && state.card.id === id ? state.card : null;
+  const stages = META.stages.filter(s => s.terminal_type === 'rejected' && s.is_active !== false);
+  const guess = stageId || (R.rejectStage(META.stages, c ? c.stage_id : null) || {}).id;
+  modal(`${modalHead('✕ Отказ')}
+    <div class="field"><div class="fl">Этап отказа</div><select class="fselect" id="j-stage">${stages.map(s => opt(s.id, s.name, s.id === guess)).join('')}</select></div>
+    <div class="field"><div class="fl">Причина *</div><select class="fselect" id="j-reason">
+      ${['Кандидат отказался сам', 'Не вышел на связь', 'Не пришёл', 'Не подходит по навыкам', 'Нет техники (камеры)', 'Не устроил график / оплата', 'Временно не может', 'Другое'].map(x => opt(x, x)).join('')}</select></div>
+    <div class="field"><div class="fl">Комментарий</div><textarea class="fin" id="j-comment" rows="2" placeholder="Подробности, планы на будущее…"></textarea></div>
+    <div class="field"><div class="fl">Вернуться позже?</div><select class="fselect" id="j-return">${opt('', 'Нет')}${opt('newyear', 'Готов на ёлки — напомнить 1 ноября')}${opt('summer', 'Готов на лето — напомнить 1 мая')}${opt('month', 'Перезвонить через месяц')}</select></div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-danger" data-act="confirm-reject" data-id="${esc(id)}">Отказать</button></div>`);
+  state.afterReject = after;
+}
+async function confirmReject(id) {
+  const stageId = $('j-stage').value;
+  if (!stageId) { toast('Нет этапа отказа — добавьте его в настройках', true); return; }
+  const note = $('j-reason').value + ($('j-comment').value.trim() ? ': ' + $('j-comment').value.trim() : '');
+  const ret = $('j-return').value;
+  try {
+    await api('POST', `/candidates/${id}/move`, { stage_id: stageId, notes: note });
+    if (ret) await api('POST', `/candidates/${id}/reminders`, { due_at: R.presetDate(ret).toISOString(), kind: 'call', note: 'Вернуться после отказа: ' + note.slice(0, 200) });
+    closeModal(); toast('Отказ сохранён' + (ret ? ', напоминание поставлено' : ''));
+    refreshAfterChange(id);
+    if (state.afterReject) state.afterReject();
+  } catch (e) { toast(e.message, true); }
+}
+
+// Trainings / internships picker (as before, now by stage auto_action)
+async function pickTraining(id, stageId, internship, after) {
+  modal(`${modalHead(internship ? '🎓 Выбрать стажировку' : '📅 Выбрать тренинг')}<div id="tp-list"><div class="loading">Загрузка…</div></div>
+    ${internship ? '<div class="field"><div class="fl">Или дата стажировки</div><input class="fin" type="date" id="tp-date"/></div>' : ''}
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="tp-skip" data-id="${esc(id)}" data-stage="${esc(stageId)}">Перевести без выбора</button></div>`);
+  state.afterPick = after;
+  try {
+    const from = R.dateOnly(new Date());
+    const list = (await api('GET', `/trainings?from=${from}&status=planned`)).filter(t => internship ? /стаж/i.test(t.title || '') || t.training_type === 'internship' : !/стаж/i.test(t.title || ''));
+    $('tp-list').innerHTML = list.length ? list.map(t => `<button class="btn btn-ghost" style="width:100%;justify-content:flex-start;margin-bottom:6px;text-align:left" data-act="tp-pick" data-id="${esc(id)}" data-stage="${esc(stageId)}" data-training="${esc(t.id)}" data-date="${esc((t.training_date || '').slice(0, 10))}">
+      <b>${esc(R.fmtDate(t.training_date))}${t.training_time ? ' ' + esc(String(t.training_time).slice(0, 5)) : ''}</b>&nbsp;· ${esc(t.title)} · ${esc(t.trainer_name || '')} · ${Number(t.registered_count || 0)}/${t.max_attendees ? Number(t.max_attendees) : '∞'}</button>`).join('')
+      : '<div class="empty">Запланированных нет — можно перевести без выбора</div>';
+  } catch (e) { $('tp-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// ── VACANCIES ──
+async function loadVacancies() {
+  const el = $('view-vacancies');
+  el.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    const list = await api('GET', '/recruiting/vacancies');
+    const st = { open: ['Открыта', 'var(--rank1)'], paused: ['Пауза', 'var(--rank2)'], closed: ['Закрыта', 'var(--text3)'] };
+    el.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:12px"><div class="section-title" style="margin:0">Вакансии</div>
+      ${isLead() ? '<button class="btn btn-primary btn-sm" style="margin-left:auto" data-act="vacancy-new">+ Вакансия</button>' : ''}</div>
+      ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Вакансия</th><th>Город</th><th class="hide-m">Роль</th><th class="hide-m">Площадки</th>
+        <th class="num">В работе</th><th class="num hide-m">Всего</th><th class="num">Наняли</th><th>Статус</th></tr></thead><tbody>
+        ${list.map(v => `<tr ${isLead() ? `data-act="vacancy-edit" data-id="${esc(v.id)}"` : `data-act="vacancy-filter" data-id="${esc(v.id)}"`}>
+          <td><b>${esc(v.title)}</b>${v.headcount ? `<div class="small muted">нужно: ${Number(v.headcount)}</div>` : ''}</td><td>${esc(v.city || '—')}</td>
+          <td class="hide-m">${esc(R.ROLE[v.target_role] || v.target_role)}</td>
+          <td class="hide-m small">${v.hh_vacancy_id ? '<span class="src src-hh">hh</span> ' : ''}${v.avito_vacancy_id ? '<span class="src src-avito">Авито</span>' : ''}</td>
+          <td class="num">${v.candidates_active}</td><td class="num hide-m">${v.candidates_total}</td><td class="num">${v.hired}</td>
+          <td><span style="color:${st[v.status][1]}">● ${st[v.status][0]}</span></td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty">Вакансий пока нет. Добавьте вакансию (город, роль) — и привязывайте к ней кандидатов. Вакансии с hh.ru/Авито появятся сами после подключения.</div>'}`;
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function openVacancy(id) {
+  let v = { title: '', city: '', target_role: 'photographer', status: 'open', headcount: '', description: '', hh_vacancy_id: '', avito_vacancy_id: '' };
+  if (id) { const list = await api('GET', '/recruiting/vacancies'); v = list.find(x => x.id === id) || v; }
+  modal(`${modalHead(id ? 'Вакансия' : 'Новая вакансия')}
+    <div class="field"><div class="fl">Название *</div><input class="fin" id="v-title" value="${esc(v.title)}" placeholder="Фотограф — Москвариум"/></div>
+    <div class="row2"><div class="field"><div class="fl">Город</div><input class="fin" id="v-city" value="${esc(v.city || '')}" placeholder="Москва"/></div>
+      <div class="field"><div class="fl">Роль</div><select class="fselect" id="v-role">${META.target_roles.map(r => opt(r, R.ROLE[r], v.target_role === r)).join('')}</select></div></div>
+    <div class="row2"><div class="field"><div class="fl">Нужно людей</div><input class="fin" id="v-head" type="number" min="0" value="${esc(v.headcount ?? '')}"/></div>
+      <div class="field"><div class="fl">Статус</div><select class="fselect" id="v-status">${opt('open', 'Открыта', v.status === 'open')}${opt('paused', 'Пауза', v.status === 'paused')}${opt('closed', 'Закрыта', v.status === 'closed')}</select></div></div>
+    <div class="row2"><div class="field"><div class="fl">ID вакансии на hh.ru</div><input class="fin" id="v-hh" value="${esc(v.hh_vacancy_id || '')}" inputmode="numeric"/></div>
+      <div class="field"><div class="fl">ID на Авито</div><input class="fin" id="v-av" value="${esc(v.avito_vacancy_id || '')}" inputmode="numeric"/></div></div>
+    <div class="field"><div class="fl">Описание / площадка</div><textarea class="fin" id="v-desc" rows="3">${esc(v.description || '')}</textarea></div>
+    <div class="modal-footer">${id ? `<button class="btn btn-ghost" data-act="vacancy-filter" data-id="${esc(id)}" style="margin-right:auto">Кандидаты →</button>` : ''}
+      <button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="vacancy-save" data-id="${esc(id || '')}">Сохранить</button></div>`);
+}
+async function saveVacancy(id) {
+  const body = { title: $('v-title').value.trim(), city: $('v-city').value.trim() || null, target_role: $('v-role').value,
+    headcount: $('v-head').value === '' ? null : Number($('v-head').value), status: $('v-status').value,
+    hh_vacancy_id: $('v-hh').value.trim() || null, avito_vacancy_id: $('v-av').value.trim() || null, description: $('v-desc').value.trim() || null };
+  try {
+    await api(id ? 'PATCH' : 'POST', id ? `/recruiting/vacancies/${id}` : '/recruiting/vacancies', body);
+    closeModal(); toast('Сохранено'); META = await api('GET', '/recruiting/meta'); fillFilterControls(); loadVacancies();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ── KPI ──
+async function loadKpi() {
+  const el = $('view-kpi');
+  const k = state.kpi;
+  const to = new Date(); let from;
+  if (k.period === 'custom' && k.from) from = new Date(k.from);
+  else if (k.period === 'month') from = new Date(to.getFullYear(), to.getMonth(), 1);
+  else from = new Date(Date.now() - Number(k.period || 30) * 86400000);
+  const params = new URLSearchParams({ from: R.dateOnly(from), to: k.period === 'custom' && k.to ? k.to : R.dateOnly(to) });
+  for (const key of ['source', 'recruiter', 'vacancy_id', 'city', 'target_role']) if (k[key]) params.set(key, k[key]);
+  el.innerHTML = '<div class="loading">Считаю…</div>';
+  try {
+    const d = await api('GET', '/recruiting/kpi?' + params);
+    const steps = META.kpi_steps;
+    const max = d.funnel.response || 1;
+    const tableBy = (rows, title, labelFn) => rows.length ? `<div class="panel"><div class="section-title" style="margin-top:0">${title}</div><div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th></th>${steps.map(s => `<th class="num">${esc(R.STEP[s])}</th>`).join('')}<th class="num">Отклик→найм</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${labelFn(r)}</td>${steps.map(s => `<td class="num">${r[s]}</td>`).join('')}<td class="num"><b>${r.hire_rate == null ? '—' : r.hire_rate + '%'}</b></td></tr>`).join('')}</tbody></table></div></div>` : '';
+    const dmax = Math.max(1, ...d.daily.map(x => x.responses));
+    el.innerHTML = `
+      <div class="filters" style="padding:0 0 12px;border:none">
+        ${[['7', '7 дней'], ['30', '30 дней'], ['month', 'Этот месяц'], ['90', 'Квартал'], ['365', 'Год'], ['custom', 'Свой период']].map(([v, l]) => `<button class="fchip ${k.period === v ? 'on' : ''}" data-act="kpi-period" data-period="${v}">${l}</button>`).join('')}
+        <input type="date" class="fchip ${k.period === 'custom' ? '' : 'hidden'}" id="kpi-from" value="${esc(k.from || R.dateOnly(from))}"/>
+        <input type="date" class="fchip ${k.period === 'custom' ? '' : 'hidden'}" id="kpi-to" value="${esc(k.to || R.dateOnly(to))}"/>
+        <select class="fchip" id="kpi-source">${opt('', 'Все источники')}${META.sources.filter(s => s !== 'import').map(s => opt(s, R.SRC[s], k.source === s)).join('')}</select>
+        ${isLead() ? `<select class="fchip" id="kpi-recruiter">${opt('', 'Все рекрутеры')}${META.recruiters.map(u => opt(u.id, u.name, k.recruiter === u.id)).join('')}</select>` : '<span class="small muted">Мои показатели</span>'}
+        <select class="fchip" id="kpi-vacancy">${opt('', 'Все вакансии')}${META.vacancies.map(v => opt(v.id, v.title, k.vacancy_id === v.id)).join('')}</select>
+        <select class="fchip" id="kpi-city">${opt('', 'Все города')}${META.cities.map(c => opt(c.city, c.city, k.city === c.city)).join('')}</select>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-num">${d.funnel.response}</div><div class="stat-lbl">Откликов</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--rank1)">${d.funnel.hired}</div><div class="stat-lbl">Наняли</div></div>
+        <div class="stat"><div class="stat-num">${d.overall_hire_rate == null ? '—' : d.overall_hire_rate + '%'}</div><div class="stat-lbl">Отклик → найм</div></div>
+        <div class="stat"><div class="stat-num">${d.speed.median_hours_to_contact == null ? '—' : d.speed.median_hours_to_contact + ' ч'}</div><div class="stat-lbl">До первого звонка (медиана)</div></div>
+        <div class="stat"><div class="stat-num" style="color:${d.speed.not_contacted ? 'var(--rank3)' : 'inherit'}">${d.speed.not_contacted}</div><div class="stat-lbl">Ещё не звонили</div></div>
+      </div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="panel"><div class="section-title" style="margin-top:0">Воронка за период</div>
+          <div class="kpi-funnel">${steps.map((s, i) => `<div class="kf-row"><span>${esc(R.STEP[s])}</span>
+            <div class="kf-bar"><div class="kf-fill" style="width:${Math.round(d.funnel[s] / max * 100)}%"></div></div>
+            <span class="kf-num">${d.funnel[s]}</span><span class="kf-conv">${i ? R.pct(d.funnel[steps[i - 1]], d.funnel[s]) : ''}</span></div>`).join('')}</div>
+          <div class="small muted" style="margin-top:8px">Когорта: отклики, пришедшие за период; % — переход с предыдущего шага. Отказов: ${d.funnel.rejected}. Импорт архива не учитывается.</div>
+        </div>
+        <div class="panel"><div class="section-title" style="margin-top:0">Отклики по дням</div>
+          <div class="spark">${d.daily.map(x => `<div title="${esc(x.day)}: ${x.responses}" style="height:${Math.round(x.responses / dmax * 100)}%"></div>`).join('') || '<span class="muted small">нет данных</span>'}</div>
+          <div class="section-title">Время на этапе (дней)</div>
+          ${d.stage_times.length ? `<div class="kv">${d.stage_times.map(s => `<div class="k"><span class="dot" style="background:${R.color(s.color)}"></span> ${esc(s.name)}</div><div>${s.median_days ?? '—'} медиана · ${s.avg_days ?? '—'} в среднем <span class="muted">(${s.n})</span></div>`).join('')}</div>` : '<div class="small muted">Пока нет переходов за период</div>'}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${tableBy(d.by_source, 'По источникам', r => `<span class="src src-${esc(r.key || 'other')}">${esc(R.SRC[r.key] || r.key || '—')}</span>`)}
+        ${isLead() ? tableBy(d.by_recruiter, 'По рекрутерам', r => esc(r.label)) : ''}
+        ${tableBy(d.by_vacancy, 'По вакансиям', r => esc(r.label))}
+        ${d.activity.length ? `<div class="panel"><div class="section-title" style="margin-top:0">Активность рекрутеров за период</div><div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Сотрудник</th><th class="num">Звонков</th><th class="num">Дозвонов</th><th class="num">Сообщений</th><th class="num">Собеседований</th><th class="num">Переводов</th><th class="num">Перезвонов сделано</th><th class="num">Просрочено сейчас</th><th class="num">Наняли</th><th class="num">Добавили</th></tr></thead>
+          <tbody>${d.activity.map(a => `<tr><td>${esc(a.name)}</td><td class="num">${a.calls}</td><td class="num">${a.reached}</td><td class="num">${a.messages}</td><td class="num">${a.interviews}</td><td class="num">${a.moves}</td><td class="num">${a.reminders_done}</td><td class="num" style="color:${a.overdue_now ? 'var(--rank3)' : 'inherit'}">${a.overdue_now}</td><td class="num">${a.hires}</td><td class="num">${a.added}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      </div>`;
+    const bind = (id, key) => { const x = $(id); if (x) x.addEventListener('change', () => { k[key] = x.value; loadKpi(); }); };
+    bind('kpi-source', 'source'); bind('kpi-recruiter', 'recruiter'); bind('kpi-vacancy', 'vacancy_id'); bind('kpi-city', 'city'); bind('kpi-from', 'from'); bind('kpi-to', 'to');
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// ── IMPORT ──
+const IMPORT_FIELDS = { name: 'ФИО целиком', last_name: 'Фамилия', first_name: 'Имя', middle_name: 'Отчество', phone: 'Телефон', phone2: 'Доп. телефон',
+  email: 'Почта', telegram: 'Telegram', whatsapp: 'WhatsApp', city: 'Город', source: 'Источник', source_url: 'Ссылка на резюме', vacancy: 'Вакансия',
+  target_role: 'Роль', birth_date: 'Дата рождения', created_at: 'Дата отклика', comment: 'Комментарий', status: 'Статус в старой базе', tags: 'Теги', rejection_reason: 'Причина отказа' };
+async function renderImport() {
+  const el = $('view-import');
+  let jobs = [];
+  try { jobs = await api('GET', '/recruiting/import'); } catch { jobs = []; }
+  el.innerHTML = `
+    <div class="grid2">
+      <div class="panel">
+        <div class="section-title" style="margin-top:0">⬆ Загрузить старую базу кандидатов</div>
+        <div class="howto">CSV (Excel → «Сохранить как CSV») или XLSX, до 100 000 строк и 24 МБ. Колонки узнаю сама (ФИО, телефон, почта, город, дата отклика…), их можно поправить.
+          Сначала — <b>предпросмотр</b>: сколько новых, сколько уже есть в базе (по телефону/почте), повторы внутри файла и строки с ошибками. В базу ничего не пишется до кнопки «Загрузить».</div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><label class="btn btn-primary" style="cursor:pointer">📄 Выбрать файл<input type="file" id="imp-file" accept=".csv,.xlsx,.txt,.tsv" hidden/></label>
+          <span class="small muted" id="imp-fname" style="align-self:center"></span></div>
+      </div>
+      <div class="panel"><div class="section-title" style="margin-top:0">История импорта</div>
+        ${jobs.length ? jobs.map(j => `<div class="rem"><span>${esc(j.file_name || 'файл')}</span><span class="muted">${esc(R.fmtDateTime(j.created_at))}</span>
+          <span style="margin-left:auto">${({ preview: 'предпросмотр', committing: '⏳ загружается', committed: '✅ загружено', failed: '⚠ ошибка', cancelled: 'отменён' })[j.status] || esc(j.status)}
+          ${j.stats && j.stats.result ? ` · +${j.stats.result.created}` : ''}</span></div>`).join('') : '<div class="small muted">Пока не было</div>'}</div>
+    </div>
+    <div id="imp-preview" style="margin-top:14px"></div>`;
+  $('imp-file').addEventListener('change', e => { state.importFile = e.target.files[0]; state.importMapping = null; $('imp-fname').textContent = state.importFile ? state.importFile.name : ''; importPreview(); });
+}
+async function importPreview() {
+  const f = state.importFile; if (!f) return;
+  const box = $('imp-preview');
+  box.innerHTML = '<div class="loading">Читаю файл и ищу дубли…</div>';
+  const form = new FormData(); form.append('file', f);
+  if (state.importMapping) form.append('mapping', JSON.stringify(state.importMapping));
+  try {
+    const p = await api('POST', '/recruiting/import/preview', undefined, { form });
+    state.importJob = p;
+    const cnt = p.counts;
+    box.innerHTML = `
+      <div class="stats-row">
+        <div class="stat"><div class="stat-num">${p.total.toLocaleString('ru-RU')}</div><div class="stat-lbl">Строк</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--rank1)">${cnt.new.toLocaleString('ru-RU')}</div><div class="stat-lbl">Новые</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--rank2)">${cnt.duplicate_base.toLocaleString('ru-RU')}</div><div class="stat-lbl">Уже в базе</div></div>
+        <div class="stat"><div class="stat-num">${cnt.duplicate_file.toLocaleString('ru-RU')}</div><div class="stat-lbl">Повторы в файле</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--rank3)">${cnt.invalid.toLocaleString('ru-RU')}</div><div class="stat-lbl">С ошибками</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:14px"><div class="section-title" style="margin-top:0">Колонки файла</div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Колонка</th><th>Примеры</th><th>Что это</th></tr></thead><tbody>
+        ${p.columns.map(c => `<tr><td><b>${esc(c.header)}</b></td><td class="small muted">${c.samples.map(esc).join(' · ')}</td>
+          <td><select class="fselect imp-map" data-col="${c.index}" style="min-width:170px">${opt('', '— не загружать —')}${Object.entries(IMPORT_FIELDS).map(([k, l]) => opt(k, l, c.field === k)).join('')}</select></td></tr>`).join('')}
+        </tbody></table></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" data-act="imp-remap">↻ Пересчитать с этими колонками</button></div>
+      <div class="panel" style="margin-bottom:14px"><div class="section-title" style="margin-top:0">Первые строки</div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="num">№</th><th>Итог</th><th>Имя</th><th>Телефон</th><th>Почта</th><th>Город</th><th>Источник</th><th>Дата</th></tr></thead><tbody>
+        ${p.sample.map(r => `<tr><td class="num">${r.row_no}</td><td>${({ new: '<span style="color:var(--rank1)">новый</span>', duplicate_base: '<span style="color:var(--rank2)">уже в базе</span>', duplicate_file: 'повтор', invalid: '<span style="color:var(--rank3)">ошибка</span>' })[r.action]}${r.problem ? `<div class="small muted">${esc(r.problem)}</div>` : ''}</td>
+          <td>${esc(r.name || '')}</td><td>${esc(r.phone || '')}</td><td>${esc(r.email || '')}</td><td>${esc(r.city || '')}</td><td>${esc(R.SRC[r.source] || r.source || '')}</td><td>${esc(R.fmtDate(r.created_at))}</td></tr>`).join('')}
+        </tbody></table></div></div>
+      <div class="panel"><div class="section-title" style="margin-top:0">Как загрузить</div>
+        <div class="row2"><div class="field"><div class="fl">Куда положить новых</div><select class="fselect" id="imp-stage">
+            ${opt('archive', '🗄 В архив: не на доске, но в поиске и для дублей (рекомендую для старой базы)')}${opt('first', 'На первый этап воронки (в работу)')}
+            ${META.stages.map(s => opt('stage:' + s.id, 'Этап: ' + s.name)).join('')}</select></div>
+          <div class="field"><div class="fl">Кто уже есть в базе</div><select class="fselect" id="imp-dups">${opt('fill', 'Дополнить пустые поля и добавить пометку')}${opt('skip', 'Пропустить')}</select></div></div>
+        <div class="row2"><div class="field"><div class="fl">Тег для всех</div><input class="fin" id="imp-tag" value="${esc('архив-' + new Date().getFullYear())}"/></div>
+          <div class="field"><div class="fl">Ведёт</div><select class="fselect" id="imp-assign">${opt('', 'Общие (без рекрутера)')}${META.recruiters.map(u => opt(u.id, u.name)).join('')}</select></div></div>
+        <div class="actions" style="margin-top:6px"><button class="btn btn-primary" data-act="imp-commit">⬆ Загрузить ${cnt.new.toLocaleString('ru-RU')} новых</button>
+          <button class="btn btn-ghost" data-act="imp-cancel">Отменить</button><span class="small muted" id="imp-progress" style="align-self:center"></span></div>
+      </div>`;
+  } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function importCommit() {
+  const job = state.importJob; if (!job) return;
+  const stageSel = $('imp-stage').value;
+  const body = { duplicates: $('imp-dups').value, tags: $('imp-tag').value ? [$('imp-tag').value] : [], assign_to: $('imp-assign').value || null,
+    stage_mode: stageSel.startsWith('stage:') ? 'stage' : stageSel, stage_id: stageSel.startsWith('stage:') ? stageSel.slice(6) : null };
+  if (!confirm(`Загрузить ${job.counts.new} новых кандидатов${body.duplicates === 'fill' ? ` и дополнить ${job.counts.duplicate_base} существующих` : ''}?`)) return;
+  try {
+    await api('POST', `/recruiting/import/${job.job_id}/commit`, body);
+    const prog = $('imp-progress');
+    const poll = async () => {
+      const j = await api('GET', `/recruiting/import/${job.job_id}`);
+      const p = (j.stats && j.stats.progress) || {};
+      if (prog) prog.textContent = j.status === 'committing' ? `⏳ ${p.processed || 0} из ${p.to_process || '…'}` : '';
+      if (j.status === 'committing') return setTimeout(poll, 1500);
+      if (j.status === 'committed') { toast(`✅ Загружено: ${j.stats.result.created}, дополнено: ${j.stats.result.filled}`); state.importJob = null; META = await api('GET', '/recruiting/meta'); fillFilterControls(); renderImport(); }
+      else toast((j.stats && j.stats.error) || 'Импорт не завершён', true);
+    };
+    poll();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ── DUPLICATES ──
+async function loadDupes() {
+  const el = $('view-dupes');
+  el.innerHTML = '<div class="loading">Ищу совпадения по телефону и почте…</div>';
+  try {
+    const d = await api('GET', '/recruiting/duplicates');
+    el.innerHTML = `<div class="section-title">Возможные дубли: ${d.total}</div>
+      ${d.groups.length ? d.groups.map((g, gi) => `<div class="panel" style="margin-bottom:10px">
+        <div class="small muted" style="margin-bottom:8px">Совпадает ${g.kind === 'phone' ? 'телефон' : 'почта'} ${esc(g.key)} · отметьте основную карточку — остальные будут присоединены к ней (история, звонки, файлы)</div>
+        ${g.candidates.map((c, i) => `<label class="rem" style="cursor:pointer"><input type="radio" name="dg-${gi}" value="${esc(c.id)}" ${i === 0 ? 'checked' : ''}/>
+          <b>${esc(c.name)}</b><span class="badge" style="background:${R.color(c.stage_color)}22;color:${R.color(c.stage_color)}">${esc(c.stage_name)}</span>
+          <span class="muted">${esc(R.SRC[c.source] || c.source || '')} · ${esc(R.fmtDate(c.created_at))}${c.assigned_to_name ? ' · ' + esc(c.assigned_to_name) : ''} · 💬${c.comment_count}${c.import_job_id ? ' · импорт' : ''}${c.photographer_id ? ' · ✅ сотрудник' : ''}</span>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto" data-act="open" data-id="${esc(c.id)}">Открыть</button></label>`).join('')}
+        <button class="btn btn-primary btn-sm" data-act="merge" data-group="${gi}" data-ids="${esc(g.candidates.map(c => c.id).join(','))}">Объединить</button></div>`).join('')
+        : '<div class="empty">Дублей нет 👌</div>'}`;
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function merge(group, ids) {
+  const target = document.querySelector(`input[name="dg-${group}"]:checked`).value;
+  const sources = ids.split(',').filter(x => x !== target);
+  if (!confirm(`Объединить ${sources.length + 1} карточки в одну? Отменить нельзя (история сохранится в основной).`)) return;
+  try { const r = await api('POST', '/recruiting/duplicates/merge', { target_id: target, source_ids: sources }); toast('Объединено: ' + r.merged); loadDupes(); }
+  catch (e) { toast(e.message, true); }
+}
+
+// ── SETTINGS: connections and stages ──
+async function loadSettings() {
+  const el = $('view-settings');
+  el.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    const s = await api('GET', '/recruiting/integrations');
+    const stateLabel = { connected: 'Подключено', disconnected: 'Не подключено', not_configured: 'Не настроено', error: 'Ошибка' };
+    const card = (p, logo, bg, title, body) => `<div class="conn-card">
+      <div class="conn-h"><div class="conn-logo" style="background:${bg}">${logo}</div><div><b>${title}</b><div class="small muted">${p.account_label ? esc(p.account_label) : ''}</div></div>
+        <span class="state state-${esc(p.state)}">${stateLabel[p.state] || esc(p.state)}</span></div>
+      ${p.last_error ? `<div class="small" style="color:var(--rank3)">⚠ ${esc(p.last_error)}</div>` : ''}
+      ${p.last_sync_at ? `<div class="small muted">Синхронизация: ${esc(R.fmtDateTime(p.last_sync_at))}${p.stats && p.stats.last ? ` · новых ${p.stats.last.created}, повторных ${p.stats.last.repeat}, ошибок ${p.stats.last.errors}` : ''}</div>` : ''}
+      ${body}</div>`;
+    const missing = p => p.missing_settings.length ? `<div class="howto">Не хватает переменных в Railway → сервис <b>fotohr-server</b> → Variables: ${p.missing_settings.map(m => `<code>${esc(m)}</code>`).join(' ')}</div>` : '';
+    el.innerHTML = `
+      <div class="section-title">Подключения</div>
+      <div class="conn">
+        ${card(s.hh, 'hh', '#d6001c', 'hh.ru', `${missing(s.hh)}
+          ${s.hh.needs_token_key && s.hh.configured ? '<div class="howto">Нужен ключ шифрования токенов: <code>RECRUITING_TOKEN_KEY</code> (64 hex-символа).</div>' : ''}
+          <details class="howto"><summary style="cursor:pointer">Как подключить</summary><ol>
+            <li>dev.hh.ru → «Мои приложения» → создать приложение работодателя.</li>
+            <li>Redirect URI: <code>${esc(s.hh.redirect_uri || 'https://hr.likeme.studio/api/recruiting/integrations/hh/callback')}</code></li>
+            <li>В Railway: <code>HH_CLIENT_ID</code>, <code>HH_CLIENT_SECRET</code>, <code>HH_REDIRECT_URI</code>, <code>HH_USER_AGENT</code> (например «LikeMeStudio-PhotoHR/1.0 (почта)»), <code>RECRUITING_TOKEN_KEY</code>.</li>
+            <li>Здесь нажать «Подключить» и войти на hh.ru как менеджер работодателя.</li></ol></details>
+          <div class="actions">
+            ${s.hh.configured && !s.hh.needs_token_key && s.hh.state !== 'connected' ? '<button class="btn btn-primary btn-sm" data-act="hh-connect">Подключить</button>' : ''}
+            ${s.hh.state === 'connected' || s.hh.state === 'error' ? '<button class="btn btn-ghost btn-sm" data-act="int-check" data-p="hh">Проверить</button><button class="btn btn-ghost btn-sm" data-act="int-dry" data-p="hh">Предпросмотр</button><button class="btn btn-primary btn-sm" data-act="int-sync" data-p="hh">Загрузить отклики</button><button class="btn btn-ghost btn-sm" data-act="int-off" data-p="hh">Отключить</button>' : ''}
+          </div>`)}
+        ${card(s.avito, 'A', '#00aaff', 'Авито Работа', `${missing(s.avito)}
+          <details class="howto"><summary style="cursor:pointer">Как подключить</summary><ol>
+            <li>Личный кабинет Авито → «Для профессионалов» → API → получить client_id и client_secret (тариф с доступом к откликам).</li>
+            <li>В Railway: <code>AVITO_CLIENT_ID</code>, <code>AVITO_CLIENT_SECRET</code>. Контакты из платного раздела — только если включить <code>AVITO_FETCH_CONTACTS=true</code>.</li>
+            <li>Здесь — «Проверить», затем «Предпросмотр» и «Загрузить отклики».</li></ol></details>
+          <div class="actions">${s.avito.configured ? '<button class="btn btn-ghost btn-sm" data-act="int-check" data-p="avito">Проверить</button><button class="btn btn-ghost btn-sm" data-act="int-dry" data-p="avito">Предпросмотр</button><button class="btn btn-primary btn-sm" data-act="int-sync" data-p="avito">Загрузить отклики</button>' : ''}</div>`)}
+        ${card({ state: s.webhook.configured ? 'connected' : 'not_configured', missing_settings: [] }, '⇄', '#3a3a4f', 'Telegram-бот / сайт (вебхук)', `
+          <div class="howto">Анкета с сайта или бота отправляет <code>POST ${esc(s.webhook.url || s.webhook.path)}</code> (JSON: name, phone, email, city, source, source_id) с заголовком <code>${esc(s.webhook.header)}</code>.
+            ${s.webhook.configured ? 'Секрет задан — вебхук принимает отклики, они попадают в «Общие».' : 'Задайте <code>RECRUITING_WEBHOOK_SECRET</code> (32+ символов) в Railway и тот же секрет — отправителю. Без секрета вебхук выключен.'}</div>`)}
+      </div>
+      <div class="howto" style="margin-top:10px">Автоматическая загрузка по расписанию: ${s.schedule.enabled ? `<b>включена</b>, каждые ${s.schedule.interval_min} мин` : 'выключена (<code>RECRUITING_SYNC_ENABLED=true</code>, интервал <code>RECRUITING_SYNC_INTERVAL_MIN</code>, по умолчанию 15)'}.</div>
+      <div id="int-result"></div>
+      <div class="section-title" style="margin-top:22px">Этапы воронки <button class="btn btn-ghost btn-sm" data-act="stage-new">+ Этап</button></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Этап</th><th>Воронка</th><th>Шаг для KPI</th><th class="hide-m">При переводе</th><th>Тип</th><th>Показ</th><th></th></tr></thead><tbody>
+        ${META.stages.slice().sort((a, b) => a.sort_order - b.sort_order).map((st, i, arr) => `<tr>
+          <td><span class="dot" style="background:${R.color(st.color)}"></span> ${esc(st.name)}</td>
+          <td><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="funnel">${Object.entries(R.FUNNEL).map(([k, l]) => opt(k, l, (st.funnel || 'hiring') === k)).join('')}</select></td>
+          <td><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="kpi_step">${opt('', '— не считать —')}${[...META.kpi_steps, 'rejected'].map(k => opt(k, R.STEP[k], st.kpi_step === k)).join('')}</select></td>
+          <td class="hide-m"><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="auto_action">${opt('', '—')}${opt('pick_training', 'Выбрать тренинг', st.auto_action === 'pick_training')}${opt('pick_internship', 'Выбрать стажировку', st.auto_action === 'pick_internship')}</select></td>
+          <td class="small">${st.terminal_type === 'hired' ? '✅ найм' : st.terminal_type === 'rejected' ? '✕ отказ' : 'рабочий'}</td>
+          <td><select class="fselect st-edit" data-id="${esc(st.id)}" data-field="is_active">${opt('true', 'На доске', st.is_active !== false)}${opt('false', 'Скрыт', st.is_active === false)}</select></td>
+          <td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-act="stage-up" data-i="${i}" ${i ? '' : 'disabled'}>↑</button><button class="btn btn-ghost btn-sm" data-act="stage-down" data-i="${i}" ${i < arr.length - 1 ? '' : 'disabled'}>↓</button></td></tr>`).join('')}
+      </tbody></table></div>`;
+    el.querySelectorAll('.st-edit').forEach(sel => sel.addEventListener('change', async () => {
+      const v = sel.dataset.field === 'is_active' ? sel.value === 'true' : (sel.value || null);
+      try { await api('PATCH', `/recruiting/stages/${sel.dataset.id}`, { [sel.dataset.field]: v }); META = await api('GET', '/recruiting/meta'); toast('Сохранено'); }
+      catch (e) { toast(e.message, true); }
+    }));
+  } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+async function moveStage(i, dir) {
+  const arr = META.stages.slice().sort((a, b) => a.sort_order - b.sort_order);
+  const j = i + dir; if (j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  try { await api('POST', '/recruiting/stages/reorder', { order: arr.map((s, k) => ({ id: s.id, sort_order: (k + 1) * 10 })) }); META = await api('GET', '/recruiting/meta'); loadSettings(); }
+  catch (e) { toast(e.message, true); }
+}
+async function integration(act, p) {
+  const out = $('int-result');
+  try {
+    if (act === 'int-check') { const r = await api('POST', `/recruiting/integrations/${p}/check`); toast(r.ok ? '✅ Связь есть' : '⚠ ' + (r.message || 'ошибка'), !r.ok); }
+    if (act === 'int-off') { if (!confirm('Отключить hh.ru? Токены будут удалены.')) return; await api('POST', `/recruiting/integrations/${p}/disconnect`); toast('Отключено'); }
+    if (act === 'int-dry' || act === 'int-sync') {
+      out.innerHTML = '<div class="loading">Связываюсь с площадкой…</div>';
+      const r = await api('POST', `/recruiting/integrations/${p}/sync`, { dry_run: act === 'int-dry' });
+      const st = r.stats;
+      out.innerHTML = `<div class="panel" style="margin-top:12px"><div class="section-title" style="margin-top:0">${act === 'int-dry' ? 'Предпросмотр (ничего не записано)' : 'Загрузка завершена'}</div>
+        <div class="small">Увидела откликов: <b>${st.seen}</b> · уже были: ${st.known} · ${act === 'int-dry' ? `будет новых: <b>${st.would_create}</b>` : `новых: <b>${st.created}</b>, повторных: ${st.repeat}, ошибок: ${st.errors}`}${st.no_contacts ? ` · без контактов: ${st.no_contacts}` : ''}</div>
+        ${r.preview && r.preview.length ? `<div class="tbl-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>Имя</th><th>Телефон</th><th>Почта</th><th>Город</th><th>Резюме</th></tr></thead><tbody>
+          ${r.preview.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.phone)}</td><td>${esc(x.email)}</td><td>${esc(x.city || '')}</td><td>${x.has_resume_text ? 'есть' : '—'}</td></tr>`).join('')}</tbody></table></div>
+          <div class="small muted" style="margin-top:6px">Данные замаскированы — это проверка, что поля распознаются.</div>` : ''}</div>`;
+    }
+    if (act !== 'int-dry' && act !== 'int-sync') loadSettings();
+  } catch (e) { if (out) out.innerHTML = ''; toast(e.message, true); }
+}
+function openStageNew() {
+  modal(`${modalHead('Новый этап')}
+    <div class="field"><div class="fl">Название *</div><input class="fin" id="s-name"/></div>
+    <div class="row2"><div class="field"><div class="fl">Воронка</div><select class="fselect" id="s-funnel">${Object.entries(R.FUNNEL).map(([k, l]) => opt(k, l)).join('')}</select></div>
+      <div class="field"><div class="fl">Шаг для KPI</div><select class="fselect" id="s-step">${opt('', '—')}${[...META.kpi_steps, 'rejected'].map(k => opt(k, R.STEP[k])).join('')}</select></div></div>
+    <div class="row2"><div class="field"><div class="fl">Тип</div><select class="fselect" id="s-type">${opt('', 'Рабочий')}${opt('rejected', 'Отказ (конечный)')}${opt('hired', 'Найм (конечный)')}</select></div>
+      <div class="field"><div class="fl">Цвет</div><input class="fin" id="s-color" type="color" value="#7c6cff" style="height:36px;padding:2px"/></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" data-act="close-modal">Отмена</button><button class="btn btn-primary" data-act="stage-save">Добавить</button></div>`);
+}
+
+// ── TRAININGS (list + create, as on the old page) ──
+async function openTrainings() {
+  modal(`${modalHead('📅 Тренинги и стажировки')}<div id="tr-list"><div class="loading">Загрузка…</div></div>
+    ${hasAnyRole(['hr_director', 'exec_director', 'admin']) ? `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
+      <div class="field"><div class="fl">Название *</div><input class="fin" id="tr-title" placeholder="Обучение новичков / Стажировка Москва"/></div>
+      <div class="row2"><div class="field"><div class="fl">Дата *</div><input class="fin" id="tr-date" type="date"/></div><div class="field"><div class="fl">Время</div><input class="fin" id="tr-time" type="time" value="12:00"/></div></div>
+      <div class="row2"><div class="field"><div class="fl">Тренер *</div><select class="fselect" id="tr-trainer"></select></div><div class="field"><div class="fl">Мест</div><input class="fin" id="tr-max" type="number" value="15"/></div></div>
+      <div class="field"><div class="fl">Место</div><input class="fin" id="tr-loc"/></div>
+      <button class="btn btn-primary" style="width:100%" data-act="training-create">Создать</button></div>` : ''}`, { wide: true });
+  try {
+    const list = await api('GET', `/trainings?from=${R.dateOnly(new Date())}&status=planned`);
+    $('tr-list').innerHTML = list.length ? list.map(t => `<div class="rem"><b>${esc(R.fmtDate(t.training_date))} ${esc(String(t.training_time || '').slice(0, 5))}</b> ${esc(t.title)} · ${esc(t.trainer_name || '')}
+      <span class="muted" style="margin-left:auto">${Number(t.registered_count || 0)}/${t.max_attendees ? Number(t.max_attendees) : '∞'}</span></div>`).join('') : '<div class="empty">Запланированных нет</div>';
+    if ($('tr-trainer')) { const tr = await api('GET', '/trainers'); $('tr-trainer').innerHTML = tr.map(x => opt(x.id, x.name)).join(''); }
+  } catch (e) { $('tr-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+// ── EVENTS (delegation; ids only in data-* attributes) ──
+document.addEventListener('click', async e => {
+  const tab = e.target.closest('.tab');
+  if (tab) { showTab(tab.dataset.tab); return; }
+  if (e.target === $('drawer-bg')) { closeCard(); return; }
+  if (e.target === $('modal')) { closeModal(); return; }
+  if (e.target === $('admin-overlay')) { closeAdmin(); return; }
+  // Links (tel:, WhatsApp, Telegram, resume) work as links, also inside a clickable card.
+  if (e.target.closest('a[href]')) return;
+  // Row checkboxes select, they do not open the card.
+  if (e.target.closest('[data-stop]') || e.target.closest('input[type=checkbox]')) return;
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const d = el.dataset;
+  switch (d.act) {
+    case 'logout': doLogout(); break;
+    case 'open-admin': openAdmin(); break;
+    case 'new-candidate': openNew(); break;
+    case 'create': createCandidate(false); break;
+    case 'create-anyway': createCandidate(true); break;
+    case 'open-dup': closeModal(); openCard(d.id); break;
+    case 'open': openCard(d.id); break;
+    case 'close-card': closeCard(); break;
+    case 'close-modal': closeModal(); break;
+    case 'toggle-filters': $('filters').classList.toggle('open'); break;
+    case 'toggle-flag': state.filters[d.flag] = state.filters[d.flag] === '1' ? '' : '1'; applyFilters(); break;
+    case 'reset-filters': state.filters = {}; $('f-period').value = ''; applyFilters(); break;
+    case 'toggle-imported': state.filters.imported = state.filters.imported === '0' ? '1' : state.filters.imported === '1' ? '' : '0'; applyFilters(); break;
+    case 'save-view': {
+      const name = prompt('Название вида (например «Мои просроченные — Москва»)'); if (!name) break;
+      try { await api('POST', '/recruiting/views', { name, view: state.tab === 'list' ? 'list' : 'board', filters: state.filters, is_shared: isLead() && confirm('Показать этот вид всем рекрутерам?') }); toast('Вид сохранён'); loadViews(); }
+      catch (err) { toast(err.message, true); } break;
+    }
+    case 'show-rejected': state.showRejected = true; loadBoard(); break;
+    case 'm-stage': state.mobileStage = d.id; document.querySelectorAll('.stage-chips .fchip').forEach(x => x.classList.toggle('on', x.dataset.id === d.id));
+      document.querySelectorAll('.board-desktop .col').forEach(col => col.classList.toggle('m-active', col.querySelector('.col-b').dataset.stage === d.id)); break;
+    case 'next-stage': {
+      const c = state.card && state.card.id === d.id ? state.card : (await api('GET', `/candidates/${d.id}`));
+      const n = R.nextStage(META.stages, c.stage_id); if (n) moveFlow(d.id, n.id); break;
+    }
+    case 'page': state.list.offset = Math.max(0, state.list.offset + Number(d.dir) * 50); loadList(); break;
+    case 'bulk-clear': state.list.selected.clear(); loadList(); break;
+    case 'bulk-tag': { const t = prompt('Тег для выбранных'); if (t) bulkUpdate({ add_tags: [t.replace(/^#/, '')] }); break; }
+    case 'call-result': callResult(d.id, d.result, d.rem || null); break;
+    case 'remind': openRemind(d.id, null); break;
+    case 'snooze': openRemind(state.card ? state.card.id : null, d.rem, '⏰ Перенести звонок'); break;
+    case 'preset': $('r-at').value = R.toLocalInput(R.presetDate(d.preset)); break;
+    case 'save-remind': saveRemind(d.id || null, d.rem || null); break;
+    case 'rem-done': case 'rem-cancel':
+      try { await api('PATCH', `/recruiting/reminders/${d.rem}`, { status: d.act === 'rem-done' ? 'done' : 'cancelled' }); refreshAfterChange(state.card && state.card.id); } catch (err) { toast(err.message, true); } break;
+    case 'reject': openReject(d.id); break;
+    case 'confirm-reject': confirmReject(d.id); break;
+    case 'take': try { await api('POST', `/candidates/${d.id}/take`); toast('Теперь кандидат ваш'); refreshAfterChange(d.id); } catch (err) { toast(err.message, true); } break;
+    case 'edit': openEdit(state.card); break;
+    case 'save-edit': saveEdit(d.id); break;
+    case 'comment': addComment(d.id); break;
+    case 'tag-del': try { await api('PATCH', `/candidates/${state.card.id}`, { tags: (state.card.tags || []).filter(t => t !== d.tag) }); openCard(state.card.id, true); } catch (err) { toast(err.message, true); } break;
+    case 'file-dl': downloadFile(d.file, d.name); break;
+    case 'file-del': if (confirm('Удалить файл из карточки?')) { try { await api('DELETE', `/recruiting/files/${d.file}`); openCard(state.card.id, true); } catch (err) { toast(err.message, true); } } break;
+    case 'tp-pick': closeModal(); doMove(d.id, d.stage, { training_id: d.training, internship_date: d.date || undefined }, state.afterPick); break;
+    case 'tp-skip': { const date = $('tp-date') ? $('tp-date').value : ''; closeModal(); doMove(d.id, d.stage, date ? { internship_date: date } : {}, state.afterPick); break; }
+    case 'trainings': openTrainings(); break;
+    case 'training-create':
+      try { await api('POST', '/trainings', { title: $('tr-title').value.trim(), training_date: $('tr-date').value, training_time: $('tr-time').value || null, trainer_id: $('tr-trainer').value,
+        max_attendees: Number($('tr-max').value) || null, location_text: $('tr-loc').value.trim() || null, training_type: /стаж/i.test($('tr-title').value) ? 'internship' : 'onboarding' });
+        toast('Создан'); openTrainings(); } catch (err) { toast(err.message, true); } break;
+    case 'vacancy-new': openVacancy(null); break;
+    case 'vacancy-edit': openVacancy(d.id); break;
+    case 'vacancy-save': saveVacancy(d.id || null); break;
+    case 'vacancy-filter': closeModal(); state.filters = { vacancy_id: d.id }; showTab('list'); fillFilterControls(); break;
+    case 'kpi-period': state.kpi.period = d.period; loadKpi(); break;
+    case 'imp-remap': state.importMapping = Object.fromEntries([...document.querySelectorAll('.imp-map')].filter(s => s.value).map(s => [s.dataset.col, s.value])); importPreview(); break;
+    case 'imp-commit': importCommit(); break;
+    case 'imp-cancel': if (state.importJob) { await api('POST', `/recruiting/import/${state.importJob.job_id}/cancel`).catch(() => {}); } state.importJob = null; renderImport(); break;
+    case 'merge': merge(d.group, d.ids); break;
+    case 'hh-connect': try { const r = await api('POST', '/recruiting/integrations/hh/connect'); window.location.href = r.authorize_url; } catch (err) { toast(err.message, true); } break;
+    case 'int-check': case 'int-dry': case 'int-sync': case 'int-off': integration(d.act, d.p); break;
+    case 'stage-new': openStageNew(); break;
+    case 'stage-save':
+      try { await api('POST', '/recruiting/stages', { name: $('s-name').value.trim(), funnel: $('s-funnel').value, kpi_step: $('s-step').value || null, color: $('s-color').value,
+        is_terminal: !!$('s-type').value, terminal_type: $('s-type').value || null }); closeModal(); META = await api('GET', '/recruiting/meta'); loadSettings(); } catch (err) { toast(err.message, true); } break;
+    case 'stage-up': moveStage(Number(d.i), -1); break;
+    case 'stage-down': moveStage(Number(d.i), 1); break;
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('modal').classList.contains('open')) closeModal(); else if ($('drawer-bg').classList.contains('open')) closeCard(); } });
+
+function openAdmin() { const ov = $('admin-overlay'); $('admin-iframe').src = 'admin.html?v=' + Date.now(); ov.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+function closeAdmin() { $('admin-overlay').style.display = 'none'; $('admin-iframe').src = ''; document.body.style.overflow = ''; }
 </script>
-<div id="admin-overlay" class="admin-overlay" onclick="if(event.target===this)closeAdmin()">
-  <iframe id="admin-iframe" class="admin-iframe" src="" title="Управление"></iframe>
-</div>
 </body>
 </html>
