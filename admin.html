@@ -333,6 +333,7 @@ body{font-family:'Golos Text',sans-serif;background:var(--bg);color:var(--text);
     <input type="checkbox" id="eu-active" style="cursor:pointer"/>
     <label for="eu-active" style="font-size:14px;cursor:pointer">Активен</label>
   </div>
+  <div id="eu-owner-note" hidden style="margin:-6px 0 14px;font-size:12px;color:var(--text3)">Роль, пароль и активность владельца меняет только владелец.</div>
   <div class="modal-footer" style="justify-content:space-between">
     <button id="eu-delete-btn" class="btn btn-danger" onclick="deleteUserConfirm()">В архив</button>
     <div style="display:flex;gap:8px">
@@ -447,10 +448,9 @@ const hasAnyRole = (roles) => {
   if (currentUser?.role === 'super_admin') return true;
   return roles.includes(roleNow());
 };
-const can = (r) => {
-  if (currentUser?.role === 'super_admin') return true;
-  return (ROLES[roleNow()] ?? -1) >= (ROLES[r] ?? 999);
-};
+// Explicit role lists matching the server permission map; no access «by level» (a cashier is not an HR director).
+const CAN_ROLES = { admin: ['admin'], hr_director: ['hr_director', 'exec_director', 'admin'] };
+const can = (r) => hasAnyRole(CAN_ROLES[r] || []);
 
 async function api(method, path, body) {
   const opts = {
@@ -1077,7 +1077,11 @@ function openEditUser(uid){
   document.getElementById('eu-role').value = u.role;
   document.getElementById('eu-active').checked = u.is_active;
   document.getElementById('eu-pass').value = '';
-  document.getElementById('eu-delete-btn').style.display = u.id === currentUser.id ? 'none' : 'block';
+  // Аккаунт владельца меняет только владелец (сервер отклоняет остальных).
+  const ownerLocked = u.role === 'super_admin' && currentUser?.role !== 'super_admin';
+  for (const fid of ['eu-role', 'eu-pass', 'eu-active']) document.getElementById(fid).disabled = ownerLocked;
+  document.getElementById('eu-owner-note').hidden = !ownerLocked;
+  document.getElementById('eu-delete-btn').style.display = (u.id === currentUser.id || ownerLocked) ? 'none' : 'block';
   renderEditUserProfile(u);
   document.getElementById('edit-user-modal').classList.add('open');
 }

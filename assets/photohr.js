@@ -165,7 +165,15 @@
     // Older browsers still serialize requests from this page; modern browsers coordinate all tabs/iframes.
     const pending=refreshQueue.then(rotate,rotate);refreshQueue=pending.catch(()=>{});return pending;
   }
-  root.PhotoHR = {API:base + '/api',
+  // Which roles may open a page. Mirrors the server permission map (fotohr-server helpers/permissions.js):
+  // the «Команда» list is photographers.list. The server still enforces access; this only hides dead ends.
+  const PAGE_ROLES = {
+    team: ['super_admin','admin','exec_director','hr_director','hr_manager','site_specialist','cashier','photographer_user'],
+  };
+  const HOME_BY_ROLE = {recruiter:'recruiting.html', tech_director:'stock.html', aq_manager:'aquagrim.html', aq_user:'aquagrim.html'};
+  function canOpen(page, role) { return (PAGE_ROLES[page] || []).includes(role); }
+  function homeFor(role) { return HOME_BY_ROLE[role] || 'my.html'; }
+  root.PhotoHR = {API:base + '/api', canOpen, homeFor,
     GOOGLE_CLIENT_ID:regional ? '705997696891-9ba7pculn78efl1acfbt4mgal5ea1lan.apps.googleusercontent.com' : '598896213103-dajskj7fv9odkt6maaupr87u55qf39lj.apps.googleusercontent.com', FRONTEND_URL:regional ? root.location.origin : root.location.hostname === 'localhost' ? root.location.origin : oldSite,
     fetch:coordinatedFetch, normalize, beginGoogleFlow, acceptGoogleReturn, takePasswordReset, passwordError, hidePasswords};
 })(window);
