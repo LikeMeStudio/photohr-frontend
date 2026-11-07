@@ -313,7 +313,7 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function setupNav() {
   const nl = document.getElementById('nav-links');
   nl.innerHTML = '';
-  const links = [['photographers.html', 'Фотографы'], ['stock.html', 'Склад']];
+  const links = [['photographers.html', 'Фотографы'], ['stock.html', 'Склад']].filter(([h]) => h !== 'photographers.html' || PhotoHR.canOpen('team', currentUser?.role));
   if (mgmtNavHasAccess) links.push(['accounting.html', '💰 Учёт']);
   links.forEach(([h, l]) => {
     const a = document.createElement('a');

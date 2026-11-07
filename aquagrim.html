@@ -456,9 +456,9 @@ function doLogout(){
 
 function openProfile(){ window.location.href='photographers.html?profile=1'; }
 
-function openAchievementsPanel(){ window.location.href='photographers.html#achievements'; }
-function openBirthdaysPanel(){ window.location.href='photographers.html#birthdays'; }
-function openLikesPanel(){ window.location.href='photographers.html#likes'; }
+function openAchievementsPanel(){ if(PhotoHR.canOpen('team',currentUser?.role))window.location.href='photographers.html#achievements'; }
+function openBirthdaysPanel(){ if(PhotoHR.canOpen('team',currentUser?.role))window.location.href='photographers.html#birthdays'; }
+function openLikesPanel(){ if(PhotoHR.canOpen('team',currentUser?.role))window.location.href='photographers.html#likes'; }
 
 function fillPlaceholderStats(){
   const hs=document.getElementById('hstats');
@@ -476,7 +476,7 @@ function setupNav(activeKey){
   const navBtns=[], ns='text-decoration:none;padding:5px 12px;font-size:12px';
   const a=(key,href,label)=>{ const cls=activeKey===key?'f-btn active':'f-btn'; return `<a class="${cls}" href="${href}" style="${ns}">${label}</a>`; };
   navBtns.push('<a class="f-btn" href="my.html" style="'+ns+';padding:6px 14px;font-weight:600;background:var(--accent);border-color:var(--accent);color:#fff">📷 Мой профиль</a>');
-  navBtns.push(a('index','photographers.html','Команда'));
+  if(PhotoHR.canOpen('team',currentUser?.role)) navBtns.push(a('index','photographers.html','Команда'));
   if(hasAnyRoleNav(['recruiter','hr_manager','hr_director','exec_director','admin'])) navBtns.push(a('recruiting','recruiting.html','Рекрутинг'));
   if(hasAnyRoleNav(['photographer_user','hr_manager','cashier','hr_director','tech_director','site_specialist','exec_director','admin'])) navBtns.push(a('venue','venue.html','Отчёты'));
   if(hasAnyRoleNav(['tech_director','hr_director','exec_director','admin'])) navBtns.push(a('stock','stock.html','Склад'));
@@ -1323,13 +1323,14 @@ function setupToolbarActions(){
   if(!el) return;
   const btns = [];
   if(canEdit()) btns.push(`<button class="btn btn-primary" style="background:#2ecba7;border-color:#2ecba7" onclick="openNewAq()">+ Аквагримёр</button>`);
-  if(hasAnyRoleNav(['hr_director','exec_director','admin'])) {
+  const teamLinks = PhotoHR.canOpen('team', currentUser?.role);
+  if(teamLinks && hasAnyRoleNav(['hr_director','exec_director','admin'])) {
     btns.push(`<button class="btn btn-ghost" onclick="openAchievementsPanel()" title="Достижения">🏆 Достижения</button>`);
   }
-  if(navRoleNow()!=='photographer_user'&&navRoleNow()!=='aq_user') {
+  if(teamLinks && navRoleNow()!=='photographer_user'&&navRoleNow()!=='aq_user') {
     btns.push(`<button class="btn btn-ghost" onclick="openBirthdaysPanel()" title="Дни рождения">🎂 Дни рождения</button>`);
   }
-  if(navRoleNow()!=='archived') {
+  if(teamLinks && navRoleNow()!=='archived') {
     btns.push(`<button class="btn btn-ghost" onclick="openLikesPanel()" title="Лайки">❤️ Лайки</button>`);
   }
   btns.push(`<button class="btn btn-ghost" onclick="exportAquagrimers()" title="Экспорт">↓ Экспорт</button>`);
